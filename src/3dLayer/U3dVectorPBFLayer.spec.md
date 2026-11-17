@@ -12,7 +12,8 @@
 
 - 타일에 대응하는 PBF 소스 타일(x, y, level)을 결정하고 URL을 만든다. `realMaxLevel`을 넘는 타일은 그 레벨의 부모 타일을 소스로 사용한다.
 - 워커 요청을 소스 타일 단위로 공유하고, 대기 타일이 모두 취소되면 워커의 다운로드를 중단한다.
-- 디코드된 타일 로컬 좌표를 EPSG:3857로 변환하고, 레이어 이름·피처 필터를 적용해 Polygon(외곽 ring과 홀 ring), LineString, Point 피처를 소스 타일 단위로 캐시한다.
+- 레이어 이름·점 필터와 월드 타일 경계를 Worker에 전달해 형상·좌표 전처리를 수행한다. 메인 스레드는 사용자 피처 필터·우선순위와 외곽/홀 그룹을 적용하고 평탄 좌표를 소스 타일 단위로 캐시한다. 이전 로컬 좌표 응답도 기존 변환으로 처리한다.
+- 내부 일괄 버퍼 전송을 요청하고 속성 필터·우선순위를 처리한 뒤 소비할 피처만 기존 좌표·파트·외곽선 뷰로 복원한다. 제외한 레이어도 전역 피처 순번을 이동하여 위치 표의 대응을 유지한다. 배치 좌표계와 레이어의 월드 표식이 다르면 오류로 처리한다. 기존 피처별 응답과 JS 대체 응답도 계속 처리한다.
 - 타일 자르기로 생긴 ring 변을 외곽선에서 제외한다. MVT는 타일마다 폴리곤을 잘라 넣으므로 자른 자리의 변이 ring에 남는데, 그 변까지 외곽선으로 그리면 화면에 타일 격자가 선으로 보인다. 자르기 변이 있는 coverage는 면의 외곽선을 끄고, 남은 실제 경계 구간만 별도 LineString 피처로 내보낸다.
 - 피처마다 LOD 우선순위(`lodPriority`)를 붙여 기반 클래스가 타일당 피처 상한을 적용할 때 남길 순서를 정할 수 있게 한다.
 - ol 규격의 스타일 함수 결과를 기반 클래스가 읽는 스타일 상태 객체로 정규화한다. Point 는 image(Circle)·text 의 fill/stroke 를 원 색으로 사용한다.
@@ -25,7 +26,6 @@
 ### 1.4 주요 사용처와 연계 대상
 
 - `GeOnDT.image.U3dVectorPBFLayer`로 등록되어 예제 `tutorial-official/imagePbfLayers.html`의 `User Vector PBF` 레이어가 이 클래스를 생성한다.
-- 이 클래스와 딸린 타입의 이름은 2026-09-21 에 `U3dImageVectorPBF*` 에서 `U3dVectorPBF*` 로 바뀌었다. **옛 이름은 남기지 않는다** — 호환 별칭 없이 완전히 대체했으므로 옛 공개 이름은 더 이상 존재하지 않으며, 옛 이름을 쓰던 외부 코드는 새 이름으로 고쳐야 한다.
 - `U2dVectorShaderLayer`는 `createTileSourceRequest()`를 호출하는 기반 클래스이며 반환된 피처를 `expandFetchedTileFeatures()`, 스타일 적용, `processMaterial()`로 처리한다.
 - `U3dImagePBFLayer.g_TaskProcessor`는 워커 `UPbfParserTask`를 실행하는 공유 `UTaskProcessor`다.
 - `UPbfParserTask.loadPbfFeatures()`와 `UPbfParserTask.abort()`는 워커에서 PBF 다운로드·디코드와 중단을 수행한다.
@@ -59,7 +59,7 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
     의존:
         U2dVectorShaderLayer — 타일 기반 벡터 피처 처리 흐름 제공; 상속: {U2dVectorShaderLayer}
 
-    static OPT_KEYS: Array<string> = U2dVectorShaderLayer.OPT_KEYS + ['realMaxLevel', 'featureCacheSize', 'includeLayers', 'excludeLayers', 'featureFilter', 'featurePriority', 'drawPoints', 'pointRadius']
+    static OPT_KEYS: Array<string> = U2dVectorShaderLayer.OPT_KEYS + ['realMaxLevel', 'featureCacheSize', 'includeLayers', 'excludeLayers', 'featureFilter', 'featurePriority', 'drawPoints', 'pointRadius', 'needJson']
         normalizeOptionKeys 가 대소문자 무관 옵션 키를 정규화할 때 사용하는 키 목록
         의존: U2dVectorShaderLayer — 기반 생성 옵션 key 재사용; 속성 읽기: {OPT_KEYS}
 
@@ -68,6 +68,21 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
 
     #pendingSourceRequests: Map<string, U3dVectorPBFSourceRequest> = 빈 Map
         소스 타일 키별 진행 중 워커 요청. 응답 또는 실패로 종료되면 제거된다.
+
+    _needJson: boolean = true
+        metadata.json으로 레벨·영역을 보완할지 여부이며 needJson 옵션이 false일 때만 끈다.
+    #pbfMetadataReady: boolean = true
+        생성자에서 !needJson으로 확정하고, 메타데이터 성공 또는 실패가 확정되면 true로 바꾼다.
+    #pbfMetadataRequested: boolean = false
+        초기화를 반복하더라도 메타데이터 요청은 한 번만 시작하기 위한 기록이다.
+    #pbfMetadataRequest: ReturnType<typeof requestPbfMetadata> | undefined
+        해제할 때 취소할 진행 중 메타데이터 요청이다.
+    #explicitOptions: PbfMetadataExplicitOptions = {realMaxLevel: false, extent: false}
+        부모가 기본값을 채우기 전에 보관한 realMaxLevel·영역 옵션의 명시 여부이다.
+    #pendingPresentation: Map<string, {tile: U3dQuadTile, controller: AbortController}> = 빈 Map
+        타일 키별 합성 완료 후 표시 재시도 대기이며 같은 키의 새 타일은 이전 대기를 취소한다.
+    #visibleTilePreparation: AbortController | undefined
+        이미 보이는 타일의 누락 소스를 순차 준비하는 작업의 취소 제어기이다.
 
     #userStyleFunction: U3dVectorPBFStyleFunction | undefined
         생성 옵션으로 받은 ol 규격 스타일 함수
@@ -109,12 +124,13 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
             opt.styleFunction: (feature, resolution) -> ol.style.Style | Array<ol.style.Style> | 스타일 상태 객체
             opt.drawPoints: Point 피처를 원으로 그릴지 여부이며 false 가 아니면 true 다.
             opt.pointRadius: Point 원의 기본 반경(3857 단위)이며 생략하면 10 을 사용한다.
+            opt.needJson: metadata.json으로 레벨·영역을 보완할지 여부이며 false일 때만 생략한다.
 
         처리 기준:
             baseUrl 이 비어 있지 않은 문자열이 아니면 기반 생성자 호출 전에 TypeError 를 던진다.
             includeLayers·excludeLayers 가 문자열 배열이 아니거나 featureFilter·featurePriority 가 함수가 아니면 기반 생성자 호출 전에 TypeError 를 던진다.
             pointRadius 가 정의되어 있고 0 보다 큰 유한수가 아니면 기반 생성자 호출 전에 RangeError 를 던진다.
-            기반 클래스의 _styleFunction 규격은 `(feature) -> 스타일 상태 객체` 이므로 사용자 스타일 함수를 직접 넣지 않고, 타일 피처에 미리 계산해 둔 `_pbfStyle` 을 돌려주는 함수로 교체한다. 사용자 스타일 함수가 없으면 _styleFunction 을 undefined 로 두어 기반 레이어 기본 스타일을 사용한다.
+            기반 클래스는 _styleFunction에 피처와 타일 문맥을 전달한다. 이 레이어는 그중 피처의 미리 계산한 `_pbfStyle`만 돌려주는 함수로 교체한다. 사용자 스타일 함수가 없으면 _styleFunction을 undefined로 두어 기반 레이어 기본 스타일을 사용한다.
 
         의존:
             normalizeOptionKeys — 옵션 키 정규화; 함수: {normalizeOptionKeys()}
@@ -125,22 +141,120 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
 
         동작:
             옵션 키를 정규화하고 baseUrl 과 필터·우선순위 옵션을 검증한 뒤 pointRadius 범위를 검사한다.
-            기반 생성자를 호출하고 _classtype 을 'U3dVectorPBFLayer' 로 기록한다.
+            realMaxLevel 및 rectangle·extent·geoExtent의 명시 여부를 보관한 뒤 기반 생성자를 호출하고 _classtype 을 'U3dVectorPBFLayer' 로 기록한다.
+            #explicitOptions에 명시 여부를 저장하고, _needJson과 그 반대 값인 #pbfMetadataReady를 확정한다.
             _realMaxlevel 과 #sourceFeatureCache 를 옵션 또는 기본값으로 만든다.
             포함·제외 레이어 이름 배열을 Set 으로 바꿔 저장하고 featureFilter, featurePriority, drawPoints, pointRadius 와 styleFunction 을 보관한다.
             사용자 스타일 함수 유무에 따라 _styleFunction 을 `_pbfStyle` 반환 함수 또는 undefined 로 설정한다.
+
+    override initialize() -> boolean
+        의존:
+            U2dVectorShaderLayer — 부모 초기화; 함수: {initialize()}
+        동작:
+            부모 초기화 결과를 보관한다.
+            _needJson이 참이고 아직 준비되지 않았으며 요청한 적도 없으면 요청 시작을 기록하고 메타데이터 로드를 시작하되 기다리지 않는다.
+            부모 초기화 결과를 반환한다.
+
+    async #loadPbfMetadata() -> Promise<void>
+        의존:
+            requestPbfMetadata — UPbfMetadata 모듈의 URL 기반 메타데이터 요청; 함수: {requestPbfMetadata()}
+            U2dVectorShaderLayer — 요청 주소·수명·이름·연결 문맥; 속성 읽기: {_baseUrl, _disposed, _name, _drawArg, _app}
+            UDrawArg — 다음 프레임 갱신 요청; 함수: {setUpdateDate()}
+            U3dApp — 화면 재평가 요청; 함수: {forceUpdate()}
+        동작:
+            _baseUrl의 메타데이터 요청을 만들고 해제 시 취소할 수 있게 저장한다.
+            응답을 기다린 뒤 _disposed가 false이면 메타데이터를 반영한다. 해제되었으면 반영하지 않는다.
+            요청·반영 중 오류가 나고 레이어가 살아 있으면 옵션 값으로 계속 진행한다는 정보를 출력한다.
+            성공·실패와 무관하게 요청 참조를 비운다. _disposed가 false이면 #pbfMetadataReady를 true로 확정하고 선택적인 drawArg·app 갱신을 요청한 뒤 가시 타일 준비를 시작한다.
+
+    #applyPbfMetadata(metadata: PbfMetadata) -> void
+        의존:
+            resolvePbfMetadataLevels — UPbfMetadata 모듈의 명시 옵션 보존 레벨 해석; 함수: {resolvePbfMetadataLevels()}
+            shouldApplyPbfMetadataBounds — UPbfMetadata 모듈의 영역 반영 판단; 함수: {shouldApplyPbfMetadataBounds()}
+            U2dVectorShaderLayer — 위경도 영역 변환 및 레벨·영역 저장; 함수: {convertGeographicToGoogleRectangle()}; 속성 읽기·쓰기: {_minlevel, _rectangle, _rectangle3d, _box3}
+            defined — 변환 결과 존재 확인; 함수: {defined()}
+            Box3 — three 패키지의 변환 영역 상자 작성; 생성자: {new Box3()}
+        동작:
+            현재 레벨, metadata, 명시 옵션을 전달해 _minlevel·_realMaxlevel을 갱신한다. minzoom은 하한을 올릴 때만, maxzoom은 realMaxLevel을 명시하지 않았을 때만 반영한다.
+            영역을 명시하지 않았고 유효한 metadata.bounds가 있으면 위경도 영역을 변환한다. 좌상·우하점의 x·y가 모두 유한수일 때만 _rectangle·_rectangle3d·_box3를 함께 교체한다.
+
+    override async createTexture(tile: U3dQuadTile) -> Promise<U3dQuadTile>
+        의존:
+            U2dVectorShaderLayer — 범위 판정·타일 상태 설정·소스 생성; 함수: {intersects(), setStateTile(), createTexture()}; 속성 읽기: {_visibleTileKeys}
+            UDEF — 범위 밖 타일의 완료 상태; 속성 읽기: {TILE_STATE._end}
+        동작:
+            메타데이터 준비 전이면 상태를 바꾸지 않고 tile로 완료한다. 준비된 뒤 범위 밖이면 _end로 기록하고 tile로 완료한다.
+            #pbfMetadataReady가 true이면 부모 텍스처 생성을 기다린다. 이 준비 조건 안에서 현재 캐시의 살아 있는 가시 타일인지 확인하고 표시 키에 없으면 표시를 다시 시도한다.
+            부모 결과를 반환하며 부모 실패는 거부로 전달한다.
+
+    override addTileFromScene(tile: U3dQuadTile) -> boolean
+        의존:
+            U2dVectorShaderLayer — 영역 판정과 기존 표시 경로; 함수: {intersects(), addTileFromScene()}
+        동작:
+            메타데이터 준비 전이거나 영역 밖이면 true를 반환해 다른 레이어의 준비를 막지 않는다.
+            부모 표시 결과가 false이고 현재 가시 타일이면 합성 완료 후 표시 재시도를 시작한다. 부모 표시 결과를 반환한다.
+
+    #isLiveVisibleTile(tile: U3dQuadTile) -> boolean
+        의존:
+            U2dVectorShaderLayer — 레이어 수명·가시성과 타일 캐시 연결; 속성 읽기: {_disposed, _visible, _drawArg}
+            UDrawArg — 현재 캐시 객체와의 동일성 확인; 함수: {_cacheTiles.get()}
+            U3dQuadTile(tile) — 가시성·해제 여부·키 조회; 속성 읽기: {visible, _disposed, _key}
+        동작: 레이어가 해제되지 않고 _visible이 false가 아니며, tile.visible이 true이고 타일이 해제되지 않았으며 현재 키의 캐시 객체가 tile과 같을 때만 true를 반환한다.
+
+    async #recommitTileVisibilityWhenSwapReady(tile: U3dQuadTile) -> Promise<void>
+        의존:
+            UShaderTerrainDecalManager — 타일·피처 소스 상태와 합성 대기; 함수: {waitTerrainTileSwapReady()}; 속성 읽기: {TERRAIN_TILE_REGISTRY, TERRAIN_TILE_FEATURE_MAP, TERRAIN_PENDING_COMPOSITE_JOBS, TERRAIN_PENDING_WORKER_JOBS, TERRAIN_PRESENT_QUEUE, TERRAIN_PRESENT_CLEAR_QUEUE}
+            hasTerrainTileFailedCurrentRevision — UShaderTerrainDecalTileStateManager 모듈의 현재 revision 실패 확인; 함수: {hasTerrainTileFailedCurrentRevision()}
+            U2dVectorShaderLayer — 준비 완료 후 기존 표시 판단과 소스 연결; 함수: {addTileFromScene()}; 속성 읽기: {_terrainDecalManager, _name, _drawFeatureIds}
+        동작:
+            _terrainDecalManager가 없거나 같은 키·같은 타일의 대기가 이미 있으면 종료한다. 같은 키의 다른 대기는 취소하고 새 요청을 기록한다.
+            _terrainDecalManager가 있으면 타일 유효성을 확인한다. 계속 유효하고 취소되지 않은 동안 tile 소스를 기다리며, 피처 등록·소스 상태·drawFeatureIds 중 하나라도 있으면 feature 소스도 함께 기다린다.
+            대기 후 타일 유효성과 취소를 다시 확인한다. 준비되었으면 부모 표시를 한 번 실행하고 종료한다.
+            준비되지 않았으면 등록 소실, 소스의 failed·cancelled·disposed, 현재 revision 실패에서 종료한다. 실제 dirty·build·source·worker·composite·present 작업이 남아 있을 때만 다시 기다린다.
+            종료 시 현재 등록이 이 요청일 때만 대기 목록에서 지워 새 요청을 훼손하지 않는다.
+
+    #cancelPendingPresentation() -> void
+        동작: 가시 타일 준비 제어기를 취소·제거하고 모든 표시 대기의 제어기를 취소한 뒤 표시 대기 목록을 비운다.
+
+    override hide(refresh?: boolean) -> void
+        의존:
+            U2dVectorShaderLayer — 기존 숨김 처리; 함수: {hide()}
+        동작: 부모 숨김을 실행한 뒤 이 레이어의 표시 대기를 취소한다.
+
+    override show(show: boolean = true, refresh?: boolean) -> void
+        의존:
+            U2dVectorShaderLayer — 기존 표시 처리; 함수: {show()}; 속성 읽기: {_visible}
+        동작: 이전 가시성과 전달값의 차이를 보관하고 부모 표시를 실행한다. show가 참이며 가시성이 바뀌었거나 refresh가 참이면 가시 타일 준비를 시작한다.
+
+    async #prepareVisibleTiles() -> Promise<void>
+        의존:
+            UDrawArg — 현재 캐시 타일 수집; 함수: {_cacheTiles.items()}
+            U2dVectorShaderLayer — 영역 판정·기존 소스 준비 및 수명·레벨·타일 연결; 함수: {intersects(), createTexture()}; 속성 읽기: {_terrainTextureBuildInFlight, _terrainDecalManager, _disposed, _visible, _drawArg, _name, _minlevel, _maxlevel}
+            UShaderTerrainDecalManager — 이 레이어의 소스 상태 및 합성 완료 대기; 함수: {waitTerrainTileSwapReady()}; 속성 읽기: {TERRAIN_TILE_REGISTRY}
+        동작:
+            메타데이터 미준비, 레이어 해제·숨김, manager·drawArg 부재이면 종료한다. 이전 준비를 취소하고 새 제어기를 저장한다.
+            캐시에서 현재 가시 타일이며 mesh가 있는 타일을 골라 높은 레벨부터 정렬한다.
+            후보를 순서대로 처리한다. 취소되면 종료하며, 더 이상 유효하지 않거나 mesh·레벨·영역 조건을 벗어나거나 이미 소스 생성 중 또는 소스 상태가 있으면 건너뛴다.
+            부모 소스 생성을 기다린 뒤 취소·현재 타일을 재확인한다. 소스가 available 또는 confirmed-empty이면 이 소스의 합성 준비를 기다린다. controller.signal.aborted가 false이고 준비된 현재 가시 타일이면 표시한다.
+            오류는 취소·해제 중이 아닐 때 경고한다. 종료 시 이 제어기가 여전히 현재 준비일 때만 참조를 비운다.
+
+    override isTilePresentationParticipant(tile: U3dQuadTile) -> boolean
+        의존:
+            U2dVectorShaderLayer — 영역 및 표시 참여 판단; 함수: {intersects(), isTilePresentationParticipant()}
+        동작: 타일 부재, 메타데이터 미준비, 영역 밖이면 false를 반환한다. 그 외에는 부모 참여 판단을 반환한다.
 
     override dispose() -> Promise<boolean>
         역할: 진행 중인 워커 요청을 중단하고 소스 피처 캐시를 비운 뒤 기반 레이어를 처분한다.
 
         의존:
-            U2dVectorShaderLayer — 레이어 공통 자원 처분; 함수: {dispose()}
+            U2dVectorShaderLayer — 레이어 공통 자원 처분과 소유 워커 반환; 함수: {dispose(), _releaseTaskProcessors()}; 속성 쓰기: {_taskProcessorDisposing}
             LRUCache — 캐시 정리; 함수: {clear()}
 
         동작:
+            _taskProcessorDisposing을 true로 설정하고 메타데이터 요청과 표시 대기를 취소한다.
             진행 중인 모든 소스 요청에 중단을 보낸다.
             진행 중 요청 목록과 소스 피처 캐시를 비운다.
-            기반 dispose() 결과를 반환한다.
+            기반 dispose() 결과를 반환한다. 정리 중 예외가 발생하거나 부모 결과가 아직 미완료여도 finally에서 소유 워커를 반환한다.
 
     setFeatureFilter(filter: Partial<{includeLayers: Array<string>, excludeLayers: Array<string>, featureFilter: U3dVectorPBFFeatureFilter}> = {}) -> void
         역할: 포함·제외 레이어와 피처 필터를 바꾸고 현재 표시 중인 타일에 새 필터를 다시 적용한다.
@@ -149,15 +263,18 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
 
         처리 기준:
             필터 옵션 타입이 잘못되면 상태를 바꾸기 전에 TypeError 를 던진다.
+            필터 변경 시 진행 중인 소스 요청을 모두 중단하고 공유 요청 목록을 비운다. 비동기 변환 중 이전 필터와 새 필터의 결과가 섞여 캐시되면 안 된다.
             필터는 소스 피처 캐시와 기반 클래스의 타일 피처 캐시(_drawCache)에 이미 반영되어 있으므로 두 캐시를 모두 무효화해야 다음 타일 생성에서 다시 계산된다.
 
         의존:
             defined — 항목별 생략 여부 판정; 함수: {defined()}
             LRUCache — 소스 피처 캐시 정리; 함수: {clear()}
-            U2dVectorShaderLayer — 타일 피처 캐시·decal payload 정리와 재표시; 함수: {clear(), show()}; 속성 읽기: {_visible}
+            U2dVectorShaderLayer — 타일 피처 캐시·decal payload 정리; 함수: {clear()}; 속성 읽기: {_visible}
 
         동작:
-            필터 옵션을 검증하고 전달된 항목만 교체한다.
+            필터 옵션을 검증한다.
+            filter.includeLayers 또는 filter.excludeLayers가 defined이면 해당 목록을 Set으로 바꿔 저장한다. filter.featureFilter가 defined이면 함수 참조를 교체한다.
+            진행 중인 소스 요청을 중단하고 목록을 비운다.
             소스 피처 캐시를 비우고 기반 clear() 로 타일 피처 캐시와 decal payload 를 비운다. [확인 Q-001]
             레이어가 표시 중이면 show(false) 후 show(true) 를 호출해 현재 타일을 새 필터로 다시 생성하게 한다.
 
@@ -173,7 +290,7 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
             tile: 피처를 만들 대상 타일
             extent: 기반 클래스가 계산한 [minX, minY, maxX, maxY] 질의 영역. 외곽선 여유가 이미 포함되어 있다
             requestId: 기반 클래스가 만든 요청 식별자. 이 레이어는 소스 타일 단위로 중단하므로 사용하지 않는다
-            반환: run 은 3857 좌표 GeoJSON 형태의 타일 피처를 담은 {features} 로 이행되거나 오류로 거부되는 함수, cancel 은 이 타일의 소스 요청 대기를 취소하는 함수. 요청을 만들 수 없는 경우는 없어 항상 요청을 반환한다.
+            반환: run은 3857 좌표의 타일 피처를 담은 {features}로 이행되거나 오류로 거부되는 함수이며, cancel은 이 타일의 소스 요청 대기를 취소하는 함수다. 요청 객체 구성 중 발생하는 동기 오류는 호출자에게 전달된다.
 
         처리 기준:
             소스 피처 캐시에 있으면 워커 요청 없이 즉시 타일 피처를 만든다. 이때도 요청 형태를 유지해 기반 클래스의 pending·retry 부기가 한 경로로만 흐르게 한다.
@@ -184,11 +301,12 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
 
         의존:
             defined — 캐시 존재 여부 판정; 함수: {defined()}
-            U2dVectorShaderLayer — 처분 상태 확인; 속성 읽기: {_disposed}
-            U3dQuadTile — 처분 여부; 속성 읽기: {_disposed}
+            U2dVectorShaderLayer — 영역 판정과 레이어 처분 상태 확인; 함수: {intersects()}; 속성 읽기: {_disposed}
+            U3dQuadTile(tile) — 타일 처분 여부; 속성 읽기: {_disposed}
             LRUCache — 소스 피처 캐시 조회; 함수: {get()}
 
         동작:
+            레이어 범위 밖 타일이면 빈 features로 완료하는 run과 빈 cancel을 반환한다.
             소스 타일을 결정한다.
             소스 피처 캐시에 있으면 그 피처로 타일 피처를 만드는 run 과 빈 cancel 을 반환한다.
             공유 요청을 얻어 대기 수를 늘리고, 한 번만 동작하는 대기 수 감소 함수(release)와 취소 표시 뒤 release 를 호출하는 cancel 을 준비한다.
@@ -241,7 +359,7 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
             defined — 진행 중 요청 존재 여부 판정; 함수: {defined()}
 
         동작:
-            진행 중 요청이 없으면 새 요청을 시작해 #pendingSourceRequests 에 등록한다.
+            진행 중 요청이 없거나 그 요청이 이미 aborted이면 새 요청을 시작해 #pendingSourceRequests에 등록한다.
             요청의 waiters 를 1 늘려 반환한다.
 
     #releaseSourceRequest(request: U3dVectorPBFSourceRequest) -> void
@@ -257,7 +375,7 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
         처리 기준:
             이미 종료되었거나 중단을 보낸 요청에는 다시 보내지 않는다.
             워커의 abort() 는 UTaskProcessor 메시지(type 'UPbfParserTask', subType 'abort', data 는 requestId)로 동적 호출하며, 어느 워커가 다운로드 중인지 알 수 없어 모든 워커에 보낸다.
-            중단 결과는 워커가 실패 플래그 응답으로 알리므로 요청 promise 는 #startSourceRequest 의 변환 단계에서 reject 된다.
+            워커가 중단 실패 플래그로 응답하거나, 응답 후 진행 중인 변환이 중단 표시를 확인하면 요청 promise는 AbortError로 reject된다.
 
         의존:
             U3dImagePBFLayer.g_TaskProcessor — 두 PBF 레이어가 공유하는 워커 처리기(UTaskProcessor)로 모든 워커에 메시지 전송; 함수: {allExecTask()}
@@ -265,7 +383,7 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
             UPbfParserTask(워커) — 요청별 취소; 정적 함수: {abort()}
 
         동작:
-            aborted 를 기록하고 requestId 를 데이터로 하는 abort 메시지를 모든 워커에 보낸다.
+            settled 또는 aborted이면 종료한다. 그 외에는 aborted를 기록하고 requestId를 데이터로 하는 abort 메시지를 모든 워커에 보낸다. 반환된 Promise가 있으면 거부를 관찰하여 무시한다.
 
     #startSourceRequest(source: {x: number, y: number, level: number, key: string}) -> U3dVectorPBFSourceRequest
         역할: 소스 타일의 워커 다운로드·디코드 요청을 시작하고 응답을 소스 피처 캐시에 반영한다.
@@ -273,14 +391,15 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
         처리 기준:
             워커 응답의 failed 가 참이고 status 가 404 가 아니면 오류를 만들어 던져 promise 를 reject 한다. 취소된 요청은 AbortError, 그 밖에는 URL·status·reason·message 를 담은 Error 다.
             status 가 404 인 실패는 서버가 확정한 데이터 없음이므로 빈 피처 목록으로 종결하고 캐시한다.
-            레이어가 처분된 뒤 도착한 응답은 변환만 하고 캐시에 넣지 않는다.
-            캐시 byteLength 는 피처 좌표 개수 × 16 의 근사값이다.
-            요청이 종료되면 성공·실패와 무관하게 settled 를 기록하고 #pendingSourceRequests 에서 제거한다.
+            요청이 중단·교체됐거나 레이어가 처분됐으면 변환 전에 AbortError로 끝낸다. 비동기 변환 뒤에도 같은 조건을 확인해 오래된 결과를 반환하거나 캐시에 넣지 않는다.
+            캐시 byteLength는 피처 좌표 개수 × 16과 평탄 뷰가 실제로 보유하는 공유 버퍼 바이트 합 중 큰 값이다. 표시 단계에서 좌표를 복원하면 평탄 참조를 비운다.
+            요청이 종료되면 성공·실패와 무관하게 settled를 기록하고, #pendingSourceRequests에 이 요청이 여전히 등록되어 있을 때만 제거한다.
             대기 타일이 모두 취소되어 run() 이 호출되지 않으면 소비자 없는 rejection 이 되므로 no-op catch 를 붙인다. run() 의 await 는 별도 분기라 영향을 받지 않는다.
-            워커의 loadPbfFeatures() 는 UTaskProcessor 메시지(type 'UPbfParserTask', subType 'loadPbfFeatures', data 는 {url})로 동적 호출하며 가장 여유 있는 워커 하나가 처리한다.
+            워커의 loadPbfFeatures()는 UTaskProcessor 메시지(type 'UPbfParserTask', subType 'loadPbfFeatures', data는 {url, requestId, wasmPath, includeLayers, excludeLayers, drawPoints, worldBounds, packedGeometry: true}이며 wasmPath는 UDEF.PBF_WASM_PATH를 메인 문서 기준 절대 파일 주소로 확정한 값)로 동적 호출한다.
 
         의존:
-            U2dVectorShaderLayer — URL 템플릿과 처분 상태; 속성 읽기: {_baseUrl, _disposed}
+            U2dVectorShaderLayer — URL·처분 상태·월드 타일 경계 계산과 소유 워커 확보; 함수: {_useTaskProcessor()}; 속성 읽기: {_baseUrl, _disposed, _mercator}
+            UDEF — 워커 소비자별 요청 식별자 생성; 함수: {createUUID()}
             U3dImagePBFLayer.g_TaskProcessor — 두 PBF 레이어가 공유하는 워커 처리기(UTaskProcessor)로 워커 하나에 작업 예약; 함수: {scheduleTask()}
             UWorkerParameter — 워커 메시지 생성; 생성자: {new UWorkerParameter()}
             UPbfParserTask(워커) — PBF 다운로드와 MVT 디코드; 정적 함수: {loadPbfFeatures()}
@@ -289,20 +408,20 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
         동작:
             소스 인덱스로 요청 URL 을 만든다.
             고유 requestId, waiters 0, settled·aborted false 인 요청 객체를 만들고 워커에 loadPbfFeatures 를 예약한다.
-            취소된 요청은 재사용하지 않는다. 늦은 완료는 새 요청의 등록을 지우거나 캐시를 채우지 않는다.
+            응답 처리 진입과 변환 완료 뒤 중단·처분·공유 요청 교체를 확인하고 해당되면 AbortError를 만들어 던진다.
             응답이 404 가 아닌 실패 플래그면 오류를 만들어 던진다.
-            404 실패면 빈 목록을, 그 외에는 3857 소스 피처로 변환한 목록을 결과로 삼는다.
-            _disposed 가 아니면 결과의 좌표 개수를 세어 byteLength 와 함께 캐시에 넣고, 어느 경우에도 결과를 반환한다.
-            종료 시 settled 를 기록하고 진행 중 요청 목록에서 제거하며, promise 에 no-op catch 를 붙인다.
+            404 실패면 빈 목록을, 그 외에는 3857 소스 피처로 변환한 전체 목록의 완료를 기다린다. 중단·처분·공유 요청 교체 여부를 다시 확인한다.
+            _disposed가 아니면 결과의 좌표 개수와 평탄 배열이 붙잡은 중복 없는 전체 버퍼의 바이트를 센다. 좌표 개수 기반 추정과 실제 보유 바이트 중 큰 값을 byteLength로 캐시에 넣고, 어느 경우에도 결과를 반환한다.
+            종료 시 settled를 기록하고 진행 중 목록이 이 요청을 가리킬 때만 제거한다. promise에 no-op catch를 붙인 뒤 요청 객체를 반환한다.
 
-    #convertToGoogleFeatures(result: U3dVectorPBFDecodeResult, source: {x: number, y: number, level: number, key: string}) -> Array<U3dVectorPBFSourceFeature>
+    async #convertToGoogleFeatures(result: U3dVectorPBFDecodeResult, source: {x: number, y: number, level: number, key: string}, request: U3dVectorPBFSourceRequest) -> Promise<Array<U3dVectorPBFSourceFeature>>
         역할: 워커 디코드 결과의 타일 로컬 좌표를 EPSG:3857 소스 피처로 변환하고 지원 범위·필터·LOD 우선순위·자르기 변 제거를 적용한다.
 
         처리 기준:
             result 가 없거나 layers 가 배열이 아니면 빈 목록을 반환한다.
             좌표 변환은 소스 타일 경계 [minX, minY, maxX, maxY] 와 레이어 extent 로 `gx = minX + fx × (타일 폭 / extent)`, `gy = maxY − fy × (타일 폭 / extent)` 를 사용한다. MVT 는 y 축이 아래 방향이므로 타일 상단에서 빼야 지도 좌표와 방향이 맞는다.
             Point·MultiPoint 는 #drawPoints 가 false 면 제외하고, 켜져 있으면 점마다 `Point` 타입과 `[x, y]` 좌표, 점 자체를 bbox 로 하는 피처 하나를 만든다.
-            피처 필터가 있으면 (레이어명, 속성, MVT 타입 'Point'|'Polygon'|'LineString') 으로 호출해 false 면 그 피처를 건너뛴다.
+            피처 필터가 있으면 현재 레이어를 this로 하여 (레이어명, 속성, MVT 타입 'Point'|'Polygon'|'LineString')으로 호출하고 false이면 건너뛴다. 우선순위 함수도 현재 레이어를 this로 사용한다.
             #featurePriority 가 있으면 같은 인수로 호출한 값을 Number 로 바꿔 유한수일 때만 lodPriority 로 기록한다. 유한수가 아니면 기록하지 않아 기본 우선순위(0)가 되게 한다.
             Polygon 은 ring 별 부호 있는 면적이 양수인 ring 을 외곽으로 보고, 양수가 아닌 ring 은 직전 외곽 ring 의 홀로 본다. 앞선 외곽 ring 이 없는 홀은 대응 폴리곤을 알 수 없어 제외한다. 양수 ring 이 하나도 없는 피처는 규약 미준수 데이터로 보고 모든 ring 을 외곽으로 취급한다.
             Polygon 은 `외곽 ring + 소속 홀 ring` 을 coverage 하나로 묶고 coverage 마다 소스 피처를 하나씩 만든다. 하나의 MVT 피처에 외곽 Polygon 이 여러 개 들어 있을 때 이를 한 피처로 합치면 통합 bbox 로 overzoom 교차를 판정하게 되어 자식 타일과 무관한 Polygon 까지 전부 넘어가고, 기반 클래스가 모든 ring 에 같은 `lodGroupKey` 를 부여해 수백 개 ring 이 하나의 atomic 합성 그룹이 된다.
@@ -317,23 +436,31 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
             폴리곤 bbox 는 그 coverage 의 ring bbox 를 합친 값이다. 정상 데이터의 홀은 외곽 안에 있어 bbox 를 넓히지 않지만 규약 미준수 데이터도 놓치지 않게 함께 합친다.
 
         의존:
+            forceYield — Yield 모듈의 화면 갱신 뒤 Task 양보를 부르는 지역 이름; 함수: {yieldForRendering()}
+            readPbfGeometry — 일괄 전송 표의 형상 검증과 좌표·파트 뷰 복원; 함수: {readPbfGeometry()}
             defined — id·필터·우선순위 함수 존재 여부 판정; 함수: {defined()}
-            U2dVectorShaderLayer — 메르카토르 계산기 사용; 속성 읽기: {_mercator}
+            U2dVectorShaderLayer — 메르카토르 계산기 및 해제 여부 사용; 속성 읽기: {_mercator, _disposed}
             UMercator — 소스 타일의 3857 경계 계산; 함수: {TileBounds()}
             UDEF — 기반 클래스가 처리하는 지오메트리 타입 이름; 상수: {MEASURE_TYPE.{MULTIPOLYGON, MULTILINESTRING, POINT}}
             U3dVectorPBFFeatureFilter(#featureFilter) — 피처 단위 통과 여부 판정; 콜백: {featureFilter()}
             U3dVectorPBFFeaturePriority(#featurePriority) — 피처 LOD 우선순위 계산; 콜백: {featurePriority()}
 
         동작:
-            소스 타일 경계와 타일 폭을 구한다.
+            result가 없거나 layers가 배열이 아니면 빈 목록으로 완료한다. 그 외에는 소스 타일 경계와 타일 폭을 구한다.
+            worldCoordinates와 partInfo가 있으면 이미 전처리된 Float64 좌표·경계를 사용한다. createPreparedSourceFeatures가 파트·외곽·홀·실제 외곽선을 소스 피처로 묶으며 정점별 좌표 복원은 하지 않는다. 익명 ID는 _sourceIndex가 있으면 그 순번을 사용한다.
+            변환 예산 종료 시각을 현재 시각에서 1.75ms 뒤로 잡는다. raw 피처를 처리하기 전에 예산이 지났으면 forceYield를 기다려 화면 갱신 뒤 Task에서 재개하고 예산을 다시 잡는다. 병행 변환은 같은 갱신을 공유하며 숨겨진 문서와 중단된 갱신에는 Yield 모듈의 대체 경로를 사용한다. [확인 Q-002]
+            각 피처 시작에서 중단·처분·공유 요청 교체를 확인하고 오래된 요청이면 AbortError로 끝낸다. 부분 결과는 캐시하거나 반환하지 않는다.
             레이어마다 포함·제외 목록을 판정해 통과하지 않으면 건너뛴다.
-            피처마다 Point 계열이면 #drawPoints 로 제외 여부를 정하고, 피처 필터가 있으면 호출해 false 면 건너뛰며, 우선순위 함수가 있으면 lodPriority 를 구한다.
-            Point 계열이면 점마다 3857 로 변환한 Point 소스 피처를 추가하고 다음 피처로 넘어간다.
+            피처마다 Point 계열이면 #drawPoints로 제외 여부를 정하고, 피처 필터가 있으면 호출해 false이면 건너뛴다. #featurePriority가 defined이면 반환값을 Number로 변환해 유한수일 때만 lodPriority로 기록한다.
+            제외된 레이어도 전체 형상 순번을 이동한다. 속성 필터·우선순위 뒤 일괄 형상이 있으면 해당 피처의 뷰만 복원하며, 형상의 worldCoordinates와 레이어 표식이 다르면 Error로 실패한다.
+            월드 좌표가 준비된 피처는 평탄 배열에서 소스 피처를 만들고 다음 피처로 넘어간다.
+            이전 로컬 응답의 Point 계열이면 점마다 3857로 변환한 Point 소스 피처를 추가하고 다음 피처로 넘어간다.
             Polygon 이면 ring 면적 부호로 외곽 ring 존재 여부를 먼저 판정한다.
             ends 로 나눈 각 파트를 순회하며 외곽·홀 여부를 정하고(앞선 외곽 없는 홀은 건너뜀) 좌표를 3857 로 변환하면서 파트 bbox 와 폴리곤 정점별 경계 mask 를 계산한다.
             라인이면 최소 점 수를 만족하는 파트마다 id·타입·좌표·속성·lodPriority·파트 bbox 를 가진 소스 피처를 목록에 추가한다.
             폴리곤이면 ring 의 자르기 변을 뺀 실제 경계 구간을 구하고, 외곽 ring 마다 coverage 를 새로 열고 홀 ring 은 직전 coverage 에 넣으면서 구간·자르기 변 여부·bbox 를 합친다.
-            coverage 마다 id·타입·`[[외곽, 홀...]]` 좌표·속성·lodPriority·coverage bbox·strokeSuppressed·lodGroupKey 를 가진 소스 피처를 추가하고, 자르기 변이 있으면 실제 경계 구간마다 LineString 소스 피처를 추가한다.
+            coverage마다 id·타입·`[[외곽, 홀...]]` 좌표·속성·lodPriority·coverage bbox·strokeSuppressed·lodGroupKey를 가진 소스 피처를 추가한다. coverage.hasClipEdge가 true이면 실제 경계 구간마다 terrainPolygonOutline=true인 LineString 소스 피처를 추가한다.
+            점·선·면·외곽선 모두 원본 raw.id가 정의되어 있으면 stableFeatureId에 보존하고, 없으면 undefined로 둔다. sourceLayer에는 원본 레이어 이름을 기록한다. 표시용 조각 ID와 원본 식별자를 구분하며 properties와 좌표는 생성한 조각 간에 필요한 참조를 공유한다.
             변환된 소스 피처 목록을 반환한다.
 
     #passesLayerFilter(layerName: string) -> boolean
@@ -352,7 +479,7 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
             소스 레벨과 타일 레벨이 다르면(overzoom) 기반 클래스가 넘긴 extent 와 bbox 가 교차하는 소스 피처만 사용한다. bbox 는 폴리곤 coverage·라인 파트·점 단위이므로 자식 타일과 무관한 Polygon 은 타일 피처와 payload 를 만들기 전에 걸러진다.
             소스 레벨과 타일 레벨이 같으면 소스 타일과 대상 타일이 같은 영역이므로 교차 판정을 하지 않는다.
             타일 피처 id 는 `타일키:소스피처id` 로 타일마다 고유하다.
-            사용자 스타일 함수가 있으면 (타일 피처, 타일 레벨 해상도) 로 호출해 정규화한 스타일을 `_pbfStyle` 에 저장하고, 정규화 결과가 없으면 그 피처는 제외한다.
+            사용자 스타일 함수가 있으면 현재 레이어를 this로 하여 (타일 피처, 타일 레벨 해상도)로 호출해 정규화한 스타일을 `_pbfStyle`에 저장하고, 정규화 결과가 없으면 제외한다.
             같은 MVT 피처에서 나온 coverage·파트는 properties 객체를 공유하므로 스타일 결과가 같다. properties 객체가 직전 피처와 바뀔 때만 스타일 함수를 호출해 coverage 분리로 호출 횟수가 늘어나지 않게 한다. 정규화 결과는 기반 클래스가 복제해 쓰므로 여러 피처가 같은 객체를 참조해도 안전하다.
             strokeSuppressed 인 면은 외곽선을 따로 만든 선 피처가 그리므로 외곽선을 끈 스타일 사본을 쓰고, 채움 색이 없어 사본이 없으면 그 면은 제외한다. 끄지 않으면 타일을 자른 자리가 선으로 보인다.
             Point 피처의 정규화 스타일에 Circle 반경(pointRadiusPx, 0 보다 큰 유한수)이 있으면 `px × 소스 레벨 해상도(m/px)` 를 geometry.radius(3857 단위)로 기록한다. 화면 해상도가 아닌 타일 레벨 해상도이므로 카메라 거리에 따라 화면 크기는 달라진다.
@@ -369,9 +496,9 @@ U3dVectorPBFLayer extends U2dVectorShaderLayer 클래스 정의
             타일 레벨 해상도와 반경 환산용 소스 레벨 해상도를 구하고, overzoom 이면 extent 를 교차 판정 경계로 삼는다.
             소스 피처마다 overzoom 경계와 교차하지 않으면 건너뛴다.
             타일 키와 기본 점 반경을 붙인 타일 피처를 만든다.
-            사용자 스타일 함수가 있으면 properties 객체가 직전과 다를 때만 호출 결과를 Point 여부와 함께 정규화해 보관하고, 같으면 보관한 값을 그대로 쓴다.
-            strokeSuppressed 피처는 외곽선을 끈 스타일 사본으로 바꾸고, 스타일이 없으면 제외하며, Point 의 Circle 반경이 있으면 geometry.radius 를 갱신한 뒤 `_pbfStyle` 에 저장한다.
-            만든 타일 피처 목록을 반환한다.
+            #userStyleFunction이 defined이면 properties 객체가 직전과 다를 때만 호출 결과를 Point 여부와 함께 정규화해 보관하고, 같으면 보관한 값을 그대로 쓴다.
+            #userStyleFunction이 defined이면 strokeSuppressed 피처는 외곽선을 끈 스타일 사본으로 바꾸고, 스타일이 없으면 제외한다. Point의 pointRadiusPx가 정의된 양의 유한수일 때만 소스 해상도를 곱한 geometry.radius를 기록하고 `_pbfStyle`에 스타일을 저장한다.
+            만든 타일 피처 목록을 반환한다. 이 메서드의 스타일 계산은 동기 순회이며 피처 사이에 실행을 양보하지 않는다. [확인 Q-002]
 
 validateFilterOption(opt: Partial<{includeLayers: unknown, excludeLayers: unknown, featureFilter: unknown, featurePriority: unknown}>) -> void
     역할: 생성자와 setFeatureFilter() 의 필터·우선순위 옵션 타입을 검사한다.
@@ -394,7 +521,21 @@ replaceUrl(url: string, x: number, y: number, z: number) -> string
     동작:
         다섯 토큰을 정규식으로 모두 치환한 URL 을 반환한다.
 
+createPreparedSourceFeatures(raw: U3dVectorPBFDecodedFeature, options: {baseId: string, sourceLayer: string, mvtType: string, lodPriority?: number}) -> Array<U3dVectorPBFSourceFeature>
+    역할: Worker의 월드 좌표·파트 메타를 소스 피처의 평탄 뷰로 나눈다.
+    처리 기준:
+        flatCoordinates가 Float64Array가 아니거나 ends가 배열이 아니면 Error다. 비점 도형에 partInfo가 없으면 빈 목록이다.
+        소스 피처의 coordinates는 빈 배열로 두고 실제 좌표는 원본 전송 버퍼의 subarray인 _flatCoordinates로 보존한다.
+    동작:
+        options에서 baseId·sourceLayer·mvtType·lodPriority를 읽고 원본 속성·ID와 함께 사용할 공통 메타를 만든다.
+        Point는 점마다 뷰와 점 경계의 피처를 만들며 여러 점이면 순번 접미어를 붙여 반환한다.
+        선은 2점, 면은 3점 미만인 파트를 제외한다. 선은 파트별 뷰·경계와 유효 파트 순번으로 피처를 만든다.
+        면은 파트 메타의 부호 있는 면적이 양수인 외곽이 있으면 나머지를 홀로 취급한다. 앞선 외곽 없는 홀은 버리고, 외곽이 전혀 없으면 각 파트를 외곽으로 취급한다.
+        외곽마다 coverage를 만들고 홀·경계·자르기 표식·같은 파트의 외곽선을 합친다. coverage별 면을 만들고 잘린 coverage만 실제 외곽선을 별도 선으로 추가하여 같은 lodGroupKey로 묶는다.
+        원본 속성·ID·레이어·LOD 우선순위와 독립 조각 ID를 가진 전체 소스 피처를 반환한다.
+
 countCoordinates(feature: U3dVectorPBFSourceFeature) -> number
+    평탄 파트가 남아 있으면 각 길이 / 2를 합하고, 없으면 기존 GeoJSON 좌표를 센다.
     역할: 소스 피처의 좌표 개수를 세어 LRU 캐시 byteLength 근사값 계산에 쓴다.
 
     처리 기준:
@@ -493,12 +634,14 @@ createTileFeature(sourceFeature: U3dVectorPBFSourceFeature, tileKey: string, poi
         홀 표식 `_isInner` 는 기반 클래스가 ring 을 분할할 때 부여하므로 여기서 넣지 않는다.
         `getId()`, `get(key)`, `getProperties()` 는 클로저에 값을 가두지 않고 반드시 `this` 의 `id`·`properties` 를 읽는다. 기반 클래스의 `splitPolygonFeatureByRing()` 이 `{...feature, id: 링별ID}` 로 얕은 복사 후 `id` 만 덮어쓰는데, 값을 가둔 접근자는 원본 id 를 계속 돌려준다. 기반 클래스와 terrain manager 는 모두 `getId()` 를 우선 사용하므로 그 경우 한 MVT 피처에서 나온 링 전체가 같은 ID 를 갖게 되고, manager 의 tile source feature Map 에서 마지막 하나만 남아 화면에서 사라진다.
         합성 순서 identity 는 타일 키를 뺀 소스 피처 id 를 `compositionFeatureId` 로 따로 실어 보낸다. 타일 피처 id 에는 타일 키가 들어 있어 그대로 쓰면 같은 원본 피처가 타일 수만큼 합성 순서 registry(`UTerrainDecalCompositionOrderRegistry`)에 쌓인다. 이 registry 는 피처 단위 회수가 없고 layer dispose 시 group 통째 해제만 하므로 팬·줌 중 계속 증가한다. 타일 키를 빼면 registry 크기가 소스 피처 수로 묶이고, 같은 피처가 타일 경계를 넘어도 같은 렌더 순서를 유지한다.
-        소스 피처의 lodPriority 와 lodGroupKey 를 그대로 복사해 기반 클래스의 LOD 선별이 읽게 한다.
+        소스 피처의 lodPriority와 lodGroupKey를 그대로 복사한다. stableFeatureId·sourceLayer는 _vectorSourceId·_vectorSourceLayer로 전달하고 terrainPolygonOutline도 보존한다.
 
-    의존:
+    의존: UMeasureFeature — 좌표 매개체 생성과 지연 복원; 정적 함수: {_createCoordinateFeature()}
 
     동작:
-        `타일키:소스피처id` 를 id 로, 소스 피처 id 를 `compositionFeatureId` 로 하고 lodPriority·lodGroupKey·소스 피처의 지오메트리(Point 는 radius 포함)·속성을 담은 객체에 네 메서드를 붙여 반환한다.
+        bbox 선별 후 UMeasureFeature._createCoordinateFeature에 원본 좌표·메타데이터와 측정용/스타일용 종류를 전달한다. 지연 복원·교체·파트 선택은 공통 매개체 구현이 소유하며 이 레이어는 평탄 배열 접근자나 해제 상태를 따로 만들지 않는다. 이 단계에서 완성된 측정 피처를 생성하지 않는다.
+        `타일키:소스피처id`를 id로, 소스 피처 id를 compositionFeatureId로 사용한다. 원본 식별자·레이어·외곽선 표식·LOD 정보와 새 geometry 객체를 구성하되 좌표 배열과 properties는 소스 피처의 참조를 그대로 사용한다.
+        Point에는 기본 radius를 설정한다. 현재 this의 id·properties를 읽는 접근자와 원본 MVT 타입을 반환하는 geometry 접근자를 붙여 반환한다.
 
 normalizeOlColor(color: unknown) -> string | undefined
     역할: ol 색상 표현을 기반 클래스의 validateStyle 이 해석할 수 있는 문자열로 바꾼다.
@@ -510,7 +653,7 @@ readOlColor(element: any) -> string | undefined
     역할: ol Fill/Stroke 유사 객체의 색을 문자열로 읽는다.
     처리 기준: `getColor()` 가 없는 최소 구현은 `color_` 필드를 읽는다.
     의존: defined — 요소 존재 여부 판정; 함수: {defined()}
-    동작: 요소가 없으면 undefined, 있으면 색을 정규화한 문자열을 반환한다.
+    동작: element가 defined이면 getter 또는 color_를 읽어 정규화한 문자열을 반환한다. element가 없으면 undefined를 반환한다.
 
 readOlWidth(stroke: any) -> number | undefined
     역할: ol Stroke 유사 객체의 두께를 읽는다.
@@ -529,7 +672,7 @@ resolveStyleState(styleResult: unknown, isPoint: boolean = false) -> U3dVectorPB
         배열이면 앞에서부터 fill 또는 stroke 를 가진 첫 스타일을 사용한다.
         fillColor 또는 strokeColor 속성이 있는 객체는 기반 클래스 규격으로 보고 그대로 반환한다.
         면·선은 스타일의 `getFill()`/`fill_`, `getStroke()`/`stroke_` 를 읽는다.
-        점은 `getImage()`/`image_` 가 fill/stroke 를 가진 이미지(ol.style.Circle 등)이면 그 fill/stroke 와 `getRadius()` 를, 아니면 `getText()`/`text_` 의 fill/stroke 를 읽는다. Icon 처럼 fill/stroke 가 없는 이미지만 있으면 다음 스타일로 넘어간다.
+        isPoint가 true이면 getFill 함수가 있는 image를 먼저, 없으면 같은 함수를 가진 text를 색 출처로 고른다. 선택되면 getFill·getStroke로 앞서 읽은 색 출처를 덮어쓰고 image의 getRadius가 함수이면 반경도 읽는다. 둘 다 선택되지 않으면 원래 style의 fill·stroke를 유지한다.
         fill 이 없으면 fillOpacity 0, stroke 가 없으면 strokeOpacity 0 과 strokeWidth 0 으로 두어 해당 요소를 그리지 않게 한다.
         ol 스타일 함수는 fill·stroke 객체를 재사용하며 색을 바꾸므로 값은 호출 직후 즉시 복사한다.
 
@@ -538,7 +681,7 @@ resolveStyleState(styleResult: unknown, isPoint: boolean = false) -> U3dVectorPB
 
     동작:
         반환값을 배열로 정규화해 순회하며 기반 클래스 규격 객체는 즉시 반환한다.
-        면·선은 스타일의 fill·stroke, 점은 image 또는 text 의 fill·stroke 를 색 출처로 정한다.
+        style의 fill·stroke를 읽는다. isPoint가 true이면 image 또는 text를 위 우선순위로 선택해 색 출처를 덮어쓰며 선택할 수 없으면 원래 값을 유지한다.
         색을 문자열로 정규화하고 둘 다 없으면 다음 스타일로 넘어간다.
         색이 있는 첫 스타일로 없는 요소의 opacity·두께를 0 으로 채운 스타일 상태 객체(점은 pointRadiusPx 포함)를 반환하고, 끝까지 없으면 undefined 를 반환한다.
 
@@ -547,7 +690,7 @@ U3dVectorPBFLayerCO_Content 타입 정의
         baseUrl?: string
             PBF 타일 URL 템플릿이며 기반 옵션이지만 이 레이어에서는 필수다.
         realMaxLevel?: number
-            서버가 실제 제공하는 최대 레벨이며 생략하면 maxLevel 을 사용한다.
+            서버가 실제 제공하는 최대 레벨이며 생략하면 metadata의 maxzoom으로 보완하고, 유효한 값이 없으면 maxLevel을 사용한다.
         featureCacheSize?: number = 200
             소스 피처 LRU 캐시 크기(타일 개수)
         styleFunction?: U3dVectorPBFStyleFunction
@@ -564,6 +707,8 @@ U3dVectorPBFLayerCO_Content 타입 정의
             Point 피처를 원으로 그릴지 여부
         pointRadius?: number = 10
             Point 원의 기본 반경(3857 단위)
+        needJson?: boolean = true
+            metadata.json으로 레벨·영역을 보완한다. minzoom은 하한을 높일 때만, maxzoom은 realMaxLevel 미지정 시, bounds는 영역 미지정 시 반영한다. 읽는 동안 타일 요청을 보류하고 실패하면 생성자 옵션으로 계속한다.
 
 U3dVectorPBFLayerCO extends U2dVectorShaderLayerCO 부분 타입 명세
     이 명세에서 사용하는 필드:
@@ -621,6 +766,10 @@ U3dVectorPBFDecodeResult 타입 정의
         요청 URL
 
 U3dVectorPBFSourceFeature 타입 정의
+    stableFeatureId?: string | number
+        조각 분할 전 원본 ID이며 원본 ID가 없는 피처에는 순번을 대신 넣지 않는다.
+    sourceLayer?: string
+        원본 MVT 레이어 이름이다.
     id: string
         소스 타일 안에서 고유한 id. `MVT레이어명:원본ID` 또는 `MVT레이어명:i순번` 에 조각 접미어가 붙는다.
     mvtType: string
@@ -629,6 +778,8 @@ U3dVectorPBFSourceFeature 타입 정의
         기반 클래스가 처리하는 타입 `MultiPolygon` | `MultiLineString` | `Point`
     coordinates: Array<number> | Triple_Array<number> | Array<Triple_Array<number>>
         GeoJSON 형태 3857 좌표 (`[x, y]`, `[[외곽, 홀...]]` 또는 `[line]`)
+    _flatCoordinates?: Array<Float64Array>
+        Worker의 공유 버퍼를 유지하는 월드 좌표 파트·ring 뷰다. 있는 경우 표시 피처의 좌표 복원에 우선 사용한다.
     properties: KeyValue
         MVT 속성이며 `layer` 키에 레이어 이름이 있다. 같은 MVT 피처에서 나뉜 조각들이 공유한다.
     lodPriority?: number
@@ -637,10 +788,18 @@ U3dVectorPBFSourceFeature 타입 정의
         `[minx, miny, maxx, maxy]` 3857 경계. 점은 점 자체, 폴리곤은 coverage 의 ring 을 합친 값, 라인은 파트 단위다.
     strokeSuppressed?: boolean
         자르기 변이 섞여 외곽선을 별도 선 피처가 대신 그리는 면이면 true
+    terrainPolygonOutline?: boolean
+        폴리곤에서 분리된 외곽선으로 원본 좌표 유지에 사용하는 표식이다.
     lodGroupKey?: string
         LOD 선별에서 함께 남거나 함께 빠져야 하는 묶음 이름. 자르기 변이 있는 면과 그 외곽선 선 피처가 같은 값을 갖는다.
 
 U3dVectorPBFTileFeature 타입 정의
+    _vectorSourceId?: string | number
+        타일 키·표시 조각과 독립된 원본 ID이다.
+    _vectorSourceLayer?: string
+        원본 MVT 레이어 이름이다.
+    terrainPolygonOutline?: boolean
+        폴리곤에서 분리된 외곽선이라는 표식이다.
     id: string
         `타일키:소스피처id`
     compositionFeatureId: string

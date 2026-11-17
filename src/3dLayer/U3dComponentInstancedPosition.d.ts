@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -98,27 +98,71 @@ declare class U3dComponentInstancedPosition extends U3dComponentPosition {
      * @param {U3dComponentInstancedPositionCO} [opt={}] 생성 옵션
      */
     constructor(opt?: U3dComponentInstancedPositionCO);
-    /** mixer 활성 여부를 조회하는 선택 callback입니다. @type {undefined | function(): boolean} */
+    /**
+     * mixer 활성 여부를 조회하는 선택 callback입니다.
+     *
+     * @type {undefined | function(): boolean}
+     */
     isMixerEnabled: undefined | (() => boolean);
-    /** 한 인스턴스 그룹이 사용하는 최대 ID 범위입니다. @type {number} */
+    /**
+     * 한 인스턴스 그룹이 사용하는 최대 ID 범위입니다.
+     *
+     * @type {number}
+     */
     _instancedMaxCount: number;
-    /** 현재 인스턴스가 속한 그룹 번호입니다. @type {number | undefined} */
+    /**
+     * 현재 인스턴스가 속한 그룹 번호입니다.
+     *
+     * @type {number | undefined}
+     */
     groupIndex: number | undefined;
-    /** 현재 인스턴스의 변환과 가시성 정보입니다. @type {InstancedTRSInfo | undefined} */
+    /**
+     * 현재 인스턴스의 변환과 가시성 정보입니다.
+     *
+     * @type {InstancedTRSInfo | undefined}
+     */
     instancedInfo: InstancedTRSInfo | undefined;
-    /** 현재 인스턴스가 속한 공유 렌더 그룹입니다. @type {import('three').Group | undefined} */
+    /**
+     * 현재 인스턴스가 속한 공유 렌더 그룹입니다.
+     *
+     * @type {import('three').Group | undefined}
+     */
     instancedGroup: three.Group | undefined;
-    /** 중복을 제거한 애니메이션 식별자 목록입니다. @type {Array<string | number>} */
+    /**
+     * 중복을 제거한 애니메이션 식별자 목록입니다.
+     *
+     * @type {Array<string | number>}
+     */
     _animateList: Array<string | number>;
-    /** tween 갱신 FPS 설정값입니다. @type {number} */
+    /**
+     * tween 갱신 FPS 설정값입니다.
+     *
+     * @type {number}
+     */
     tweenFps: number;
-    /** 인스턴스 애니메이션 시작 시점을 분산하는 난수 오프셋입니다. @type {number} */
+    /**
+     * 인스턴스 애니메이션 시작 시점을 분산하는 난수 오프셋입니다.
+     *
+     * @type {number}
+     */
     offset: number;
-    /** 각 공유 mesh에서 현재 ID에 해당하는 entity 목록입니다. @type {Array<InstancedMeshInstance> | undefined} */
+    /**
+     * 각 공유 mesh에서 현재 ID에 해당하는 entity 목록입니다.
+     *
+     * @type {Array<InstancedMeshInstance> | undefined}
+     */
     instances: Array<InstancedMeshInstance> | undefined;
-    /** 현재 frustum callback에서 mixer 갱신 대상으로 선택되었는지 나타냅니다. @type {boolean} */
+    /**
+     * 현재 frustum callback에서 mixer 갱신 대상으로 선택되었는지 나타냅니다.
+     *
+     * @type {boolean}
+     */
     _updateMixer: boolean;
-    /** 우선 반환할 원본 모델 참조입니다. @type {import('three').Object3D | undefined} */
+    /**
+     * 우선 반환할 원본 모델 참조입니다.
+     *
+     * @type {import('three').Object3D | undefined}
+     */
     _rootObject: three.Object3D | undefined;
     _setInstanced: any;
     instanceId: any;

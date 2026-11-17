@@ -71,12 +71,12 @@ U3dModelLayer extends U3dLayer 클래스 정의
 
     override refresh() -> void
         의존:
-            U3dLayer — 부모 갱신과 drawArg; 함수: {super.refresh()}; 속성 읽기: {_drawArg}
+            U3dLayer — 부모 갱신과 수명·drawArg; 함수: {super.refresh()}; 속성 읽기: {_drawArg, _disposed}
             UCache(drawArg._cacheModelTiles) — 모델 타일 열거; 함수: {items()}
             defined — drawArg 판정; 함수: {defined()}
         동작:
-            부모 갱신 후 drawArg가 없으면 종료한다.
-            모델 타일마다 createModel 결과를 확인한다. Promise이면 성공 후 장면에 추가하고, 동기 true이면 즉시 추가한다. 그 외 결과는 추가하지 않으며 실패를 잡지 않는다.
+            부모 갱신 후 _drawArg가 defined인 경우에만 모델 타일을 순회하며, 아니면 종료한다.
+                타일마다 createModel 결과를 확인한다. Promise이면 완료값이 false가 아니고 레이어·타일이 해제되지 않았을 때 장면에 추가한다. 동기 true이면 즉시 추가한다. 비동기 실패와 장면 반영 예외는 유효 대상일 때 오류로 기록한다.
 
     override __testStateTile() -> boolean
         의존:
@@ -96,7 +96,7 @@ U3dModelLayer extends U3dLayer 클래스 정의
             defined — 자원 존재 판정; 함수: {defined()}
         동작:
             _cacheTiles가 UCache이면 비우고 나머지 두 모델 캐시는 무조건 비운다.
-            기반 캐시가 있으면 현재 레이어를 receiver로 그룹 삭제 콜백을 전달한다.
+            _cache가 defined이면 현재 레이어를 receiver로 그룹 삭제 콜백을 전달한다.
             _labelGroup이 정의되면 clear 후 _labelGroup을 undefined로 바꾼다.
             부모 dispose를 호출한 뒤 _disposed=true로 설정하고 부모 Promise를 그대로 반환한다.
 
@@ -113,15 +113,15 @@ U3dModelLayer extends U3dLayer 클래스 정의
 
     addWork(work: U3dQuadTileWork) -> void
         의존: defined — 처리기 존재 판정; 함수: {defined()}
-        동작: 첫 처리기가 있으면 작업을 등록하고 helper 반환값은 버린다.
+        동작: 첫 처리기 _workProcess가 defined이면 작업을 등록하고 helper 반환값은 버린다.
 
     addWork2(work: U3dQuadTileWork) -> void
         의존: defined — 처리기 존재 판정; 함수: {defined()}
-        동작: 둘째 처리기가 있으면 작업을 등록하고 helper 반환값은 버린다.
+        동작: 둘째 처리기 _workProcess2가 defined이면 작업을 등록하고 helper 반환값은 버린다.
 
     addWork3(work: U3dQuadTileWork) -> void
         의존: defined — 처리기 존재 판정; 함수: {defined()}
-        동작: 셋째 처리기가 있으면 작업을 등록하고 helper 반환값은 버린다.
+        동작: 셋째 처리기 _workProcess3가 defined이면 작업을 등록하고 helper 반환값은 버린다.
 
     override process(curTime: number) -> number
         의존: U3dLayer — 기반 작업 처리; 함수: {super.process()}
@@ -172,28 +172,24 @@ U3dModelLayer extends U3dLayer 클래스 정의
         의존: defined — 목록·검색 결과 판정; 함수: {defined()}
         동작:
             removedList가 없거나 비면 false를 반환한다.
-            각 값과 uid를 대문자로 비교해 첫 일치 원본 문자열을 찾으며 없으면 false를 반환한다.
+            각 값과 uid를 대소문자를 보존한 ===로 비교해 첫 일치 문자열을 찾으며 없으면 false를 반환한다.
             그 문자열의 index가 -1보다 크면 정확히 같은 원본 문자열들을 제외한 새 배열로 removedList를 교체하고 true를 반환한다. 그 외에는 false다.
 
     removeModelByUid(uid: string) -> void
         의존:
             USharedMesh — 공유 모델 제외; 상속: {USharedMesh}
             ModelMesh — 모델 식별·병합 판정; 함수: {getUid(), isMerged()}; 속성 읽기: {_disposed}; 속성 쓰기: {_sleeping, visible}
-            UDEF — 분리 모델 표시와 포맷; 상수: {U3F_DETACHED_TOKEN}
-            U3dLayer — 앱·장면; 함수: {getScene()}; 속성 읽기: {_app}
-            U3dApp — 좌표 변환·교차 검색; 함수: {getGoogleToGeographic(), intersectModelAtGeographicPoint()}
             defined — 대상 판정; 함수: {defined()}
         동작:
-            ID로 모델을 찾고 USharedMesh이면 종료한다. 대상이 있되 이미 해제됐으면 종료하며, 아니면 자원을 해제하지 않고 휴면·숨김으로 바꾼다.
-            self.getModelById(uid)._disposed가 falsy(false·undefined 등)인 기존 대상에서 isMerged가 있고 false이면 편집 정보를 조회한다.
-            편집 정보의 split 원본을 삭제 목록에 추가하고, 편집 정보가 있으면 대상 ID에 분리 표시를 붙인다. 삭제 필터는 대상 미검색 경로와 최종 ID 등록에서도 사용한다.
-            isMerged가 있고 true이면 분리 처리를 실행하고 원본 ID를 목록에 추가한 뒤 대상 ID에 분리 표시를 붙인다.
-            대상이 없으면 ID의 앞 두 밑줄 조각을 숫자로 해석한다. 앱이 없으면 종료하며 변환 좌표가 있으면 장면 교차 결과 중 병합 모델을 분리한다.
-            대상이 없는 경로에서 확장자가 정확히 .u3f이면 분리 표시를 붙인다. 마지막 ID가 목록에 없을 때 추가한다.
+            ID로 모델 object를 찾고 USharedMesh이면 종료한다. 대상이 있되 이미 해제됐으면 종료하며, 아니면 자원을 해제하지 않고 휴면·숨김으로 바꾼다.
+            object._disposed가 falsy(false·undefined 등)인 기존 대상에서 isMerged가 있고 false이면 편집 정보를 조회한다.
+            편집 정보와 editData가 정의되고 split 원본 ID가 truthy이며 삭제 목록에 없으면 그 원본 ID를 추가한다.
+            object._disposed가 falsy인 기존 대상에서 isMerged가 있고 true이면 분리 처리를 실행하고 원본 ID가 목록에 없을 때 추가한다.
+            입력 ID가 목록에 없으면 마지막에 그대로 추가한다. 각 경로의 삭제 목록 포함 여부는 같은 필터로 검사한다. 대상을 찾지 못해도 같은 ID를 저장하며, 좌표 추정이나 분리 접미사 변환은 하지 않는다.
 
     refreshTileFromModel(id: string) -> void
         의존:
-            U3dLayer — drawArg·캐시·편집 작업·종류; 속성 읽기: {_drawArg, _cache, _editWorkBuffer, _classtype}
+            U3dLayer — drawArg·캐시·편집 작업·종류·수명; 속성 읽기: {_drawArg, _cache, _editWorkBuffer, _classtype, _disposed}
             UDrawArg — 타일 조회·갱신; 함수: {getTile(), setUpdateDate()}
             U3dQuadTile — 타일 키; 함수: {getKey()}
             UDEF — 모델 타일 종류; 상수: {TILE_TYPE.MODEL}
@@ -203,19 +199,21 @@ U3dModelLayer extends U3dLayer 클래스 정의
             defined — 준비 상태 판정; 함수: {defined()}
         동작:
             편집 정보·이동 전후 타일·drawArg 중 필요한 값이 없으면 종료한다. 양쪽 키로 타일을 조회하며 이동 후 키가 없을 때만 원본 타일을 대체로 쓴다.
-            이동 후 타일과 캐시가 있으면 그룹이 없을 때 그룹을 만들고 그 자식에서 ID를 검색한다. 그룹이 이미 있는 경우에는 이 검색을 하지 않는다.
-            검색 결과가 없으면 편집 메시의 _tile을 _opt._tile로 바꾸고 그룹에 추가한다. 이동 후 키와 원본 키의 타일을 차례로 해제한다.
-            이동 후 타일의 편집 작업 중 대소문자 무시 ID가 일치하는 항목을 제거하고 빈 버킷을 삭제한다.
-            split이 undefined이면 편집 목록과 사전에서 제거하고, 아니면 editData를 split만 가진 객체로 바꾸고 mode를 undefined로 둔다.
-            분리 모델의 유휴 상태를 확인한다.
-            두 타일이 모두 있으면 WFS 종류에서는 createModel, 그 외에서는 createModelByFrustum으로 이동 후·원본 순서로 재생성하고 drawArg 갱신일을 변경한다.
+            _drawArg가 defined이면 위에서 확인한 유효 편집 경로의 다음 처리를 계속한다.
+                _drawArg가 defined인 위 유효 편집 경로에서 이동 후 타일과 캐시가 있으면 그룹이 없을 때 그룹을 만들고 그 자식의 id.equalIgnoreCase(id)로 검색한다. 그룹이 이미 있는 경우에는 이 검색을 하지 않는다. [확인 Q-003]
+                검색 결과가 없으면 편집 메시의 _tile을 _opt._tile로 바꾸고 그룹에 추가한다. 이동 후 키와 원본 키의 타일을 차례로 해제한다.
+                이동 후 타일의 편집 작업 중 대소문자 무시 ID가 일치하는 항목을 제거하고 빈 버킷을 삭제한다.
+                split이 undefined이면 편집 목록과 사전에서 제거하고, 아니면 editData를 split만 가진 객체로 바꾸고 mode를 undefined로 둔다.
+                분리 모델의 유휴 상태를 확인한다.
+                두 타일이 모두 있으면 WFS 종류에서는 createModel, 그 외에서는 createModelByFrustum으로 이동 후·원본 순서로 재생성하고 drawArg 갱신일을 변경한다.
+                WFS 재요청의 반환 Promise는 기다리지 않되 실패를 관찰하여 해제되지 않은 대상의 오류를 기록한다.
 
     removeEditModelAll() -> void
         의존:
             U3dLayer — 편집 작업과 앱; 속성 쓰기: {_editWorkBuffer}; 속성 읽기: {_app}
-            U3dApp — 타일 트리 재시작; 함수: {restartQuadTree()}
+            U3dApp — 모델 타일 트리 재시작; 함수: {restartModelQuadTree()}
             defined — 앱 판정; 함수: {defined()}
-        동작: 편집·삭제 목록과 편집 사전·작업 버퍼를 새 빈 컬렉션으로 교체하고 앱이 있으면 쿼드트리를 재시작한다.
+        동작: 편집·삭제 목록과 편집 사전·작업 버퍼를 새 빈 컬렉션으로 교체하고 앱이 있으면 모델 쿼드트리를 재시작한다.
 
     removeFilter(featureId: string) -> boolean
         의존: defined — ID 판정; 함수: {defined()}
@@ -227,10 +225,11 @@ U3dModelLayer extends U3dLayer 클래스 정의
 
     addFaceIndexInfo(object: ModelMesh, info: FaceIndexInfo, faceIndex: number) -> EditedEvent | undefined
         의존:
-            ModelMesh — 대상 ID·재질; 함수: {getUid()}; 속성 읽기: {id, material}
+            UMesh — 재로딩 데이터의 puid 또는 일반 객체 uuid 선택; 정적 함수: {_getObjectId()}
+            ModelMesh — 대상 재질; 속성 읽기: {material}
             defined — 입력·편집 정보 판정; 함수: {defined()}
         동작:
-            info 또는 faceIndex가 정의되지 않으면 종료한다. 모델 ID는 getUid가 있으면 그 결과, 아니면 object.id를 사용한다.
+            info 또는 faceIndex가 정의되지 않으면 종료한다. UMesh._getObjectId로 모델 ID를 얻고 ID가 정의되지 않으면 종료한다. faceIndex 0은 유효하다.
             편집 목록에 없는 ID를 추가한다.
             composedInfo.id, materialIndex, tileMaxKey를 가진 splitInfo를 만들고 편집 이벤트의 materialSplit Map에 faceIndex로 넣는다. 기존 이벤트가 없으면 새 이벤트를 만든다.
             object.material이 배열이고 composedInfo.id가 정의되면 자식 ID의 편집 이벤트도 등록·갱신하여 materialColor에 부모 ID, 재질 번호, start·count·타일 키를 보관한다.
@@ -238,24 +237,22 @@ U3dModelLayer extends U3dLayer 클래스 정의
 
     cancelRemoveByUid(uid: string) -> void
         의존:
-            UDEF — 분리 모델 표시; 상수: {U3F_DETACHED_TOKEN}
             ModelMesh — 복원 대상 상태·스타일; 속성 읽기: {_disposed, userData.styleinfo.visible}; 속성 쓰기: {visible}
             U3dLayer — 레이어 표시 상태; 함수: {getVisible()}
             defined — 값·함수 존재 판정; 함수: {defined()}
         동작:
-            removedList에서 문자열에 uid를 포함하는 값들을 찾는다. 있으면 각 값을 현재 목록에서 splice로 제거한다.
-            분리 표시가 있으면 첫 표시를 제거한 ID로 비병합 모델을 찾아 일단 숨긴다. 편집 정보에 split이 있으면 원본 ID도 목록에서 한 번 제거한다.
+            removedList에서 uid와 ===로 일치하는 값들을 찾는다. 없으면 아무 변경 없이 끝나며, 있으면 각 값을 현재 목록에서 splice로 제거한다.
+            편집 정보에 split이 있으면 원본 ID도 목록에서 한 번 제거한다.
             각 ID의 모델이 해제되지 않았고 진행 중 분리 표식이 없으면 휴면을 해제한다. userData.styleinfo.visible이 정의되면 그 truthy 결과로, 아니면 레이어 가시성으로 표시한다.
+            각 ID의 대상 조회는 getModelById를 사용한다. 자식별 콜백 안에서는 분리 유휴 상태를 확인하지 않는다.
             처리 후 checkDivisionMeshIdle 참조를 defined에 전달해 존재를 판정하고 정의되면 호출하고 종료한다.
-            포함 결과가 없으면 정확히 같은 값을 다시 찾아 없을 때 종료한다. 남은 복원 경로에서도 같은 해제·요청·스타일 조건을 적용한 뒤 목록에서 첫 결과를 제거한다.
 
     cancelRemoveAll() -> void
         의존:
-            UDEF — 분리 표시 제거; 상수: {U3F_DETACHED_TOKEN}
             ModelMesh — 해제 상태·가시성; 속성 읽기: {_disposed}; 속성 쓰기: {visible}
             defined — 모델 판정; 함수: {defined()}
         동작:
-            삭제 ID의 첫 분리 표시를 제거해 모델을 찾고 해제되지 않았으며 진행 중 분리 표식이 없으면 휴면을 해제하고 무조건 표시한다.
+            삭제 ID 그대로 모델을 찾고 해제되지 않았으며 진행 중 분리 표식이 없으면 휴면을 해제하고 무조건 표시한다.
             removedList를 새 빈 배열로 교체하고 분리 모델의 유휴 상태를 확인한다.
 
     getRemovedUidList() -> Array<string>
@@ -271,7 +268,8 @@ U3dModelLayer extends U3dLayer 클래스 정의
             U3dQuadTile — 타일 drawArg; 속성 읽기: {_drawArg}
             UCache — 키 생성; 함수: {createKeyByTile()}
             defined — 준비 상태 판정; 함수: {defined()}
-        동작: 타일 또는 양쪽 drawArg가 없으면 종료하며, 타일이 해제 대상으로 판정되고 캐시가 있을 때만 캐시 키를 생성해 해제한다.
+        동작: tile이 defined이고 타일과 레이어의 drawArg가 모두 정의된 경우에만 해제 대상을 판정하며, 아니면 종료한다.
+            해제 대상으로 판정되고 _cache가 defined일 때만 캐시 키를 생성해 해제한다.
 
     deleteMesh(mesh: Object3D) -> void
         의존:
@@ -283,7 +281,7 @@ U3dModelLayer extends U3dLayer 클래스 정의
             defined — 자원 판정; 함수: {defined()}
         동작:
             mesh가 없으면 종료한다. 라벨이 있으면 해제·그룹 분리 후 라벨 참조를 undefined로 바꾼다.
-            자식 목록의 복사본을 재귀적으로 삭제한 뒤 mesh.clear를 실행한다.
+            mesh가 defined이고 mesh.children도 defined일 때 자식 목록의 복사본을 재귀적으로 삭제한 뒤 mesh.clear를 실행한다.
             createModelMesh가 정의되어 있으면 편집 split ID를 조회한다. 원본이 삭제 목록에 없으면 removeDivisionMeshes를 실행하고 성공 시 원본 삭제 ID를 제거한다.
             레이어의 _sharedMaterial과 같은 재질 참조이면 mesh.material을 undefined로 바꾼 뒤 UDEF.disposeObject3D로 모델 자체를 해제한다.
 
@@ -294,7 +292,7 @@ U3dModelLayer extends U3dLayer 클래스 정의
             UGroup — 그룹 분리; 함수: {remove()}
             THREE — 해제 가능한 객체 종류; 상속: {THREE.Group, THREE.Mesh}
             defined — 대상 판정; 함수: {defined()}
-        동작: object가 없으면 종료하고 그룹에서 제거한 뒤 Group 또는 Mesh인 경우에만 모델 삭제를 실행한다.
+        동작: object가 defined인 경우 그룹에서 제거한 뒤 Group 또는 Mesh인 경우에만 모델 삭제를 실행한다. object가 정의되지 않으면 종료한다.
 
     override getTileFromScene(tile: U3dQuadTile) -> Object3D | undefined
         의존:
@@ -344,7 +342,8 @@ U3dModelLayer extends U3dLayer 클래스 정의
             defined — 입력 상태 판정; 함수: {defined()}
         동작:
             tile._drawArg와 앱을 먼저 확인한다. 따라서 tile 자체가 nullish이면 보호 분기 전에 예외가 발생한다. [확인 Q-001]
-            타일 폐기, 레이어 visible===false, 타일 메시 부재 판정을 순서대로 검사한다.
+            tile이 defined일 때 타일 폐기 여부를 검사한다. tile 미정의 또는 폐기이면 거부한다.
+            이어서 레이어 visible===false, 타일 메시 부재 판정을 순서대로 검사한다.
             부모가 있으나 갱신 불가이거나 레이어 영역과 교차하지 않으면 거부한다.
             모두 통과하면 true이며 거부 경로에서는 타일 상태를 초기화하고 false를 반환한다. 이 구현 자체는 Promise를 만들지 않는다.
 
@@ -355,7 +354,8 @@ U3dModelLayer extends U3dLayer 클래스 정의
             defined — 입력 상태 판정; 함수: {defined()}
         동작:
             tile._drawArg와 앱을 tile 자체 판정보다 먼저 읽는다. [확인 Q-001]
-            drawArg·force 인수는 사용하지 않고 타일 drawArg를 사용한다. 앱 부재, 타일 폐기, 부모 갱신 불가, 메시 부재, visible===false 순서로 false를 반환한다.
+            drawArg·force 인수는 사용하지 않고 타일 drawArg를 사용한다. 앱이 없으면 false이며 tile이 defined일 때 폐기 여부를 검사한다. tile 미정의 또는 폐기이면 false다.
+            이후 부모 갱신 불가, 메시 부재, visible===false 순서로 false를 반환한다.
             CRS가 EPSG:3857이 아니거나 레벨이 min보다 작거나 max보다 크거나 영역이 교차하지 않으면 false이며 그 외 true다. 실제 프러스텀 박스 검사는 하지 않는다.
 
     disposeTileModelAll(drawArg?: UDrawArg) -> void
@@ -417,7 +417,7 @@ U3dModelLayer extends U3dLayer 클래스 정의
         동작:
             drawArg가 없으면 종료한다. 공유 _curTime이 없거나 _curTime<_updatedTime일 때만 이하를 실행한다.
             _curTime을 현재 시각으로 갱신하고 _updatedTime이 없으면 같은 값으로 초기화한다.
-            모델 정지 모드이고 최대 거리가 정의되면 거리 밖 타일을 정리한다.
+            drawArg가 defined인 위 실행 경로에서 모델 정지 모드이고 최대 거리가 정의되면 거리 밖 타일을 정리한다.
             부모 update를 실행한 뒤 _updatedTime=_curTime+1로 설정한다.
 
     override change(drawArg: UDrawArg) -> void
@@ -440,31 +440,34 @@ U3dModelLayer extends U3dLayer 클래스 정의
             Vector3 — 변환된 중심 보상; 함수: {addVectors(), divideScalar(), clone(), multiply(), applyQuaternion(), add()}
             defined — 입력 판정; 함수: {defined()}
         동작:
-            geometry가 없으면 종료한다. userData.centerGoogle이 있으면 drawArg 없을 때 종료하며 지리 좌표 변환 결과가 있으면 월드 좌표를 기존 position에 더하고 경계 계산 후 종료한다.
-            그 외에는 geometry 경계의 중심을 공용 centroid에 계산하고 geometry.center로 정점을 이동한다.
-            중심을 mesh.scale과 quaternion으로 변환한 보상 벡터를 position에 더해 기존 객체 변환 결과를 보존한다.
+            mesh.geometry가 defined이면 이하를 진행하며, 아니면 종료한다.
+                userData.centerGoogle이 defined이면 _drawArg를 확인한다. _drawArg가 정의되지 않으면 종료하고, defined이면 지리 좌표를 변환한다.
+                    지리 좌표 변환 결과가 정의되면 월드 좌표를 기존 position에 더하고 geometry 경계를 계산한 뒤 종료한다.
+                위 경로에서 종료되지 않았으면 geometry 경계를 계산하여 중심을 공용 centroid에 저장하고 geometry.center로 정점을 이동한다.
+                중심을 mesh.scale과 quaternion으로 변환한 보상 벡터를 position에 더해 기존 객체 변환 결과를 보존한다.
 
     editedModel(mesh: ModelMesh, editedEvent: EditedEvent) -> boolean | void
         의존:
-            ModelMesh — 모델 식별; 함수: {getUid()}; 속성 읽기: {userData.id}
+            UMesh — 재로딩 데이터의 puid 또는 일반 객체 uuid 선택; 정적 함수: {_getObjectId()}
             defined — 입력·이력 판정; 함수: {defined()}
         동작:
-            mesh가 없으면 종료한다. getUid가 정의되어 있으면 그 결과, 아니면 userData.id를 쓰며 그 값도 없으면 editedEvent.id를 사용한다.
-            목록에 없고 이벤트가 정의되면 ID를 추가하고 이전 이벤트를 조회한다.
-            이전 이벤트가 있으면 Object.assign으로 이전 editData 원본을 변경하고 새 이벤트.editData에 같은 참조를 넣는다.
-            사전에 입력 이벤트 자체를 저장하고 mesh와 _isAdd=false를 기록한다. 다시 조회 가능하면 true이며 false를 반환하는 경로는 없다.
+            mesh가 defined이고 UMesh._getObjectId로 얻은 ID도 defined인 경우에만 이하 처리를 진행하며, 아니면 종료한다. userData.id나 입력 이벤트의 ID를 대체 키로 사용하지 않는다.
+                목록에 없고 이벤트가 정의되면 ID를 추가하고 이전 이벤트를 조회한다.
+                이전 이벤트가 있으면 Object.assign으로 이전 editData 원본을 변경하고 새 이벤트.editData에 같은 참조를 넣는다.
+                사전에 입력 이벤트 자체를 저장하고 mesh와 _isAdd=false를 기록한다. 다시 조회 가능하면 true이며 false를 반환하는 경로는 없다.
 
     getModelById(id: string, isMerged?: boolean) -> ModelMesh | undefined
         의존:
             U3dLayer — 모델 장면; 속성 읽기: {_scene}
             THREE — 메시 판정; 상속: {THREE.Mesh}
             Object3D — 장면 순회; 함수: {traverse()}
-            ModelMesh — ID·병합 속성; 함수: {getUid(), isMerged()}; 속성 읽기: {userData.oid}
+            UMesh — 재로딩 데이터의 puid 또는 일반 객체 uuid 선택; 정적 함수: {_getObjectId()}
+            ModelMesh — 병합 판정; 함수: {isMerged()}
             defined — 선택값·ID 판정; 함수: {defined()}
         동작:
             isMerged가 정의되지 않으면 true로 설정한다. 장면을 순회하며 찾은 뒤의 객체 처리는 생략한다.
-            Mesh 중 getUid 결과가 정의되고 문자열 ID가 정확히 일치할 때 선택한다. isMerged가 truthy이면 병합 여부를 제한하지 않으며 false이면 isMerged 메서드 결과도 false여야 한다.
-            userData.oid가 있으면 쉼표로 나눈 옛 ID도 확인한다. id.split이 Function 인스턴스일 때만 입력의 첫 밑줄 조각과 비교하며 같은 병합 조건을 적용한다.
+            Mesh 중 UMesh._getObjectId 결과가 정의되고 입력 id와 ===로 일치할 때 선택한다. isMerged가 truthy이면 병합 여부를 제한하지 않으며 false이면 isMerged 메서드 결과도 false여야 한다.
+            userData.oid는 원본 데이터 속성이며 이 조회의 보조 키로 사용하지 않는다.
             선택한 메시 참조 또는 undefined를 반환한다.
 
     setEmissiveColor(r: number, g: number, b: number) -> boolean
@@ -502,9 +505,9 @@ U3dModelLayer extends U3dLayer 클래스 정의
             재질 배열이면 모든 항목의 wireframe과 needsUpdate를 설정하고 단일 재질이면 정의되어 있고 값이 다를 때만 설정한다.
             입력이 truthy이면 _setWireframe에 입력을 저장하고 그 외에는 undefined로 둔다.
 
-    setTileFromEditedModel(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg) -> Promise<U3dQuadTile>
+    setTileFromEditedModel(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg) -> Promise<U3dQuadTile | undefined>
         의존:
-            deferred — 완료 객체; 함수: {deferred()}
+            deferredPromise — 완료 객체; 함수: {deferredPromise()}
             UDrawArg — 편집 위치의 타일 검색; 함수: {getLevelTileFromWorld()}
             ModelMesh — 모델 ID·소속 타일; 함수: {getUid()}; 속성 읽기: {_tile, _preTile}; 속성 쓰기: {_preTile}
             defined — 타일 판정; 함수: {defined()}
@@ -512,7 +515,7 @@ U3dModelLayer extends U3dLayer 클래스 정의
             모델 위치와 기존 타일 레벨로 새 타일을 검색한다. layer 인수는 사용하지 않는다.
             검색 타일이 있으면 기존 _preTile이 정의되고 키가 다를 때 새 키로 바꾸며, _preTile이 없으면 기존 _tile의 키를 먼저 저장한다.
             해당 편집 이벤트의 _oriTile과 _afterTile을 기존 타일로 설정한다. 검색 결과가 있으면 _afterTile을 검색 타일로 바꾸고, 여전히 _preTile이 없으면 기존 키를 넣는다.
-            검색 타일 또는 기존 타일로 deferred를 즉시 resolve하고 반환한다. 필요한 기존 타일·편집 이벤트가 없을 때의 예외를 잡지 않는다.
+            검색 타일 또는 기존 타일로 내부 완료 객체를 즉시 resolve하고 표준 Promise를 반환한다. 후속 then은 마이크로태스크에서 실행되며 필요한 기존 타일·편집 이벤트가 없을 때의 동기 예외를 잡지 않는다.
 
     getEditedEventById(id: string) -> EditedEvent | undefined
         의존: defined — ID·이벤트 판정; 함수: {defined()}
@@ -526,9 +529,7 @@ U3dModelLayer extends U3dLayer 클래스 정의
             Material — 편집용 재질 복제; 함수: {clone()}
             Texture — 교체·미사용 텍스처 해제; 함수: {dispose()}
             U3dLayer — 레이어 상태·drawArg; 속성 읽기: {_disposed, _drawArg}
-            UDEF — 분리 표시; 상수: {U3F_DETACHED_TOKEN}
             afterFunction — 완료 콜백; 콜백: {afterFunction()}
-            DeferredObject(loadTexturePromise) — 텍스처 완료·실패 콜백 등록; 함수: {then(), catch()}
             __GInfo__ — 텍스처 실패 기록; 함수: {__GInfo__()}
             defined — 입력·편집 상태 판정; 함수: {defined()}
         동작:
@@ -543,12 +544,16 @@ U3dModelLayer extends U3dLayer 클래스 정의
             자식마다 현재 요청·미해제·비휴면을 재확인한다. 단일 재질의 _oriMap이 정의되면 map을 비우고 URL 최종 인덱스를 레벨로 설정한다.
             그 외에는 재질별 기존 map을 해제하고 원본 재질의 truthy _oriColor·_oriOpacity를 전달한다. 배열의 barrierMaterial은 건너뛰며 나머지 재질은 받은 texture를 공유한다.
             _exceptTexture가 정의되어 있으면 false라도 map을 _oriMap에 보관할 수 있으며 map을 비운다. 재질 needsUpdate를 켜고 이 경로의 자식 레벨을 앞서 선택한 레벨로 설정한다.
-            분리 표시 ID가 삭제 목록에 없고 자식이 미해제·비휴면이면 표시한다. 부모가 합성 메시이면 다시 숨긴다. afterFunction과 drawArg가 있으면 콜백을 실행한다.
+            자식 자체 ID가 삭제 목록에 없고 자식이 미해제·비휴면이면 표시한다. 부모가 합성 메시이면 다시 숨긴다. afterFunction과 drawArg가 있으면 콜백을 실행한다.
             자식 목록을 예외 없이 처리한 뒤에도 현재 요청이면 원본 ID를 삭제 목록에 등록하고 원본을 숨긴다. 아무 재질도 texture를 사용하지 않았으면 해제한다.
             텍스처 로딩 실패는 catch에서 8949013 로그로 전달한다. 일반 function catch의 this를 로그 receiver 인수로 쓰며 레이어로 바인딩하지 않는다.
-            완료를 기다리며 등록한 성공 콜백에서 발생한 예외는 deferred가 __GSError__로 기록하며 위 catch로 전달하지 않는다.
+            성공 콜백에서 발생한 예외도 then이 반환한 Promise를 거부하여 같은 catch로 전달된다.
             afterFunction에서 예외가 발생하면 남은 자식 처리, 원본 ID의 삭제 목록 등록·원본 숨김 및 콜백 끝의 미사용 텍스처 해제에 도달하지 않는다.
-            중복 ID 그룹이 있으면 동기적으로 합성 처리를 실행하여 결과 children을 반환하고, 없으면 모아 둔 UMesh 목록을 반환한다. 이미지 옵션이 없으면 후자 목록은 비어 있다.
+            명시적 합성 그룹이 있으면 원본 메시도 전달하여 동기적으로 합성 처리를 실행하고 결과 children을 반환한다. 그룹이 없으면 모아 둔 UMesh 목록을 반환하며 이미지 옵션이 없으면 후자 목록은 비어 있다.
+            일반 자식·합성 메시의 텍스처 통지를 모두 받은 뒤 분리 결과 목록을 전달하는 내부 완료 신호를 보관한다. 성공·실패 모두 대기를 끝내며 기존 동기 반환값과 후속 콜백 호출 방식은 유지한다.
+
+    _getMeshDivisionPromise(object: Object3D) -> Promise<Array<Object3D>> | undefined
+        동작: 해당 원본에서 진행 중인 분리 결과 신호를 반환하며 작업이 없거나 끝났으면 undefined다. 선택기는 결과 목록과 자기 검색의 수명만 관리하며 텍스처·합성 처리는 레이어가 소유한다.
 
     checkDivisionMeshIdle() -> void
         의존:
@@ -558,10 +563,11 @@ U3dModelLayer extends U3dLayer 클래스 정의
             UDrawArg — 갱신 요청; 함수: {setUpdateDate()}
             defined — 편집·메시 상태 판정; 함수: {defined()}
         동작:
-            drawArg가 없거나 편집 목록·이벤트 값 배열 중 하나가 비면 종료한다.
-            목록 ID의 편집 정보와 split ID가 있어야 진행한다. 메시의 removeDivisionMeshes가 있으면 앱·새 제거 목록·원본 ID를 전달한다.
-            분리 정리가 성공하면 원본 모델을 찾고 타일이 있으면 현재 자식 텍스처 레벨로 원본을 복원하며 중복 없이 갱신 타일 목록에 모은다. 성공 시 반복 인덱스를 하나 감소시켜 변경된 편집 목록을 다시 확인한다.
-            모은 타일을 _tileBuffer에 enqueue하고 _tileBufferMap이 truthy이면 같은 참조를 키로 기록한다. drawArg가 있으면 갱신일을 변경한다.
+            _drawArg가 defined이면 이하를 진행한다. _drawArg가 정의되지 않으면 종료한다.
+                편집 목록과 이벤트 값 배열 중 하나라도 비어 있으면 종료한다.
+                목록 ID의 편집 정보와 split ID가 있어야 진행한다. 메시의 removeDivisionMeshes가 있으면 앱·새 제거 목록·원본 ID를 전달한다.
+                분리 정리가 성공하면 원본 모델을 찾고 타일이 있으면 현재 자식 텍스처 레벨로 원본을 복원하며 중복 없이 갱신 타일 목록에 모은다. 성공 시 반복 인덱스를 하나 감소시켜 변경된 편집 목록을 다시 확인한다.
+                모은 타일을 _tileBuffer에 enqueue하고 _tileBufferMap이 truthy이면 같은 참조를 키로 기록한다. drawArg가 있으면 갱신일을 변경한다.
 
     setEditEvent(meshes: Array<Object3D>) -> void
         인터페이스: 편집 정보의 afterFunction은 editInfo의 멤버 호출이므로 this가 해당 editInfo다.
@@ -570,16 +576,15 @@ U3dModelLayer extends U3dLayer 클래스 정의
             Color — 원본 색상 보관·적용; 함수: {clone(), set()}
             U3dLayer — drawArg; 속성 읽기: {_drawArg}
             EditedEvent — 편집 후 콜백; 콜백: {afterFunction()}
-            UDEF — 분리 표시; 상수: {U3F_DETACHED_TOKEN}
             defined — 입력·편집 데이터 판정; 함수: {defined()}
         동작:
-            meshes가 없으면 종료한다. 각 메시의 편집 정보가 있을 때만 이하를 수행한다.
-            editInfo.position과 editData가 정의되면 위치 거리가 0보다 크고 translate가 정의된 경우에만 현재 위치를 _oriPosition에 복사·저장하고 편집 위치로 바꾼다.
-            같은 조건 안에서 rotate의 내부 _x·_y·_z 중 하나라도 0이 아니면 rotation 각 축에 그대로 대입하며, scale의 x·y·z 중 하나라도 0이 아니면 scale 각 축에 그대로 대입한다.
-            재질이 truthy이면 단일·배열 원소에 색상과 텍스처 제외를 차례로 적용한다. material.color가 있고 isSetColor와 color가 모두 truthy이면 최초 truthy 판정에 따라 원본 색상·불투명도를 보관하고 color를 설정한다.
-            같은 색상 조건에서 Number(editInfo.opacity)를 opacity로 쓰고 opacity<1 결과를 transparent에 넣는다. 색상 0은 이 경로를 통과하지 않는다.
-            exceptTexture가 truthy이면 _oriMap이 정의되지 않았고 map이 정의됐을 때 원본 map을 보관하고 map을 undefined, _exceptTexture를 true로 만든다.
-            editInfo.mesh를 현재 메시로 바꾸고 분리 표시 ID가 삭제 목록에 있으면 숨긴다. afterFunction과 drawArg가 있으면 editInfo receiver로 콜백을 실행한다.
+            meshes가 defined이면 각 메시의 편집 정보를 조회하고 정보가 있는 메시만 이하를 처리한다. meshes가 정의되지 않으면 종료한다.
+                editInfo.position과 editData가 정의되면 위치 거리가 0보다 크고 translate가 정의된 경우에만 현재 위치를 _oriPosition에 복사·저장하고 편집 위치로 바꾼다.
+                같은 조건 안에서 rotate의 내부 _x·_y·_z 중 하나라도 0이 아니면 rotation 각 축에 그대로 대입하며, scale의 x·y·z 중 하나라도 0이 아니면 scale 각 축에 그대로 대입한다.
+                재질이 truthy이면 단일·배열 원소에 색상과 텍스처 제외를 차례로 적용한다. material.color가 있고 isSetColor와 color가 모두 truthy이면 최초 truthy 판정에 따라 원본 색상·불투명도를 보관하고 color를 설정한다.
+                같은 색상 조건에서 Number(editInfo.opacity)를 opacity로 쓰고 opacity<1 결과를 transparent에 넣는다. 색상 0은 이 경로를 통과하지 않는다.
+                exceptTexture가 truthy이면 _oriMap이 정의되지 않았고 map이 정의됐을 때 원본 map을 보관하고 map을 undefined, _exceptTexture를 true로 만든다.
+                editInfo.mesh를 현재 메시로 바꾸고 해당 메시 ID가 삭제 목록에 있으면 숨긴다. afterFunction과 drawArg가 있으면 editInfo receiver로 콜백을 실행한다.
 
     removeEdit(modelId: string) -> void
         의존:
@@ -588,20 +593,21 @@ U3dModelLayer extends U3dLayer 클래스 정의
             Queue(_tileBuffer) — 타일 재처리; 함수: {enqueue()}
             defined — 입력·편집 상태 판정; 함수: {defined()}
         동작:
-            modelId가 없으면 종료하고 이벤트가 있으면 mode를 undefined로 대입한 뒤 삭제한다.
-            메시가 있고 split 원본 ID·분리 정리 메서드가 있으면 정리를 시도한다. 성공하면 원본을 찾아 미해제일 때 삭제 ID를 제거하고 휴면을 해제·표시하며 원본 타일을 버퍼와 가능한 버퍼 맵에 등록한다.
-            분리 정리가 성공하지 않았으면 _oriPosition이 있을 때 position을 복원하고 translate·_oriPosition을 삭제한다.
-            같은 실패·미실행 경로에서 rotate가 있으면 각 축을 빼고 rotate를 삭제하며 scale이 있으면 각 축을 나누고 scale을 삭제한다. 편집 목록·이벤트 전체를 제거하지 않는다.
+            modelId가 defined이면 이벤트를 조회하며 아니면 종료한다. 이벤트가 있으면 mode를 undefined로 대입한 뒤 삭제하고 이하를 진행한다.
+                메시가 있고 split 원본 ID·분리 정리 메서드가 있으면 정리를 시도한다. 성공하면 원본을 찾아 미해제일 때 삭제 ID를 제거하고 휴면을 해제·표시하며 원본 타일을 버퍼와 가능한 버퍼 맵에 등록한다.
+                분리 정리가 성공하지 않았으면 _oriPosition이 있을 때 position을 복원하고 translate·_oriPosition을 삭제한다.
+                같은 실패·미실행 경로에서 rotate가 있으면 각 축을 빼고 rotate를 삭제하며 scale이 있으면 각 축을 나누고 scale을 삭제한다. 편집 목록·이벤트 전체를 제거하지 않는다.
 
     getMaterialIndexByFace(object: Object3D, faceIndex: number) -> SplitInfo | void
         의존:
-            ModelMesh — 모델 식별; 함수: {getUid()}; 속성 읽기: {id}
+            UMesh — 모델 식별; 정적 함수: {_getObjectId()}
             defined — 입력·이벤트 판정; 함수: {defined()}
-        동작: object·faceIndex가 없으면 종료한다. getUid 또는 object.id로 이벤트를 찾고 materialSplit이 truthy이면 faceIndex 값의 원본 참조를 반환한다. 그 외에는 undefined다.
+        동작: object·faceIndex가 nullish이면 종료한다. UMesh._getObjectId로 이벤트를 찾고 materialSplit이 truthy이면 faceIndex 값의 원본 참조를 반환한다. 0번 면도 조회하며 나머지는 undefined다.
 
     removeMaterialIndex(object: ModelMesh, materialIndex: number) -> boolean
         의존:
-            ModelMesh — ID·선택 재질·원본 상태; 함수: {getUid()}; 속성 읽기: {id, material}; 속성 쓰기: {_pickMaterials}
+            UMesh — 모델 식별; 정적 함수: {_getObjectId()}
+            ModelMesh — 선택 재질·원본 상태; 속성 읽기: {material}; 속성 쓰기: {_pickMaterials}
             defined — 입력·편집 정보 판정; 함수: {defined()}
         동작:
             object 또는 materialIndex가 정의되지 않으면 false다. ID로 이벤트를 찾고 materialSplit이 있으면 재질 번호가 일치하는 모든 항목을 삭제한다.
@@ -611,20 +617,36 @@ U3dModelLayer extends U3dLayer 클래스 정의
 
     setSplitEvent(parent: ModelMesh, child: ModelMesh) -> EditedEvent | undefined
         의존:
-            ModelMesh — ID·위치·타일; 함수: {getUid()}; 속성 읽기: {position, _tile}
-        동작: 자식 ID가 편집 목록에 있으면 undefined다. 아니면 목록에 추가하고 부모 ID를 split로, 자식 position·mesh와 부모 타일 참조·_isAdd=false를 가진 새 이벤트를 저장·반환한다.
+            UMesh — 부모와 자식 식별; 정적 함수: {_getObjectId()}
+            ModelMesh — 위치·타일; 속성 읽기: {position, _tile}
+            defined — ID 존재 판정; 함수: {defined()}
+        동작:
+            부모·자식 중 ID가 없는 대상이면 종료하고, 자식 ID가 편집 목록에 없으면 추가한다.
+            기존 이벤트가 있으면 editData의 기존 편집값을 보존하며 split을 현재 부모 ID로, mesh를 현재 자식으로, 양쪽 타일을 현재 부모 타일로 교체하고 같은 이벤트를 반환한다.
+            이벤트가 없으면 부모 ID를 split로, 자식 position·mesh와 부모 타일 참조·_isAdd=false를 가진 새 이벤트를 저장·반환한다.
+
+    _restoreSplitModels(original: ModelMesh, meshList: Object3D) -> void
+        역할: 재로딩한 병합 원본의 분리 조각과 피처 합성 모델에 저장된 편집 상태를 연결한다.
+        의존:
+            ModelMesh — 복원 메시의 수동 행렬 갱신; 함수: {setManualUpdate()}
+            U3dLayer — 요청 적용 가능 수명; 속성 읽기: {_disposed}
+        동작:
+            원본을 휴면으로 바꾸고 새 요청 표식을 등록한다. 후속 응답은 레이어·원본이 미해제이고 원본이 휴면이며 표식이 같을 때만 유효하다.
+            자식의 저장된 편집 상태를 먼저 적용하여 재로딩 초기 위치가 기존 편집 위치를 덮어쓰지 않게 한다.
+            자식마다 현재 원본·자식 참조로 split 이벤트를 연결하고 지원되는 setManualUpdate를 호출한다.
+            원본·요청 유효성 콜백·텍스처 대기 목록을 함께 전달해 피처 편집 단위의 합성 모델을 등록한다.
+            합성 텍스처 작업의 성공·실패가 모두 종결되면 현재 meshList.children을 전달하는 Promise를 요청에 보관한다. 종결 시 pending을 비워 선택기가 진행 중인 복원만 기다리게 한다.
 
     #divisionMesh(object: ModelMesh) -> void
         의존:
             ModelMesh — 자식 ID·휴면·표시; 함수: {getUid()}; 속성 쓰기: {_sleeping, visible}
-            UDEF — 분리 표시; 상수: {U3F_DETACHED_TOKEN}
         동작:
             대상의 분리 함수를 먼저 호출한다.
-            결과 자식 중 obj.getUid가 truthy인 경우 분리 표시 ID를 삭제 필터로 검사하며, 목록에 있으면 휴면·숨김으로 바꾼다.
+            결과 자식 중 obj.getUid가 truthy인 경우 반환 ID 그대로 삭제 필터로 검사하며, 목록에 있으면 휴면·숨김으로 바꾼다.
 
     #loadTexture(url: string) -> Promise<UTexture | UCanvasTexture>
         의존:
-            deferred — 텍스처 완료 객체; 함수: {deferred()}
+            deferredPromise — 텍스처 완료 객체; 함수: {deferredPromise()}
             UTextureLoader — 텍스처 로딩; 생성자: {new UTextureLoader()}; 함수: {load()}
             UDEF — 크기 변경 방지; 정적 함수: {noResizeTexture()}
             U3dLayer — 로더 분류; 속성 읽기: {_classtype}
@@ -632,23 +654,28 @@ U3dModelLayer extends U3dLayer 클래스 정의
             defined — URL 판정; 함수: {defined()}
         동작: URL이 없으면 url undefined! 로그와 인수 없는 reject 후 deferred를 반환한다. 그 외에는 레이어 종류로 로더를 생성해 요청하며 성공 시 noResizeTexture 후 texture로 resolve, 실패 시 texture load error 로그와 인수 없는 reject를 실행한다.
 
-    #addComposedMesh(meshList: Object3D, infoList: Record<string, Array<ModelMesh>>, imageUrls: Array<string>, isCurrentDivision: function) -> Object3D | undefined
+    #addComposedMesh(meshList: Object3D, infoList: Record<string, Array<ModelMesh>>, imageUrls: Array<string>, isCurrentDivision: function, original: ModelMesh, textureTasks: Array<Promise<void>>) -> Object3D | undefined
         의존:
             ModelMesh — 자식 위치·수동 변환·등록; 함수: {setManualUpdate(), add()}
             Object3D — 합성 결과 등록; 함수: {add()}
             Texture — 텍스처 복제·해제; 함수: {clone(), dispose()}
             isCurrentDivision — 요청 유효성; 콜백: {isCurrentDivision()}
-            DeferredObject(loadTexturePromise) — 텍스처 완료·실패 콜백 등록; 함수: {then(), catch()}
+            UMesh — 합성 모델 식별; 정적 함수: {_getObjectId()}
+            U3dEvent — 합성 모델 로드 통지; 상수: {MESH.LOADED}
+            U3dLayer — 로드 이벤트 전달; 함수: {dispatchEvent()}
             __GInfo__ — 실패 기록; 함수: {__GInfo__()}
         동작:
             infoList 값이 없거나 meshList 자식이 없으면 undefined다. 그 외에는 ID별 원본 메시 목록을 순회한다.
             조립 결과가 truthy일 때만 이하의 자식 이동·로딩·등록을 수행하며 빈 목록의 undefined 결과는 건너뛴다.
                 각 원본 메시의 position에서 반환된 독립 중심을 빼고 숨긴 뒤 합성 메시의 자식으로 옮기고 수동 변환을 갱신한다.
                 마지막 이미지 URL을 로딩하고 합성 메시를 숨긴다.
-                성공 시 현재 요청이 아니거나 합성 메시가 해제·휴면이면 받은 map을 해제하고 종료한다. 그 외에는 각 합성 재질에 map.clone을 적용하고 needsUpdate를 켠 뒤 원본 map을 해제하고 합성 메시를 표시한다.
+                해당 텍스처 완료 신호를 원본 분리의 대기 목록에 추가한다.
+                성공 시 현재 요청이 아니거나 합성 메시가 해제·휴면이면 받은 map을 해제하고 종료한다.
+                각 합성 재질이 텍스처 제외 상태이면 복제 map을 _oriMap에, 아니면 map에 넣고 needsUpdate를 켠 뒤 로더 원본 map을 해제한다.
+                합성 puid가 삭제 목록에 없을 때만 표시하고 MESH.LOADED로 합성 편집 단위의 현재 객체를 통지한다.
                 텍스처 로딩 실패는 catch에서 레이어를 receiver 인수로 8949013 로그에 전달한다.
-                완료를 기다리며 등록한 성공 콜백에서 발생한 예외는 deferred가 __GSError__로 기록하며 위 catch로 전달하지 않는다. 예외 지점 이후의 재질 적용·원본 map 해제·합성 메시 표시는 이어서 실행되지 않는다.
-                비동기 완료를 기다리지 않고 합성 메시를 meshList에 추가한다.
+                성공 콜백의 예외도 then이 반환한 Promise를 거부하여 위 catch로 전달한다. 예외 지점 이후의 재질 적용·원본 map 해제·표시·로드 통지는 이어서 실행되지 않는다.
+                비동기 완료를 기다리지 않고 합성 메시를 meshList에 추가한 뒤 기존 편집 상태를 적용하고 현재 원본에 split 관계를 연결하며 수동 변환을 갱신한다.
             최종 meshList 원본 참조를 반환한다.
 
     #restoreMergedMesh(mergedMesh: ModelMesh, level: number) -> void
@@ -659,7 +686,8 @@ U3dModelLayer extends U3dLayer 클래스 정의
             mergedMesh._disposed가 truthy이면 종료한다.
             mergedMesh._disposed가 falsy(false·undefined 등)이면 삭제 목록의 원본 ID를 제거하고 표시한 뒤 휴면·이전 요청을 해제한다.
             재질·map·source가 없으면 종료한다. source.data의 width 또는 height가 0일 때만 _curImagelevel=-1로 바꾼다.
-            같은 조건에서 옵션이 있고 URL 배열이 비어 있으면 images의 baseurl+'/'+name을 추가한 뒤 changeTextureImage가 있으면 level로 호출한다.
+            같은 크기 0 조건에서 옵션이 있고 URL 배열이 비어 있으며 images가 정의되고 비어 있지 않으면 baseurl+'/'+name을 배열에 추가한다.
+            크기가 0인 경로에서는 URL 추가 여부와 무관하게 changeTextureImage가 있으면 level로 호출한다.
 
     #wakeModel(mesh: ModelMesh) -> void
         동작: 이미 해제된 메시이면 종료한다. 아니면 _sleeping=false로 바꾸고 현재 분리 요청 표식을 제거하며 가시성은 바꾸지 않는다.

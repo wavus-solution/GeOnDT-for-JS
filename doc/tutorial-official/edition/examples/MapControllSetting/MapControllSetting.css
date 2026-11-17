@@ -15,6 +15,7 @@
 .MapControllSetting-field label code { display: block; margin-top: 3px; padding: 0; background: transparent; border: 0; font-size: 10px; color: var(--theme-muted); overflow-wrap: anywhere; }
 .MapControllSetting-field small { grid-column: 1 / -1; color: var(--theme-muted); font-size: 11px; line-height: 1.55; }
 .MapControllSetting-field input[type="number"],
+.MapControllSetting-field input[type="text"],
 .MapControllSetting-field select { min-width: 0; width: 100%; box-sizing: border-box; padding: 7px; border: 1px solid var(--theme-line); border-radius: 7px; background: var(--theme-surface); color: var(--theme-text); font-size: 12px; }
 .MapControllSetting-field select option { background: #172630; color: #edf6fb; }
 .MapControllSetting-field input[type="checkbox"] { justify-self: end; width: 19px; height: 19px; accent-color: var(--theme-accent); }
@@ -27,6 +28,7 @@
 .MapControllSetting-result-list dd { margin: 0; overflow-wrap: anywhere; }
 .MapControllSetting-code pre { max-height: 280px; overflow: auto; padding: 10px; border-radius: 8px; background: var(--theme-surface); font-size: 11px; line-height: 1.6; user-select: text; }
 .MapControllSetting-status { flex-shrink: 0; margin: 0; padding: 12px 16px; border-top: 1px solid var(--theme-line); color: var(--theme-muted); font-size: 11px; line-height: 1.5; }
+.MapControllSetting-key-help { white-space: pre-wrap; overflow-wrap: anywhere; color: #003a51; font-size: 11px; line-height: 1.6; }
 
 /* 편집기를 연 채 창을 줄여도 입력 패널이 편집기 뒤로 가려지지 않도록 남은 지도 폭에 맞춥니다. */
 @media (min-width: 761px) {

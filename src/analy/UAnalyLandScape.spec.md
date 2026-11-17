@@ -4,9 +4,9 @@
 
 ## 1. 개요
 
-조망시점은 카메라가 위치할 곳, 조망점은 카메라가 바라볼 곳이다. `UAnalyLandScape`는 두 목록의 등록·조회·설정·삭제, 가시영역 표시, 선택한 건물의 층별 관측점 생성과 카메라 이동·회전을 담당한다. 관측점 표시는 `ViewPoint`·POI, 가시영역 생성·충돌 표시는 `UViewBox`에 맡긴다.
+조망시점은 카메라가 위치할 곳, 조망점은 카메라가 바라볼 곳이다. `UAnalyLandScape`는 두 목록의 등록·조회·설정·삭제, 가시영역 표시, 선택한 건물의 층별 관측점 생성과 카메라 이동·회전을 담당한다. 관측점 표시는 `ViewPoint`·POI, 가시영역 생성·충돌 표시는 `UViewBox`, 건물 선택 표시·복원과 자원 정리는 `U3dSelect`에 맡긴다.
 
-앱의 기본 분석 등록과 `getAnalysis('LandScape')`에서 사용한다. `tutorial-official/landscape.html`, `tutorial-official/analysisView.html`이 직접 사용처다. 앱은 부모의 `setApp()`으로 연결하고, `active()`·`deactive()`·`clear()`는 서로 다른 수명 단계를 제공한다.
+앱의 기본 분석 등록과 `getAnalysis('LandScape')`에서 사용한다. `tutorial-official/landscape.html`, `tutorial-official/analysisView.html`이 직접 사용처다. `setApp()`으로 앱을 연결하고 `setSelector()`로 사용자가 구성한 공통 선택기를 주입한다. 주입하지 않으면 첫 선택 활성화에서 기본 선택기를 준비한다. 선택 입력은 공통 선택기가 처리하고 분석은 완료 결과의 첫 건물과 임시 POI를 관리한다. `active()`·`deactive()`·`clear()`는 서로 다른 수명 단계를 제공한다.
 
 ## 3. 정규 자연어 수도코드
 
@@ -152,8 +152,15 @@ UAnalyLandScape extends UAnaly 클래스 정의
         선택 건물이다.
     _selectedViewPoint: ViewPoint | undefined = undefined
         선택 지점의 임시 관측점이다.
-    #selectionMaterials: Array<Material> = 빈 배열
-        선택 표시를 위해 이 분석이 복제하여 소유한 재질이며 원본 재질·texture는 소유하지 않는다.
+    _selector: U3dSelect | undefined
+        주입된 선택기 또는 첫 선택 활성화에서 만든 기본 선택기다. 설정 전에는 undefined다.
+    #ownsSelector: boolean = false
+        기본 선택기만 분석이 소유하며 외부에서 주입한 선택기는 최종 제거하지 않는다.
+    #selectActive: boolean = false
+        분석이 선택 완료 구독과 입력 활성화를 관리 중인지 여부다.
+    #selectorEndListener(event: UAnalyLandScapeSelectEvent) -> void
+        인터페이스: 현재 분석에 고정된 콜백이며 반복 활성화·교체 시 같은 참조로 구독을 해제한다.
+        동작: 선택 완료 결과를 분석 대상·POI 갱신으로 전달한다.
     _currentTweenPromise: DeferredPromise<void> | undefined = undefined
         flyTo 완료·중단에 사용하는 deferredPromise다.
 
@@ -171,26 +178,55 @@ UAnalyLandScape extends UAnaly 클래스 정의
             이름·분석 설정은 공개 필드의 기본값을 undefined에만 적용한다.
             관측점 배열과 인덱스, 선택 상태·회전 핸들을 초기화하고 공유 선택 POI 옵션을 참조한다.
             렌더 장면과 선분 재질·geometry·6요소 Float32 위치 속성·선분 객체를 생성하여 장면에 연결하고 POI 그룹을 만든다.
+    override setApp(app: U3dApp) -> void
+        의존:
+            UAnaly — 앱·그리기 인자·주석 장면 연결; 함수: {setApp()}; 속성 읽기: {_app}
+            U3dSelect — 기존 선택기 해제와 앱 재연결; 함수: {setApp(), remove()}; 속성 읽기: {_app}
+        동작:
+            같은 앱이면 부모 연결만 갱신하고 현재 입력·선택을 유지한다.
+            앱이 다르면 기존 입력과 선택·임시 POI를 정리한다.
+            분석이 소유한 기본 선택기이면 제거하고 참조와 소유 여부를 초기화한다.
+            부모에 새 앱을 연결한다. 주입된 선택기가 남아 있고 그 선택기의 앱이 다르면 새 앱에 연결하며 설정·사용자 이벤트는 보존한다.
+            이 메서드는 선택기를 생성하거나 입력을 활성화하지 않는다.
+    setSelector(selector: U3dSelect) -> void
+        인터페이스: 선택기의 소유권은 호출자에게 유지하며 최종 remove는 호출자가 담당한다.
+        의존:
+            UAnaly — 분석 앱; 속성 읽기: {_app}
+            U3dSelect — 입력 검증·교체·앱 연결; 속성 읽기: {U3dSelect, _app}; 함수: {remove(), setApp()}
+        동작:
+            U3dSelect 인스턴스가 아니면 TypeError를 던지며 기존 바인딩을 변경하지 않는다. 같은 선택기면 현재 상태를 유지하고 종료한다.
+            선택 입력이 활성화되어 있었는지 보관한 뒤 이전 입력·선택·임시 POI를 정리한다.
+            분석이 소유한 기본 선택기만 제거하고 새 선택기를 호출자 소유로 보관한다.
+            분석 앱이 있고 선택기의 앱과 다를 때만 setApp으로 연결하며 선택 타입·색상·사용자 이벤트는 덮어쓰지 않는다.
+            이전 선택 입력이 활성화되어 있었다면 새 선택기의 입력을 활성화한다.
+    getSelector() -> U3dSelect | undefined
+        인터페이스: 현재 선택기의 원본 참조를 반환하며 소유권을 이전하지 않는다.
+        동작: _selector를 반환한다. setSelector 또는 첫 선택 활성화 전에는 undefined이며 clear 후에도 같은 선택기 참조를 유지한다. 앱 변경이나 deactive 시 주입된 선택기는 유지되고 기본 선택기는 제거된다.
     select(active: boolean) -> void
         의존:
-            U3dApp — 클릭 등록; 함수: {on()}
             UAnaly — 상속받은 분석 연결·갱신; 속성 읽기: {_app}
-            defined — null·undefined 판정; 함수: {defined()}
+            U3dSelect — 기본 생성·설정·입력 활성화와 완료 구독; 생성자: {new U3dSelect()}; 함수: {setSelectedColor(), setApp(), on(), active()}; 속성 읽기: {_app}; 상수: {EVENT.END}
         동작:
-            이전 클릭 키가 있으면 해제한다.
-            active가 참이면 click에 건물 선택 콜백을 등록한다.
-            active가 거짓이면 클릭 키를 다시 해제하고 현재 선택을 해제한다.
+            기존 클릭과 분석이 관리하던 선택 입력·완료 구독을 해제한다.
+            active가 참이고 앱이 없으면 선택기를 생성하지 않고 종료한다.
+            active가 참이고 선택기가 없으면 기본 외곽선 선택기를 생성하고 색상 '#f25f5c'·불투명도 1을 설정해 연결한 뒤 분석 소유로 표시한다.
+            active가 참이면 선택기의 앱을 필요한 경우 다시 연결하고 EVENT.END에 #selectorEndListener를 등록한다. #selectActive를 true로 바꾼 뒤 선택기의 현재 모드 입력을 활성화한다.
+            active가 거짓이면 현재 선택과 임시 POI를 해제하며 선택기를 새로 만들지 않는다.
     clearSelect() -> void
+        의존:
+            U3dSelect — 선택 표시·로드 구독·분할 상태 정리; 함수: {clearSelect()}
+        동작:
+            선택기가 있으면 clearSelect(true)로 선택 표시·복원과 자원 정리를 위임한다.
+            분석 대상과 임시 POI를 정리하며 선택 입력·사용자 이벤트·선택기 참조는 유지한다.
+    #clearBuildingSelection() -> void
         의존:
             UGroup(_pointGroup) — 임시 POI 분리; 함수: {remove()}
             U3dPOI — 임시 표시 해제; 함수: {hide(), dispose()}
-            THREE.Material — 선택 표시용 복제 재질 해제; 함수: {dispose()}
             defined — null·undefined 판정; 함수: {defined()}
         동작:
-            #selectionMaterials의 복제 재질 목록을 따로 보관하고 #selectionMaterials를 빈 배열로 교체하여 재진입 시 중복 해제를 막는다.
-            _selected가 있으면 선택 전 _originMaterial의 원본 참조를 material에 복원하고 _originMaterial·_selected를 undefined, isSelected를 false로 바꾼다.
+            _selected를 undefined, isSelected를 false로 바꾼다.
             _selectedViewPoint가 있으면 POI를 숨기고 해제·분리한 뒤 _selectedViewPoint를 undefined로 바꾼다.
-            따로 보관한 복제 재질만 해제하며 원본 재질과 공유 texture는 해제하지 않는다.
+            선택기의 선택 결과나 이벤트는 변경하지 않는다.
     override getAnalysisOption() -> object
         동작: floorZOffset, startOffsetDistance, lineAzimuth, linePolar, lineMinDistance, lineColor, lineOpacity, lineInterval의 현재 값만 새 객체로 반환한다.
     override setAnalysisOption(options: UAnalyLandScapeCO = {}) -> void
@@ -206,8 +242,11 @@ UAnalyLandScape extends UAnaly 클래스 정의
         의존:
             UAnaly — 기반 분석의 상태·장면·이벤트·갱신; 속성 읽기: {_app}; 함수: {deactive()}
             U3dApp — 카메라 모드; 함수: {setPanMode()}
+            U3dSelect — 분석 소유 기본 선택기의 최종 제거; 함수: {remove()}
         동작:
-            부모를 비활성화한 뒤 회전 핸들의 중단을 요청한다.
+            선택 입력·완료 구독·선택·임시 POI를 해제한다.
+            분석 소유 기본 선택기이면 선택기를 임시 보관하고 선택기 참조와 소유 여부를 초기화한 뒤 remove로 제거한다. 외부 주입 선택기의 인스턴스·설정·참조와 사용자 이벤트는 유지한다.
+            부모를 비활성화하여 분석 객체의 이벤트를 해제하고 회전 핸들의 중단을 요청한다.
             _app이 있으면 pan 모드로 바꾸며 관측점·가시영역은 지우지 않는다.
     override clear() -> void
         의존:
@@ -215,7 +254,8 @@ UAnalyLandScape extends UAnaly 클래스 정의
             UAnaly — 기반 분석의 상태·장면·이벤트·갱신; 속성 읽기: {_app}; 함수: {update()}
             U3dApp — 주석 장면과 갱신 시각; 함수: {getSceneComment(), setUpdateDate()}
         동작:
-            가시영역·시점·조망점·선택·클릭 키를 순서대로 정리한다.
+            클릭과 선택 입력·완료 구독을 먼저 중단하고 가시영역·시점·조망점·선택을 정리한다.
+            내부·외부 선택기의 인스턴스·설정·참조·소유 여부와 선택기·분석 객체의 사용자 이벤트를 유지한다. 다음 선택 활성화에서 같은 선택기를 재사용한다.
             _app의 주석 장면에서 POI 그룹을 분리하고 갱신한 뒤 _app이 있으면 갱신 시각을 바꾼다.
             이동·회전·순회 예약 타이머는 이 메서드에서 중단하지 않는다. [확인 Q-004]
     isBuilding() -> boolean
@@ -449,7 +489,7 @@ UAnalyLandScape extends UAnaly 클래스 정의
             UAnaly — 상속받은 분석 연결·갱신; 속성 읽기: {_app}
             defined — null·undefined 판정; 함수: {defined()}
         동작:
-            _clickId가 있으면 기존 클릭 키를 해제한다.
+            기존 클릭과 선택기 입력·완료 구독을 해제한다.
             _app이 있으면 클릭 이동 콜백을 등록한다.
     #flyToClick_(e: U3dMouseEvent) -> void
         의존:
@@ -457,7 +497,7 @@ UAnalyLandScape extends UAnaly 클래스 정의
             U3dApp — 클릭 이동·모드; 함수: {flyToClick(), setMode()}; 속성 읽기: {_mapControl}
             UDEF — 경관 모드; 상수: {APP_MODE._LANDSCAPE}
         동작:
-            _app이 없으면 종료하고 클릭 이동 요청·경관 모드 전환·상태 저장을 순서대로 한다.
+            _app이 없으면 종료하고 클릭 이동 요청·경관 모드 전환·상태 저장을 순서대로 한다. 클릭 이벤트만 app.flyToClick()에 전달하며 월드 좌표 기준 이동 거리가 1을 초과하면 기본 3000ms 애니메이션으로 이동한다.
             _app이 있으면 클릭 키를 해제하고 EVENT.MOVE_END를 즉시 알리며 실제 이동 완료는 기다리지 않는다.
     rotationToClick(repeat: boolean = true, height: number = 200, duration: number = 10000, slow: number = 1) -> void
         의존:
@@ -465,7 +505,7 @@ UAnalyLandScape extends UAnaly 클래스 정의
             UAnaly — 상속받은 분석 연결·갱신; 속성 읽기: {_app}
             defined — null·undefined 판정; 함수: {defined()}
         동작:
-            _clickId가 있으면 이전 클릭 키를 해제한다.
+            이전 클릭과 선택기 입력·완료 구독을 해제한다.
             _app이 있으면 입력을 바인딩한 클릭 회전 콜백을 등록한다.
     #rotationToClick_(repeat: boolean, height: number, duration: number, slow: number, e: U3dMouseEvent) -> void
         의존:
@@ -476,7 +516,11 @@ UAnalyLandScape extends UAnaly 클래스 정의
         의존:
             U3dApp — 클릭 해제; 함수: {unkey()}
             UAnaly — 상속받은 분석 연결·갱신; 속성 읽기: {_app}
-        동작: _app이 있으면 현재 키의 null·undefined를 undefined로 바꾸어 click 해제를 요청한 뒤 키를 비운다.
+            U3dSelect — 분석 소유의 완료 구독과 입력 해제; 함수: {off(), deactive()}; 상수: {EVENT.END}
+            defined — 클릭 키 판정; 함수: {defined()}
+        동작:
+            클릭 키가 있고 앱이 있으면 그 키의 click 해제를 요청한 뒤 키를 비운다.
+            #selectActive가 true이고 선택기가 있으면 false로 바꾸고 #selectorEndListener만 해제한 뒤 선택기를 비활성화한다. 사용자가 등록한 이벤트는 해제하지 않는다.
     startFlyRotation(position: WorldPositionVector3, repeat: boolean = true, height: number = 200, duration: number = 10000, slow: number = 1, size?: number) -> UTween | undefined
         의존:
             UAnaly — 상속받은 분석 연결·갱신; 속성 읽기: {_drawArg}
@@ -513,24 +557,27 @@ UAnalyLandScape extends UAnaly 클래스 정의
             Vector3이면 원본 position 참조를 유지하고 geoPosition만 기록한다.
             나머지 일반 객체면 원본을 geoPosition에 저장하고 geographicToVector3 결과로 position을 교체한다.
             같은 options로 ViewPoint를 생성하고 POI change에 _app의 갱신 시각을 바꾸는 콜백을 등록한 뒤 관측점을 반환한다.
-    #select_(e: U3dMouseEvent) -> void
+    #selectBuilding(event: UAnalyLandScapeSelectEvent) -> void
         의존:
             UGroup(_pointGroup) — 선택 위치 POI 연결; 함수: {add()}
-            UAnaly — 기반 분석의 상태·장면·이벤트·갱신; 속성 읽기: {_app}; 함수: {dispatchEvent()}
-            defined — null·undefined 판정; 함수: {defined()}
-            U3dApp — 교차 조회; 함수: {intersectAtPixel()}
+            UAnaly — 선택 이벤트; 함수: {dispatchEvent()}
             UDEF — 건물 판정; 상수: {UMESH_TYPE._building}
-            THREE.Material — 선택 표시용 복제와 실패 시 소유 자원 정리; 함수: {clone(), dispose()}
-            THREE.Color — 복제 재질의 선택 색상 지정; 함수: {set()}
+            THREE — 결과 객체 판정·경계 중심 위치; 속성 읽기: {Object3D}; 생성자: {new Box3(), new Vector3()}; 함수: {Box3.setFromObject()}
+            선택 건물 — 영역 선택의 경계 조회; 함수: {getBBox()}; 속성 읽기: {_bbox, _intersect}
         동작:
-            이전 선택을 먼저 해제한다.
-            _app이 있으면 교차 목록을 얻고 없으면 빈 배열로 삼아 첫 건물 종류를 선택한다.
-            selected가 없으면 _selected에 undefined·isSelected에 false를 저장하고 data undefined인 select 이벤트를 알린 뒤 종료한다.
-            배열 재질은 각 원소를, 단일 재질은 그 하나를 복제하고 복제본의 색상만 '#f25f5c'로 바꾼다. 원본 재질과 이를 공유하는 다른 객체의 색상은 변경하지 않는다.
-            복제·색상 지정 중 오류가 발생하면 이미 만든 복제본만 해제하고 오류를 다시 전달하며 원본 material은 교체하지 않는다.
-            성공하면 원본 material 참조를 _originMaterial에, 복제본 목록을 #selectionMaterials에 보관하고 단일·배열 형태를 유지하여 선택 객체의 material을 복제본으로 교체한다.
-            선택 객체를 저장하고 면 보정한 교차점·기본 name·selectPoiOptions로 _selectedViewPoint를 만든다. 옵션은 기본 name·position을 덮어쓸 수 있다.
-            임시 POI를 그룹에 등록하고 isSelected에 true를 저장한 뒤 선택 객체를 data로 select 이벤트를 알린다.
+            이전 분석 대상과 임시 POI만 정리하며 선택기 결과를 비우지 않는다.
+            data의 객체 또는 교차 결과의 object 중 Object3D이고 _utype이 건물인 첫 대상을 고른다.
+            건물이 없으면 data undefined인 select 이벤트를 발생시키고 종료한다. 선택기의 일반 객체 선택은 유지한다.
+            교차 결과 입력이면 그 정보를, 객체 입력이면 객체의 _intersect를 읽고 대상 건물을 저장한다.
+            교차점이 없으면 getBBox 결과, _bbox, Object3D 경계 계산 순서로 경계를 얻어 그 중심을 POI 위치로 사용한다.
+            기본 name selected_viewpoint와 위치·selectPoiOptions로 임시 관측점을 생성한다. 옵션은 기본 name·position을 덮어쓸 수 있다.
+            임시 POI를 그룹에 등록하고 isSelected를 true로 바꾼 뒤 건물을 data로 select 이벤트를 발생시킨다.
+            선택 결과 중 하나만 분석 대상으로 사용하며 선택기의 여러 선택 결과·auto 설정·사용자 이벤트는 변경하지 않는다.
+
+UAnalyLandScapeSelectEvent 부분 타입 명세
+    이 명세에서 사용하는 필드:
+        data?: Array<USelect | Intersection>
+            선택기가 완료 이벤트로 전달하는 객체 또는 교차 결과 목록이며 분석은 원본 목록과 교차점을 변경하지 않는다.
 
 getByNameOrIndex(ary: Array<ViewPoint>, key: string | number | ViewPoint) -> ViewPoint | undefined
     의존: ViewPoint 모듈 — 객체 키의 instanceof 판정; 속성 읽기: {ViewPoint}

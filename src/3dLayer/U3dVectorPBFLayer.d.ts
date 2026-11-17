@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -9,6 +9,7 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { U2dVectorShaderLayer, U2dVectorShaderLayerCO } from "../2dLayer/U2dVectorShaderLayer.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { ColorLike, KeyValue, Triple_Array } from "../types/global.js";
+import type { PbfGeometryBatch } from "../worker/task/model/pbf/UPbfGeometryWasmBridge.js";
 
 /**
  * ~extends import('@union3d/2dLayer/U2dVectorShaderLayer').U2dVectorShaderLayer <br>
@@ -140,7 +141,7 @@ declare class U3dVectorPBFLayer extends U2dVectorShaderLayer {
         styleFunction?: U3dVectorPBFStyleFunction;
         /**
          * 그릴 MVT 레이어 이름 목록이며 예를 들어 `['building', 'water']` 처럼 지정합니다. <br>
-         * 지정하면 목록에 없는 레이어는 해석 직후 버려져 화면과 메모리 어디에도 남지 않습니다.
+         * 지정하면 목록에 없는 레이어는 Worker의 형상 해석 전에 제외됩니다.
          */
         includeLayers?: Array<string>;
         /**
@@ -158,7 +159,7 @@ declare class U3dVectorPBFLayer extends U2dVectorShaderLayer {
          */
         featurePriority?: U3dVectorPBFFeaturePriority;
         /**
-         * Point·MultiPoint 피처를 원으로 그릴지 여부이며, `false` 면 해석 직후 버립니다.
+         * Point·MultiPoint 피처를 원으로 그릴지 여부이며, `false` 면 Worker에서 형상 해석 전에 제외합니다.
          */
         drawPoints?: boolean;
         /**
@@ -231,7 +232,7 @@ declare class U3dVectorPBFLayer extends U2dVectorShaderLayer {
 
 /**
      * 워커가 PBF 타일에서 읽어 낸 MVT 레이어 하나입니다. <br>
-     * 좌표는 아직 지도 좌표가 아니라 `0` 부터 `extent` 까지의 타일 내부 좌표이며 y 축은 아래로 증가합니다.
+     * worldCoordinates가 없으면 타일 내부 좌표이며 y축은 아래로 증가하고, true이면 Worker에서 EPSG:3857로 변환한 좌표입니다.
      */
     type U3dVectorPBFDecodedLayer = {
         /**
@@ -243,15 +244,55 @@ declare class U3dVectorPBFLayer extends U2dVectorShaderLayer {
          */
         extent: number;
         /**
-         * 이 레이어에서 읽은 피처 목록입니다. <br>
-         * `type` 은 `Point`, `MultiPoint`, `LineString`, `MultiLineString`, `Polygon` 중 하나이고, `flatCoordinates` 는 x, y 가 번갈아 담긴 배열이며 `ends` 는 파트마다의 끝 인덱스입니다.
+         * 좌표·경계·외곽선이 이미 월드 좌표로 준비되었는지 여부입니다.
          */
-        features: Array<{
-            id: (number | undefined);
-            type: string;
-            properties: KeyValue;
+        worldCoordinates?: boolean;
+        /**
+         * 이 레이어에서 읽은 피처 목록입니다. <br>
+         * `type` 은 `Point`, `MultiPoint`, `LineString`, `MultiLineString`, `Polygon` 중 하나입니다. 일괄 형상 전송에서는 피처별 좌표 필드를 생략하고 결과의 geometry 메타데이터를 사용합니다.
+         */
+        features: Array<U3dVectorPBFDecodedFeature>;
+    };
+
+/**
+     * 기존 로컬 좌표 결과와 선택적인 Worker 전처리 정보를 함께 읽습니다.
+     */
+    type U3dVectorPBFDecodedFeature = {
+        /**
+         * 원본 ID입니다.
+         */
+        id: number | undefined;
+        /**
+         * 점 필터를 적용하기 전의 알려진 피처 순번입니다.
+         */
+        _sourceIndex?: number;
+        /**
+         * MVT 형상 타입입니다.
+         */
+        type: string;
+        /**
+         * 원본 속성입니다.
+         */
+        properties: KeyValue;
+        /**
+         * 평탄 좌표이며 일괄 전송에서는 메인에서 필요한 피처만 뷰를 만듭니다.
+         */
+        flatCoordinates?: Float64Array;
+        /**
+         * 파트별 끝 인덱스이며 일괄 전송에서는 geometry 메타데이터로 대신합니다.
+         */
+        ends?: Array<number>;
+        /**
+         * 파트마다 bbox 4개·로컬 부호 면적·절단 여부를 담습니다.
+         */
+        partInfo?: Float64Array;
+        /**
+         * 타일 절단 변을 뺀 실제 외곽선입니다.
+         */
+        outlines?: Array<{
+            partIndex: number;
             flatCoordinates: Float64Array;
-            ends: Array<number>;
+            bbox: Array<number>;
         }>;
     };
 
@@ -264,6 +305,10 @@ declare class U3dVectorPBFLayer extends U2dVectorShaderLayer {
          * 레이어 목록
          */
         layers: Array<U3dVectorPBFDecodedLayer>;
+        /**
+         * 피처 순서대로 연결한 독립 요청 버퍼와 일괄 형상 메타데이터입니다.
+         */
+        geometry?: PbfGeometryBatch;
         /**
          * 실패 또는 abort 여부
          */
@@ -321,6 +366,10 @@ declare class U3dVectorPBFLayer extends U2dVectorShaderLayer {
          * 점은 `[x, y]`, 면은 외곽 하나와 그 홀을 묶은 `[[외곽, 홀...]]`, 선은 `[선]` 형태입니다.
          */
         coordinates: Array<number> | Triple_Array<number> | Array<Triple_Array<number>>;
+        /**
+         * 표시 타일의 bbox 선별 전까지 유지하는 내부 평탄 파트입니다. 좌표 객체 복원 시 제거합니다.
+         */
+        _flatCoordinates?: Array<Float64Array>;
         /**
          * MVT 속성이며 `layer` 키에 레이어 이름이 들어 있습니다. <br>
          * 하나의 MVT 피처에서 나뉜 조각들은 이 객체를 함께 쓰며, 스타일을 한 번만 계산해 나눠 쓰는 기준이 됩니다.
@@ -440,4 +489,4 @@ declare class U3dVectorPBFLayer extends U2dVectorShaderLayer {
         pointRadiusPx: number;
     }>;
 
-export type { U3dVectorPBFDecodeResult, U3dVectorPBFDecodedLayer, U3dVectorPBFFeatureFilter, U3dVectorPBFFeaturePriority, U3dVectorPBFLayer, U3dVectorPBFLayerCO, U3dVectorPBFLayerCO_Content, U3dVectorPBFSourceFeature, U3dVectorPBFSourceRequest, U3dVectorPBFStyleFunction, U3dVectorPBFStyleState, U3dVectorPBFTileFeature };
+export type { U3dVectorPBFDecodeResult, U3dVectorPBFDecodedFeature, U3dVectorPBFDecodedLayer, U3dVectorPBFFeatureFilter, U3dVectorPBFFeaturePriority, U3dVectorPBFLayer, U3dVectorPBFLayerCO, U3dVectorPBFLayerCO_Content, U3dVectorPBFSourceFeature, U3dVectorPBFSourceRequest, U3dVectorPBFStyleFunction, U3dVectorPBFStyleState, U3dVectorPBFTileFeature };

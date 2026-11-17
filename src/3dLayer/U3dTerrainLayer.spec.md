@@ -85,12 +85,11 @@ U3dTerrainLayer extends U3dModelLayer 클래스 정의
                 콜백은 그룹의 각 자식 메시에서 타일을 얻어 그 바운딩 박스를 color로 objectBound에 추가하고 확정한다.
             true를 반환한다.
 
-    override dispose() -> undefined
-        역할: 참조용 레이어이므로 상위 처분을 실행하지 않는다.
-        처리 기준: 상위 dispose()는 Promise<boolean>을 반환하지만 이 구현은 아무 것도 반환하지 않는다. [확인 Q-002]
-        동작: 아무 작업도 하지 않는다.
+    override dispose() -> Promise<boolean>
+        역할: 참조용 레이어의 해제 요청을 자원 정리 없이 완료한다.
+        동작: 상위 처분과 상태 변경 없이 true로 이행된 표준 Promise를 반환한다. 타일 메시와 공유 자원을 해제하지 않는다.
 
-    isTexture(tile) -> boolean
+    isTexture(tile: Object) -> boolean
         역할: 캐시된 타일 메시의 머티리얼에 텍스처 맵이 있는지 판정한다.
 
         처리 기준:
@@ -105,22 +104,23 @@ U3dTerrainLayer extends U3dModelLayer 클래스 정의
             tile의 캐시 항목과 머티리얼을 조회한다.
             머티리얼이 배열이면 첫 요소의 map, 아니면 머티리얼의 map이 정의되어 있을 때 true를 반환하고 그 외에는 false를 반환한다.
 
-    override addTileFromScene(tile) -> void
+    override addTileFromScene(tile: U3dQuadTile) -> void
         역할: 보이게 된 타일의 메시를 그룹과 캐시에 등록한다.
 
-        처리 기준: tile 또는 tile._mesh가 없으면 아무 작업도 하지 않는다.
+        처리 기준: tile 또는 tile._mesh가 없거나 타일이 폐기되었으면 아무 작업도 하지 않는다. 장면 부착 콜백에서 타일·메시·그룹·캐시가 바뀌면 이전 등록을 중단한다.
 
         의존:
             U3dLayer — 그룹과 캐시 접근; 함수: {getGroup()}; 속성 읽기: {_cache}
             UGroup — 메시 추가; 함수: {add()}
             UCache — 타일 키로 메시 등록; 함수: {add()}
-            U3dQuadTile — 타일 키와 메시 조회; 함수: {getKey()}; 속성 읽기: {_mesh}
+            U3dQuadTile — 타일 키·메시·폐기 여부 조회; 함수: {getKey()}; 속성 읽기: {_mesh, _disposed}
 
         동작:
-            그룹에 tile._mesh를 추가한다.
-            타일 키로 tile._mesh를 캐시에 등록한다.
+            타일 메시·키·그룹·캐시를 포착하고 그룹이 있으면 해당 메시를 추가한다.
+            타일이 폐기되었거나 메시·그룹·캐시가 교체되었거나 포착 그룹에서 메시가 다시 분리되었으면 반환한다.
+            포착한 캐시에 키와 메시를 등록한다. 그룹 부재 시의 캐시 등록 계약과 장면 추가 오류의 전파를 유지한다.
 
-    override removeTileFromScene(tile) -> void
+    override removeTileFromScene(tile: Object) -> void
         역할: 숨겨진 타일의 메시를 그룹과 캐시에서 제거한다.
 
         처리 기준:
@@ -134,10 +134,10 @@ U3dTerrainLayer extends U3dModelLayer 클래스 정의
             U3dQuadTile — 타일 키와 메시 조회; 함수: {getKey()}; 속성 읽기: {_mesh}
 
         동작:
-            그룹에서 tile._mesh를 제거한다.
+            그룹이 있으면 tile._mesh를 제거한다.
             타일 키의 캐시 항목을 제거한다.
 
-    override deleteMesh(mesh: Three.js Object3D) -> void
+    override deleteMesh(mesh: Object3D) -> void
         역할: 캐시 삭제 콜백이 넘긴 타일 메시를 그룹에서만 떼어낸다.
 
         처리 기준:
@@ -150,7 +150,7 @@ U3dTerrainLayer extends U3dModelLayer 클래스 정의
             UGroup — 메시 제거; 함수: {remove()}
 
         동작:
-            그룹에서 mesh를 제거한다.
+            그룹이 있으면 mesh를 제거한다.
 ```
 
 ## 4. 공통 처리 기준과 제약

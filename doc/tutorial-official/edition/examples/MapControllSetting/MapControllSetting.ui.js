@@ -11,6 +11,39 @@ export function initializeUI(context, example) {
     const status = panel.querySelector('[data-setting-status]');
     const code = panel.querySelector('[data-setting-code]');
     const collision = panel.querySelector('[data-collision]');
+    const inputPreset = panel.querySelector('[data-input-preset]');
+    const keyPreset = panel.querySelector('[data-key-preset]');
+    const keyInput = panel.querySelector('[data-key-code]');
+    const keyAction = panel.querySelector('[data-key-action]');
+    let selectedKey = 'ArrowUp';
+    for (const [action, label] of Object.entries(example.keyActions)) {
+        const option = document.createElement('option');
+        option.value = action; option.textContent = label; keyAction.append(option);
+    }
+    const inputActions = {pan: '팬 이동', rotate: '회전', none: '사용 안 함', inherit: '기본 동작 따르기'};
+    const buttons = {left: '왼쪽', middle: '가운데', right: '오른쪽'};
+    for (const modifier of [false, true]) {
+        for (const [button, label] of Object.entries(buttons)) {
+            const row = document.createElement('div');
+            row.className = 'MapControllSetting-field';
+            const title = document.createElement('label');
+            const input = document.createElement('select');
+            input.id = `MapControllSetting-input-${modifier ? 'ctrl-' : ''}${button}`;
+            input.dataset.binding = button;
+            input.dataset.modifier = String(modifier);
+            title.htmlFor = input.id;
+            title.textContent = `${modifier ? 'Ctrl/Cmd + ' : ''}${label} 드래그`;
+            for (const [action, text] of Object.entries(inputActions)) {
+                if (action === 'inherit' && !modifier) continue;
+                const option = document.createElement('option');
+                option.value = action;
+                option.textContent = text;
+                input.append(option);
+            }
+            row.append(title, input);
+            panel.querySelector(modifier ? '[data-input-modifiers]' : '[data-input-buttons]').append(row);
+        }
+    }
 
     // label과 설명 ID를 입력에 연결해 키보드와 보조기기로도 조작할 수 있게 합니다.
     for (const field of example.fields) {
@@ -55,6 +88,19 @@ export function initializeUI(context, example) {
 
     /** 엔진의 현재값을 읽어 표시합니다. 입력에 실패한 값은 적용 결과에 포함하지 않습니다. */
     function render() {
+        const bindings = example.getMouseBindings();
+        const keys = example.getKeyBindings();
+        keyPreset.value = example.getKeyPreset();
+        keyInput.value = selectedKey;
+        keyAction.value = keys[selectedKey] || 'none';
+        panel.querySelector('[data-key-help]').textContent = Object.entries(keys).filter(([, action]) => action !== 'none')
+            .map(([code, action]) => `${code}: ${example.keyActions[action]}`).join('\n');
+        inputPreset.value = example.getMousePreset();
+        for (const input of panel.querySelectorAll('[data-binding]')) {
+            input.value = input.dataset.modifier === 'true' ? bindings.modifiers.ctrlOrMeta[input.dataset.binding] : bindings.mouse[input.dataset.binding];
+        }
+        panel.querySelector('[data-input-help]').textContent = Object.entries(buttons)
+            .map(([button, label]) => `${label} 드래그: ${inputActions[bindings.mouse[button]]}`).join(' · ') + ' · 휠: 줌';
         const factors = example.getFactors();
         for (const field of example.fields) {
             const input = inputs.get(field.key);
@@ -85,9 +131,12 @@ export function initializeUI(context, example) {
     function onChange(event) {
         const input = event.target;
         const field = example.fields.find(item => item.key === input.dataset.factor);
-        if (!field && input !== collision) return;
+        if (!field && input !== collision && input !== inputPreset && input !== keyPreset && !input.dataset.binding) return;
         try {
-            if (input === collision) example.setCollision(input.checked);
+            if (input === keyPreset) example.applyKeyPreset(input.value);
+            else if (input === inputPreset) example.applyMousePreset(input.value);
+            else if (input.dataset.binding) example.setMouseBinding(input.dataset.binding, input.value, input.dataset.modifier === 'true');
+            else if (input === collision) example.setCollision(input.checked);
             else {
                 if (input.value.trim() === '') throw new Error('값을 입력하세요. 이전 설정은 유지됩니다.');
                 let value = field.kind === 'boolean' ? input.checked : Number(input.value);
@@ -107,6 +156,21 @@ export function initializeUI(context, example) {
         const button = event.target.closest('button');
         if (!button) return;
         const preset = button.dataset.preset;
+        if (button.hasAttribute('data-apply-key') || button.hasAttribute('data-reset-key')) {
+            try {
+                if (button.hasAttribute('data-reset-key')) example.applyKeyPreset('default');
+                else example.setKeyBinding(selectedKey, keyAction.value);
+                render();
+                status.textContent = '키보드 조작 설정을 적용했습니다.';
+            } catch (error) { status.textContent = error.message; }
+            return;
+        }
+        if (button.hasAttribute('data-reset-input')) {
+            example.applyMousePreset('default');
+            render();
+            status.textContent = '기본 마우스 조작으로 복원했습니다.';
+            return;
+        }
         if (preset || button.hasAttribute('data-reset-preset')) {
             example.applyPreset(preset || example.state.preset);
             render();
@@ -117,17 +181,28 @@ export function initializeUI(context, example) {
     // 패널 입력 중 카메라가 움직이지 않게 keydown만 차단합니다.
     // 지도에서 누른 키를 패널 위에서 놓을 수도 있으므로 keyup은 엔진까지 전달해 눌림 상태를 해제합니다.
     function onKey(event) {
+        if (event.target === keyInput && event.key !== 'Tab' && event.key !== 'Escape') {
+            event.preventDefault(); event.stopPropagation();
+            selectedKey = event.code;
+            render();
+            return;
+        }
         // Esc는 공통 API 도움말이 처리하므로 입력에 포커스가 있어도 바깥으로 전달합니다.
         if (event.key !== 'Escape') event.stopPropagation();
     }
     panel.addEventListener('change', onChange);
     panel.addEventListener('click', onClick);
     panel.addEventListener('keydown', onKey);
+    const stopWatchingBindings = example.onInputBindingsChange(render);
     render();
     return function cleanupExampleUI() {
         panel.removeEventListener('change', onChange);
         panel.removeEventListener('click', onClick);
         panel.removeEventListener('keydown', onKey);
+        stopWatchingBindings();
         for (const group of panel.querySelectorAll('[data-factor-group]')) group.replaceChildren();
+        panel.querySelector('[data-input-buttons]').replaceChildren();
+        panel.querySelector('[data-input-modifiers]').replaceChildren();
+        keyAction.replaceChildren();
     };
 }

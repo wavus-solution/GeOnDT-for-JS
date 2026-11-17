@@ -31,7 +31,6 @@ export async function initialize(context) {
     const analysisBindings = [];
     let selected;
     let overlay;
-    let popupPositionFrame = 0;
     let currentResult = null;
 
     /** 최신 측정 결과와 확정 목록의 갱신을 화면 구독자에게 전달합니다. */
@@ -67,8 +66,6 @@ export async function initialize(context) {
 
     /** 팝업과 양쪽 분석의 선택 강조를 함께 정리합니다. */
     function closeSelection() {
-        cancelAnimationFrame(popupPositionFrame);
-        popupPositionFrame = 0;
         selected = undefined;
         if (popup) popup.hidden = true;
         if (overlay) app.removeOverlay(overlay);
@@ -89,7 +86,7 @@ export async function initialize(context) {
     }
 
     /**
-     * 선택 피처의 소유 분석을 조회하고 도형의 중앙에 팝업을 배치합니다.
+     * 선택 피처의 소유 분석을 조회하고 도형 중심에 팝업의 밑면 중앙을 맞춥니다.
      *
      * @param {{feature: import('@UMeasureFeature').UMeasureFeature}} event 선택 이벤트입니다.
      */
@@ -112,27 +109,8 @@ export async function initialize(context) {
         if (!popup.isConnected) context.elements.root.append(popup);
         popup.hidden = false;
         emitSelection();
-        const size = popup.getBoundingClientRect();
         overlay = app.createOverlay(popup, {uuid: 'measure-feature-' + event.feature.getUid(), position,
-            useanchor: false, balloon: {x: -size.width / 2, y: -size.height / 2}});
-        const current = overlay;
-        cancelAnimationFrame(popupPositionFrame);
-        // 오버레이 관리자의 첫 위치·스타일 반영 뒤 창의 실제 크기로 화면 이탈만 보정합니다.
-        popupPositionFrame = requestAnimationFrame(() => {
-            popupPositionFrame = requestAnimationFrame(() => {
-                popupPositionFrame = 0;
-                if (!current || overlay !== current) return;
-                const bounds = popup.getBoundingClientRect(), map = app.container().getBoundingClientRect();
-                const margin = 12;
-                const dx = Math.max(map.left + margin - bounds.left, 0) + Math.min(map.right - margin - bounds.right, 0);
-                const dy = Math.max(map.top + margin - bounds.top, 0) + Math.min(map.bottom - margin - bounds.bottom, 0);
-                if (dx || dy) {
-                    current.balloon.x += dx;
-                    current.balloon.y -= dy;
-                    current.callOnchange();
-                }
-            });
-        });
+            useanchor: true, anchor: [0.5, 1]});
     }
 
     // @example-code:start measure.feature-selection

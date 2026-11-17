@@ -2,11 +2,13 @@ import {setGlobalFunction} from '@union3d/app/TPImporter';
 import * as THREE from 'three';
 import {defined} from '@union3d/util/defined';
 import {defaultValue} from '@union3d/util/defaultValue';
+import {invalidateMaskModelLimit} from '@union3d/analy/UAnalyParticle.internal';
 import {UDrawArg} from '@union3d/core/UDrawArg';
 import {UCamera} from '@union3d/core/UCamera.js';
 import {UOrthographicCamera} from '@union3d/core/UOrthographicCamera';
 import {UScene} from '@union3d/core/UScene';
 import {URenderer} from '@union3d/core/URenderer';
+import {ULineMaterial} from '@union3d/geometry/material/ULineMaterial';
 import {UDEF} from '@union3d/core/UDEF';
 import {UMesh} from '@union3d/core/mesh/UMesh';
 import {UFrustum} from '@union3d/core/UFrustum';
@@ -31,13 +33,14 @@ import {U3dImageWMSLayer} from '@union3d/3dLayer/U3dImageWMSLayer';
 import {U3dImageWMTSLayer} from '@union3d/3dLayer/U3dImageWMTSLayer';
 import {U3dLayer} from '@union3d/3dLayer/U3dLayer';
 import {U3dHeightLayer} from '@union3d/3dLayer/U3dHeightLayer';
+import {UHeightEditOrderManager} from '@union3d/core/height/UHeightEditOrderManager';
+import {UHeightReapplyBatchExecutor} from '@union3d/core/height/UHeightReapplyBatchExecutor';
 import {U3dHeightXYZLayer} from '@union3d/3dLayer/U3dHeightXYZLayer';
 import {U3dModelTilesLayer} from '@union3d/3dLayer/U3dModelTilesLayer';
 import {U3dShaderMeasureLayer} from '@union3d/3dLayer/U3dShaderMeasureLayer';
 import {U3dOpenLayer} from '@union3d/3dLayer/U3dOpenLayer';
 import {U3dModelU3FLayer} from '@union3d/3dLayer/U3dModelU3FLayer';
 import {U3dModelI3FLayer} from '@union3d/3dLayer/U3dModelI3FLayer';
-import {U3dModelA3FLayer} from '@union3d/3dLayer/U3dModelA3FLayer';
 import {U3dGroupLayer} from '@union3d/3dLayer/U3dGroupLayer';
 import {U3dModelBasicLayer} from '@union3d/3dLayer/U3dModelBasicLayer';
 import {U3dModelStaticLayer} from '@union3d/3dLayer/U3dModelStaticLayer';
@@ -452,94 +455,7 @@ const WORLD_SIZE = UDEF.HALF_WORLD * 2;
  * @property {number} maxlevel 최대 쿼드레벨
  */
 
-/**
- * U3dApp을 생성할 때 전달하는 초기 설정 옵션입니다.<br>
- * 지도를 그려 넣을 화면 영역, 홈 위치와 카메라 시점, 화면 품질과 성능, 타일·레이어 처리 기준을 한 번에 지정합니다.<br>
- * containername을 제외한 모든 속성은 생략할 수 있으며, 생략하면 각 항목에 적힌 기본값이 적용됩니다.<br>
- * 기본값이 `기기 성능에 따라 결정`이라고 적힌 속성은 실행 기기의 성능 점수에 따라 값이 달라집니다.<br>
- * 생성한 뒤에 값을 바꾸려면 각 항목에 대응하는 U3dApp의 설정 함수를 사용하십시오.
- *
- * @typedef {object} U3dAppCO
- *
- * @property {string} containername 지도 화면을 그려 넣을 div 엘리먼트의 id
- * @property {MapRegion} [type='korea'] 지도 영역. world는 전세계, korea는 한반도, custom은 targetrectopt 범위이며 타일 옵션을 지정하면 custom으로 처리합니다.
- * @property {string} [name] 여러 U3dApp을 구분하기 위한 이름입니다.<br>
- * 생략하면 'U3dApp_'에 생성 순번을 붙인 이름이 자동으로 지정됩니다.
- * @property {string} [idoverview] 인덱스맵(overview, 현재 보는 곳을 넓은 범위에서 보여 주는 보조 2D 지도)을 그려 넣을 div 엘리먼트의 id입니다.<br>
- * 값을 입력하면 앱을 만들 때 그 영역에 인덱스맵이 함께 생성되고, 생략하면 인덱스맵을 만들지 않습니다.
- * @property {boolean} [camTargetType=true] 인덱스맵의 중심을 맞추는 기준입니다.<br>
- * true이면 카메라가 바라보는 지점을, false이면 카메라가 있는 위치를 인덱스맵의 중심으로 사용합니다.
- * @property {GeoPosition} [homePosition] 홈 위치이며 위경도 좌표계(EPSG:4326)로 입력합니다.<br>
- * x는 경도, y는 위도, z는 고도(m)이며 기본값은 { x: 0, y: 0, z: 0 }입니다.<br>
- * 앱을 만들 때 이 위치로 이동하지는 않으며, updateHomePosition()을 호출하면 카메라가 이 위치로 이동합니다.
- * @property {Degree} [homeRotateLeft=0] 홈 위치로 이동할 때 적용할 방위각이며 0은 북쪽을 바라보는 방향
- * @property {Degree} [homeRotateDown=0] 홈 위치로 이동할 때 적용할 고도각이며 0은 지면을 수직으로 내려다보는 방향
- * @property {'perspective' | 'orthographic'} [cameraType='perspective'] 카메라 투영 방식입니다.<br>
- * `perspective`는 멀리 있는 것이 작게 보이는 원근 투영, `orthographic`은 거리와 무관하게 크기가 유지되는 평행 투영입니다.
- *
- * @property {number} [maxprocess] 한 프레임에서 처리할 작업 개수의 상한입니다.<br>
- * 값을 키우면 데이터가 빨리 채워지는 대신 프레임이 끊길 수 있으며, 기본값은 기기 성능에 따라 결정됩니다.
- * @property {boolean} [frameOptimize=true] 화면 상태에 맞춰 한 프레임의 작업량을 자동으로 조절할지 여부
- * @property {boolean} [autoClear=true] 화면 조작이 멈춘 유휴 상태에서 사용하지 않는 리소스와 메모리를 자동으로 정리할지 여부
- * @property {number} [ratiotilesize=1.0] 이미지·고도 타일 한 장에 사용할 해상도 비율이며 값이 작을수록 타일이 흐려지고 가벼워짐
- * @property {number} [ratiomodeltilesize=1.0] 모델 검색 타일 한 장에 사용할 해상도 비율이며 값이 작을수록 모델을 성기게 검색함
- * @property {'boundingbox' | 'sphere'} [searchtype='sphere'] 카메라 시점 주변에서 그릴 타일을 찾는 범위의 모양입니다.<br>
- * `sphere`는 구, `boundingbox`는 직육면체 범위로 검색합니다.
- * @property {'raw' | 'base' | '1_0'} [methodheight='raw'] 지형 고도 데이터를 해석하고 타일 경계의 틈을 메우는 스커트를 만드는 방식
- *
- * @property {number} [fov=50] 카메라 프러스텀(frustum, 화면에 보이는 원뿔 모양 영역)의 세로 시야각이며 도 단위
- * @property {boolean} [usesky=true] 하늘을 생성할지 여부
- * @property {string} [backgroundcolor='rgb(200, 200, 200)'] 지도 화면의 배경색이며 RGB 또는 HEX 문자열
- * @property {boolean} [useFog=true] 먼 거리를 흐리게 보이도록 안개 효과를 적용할지 여부
- * @property {boolean} [useCloud=true] 하늘에 구름 효과를 적용할지 여부
- * @property {boolean} [useSunFlare] 태양을 바라볼 때 나타나는 빛 번짐(플레어) 효과를 적용할지 여부이며, 기본값은 기기 성능에 따라 결정
- * @property {boolean} [useShadowMap=true] 그림자를 그릴지 여부
- * @property {number} [intensitylight=1.1] 장면 전체를 밝히는 환경 광원의 세기
- * @property {number} [toneExposure=1.2] 최종 화면의 노출 밝기이며 값이 클수록 화면이 밝아짐
- * @property {'none' | 'low' | 'medium' | 'high'} [improveTexture] 지면 텍스처 품질 보정 단계이며, 단계가 올라갈수록 선명해지고 연산량이 늘어납니다.<br>
- * 기본값은 기기 성능에 따라 결정됩니다.
- * @property {'SD' | 'HD' | 'FHD' | 'QHD' | 'UHD' | Array<number>} [pixelResolution] 렌더링에 사용할 해상도이며 사전 정의된 이름 또는 [가로, 세로] 픽셀 배열로 입력합니다.<br>
- * 예: 'FHD' 또는 [1122, 840]이며, 기본값은 기기 성능에 따라 결정됩니다.
- * @property {boolean} [logarithmicDepthBuffer=true] 로그 깊이 버퍼 사용 여부입니다.<br>
- * logarithmicDepthBuffer 속성을 생략하면 기본값 true를 사용합니다.
- * @property {number} [pixelRatio=1.0] 해상도에 곱해지는 픽셀 밀도 배율이며 값이 클수록 선명해지고 연산량이 늘어남
- * @property {boolean} [usePostProcess] 렌더링 결과에 후처리 효과를 적용할지 여부이며, 기본값은 기기 성능에 따라 결정
- * @property {PostProcessParam} [postOption] 후처리 효과의 세부 설정이며 생략하면 각 효과의 기본 설정 사용
- *
- * @property {number} [maxlevel=19] 지형을 나누는 쿼드타일의 최대 분할 레벨이며 지도 영역의 시작 레벨 이상이어야 합니다. 값이 클수록 가까이에서 더 세밀하게 표현됩니다.
- * @property {number} [near=1] 카메라 프러스텀에서 가장 가까운 평면까지의 거리이며 미터 단위
- * @property {number} [far=4007502] 카메라 프러스텀에서 가장 먼 평면까지의 거리이며 미터 단위이고 기본값은 월드 영역 크기
- * @property {TargetRectOption} [targetrectopt] custom 영역의 타일 인덱스이며 지정하면 custom으로 처리합니다. 생략 시 type별 기본 타일을 사용합니다.
- * @property {boolean} [skirt=true] 타일 경계에 생기는 틈을 가리는 스커트를 생성할지 여부
- * @property {number} [passlevel] 데이터를 불러오고 그리기 시작하는 최소 타일 레벨이며, 이보다 낮은 레벨의 타일은 화면에 나타나지 않습니다.<br>
- * 생략하면 레벨 제한을 두지 않습니다.
- *
- * @property {boolean} [useimageopacity=false] 모든 이미지 레이어에 공통 투명도를 적용할지 여부
- * @property {number} [imageopacity=1] 모든 이미지 레이어에 적용할 투명도이며 0은 완전 투명, 1은 불투명
- * @property {boolean} [usemodelopacity=false] 모든 모델 레이어에 공통 투명도를 적용할지 여부
- * @property {number} [modelopacity=1] 모든 모델 레이어에 적용할 투명도이며 0은 완전 투명, 1은 불투명
- * @property {number} [modelimagedistance=800] 모델 텍스처 해상도를 거리로 나누는 기준 거리이며 미터 단위입니다.<br>
- * 카메라가 이 거리 안에 있으면 가까울수록 높은 해상도의 텍스처를 사용하고, 이 거리보다 멀면 modelimagedefaultlevel의 해상도를 사용합니다.
- * @property {number} [modelimagedefaultlevel=0] modelimagedistance보다 멀리 있는 모델에 적용할 텍스처 해상도 레벨이며 0이 가장 낮은 해상도
- *
- * @property {number} [viewportratio=1] 카메라 종횡비(화면 가로 길이를 세로 길이로 나눈 값)에 곱하는 보정 배율이며 1은 컨테이너 비율을 그대로 사용
- * @property {number} [zoomLevel=10] 지도 확대 단계를 세는 Zoom 레벨의 시작값입니다.<br>
- * zoomIn()과 zoomOut()이 이 값을 1씩 올리거나 내려 화면을 확대·축소합니다.
- * @property {number} [minZoomLevel=6] 원근 버튼의 최소 줌과 지역 기본 최대 거리 계산 기준. 직교 축소는 현재 영역의 최대 거리 제한을 사용
- * @property {number} [maxZoomLevel=19] zoomIn()으로 올라갈 수 있는 Zoom 레벨의 상한
- * @property {boolean} [useautospeed=true] 지면과 카메라 사이의 거리에 따라 확대·이동·회전 속도를 자동으로 조절할지 여부
- * @property {boolean} [auto=true] 앱을 만들면서 렌더러·카메라·컨트롤·광원·하늘을 자동으로 생성하고 렌더링을 시작할지 여부입니다.<br>
- * false로 지정하면 필요한 구성 요소를 직접 생성한 뒤 start()를 호출하십시오.
- * @property {boolean} [automove=false] 비행 모드에서 지정한 경로를 따라 카메라가 자동으로 이동할지 여부
- * @property {boolean} [stoprender=false] 앱을 만든 직후 화면 그리기를 멈춘 상태로 둘지 여부
- *
- * @property {boolean} [undergroundFog=false] 지하 모드에서 안개 효과를 적용할지 여부
- * @property {number} [undergroundFogDensity=0.005] 지하 안개의 밀도이며 값이 클수록 시야가 빨리 흐려짐
- * @property {number} [undergroundFogStartHeight=0] 지하 안개가 시작되는 높이이며 미터 단위
- * @property {number} [undergroundFogEndHeight=-5000] 지하 안개가 가장 짙어지는 높이이며 미터 단위
- * @property {import('three').Vector3} [undergroundFogColor] 지하 안개 색상이며 x·y·z를 각각 0 이상 1 이하의 R·G·B 값으로 입력합니다.<br>
- * 기본값은 { x: 0.034, y: 0.034, z: 0.034 }입니다.
- */
+
 
 /** @type {U3dAppEMI} */
 export const U3dAppEMD = {
@@ -578,21 +494,13 @@ export const U3dAppAnalysis = {
 }
 
 /**
- * ~extends import('@U3dObject').U3dObject <br>
- *
- * 3D 어플리케이션 메인 클래스입니다. <br>
- * 3D 서비스를 제공하기 위해 기본이 되며 지도를 생성하고 조작하기 위한 속성 및 함수로 구성되어 있습니다.<br>
- * Layer, Control 등을 등록하기 위한 기본 컨테이너입니다.
+ * ~extends import('@U3dObject').U3dObject
  *
  * @group app
  * @extends {U3dObject}
  */
-/// <summary>
-/// 뷰·카메라·렌더러와 레이어 목록을 연결하여 웹 3D 지도를 실행합니다.
-/// 앱 초기화 후 등록한 레이어에 앱 문맥과 공통 표시 설정을 전달하고 화면 갱신과 자원 수명을 관리합니다.
-/// GeOnDT.U3dAPP 진입점과 각 레이어·분석 모듈에서 사용하는 앱 실행 객체입니다.
-/// </summary>
 class U3dApp extends U3dObject {
+
     /** @type {U3dAppEMI} */ static EVENT = U3dAppEMD;
     /** @type {U3dApp_Analysis} */ static ANALYSIS = U3dAppAnalysis;
 
@@ -624,6 +532,13 @@ class U3dApp extends U3dObject {
      * @ignore
      */
     _quadTreeChanging = false;
+    /**
+     * 완료 대기별 취소 함수입니다.
+     *
+     * @type {Set<(reason?: unknown) => void>}
+     *
+     */
+    #endWorkWaits = new Set();
     // 페이지를 닫을 때 앱을 정리하는 beforeunload 리스너입니다. dispose()에서 떼어 내야 하므로 함수를 보관합니다.
     /** @type {(() => void) | undefined} */
     #beforeUnloadHandler;
@@ -764,11 +679,10 @@ class U3dApp extends U3dObject {
     #viewAngleCanceled
     //Define End
     /**
-     * U3dApp 클래스 생성자입니다.<br>
-     * opt.containername으로 지정한 div 엘리먼트를 지도 화면 영역으로 사용하며, 그 안에 지도를 그릴 캔버스를 만듭니다.<br>
-     * 인터넷 익스플로러에서 실행하면 지도를 만들지 않고 지원하지 않는다는 오류만 알립니다.
+     * U3dApp 클래스 생성자입니다. <br>
+     * opt.containername으로 지정한 div 엘리먼트를 지도 화면 영역으로 사용하며, 그 안에 지도를 그릴 캔버스를 만듭니다.
      *
-     * @param {U3dAppCO} opt 지도 화면 영역과 홈 위치, 화면 품질, 타일 처리 기준을 담은 생성 옵션
+     * @param {U3dAppCO} opt 지도 화면, 홈 위치, 품질 및 타일 처리 설정
      */
     constructor(opt) {
         //opt.type = 'world';
@@ -820,10 +734,8 @@ class U3dApp extends U3dObject {
 
         /** @type {import('@UScene').UScene} */
         self._scene = /** @type {import('@UScene').UScene} */ (/** @type {unknown} */ (undefined));
-        //+ 참조용
-        ///** @type {import('@union3d/3dLayer/U3dTerrainLayer').U3dTerrainLayer | undefined} */
+        // 지도 초기화와 레이어 생성 과정에서 연결하는 참조입니다.
         self._terrainLayer = undefined;
-        ///** @type {import('@union3d/3dLayer/U3dShaderMeasureLayer').U3dShaderMeasureLayer | undefined} */
         self._measureLayer = undefined;
 
         /** @type {import('@UScene').UScene} */
@@ -1285,6 +1197,12 @@ class U3dApp extends U3dObject {
 
             self.enableShadowMap(self._useShadowMap);
             self.setCameraFitKorea(self._camera);
+            const initialLimits = INTERNAL.getDefaultMapRegionLimits(self);
+            const initialView = INTERNAL.getMapRegionView(self, regionOption, initialLimits);
+            self._far = initialLimits.far;
+            if (self._camera.isPerspectiveCamera) self._camera.far = initialLimits.far;
+            self._camera.updateProjectionMatrix();
+            self._mapControl._setMapRegionView(initialView.position, initialView.target, 0, undefined, true, initialView.azimuth);
             self.setDefaultTimeSun();
             self.resize();
             self.start();
@@ -1321,6 +1239,12 @@ class U3dApp extends U3dObject {
 
     //Constructor End
 
+    /**
+     * 현재 앱의 생성 옵션을 새 객체로 반환합니다. <br>
+     * 중첩 옵션의 참조는 기존대로 유지합니다.
+     *
+     * @returns {{ name: string; containername: string; idoverview: undefined | string; camTargetType: boolean; homePosition: undefined | import('three').Vector3; homeRotateDown: number; homeRotateLeft: number; maxProcess: any; frameOptimize: boolean; autoClear: boolean; ratioTileSize: number; ratioModelTileSize: number; useSunFlare: boolean; useshadowmap: boolean; intensitylight: number; intensitysunlight: number; toneExposure: number; usesky: boolean; usefog: boolean; useCloud: boolean; backgroundcolor: import('three').ColorRepresentation; fov: number; cameraType: "perspective" | "orthographic"; improveTexture: string; pixelResolution: Array<number>; pixelRatio: number; usePostProcess: boolean; postOption: undefined | PostProcessParam; datalevel: undefined | number; passlevel: undefined | number; minlevel: number; maxlevel: number; size: number; rectangle: undefined | import('@union3d/math/UGeoRect').UGeoRect; useimageopacity: any; imageopacity: any; usemodelopacity: any; modelopacity: any; methodheight: undefined | string; searchtype: string; modelimagedistance: number; modelimagedefaultlevel: number; viewportratio: number; near: number; far: number; minZoomLevel: number; maxZoomLevel: number; automove: boolean; }} 현재 앱의 생성 옵션을 새 객체로 반환하며 앱별 지형 처리 모드를 포함합니다.
+     */
     getParam() {
         return {
             name: this._name,
@@ -1400,8 +1324,8 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * 작업 처리기와 측정을 먼저 종료한 뒤 앱이 소유한 자원을 정리합니다.
-     * 종료 콜백에서 다시 호출하거나 이미 종료된 경우에는 중복 정리를 하지 않습니다.
+     * 작업 처리기와 측정을 먼저 종료한 뒤 앱이 소유한 자원을 정리합니다. <br>
+     * 종료 콜백에서 다시 호출하거나 이미 종료된 경우에는 중복 정리를 하지 않습니다. <br>
      * 동기 해제 오류가 발생해도 다음 자원의 정리를 시도한 뒤 수집한 오류를 전달합니다.
      *
      * @throws {unknown} 단일 실패의 원래 사유 또는 복수 실패를 호출 순서대로 errors에 담은 Error
@@ -1412,9 +1336,12 @@ class U3dApp extends U3dObject {
         this._disposed = true;
         // 기존 동기 종료 순서를 유지합니다. 각 자원의 실패는 수집하고 참조 제거까지 마친 뒤 전달합니다.
         const errors = new UErrorCollector('앱 자원 해제에 실패했습니다.');
+        errors.attempt(() => this.#cancelEndWork());
         errors.attempt(() => INTERNAL.cancelMapRegion(this));
         const self = this;
 
+        // 타일을 해제하기 전에 이 앱의 원래 경계를 복원합니다.
+        errors.attempt(() => UHeightSkirt1_0.restoreSurface(self));
         self._bInitialized = false;
         // 취소 콜백은 레이어와 그리기 인자를 사용하므로 해당 자원이 살아 있을 때 종결합니다.
         errors.attempt(() => self.#manager.processManager?.dispose());
@@ -1443,6 +1370,8 @@ class U3dApp extends U3dObject {
 
         errors.attempt(() => self.removeEventListenerAll());
 
+        UHeightReapplyBatchExecutor.cancelApp(self);
+        UHeightEditOrderManager.releaseApp(self);
         self._editHeightBoxList = undefined;
 
         if (self._isTwenning) {
@@ -1812,6 +1741,9 @@ class U3dApp extends U3dObject {
         };
 
         self._renderer = new URenderer(opt);
+        // UDrawArg 생성 시점에는 renderer가 없으므로 실제 생성 직후에 연결합니다.
+        // 최초 생성과 컨텍스트 복구에 따른 재생성 모두 사용자 콜백 뒤의 선 AA 갱신을 보장합니다.
+        ULineMaterial.attachRenderer(self._renderer);
         self._renderer.setApp(self);
         self._renderer.sortObjects = true;
         self.#postProcess.postOption = self._renderer.getPostOption();
@@ -2712,31 +2644,81 @@ class U3dApp extends U3dObject {
     }
 
     /**
-     * @description 고도가 업데이트 될때 입력한 위치의 고도값을 추출해 입력한 함수를 실행시켜 준다
-     * @param {number} x  업데이트할 위치의 x (월드좌표)
-     * @param {number} y  업데이트할 위치의 y (월드좌표)
-     * @param {import('three').Object3D} object  업데이트 할 객체
-     * @param {Function} updateFnc  업데이트 시 실행 함수, 함수의 파라메터로 입력되는 값과 그 순서 updateFnc(object, tile, 고도값)
+     * 지정한 월드 좌표의 지형 타일 고도가 갱신될 때 실행할 콜백을 등록합니다.
+     * 반환한 ID만 보관하면 위치·콜백 수정과 등록 해제가 가능하며, 대상 객체나 기존 좌표를 다시 전달할 필요가 없습니다.
      *
-     * @ignore
+     * @template {object} T
+     * @param {number} x 업데이트할 위치의 월드 X 좌표
+     * @param {number} y 업데이트할 위치의 월드 Y 좌표
+     * @param {T} object 업데이트할 대상 객체
+     * @param {function(T, import('@U3dQuadTile').U3dQuadTile, number): void} updateFnc 지형 타일과 새 고도를 대상 객체에 적용할 콜백
+     * @returns {symbol | null} 등록 수정·해제에 사용할 ID. 입력이나 인덱스가 유효하지 않으면 null
      */
     addAutoHeightUpdate(x, y, object, updateFnc) {
-        this.getIndexManager().insertAtPoint(
+        const indexManager = this.getIndexManager();
+        const isObjectReference = object !== null
+            && (typeof object === 'object' || typeof object === 'function');
+        if (!indexManager || !Number.isFinite(x) || !Number.isFinite(y)
+            || !isObjectReference || typeof updateFnc !== 'function') return null;
+        return indexManager.addAtPoint(
             x, y, object, updateFnc, U3dEvent.MESH.UPDATE_HEIGHT_MESH
-        )
+        );
     }
 
     /**
-     * @param {number} x  addAutoHeightUpdate로 등록된 업데이트할 위치의 x (월드좌표)
-     * @param {number} y  addAutoHeightUpdate로 등록된업데이트할 위치의 y (월드좌표)
-     * @param {import('three').Object3D} object addAutoHeightUpdate로 등록된 업데이트 할 객체
+     * 자동 높이 등록 ID를 유지한 채 점 위치, 대상 객체 또는 콜백을 바꿉니다.
+     * 콜백만 바꾸는 경우 공간 인덱스는 다시 구성하지 않습니다. 좌표는 x와 y를 함께 전달해야 합니다.
      *
-     * @ignore
+     * @param {symbol} updateId addAutoHeightUpdate()가 반환한 등록 ID
+     * @param {{x?: number, y?: number, object?: object, updateFnc?: function(object, import('@U3dQuadTile').U3dQuadTile, number): void}} [option={}] 바꿀 등록 내용
+     * @returns {boolean} 등록을 찾아 유효한 내용으로 갱신했으면 true
+     */
+    updateAutoHeightUpdate(updateId, option = {}) {
+        const indexManager = this.getIndexManager();
+        if (!indexManager || !option || typeof option !== 'object') return false;
+
+        const hasUpdateFnc = Object.prototype.hasOwnProperty.call(option, 'updateFnc');
+        if (hasUpdateFnc && typeof option.updateFnc !== 'function') return false;
+        const hasObject = Object.prototype.hasOwnProperty.call(option, 'object');
+        const isObjectReference = !hasObject || (option.object !== null
+            && (typeof option.object === 'object' || typeof option.object === 'function'));
+        if (!isObjectReference) return false;
+
+        /** @type {{x?: number, y?: number, key?: object, value?: Function}} */
+        const managerOption = {};
+        if (Object.prototype.hasOwnProperty.call(option, 'x')) managerOption.x = option.x;
+        if (Object.prototype.hasOwnProperty.call(option, 'y')) managerOption.y = option.y;
+        if (hasObject) managerOption.key = option.object;
+        if (hasUpdateFnc) managerOption.value = option.updateFnc;
+        return indexManager.updateById(
+            updateId, managerOption, U3dEvent.MESH.UPDATE_HEIGHT_MESH
+        );
+    }
+
+    /**
+     * 기존 좌표·대상 기반 자동 높이 등록을 해제합니다.
+     *
+     * @param {number} x addAutoHeightUpdate()에 전달한 월드 X 좌표
+     * @param {number} y addAutoHeightUpdate()에 전달한 월드 Y 좌표
+     * @param {object} object addAutoHeightUpdate()에 전달한 대상 객체
+     * @returns {void}
      */
     removeAutoHeightUpdate(x, y, object) {
-        this.getIndexManager().removeAtPoint(
+        this.getIndexManager()?.removeAtPoint(
             x, y, object, U3dEvent.MESH.UPDATE_HEIGHT_MESH
-        )
+        );
+    }
+
+    /**
+     * 등록 ID에 연결된 자동 높이 등록을 해제합니다.
+     *
+     * @param {symbol} updateId addAutoHeightUpdate()가 반환한 등록 ID
+     * @returns {boolean} 등록을 찾아 제거했으면 true
+     */
+    removeAutoHeightUpdateById(updateId) {
+        return this.getIndexManager()?.removeById(
+            updateId, U3dEvent.MESH.UPDATE_HEIGHT_MESH
+        ) ?? false;
     }
 
     /**
@@ -3621,6 +3603,7 @@ class U3dApp extends U3dObject {
         if (type === UDEF.TILE_TYPE.MODEL && setterName === 'setMaxLevel') {
             if (level < U3dQuadModelTile.g_minLevel || level < this._datalevel) return false;
             this._modelMaxLevel = level;
+            invalidateMaskModelLimit(this);
             return true;
         }
         const listQuadtree = this._quadtreeSet?.getQuadTrees(type);
@@ -3918,9 +3901,16 @@ class U3dApp extends U3dObject {
         return this._methodHeight;
     }
 
+    /**
+     * 높이 처리 방식을 변경합니다.
+     *
+     * @param {string} val 높이 처리 방식(raw·base·1_0)
+                                                                           
+     */
     setMethodHeight(val) {
         const self = this;
-        if (UDEF.HEIGHT_METHOD.NOW === UDEF.HEIGHT_METHOD._1_0) {
+        UHeightSkirt1_0.restoreSurface(self);
+        if (self._methodHeight === UDEF.HEIGHT_METHOD._1_0) {
             self.removeRenderBefore('DynamicSkirt1_0');
         }
 
@@ -4193,6 +4183,29 @@ class U3dApp extends U3dObject {
         return this._editHeightBoxList;
     }
 
+    /**
+     * 같은 앱의 높이 편집을 모아 마지막에 고도 타일을 재적용합니다. <br>
+     * 중간 지형 값을 읽거나 레이어 설정을 바꾸는 작업은 배치 밖에서 실행하십시오. <br>
+     * 기본 고도 레이어 하나일 때만 중복 타일을 생략하며 다른 조건은 기존 즉시 실행을 유지합니다. <br>
+     * 활성 범위에서 같은 앱의 수집 가능한 갱신 요청을 모두 모으므로 동시 편집은 호출자가 조정하십시오. <br>
+     * 최종 재적용이 끝나면 살아 있는 앱에 갱신 신호를 반영합니다.
+     *
+     * @param {function(): (void | Promise<void>)} action 순차 높이 편집 작업
+     * @returns {Promise<void>} 작업과 최종 재적용의 완료
+     */
+    async runHeightUpdateBatch(action) {
+        await UHeightReapplyBatchExecutor.run(this, action);
+        if (!this.isDisposed()) this.setUpdateDate();
+    }
+
+    /**
+     * 지정한 영역에 고도를 다시 적용하거나 활성 고도 갱신 배치에 요청을 추가합니다. <br>
+     * 지도 그리기 정보가 준비되지 않았거나 고도 레이어가 없으면 갱신하지 않습니다.
+     *
+     * @param {import('three').Box3 | null | undefined} [box] 고도를 다시 적용할 영역, null·undefined이면 갱신 생략
+     * @param {number | null | undefined} [minlevel] 최소 타일 레벨, null·undefined이면 현재 화면의 pass 레벨 사용
+     * @param {number | null | undefined} [maxlevel] 최대 타일 레벨, null·undefined이면 앱의 최대 레벨 사용
+     */
     updateHeightLayers(box, minlevel, maxlevel) {
         if (!defined(box) || !defined(this._drawArg))
             return;
@@ -4204,6 +4217,8 @@ class U3dApp extends U3dObject {
         if (layers.length === 0)
             return;
 
+        if (UHeightReapplyBatchExecutor.capture(this, box, minlevel, maxlevel, layers)) return;
+
         const size = 100;
         const minx = box.min.x - size;
         const miny = box.min.y - size;
@@ -4211,27 +4226,7 @@ class U3dApp extends U3dObject {
         const maxy = box.max.y + size;
 
         for (let layer of layers) {
-            for (let level = (layer._minlevel || minlevel); level <= maxlevel; level++) {
-
-                const minTileIndex = UMathEngine.MetersToTile(minx, miny, level);
-                const maxTileIndex = UMathEngine.MetersToTile(maxx, maxy, level);
-
-                for (let tx = minTileIndex.x; tx <= maxTileIndex.x; tx++) {
-                    for (let ty = minTileIndex.y; ty <= maxTileIndex.y; ty++) {
-                        const bound = UMathEngine.TileBounds(tx, ty, level);
-                        const infoTile = {
-                            x: tx,
-                            y: ty,
-                            level: level,
-                            minx: bound[0],
-                            maxx: bound[2],
-                            miny: bound[1],
-                            maxy: bound[3]
-                        }
-                        layer.updateHeightByUser(infoTile);
-                    }
-                }
-            }
+            UHeightReapplyBatchExecutor.applyImmediate(layer, minx, miny, maxx, maxy, minlevel, maxlevel);
         }
     }
 
@@ -5216,22 +5211,16 @@ class U3dApp extends U3dObject {
         }
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////////////////
     /**
-     * 2D 지도 모드에서 flyToPosition 입력 좌표를 TopView 기준으로 보정하는 내부 함수
-     *
-     * 2D 모드는 시선이 수직으로 고정되어 기울어진 시점을 만들 수 없다.
-     * 입력한 (position, target)을 그대로 쓰면 두 점 사이의 기울어진 거리가 그대로 카메라 고도가 되어
-     * 수평 거리가 멀수록 입력한 높이보다 훨씬 높은 곳에 카메라가 놓인다.
-     * 그래서 target을 화면 중심으로 유지하고 카메라는 그 바로 위 `position.z` 높이에 배치한다.
-     *
-     * target을 생략하면 원래 동작은 카메라 이동량만큼 target도 함께 옮기는 것인데,
-     * 수직 성분까지 따라가면 카메라 고도를 낮출 때 target이 지면 아래로 내려간다.
-     * 이 경우 수평 이동량만 반영하고 target 높이는 유지한다.
+     * 2D 지도 모드에서 flyToPosition 입력 좌표를 TopView 기준으로 보정하는 내부 함수 2D 모드는 시선이 수직으로 고정되어 기울어진 시점을 만들 수 없다. <br>
+     * 입력한 (position, target)을 그대로 쓰면 두 점 사이의 기울어진 거리가 그대로 카메라 고도가 되어 수평 거리가 멀수록 입력한 높이보다 훨씬 높은 곳에 카메라가 놓인다. <br>
+     * 그래서 target을 화면 중심으로 유지하고 카메라는 그 바로 위 `position.z` 높이에 배치한다. <br>
+     * target을 생략하면 원래 동작은 카메라 이동량만큼 target도 함께 옮기는 것인데, 수직 성분까지 따라가면 카메라 고도를 낮출 때 target이 지면 아래로 내려간다. <br>
+     * 이 경우 수평 이동량만 반영하고 target 높이는 유지합니다.
      *
      * @param {WorldPosition} position 요청한 카메라 좌표
      * @param {WorldPosition} [target] 요청한 타겟 좌표
-     * @returns {{position: WorldPosition, target: WorldPosition | undefined}} 보정한 좌표
+     * @returns {{ position: WorldPosition; target: WorldPosition | undefined; }} 보정한 좌표
      *
      * @ignore
      */
@@ -5249,6 +5238,7 @@ class U3dApp extends U3dObject {
 
     /**
      * 지정된 위치로 부드럽게 이동하며 타겟을 바라보는 함수 (Tween 애니메이션 사용)
+     * 카메라의 3차원 이동 거리가 월드 좌표 기준 1m 이하이면 첫 트윈 갱신에서 이동을 마칩니다.
      *
      * 2D 지도 모드에서는 시선이 TopView에 고정되므로, target을 화면 중심으로 유지하고
      * 카메라를 그 바로 위 `position.z` 높이에 배치합니다. 이때 `position`의 x, y는 사용되지 않습니다.
@@ -6450,7 +6440,7 @@ class U3dApp extends U3dObject {
     setRotationOverviewMap(rad) {
         var self = this;
         if (!defined(self._overviewmap)) {
-            ////   console.info('overviewmap is null!');
+            // /   console.info('overviewmap is null!');
             return false;
         }
 
@@ -6766,18 +6756,30 @@ class U3dApp extends U3dObject {
         return false;
     }
 
-    createWorkingEndEvent(name) {
+    /**
+     * 앱과 표시 레이어의 현재 작업 완료를 감시합니다.
+     * LOAD 알림에서 교체된 레이어의 완료 감시는 새 검색까지 보류합니다.
+     *
+     * @param {unknown} [name] 기존 호출과의 호환용 인수이며 감시 범위에는 사용하지 않습니다.
+     * @param {boolean} [modelOnly=false] 내부 모델 검색에서 모델 종류의 완료만 감시할지 여부
+     * @returns {void}
+     */
+    createWorkingEndEvent(name, modelOnly = false) {
         if (this.isDisposed() || this._quadTreeChanging || this._mapRegionApplying) return;
         var self = this;
+        const layerGenerations = new Map((self._layerlist?._listmap ?? [])
+            .map(layer => [layer, layer._workCheckGeneration]));
         if (defined(self._eventHandler)) {
             //   console.info(self._eventHandler._id);
-            self._eventHandler.createWorkingEndEvent(name);
+            self._eventHandler.createWorkingEndEvent(name, modelOnly);
         }
+        if (this.isDisposed() || this._quadTreeChanging || this._mapRegionApplying) return;
 
         if (defined(self._layerlist)) {
             var layers = self._layerlist._listmap;
             layers.forEach(function (layer) {
-                if (layer.getVisible()) {
+                if (layerGenerations.has(layer) && layerGenerations.get(layer) === layer._workCheckGeneration
+                    && (!modelOnly || layer.getType() === UDEF.LAYER_TYPE.MODEL) && layer.getVisible()) {
                     layer.createWorkingEndEvent();
                 }
             });
@@ -6852,22 +6854,72 @@ class U3dApp extends U3dObject {
         return count;
     }
 
+    /**
+     * 현재 작업이 끝나면 앱을 this로 완료 콜백을 호출합니다.
+     * 트리 변경이나 앱 해제 시 이전 대기는 취소합니다.
+     *
+     * @param {Function} [callback] 작업 완료 콜백
+     * @param {unknown} [param] 완료 콜백에 전달할 값
+     */
     listenEndWork(callback, param) {
-        var self = this;
-        setTimeout(function () {
-            listenEndWork(self, function () {
-                if (defined(callback))
-                    callback.call(self, param);
-            }, param);
+        this.#listenEndWork(callback, param);
+    }
 
-        }, 500);
+    /**
+     * 완료 대기의 타이머를 추적하고 취소·실패를 내부 Promise에 전달합니다.
+     *
+     * @param {Function} [callback] 작업 완료 콜백
+     * @param {unknown} [param] 완료 콜백에 전달할 값
+     * @param {(reason: unknown) => void} [onCancel] 취소 또는 조회 실패 수신자
+     */
+    #listenEndWork(callback, param, onCancel) {
+        /** @type {ReturnType<typeof setTimeout> | undefined} */
+        let timer;
+        /** @param {unknown} [reason] 취소 또는 조회 실패 사유 */
+        const cancel = reason => {
+            if (!this.#endWorkWaits.delete(cancel)) return;
+            if (timer !== undefined) clearTimeout(timer);
+            if (onCancel) {
+                if (reason === undefined) {
+                    reason = Object.assign(new Error('타일 트리 변경 또는 앱 해제로 완료 대기를 취소했습니다.'), {name: 'AbortError'});
+                }
+                onCancel(reason);
+            }
+        };
+        const check = () => {
+            if (!this.#endWorkWaits.has(cancel)) return;
+            try {
+                if (this.isDisposed() || this._quadTreeChanging || this._mapRegionApplying) { cancel(); return; }
+                const working = this.getWorkingLevel2();
+                // 작업량 조회 중 재진입한 재시작·해제도 이전 완료로 처리하지 않습니다.
+                if (!this.#endWorkWaits.has(cancel)) return;
+                if (this.isDisposed() || this._quadTreeChanging || this._mapRegionApplying) { cancel(); return; }
+                if (working <= 0) {
+                    this.#endWorkWaits.delete(cancel);
+                    if (defined(callback)) callback.call(this, param);
+                } else {
+                    timer = setTimeout(check, 500);
+                }
+            } catch (error) {
+                cancel(error);
+                if (!onCancel) throw error;
+            }
+        };
+        this.#endWorkWaits.add(cancel);
+        if (this.isDisposed() || this._quadTreeChanging || this._mapRegionApplying) { cancel(); return; }
+        timer = setTimeout(check, 500);
+    }
+
+    /** 트리 또는 앱에 속한 완료 대기와 타이머를 모두 취소합니다. */
+    #cancelEndWork() {
+        for (const cancel of this.#endWorkWaits) cancel();
     }
 
     /**
      * 3D 모델 레이어를 정적으로 로딩시켜, 한 번 가시화된 모델을 사라지지 않게 설정하는 함수
      * @param {boolean} tileloadall 정적로딩 활성 여부
      * @param {number} [maxDistance] 모델을 사라지지 않게 유지할 최대 거리
-     * @returns {Promise<boolean>} 설정 적용이 끝난 시점의 Promise
+     * @returns {Promise<boolean>} 설정 적용이 끝난 시점의 Promise. 트리 변경·앱 해제 시 AbortError로 거절합니다.
      *
      * @example
      * app.keepModelByDistance(true).then(() => console.log('적용 완료'));
@@ -6883,9 +6935,8 @@ class U3dApp extends U3dObject {
                 this.update();
         }
 
-        this.applyAppFromParameter({tileloadall: tileloadall}, function () {
-            promise.resolve(true);
-        });
+        this.applyAppFromParameter({tileloadall: tileloadall});
+        this.#listenEndWork(() => promise.resolve(true), undefined, error => promise.reject(error));
 
         return promise;
     }
@@ -6916,10 +6967,7 @@ class U3dApp extends U3dObject {
                 // if (!defined(rRatioTileSize_)) rRatioTileSize_ = self.getRatioTileSize();
 
                 self.setStopModel(true);
-                self.listenEndWork(function () {
-                    if (defined(callback))
-                        callback.call(this, param);
-                }, param);
+                if (defined(callback)) self.listenEndWork(callback, param);
             } else {
 
                 //+ 쓰레기값 방지
@@ -6930,10 +6978,7 @@ class U3dApp extends U3dObject {
                 self.setStopModel(false);
                 self.disposeTileModelAll(); //+  모델은 모두 지운다
                 self.update();
-                self.listenEndWork(function () {
-                    if (defined(callback))
-                        callback.call(this, param);
-                }, param);
+                if (defined(callback)) self.listenEndWork(callback, param);
             }
         }
 
@@ -7175,6 +7220,7 @@ class U3dApp extends U3dObject {
          * @returns {void}
          */
         const cleanup = work => { try { work(); } catch (error) { errors.push(error); } };
+        cleanup(() => this.#cancelEndWork());
         const tree = this._quadtreeSet;
         if (tree) this.#tileUpdateSensitivity = tree.getUpdateSensitivity();
         if (!type) {
@@ -9069,7 +9115,7 @@ class U3dApp extends U3dObject {
      * 지정한 지점을 바라보도록 카메라를 옮기고 방향과 거리까지 한 번에 맞춥니다.<br>
      * x, y, z는 카메라를 놓을 자리가 아니라 카메라가 바라볼 지점의 월드 좌표(EPSG:3857)이며, 카메라는 그 지점에서 targetZ만큼 떨어진 곳에 자리를 잡습니다.<br>
      * leftrotate와 downrotate는 그 지점을 기준으로 카메라가 어느 방향 어느 높이에 설지를 정합니다.<br>
-     * 이동은 곧바로 끝나지 않고 출발점과 도착점 사이를 한 번 솟아올랐다 내려오는 곡선을 그리며 durationTime 동안 진행합니다.<br>
+     * durationTime이 0이거나 카메라의 3차원 이동 거리가 월드 좌표 기준 1000 이하이면 첫 트윈 갱신에서 목적지로 이동하며, 그 밖에는 출발점과 도착점 사이를 한 번 솟아올랐다 내려오는 곡선으로 이동합니다.<br>
      * 호출하면 진행 중이던 카메라 이동과 2D·3D 시점 전환을 먼저 멈춥니다.<br>
      * 카메라나 지도 컨트롤러가 아직 만들어지지 않았으면 아무것도 하지 않고 promise가 reject를 반환하므로 실패 처리를 함께 연결하여 사용을 권장드립니다.
      *
@@ -9915,18 +9961,22 @@ class U3dApp extends U3dObject {
 
     /**
      * 생성된 모델 레이어들에게서 입력된 박스 영역의 모델 객체를 타일단위로 강제 로드 하는 함수
+     * 수집 전에 폐기된 타일은 표시하지 않으며, 후속 표시 예외는 정리 경로로 전달합니다.
      * 표시 자원 정리 실패도 수집하여 갱신 중지를 복원한 뒤 Promise를 거절합니다.
+     * 취소 신호가 전달되면 이 요청의 표시 자원과 리스너를 정리합니다.
      *
      * @param {boolean} visible 검색 영역 표시 여부
      * @param {number} minx box 영역의 min X 좌표 값 (월드 좌표)
      * @param {number} maxx box 영역의 max X 좌표 값 (월드 좌표)
      * @param {number} miny box 영역의 min Y 좌표 값 (월드 좌표)
      * @param {number} maxy box 영역의 max Y 좌표 값 (월드 좌표)
+     * @param {AbortSignal} [signal] 이 요청의 취소 신호
      * @returns {Promise<void> | undefined} 완료 또는 취소·정리 오류. 기존 작업 중에는 undefined
      * @throws {Error} 범위 오류, 내부 오류 또는 트리 교체·해제에 따른 취소
      * @ignore
      */
-    forceLoadModel(visible = true, minx = -213890.2, maxx = -212195.6, miny = 102175.8, maxy = 104582.4) {
+    forceLoadModel(visible = true, minx = -213890.2, maxx = -212195.6, miny = 102175.8, maxy = 104582.4, signal) {
+        if (signal?.aborted) return Promise.reject(signal.reason);
         const tree = this._quadtreeSet;
         if (!tree?.hasQuadTree(UDEF.TILE_TYPE.MODEL) || this.isStopUpdate() || this.isDisposed() || this._quadTreeChanging || this._mapRegionApplying) return;
         if (![minx, maxx, miny, maxy].every(Number.isFinite) || minx > maxx || miny > maxy) {
@@ -9934,6 +9984,7 @@ class U3dApp extends U3dObject {
         }
         const roots = tree.getQuadTrees(UDEF.TILE_TYPE.MODEL);
         const self = this;
+        const eventName = `forceLoadModel-${UDEF.createUUID()}`;
         const addList = [];
         return new Promise((resolve, reject) => {
             let settled = false;
@@ -9954,9 +10005,10 @@ class U3dApp extends U3dObject {
                  * @param {() => void} work 자원 정리 또는 상태 복원 작업
                  */
                 const cleanup = work => { try { work(); } catch (error) { errors.push(error); } };
-                cleanup(() => tree.off(U3dEvent.TILE.FORCE_MODEL_LOADED, collect));
-                cleanup(() => self.off(self.constructor.EVENT.MODEL_LOADED, loaded));
-                for (const root of roots) cleanup(() => root.off(U3dEvent.TILE.DISPOSE, cancel));
+                cleanup(() => signal?.removeEventListener('abort', abort));
+                cleanup(() => tree.off(U3dEvent.TILE.FORCE_MODEL_LOADED, eventName));
+                cleanup(() => self.off(self.constructor.EVENT.MODEL_LOADED, eventName));
+                for (const root of roots) cleanup(() => root.off(U3dEvent.TILE.DISPOSE, eventName));
                 for (const cube of addList) {
                     cleanup(() => cube.removeFromParent());
                     cleanup(() => cube.material.dispose());
@@ -9969,6 +10021,7 @@ class U3dApp extends U3dObject {
                 else resolve();
             };
             const cancel = () => finish(new Error('타일 트리 변경으로 강제 모델 로딩을 취소했습니다.'));
+            const abort = () => finish(signal?.reason);
             /**
              * 강제 로딩 범위를 지정한 높이에 표시합니다.
              * @param {import('three').Box3} box 표시 범위
@@ -9981,23 +10034,31 @@ class U3dApp extends U3dObject {
                 const size = box.getSize(new THREE.Vector3());
                 const cube = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, 1),
                     new THREE.MeshBasicMaterial({color, opacity: 0.5, transparent: true}));
+                // 고도 조회·장면 추가 중 취소되어도 이번 요청의 상자를 회수합니다.
+                addList.push(cube);
                 box.getCenter(cube.position);
                 cube.position.z = self.getRenderHeightAtPoint(cube.position) + heightOffset;
+                if (settled) return;
                 self._scene.add(cube);
-                addList.push(cube);
             };
             const collect = (event) => {
-                if (!settled && !self._quadTreeChanging && self._quadtreeSet === tree && roots.every(root => !root._disposed) && event.data.item) {
-                    addBox(event.data.item._boundingbox, 0x00ff00, 50);
+                if (!settled && !self._quadTreeChanging && self._quadtreeSet === tree && roots.every(root => !root._disposed) && event.data.item && !event.data.item._disposed) {
+                    try { addBox(event.data.item._boundingbox, 0x00ff00, 50); }
+                    catch (error) { finish(error); }
                 }
             };
             try {
-                for (const root of roots) root.on(U3dEvent.TILE.DISPOSE, cancel);
+                signal?.addEventListener('abort', abort, {once: true});
+                for (const root of roots) root.on(U3dEvent.TILE.DISPOSE, cancel, false, eventName);
+                if (settled) return;
                 self.setStopUpdate(true);
+                if (settled) return;
                 const box = new THREE.Box3(new THREE.Vector3(minx, miny, 0), new THREE.Vector3(maxx, maxy, 1));
                 addBox(box, 0xdd0000, 30);
-                tree.on(U3dEvent.TILE.FORCE_MODEL_LOADED, collect);
-                self.on(self.constructor.EVENT.MODEL_LOADED, loaded);
+                if (settled) return;
+                tree.on(U3dEvent.TILE.FORCE_MODEL_LOADED, collect, false, eventName);
+                self.on(self.constructor.EVENT.MODEL_LOADED, loaded, false, eventName);
+                if (settled) return;
                 tree.updateModel(box);
             } catch (error) { finish(error); }
         });
@@ -10132,7 +10193,7 @@ class U3dApp extends U3dObject {
         if (!this._drawArg) return;
 
         const self = this;
-        ////////////////////////////////////////////////////////////////////U3dViewLight
+        // /////////////////////////////////////////////////////////////////U3dViewLight
         //     if (self._viewLightList.length > 0) {
         //         let viewLightRenderer;
         //         for (let viewLight of self._viewLightList) {
@@ -10143,14 +10204,14 @@ class U3dApp extends U3dObject {
         //             }
         //         }
         //     }
-        ////////////////////////////////////////////////////////////////////Wireframe
+        // /////////////////////////////////////////////////////////////////Wireframe
         let layers = self._drawArg.getInstanceModelLayers();
         for (let layer of layers) {
             if (defined(layer._setWireframe)) {
                 layer.setWireframe(layer._setWireframe);
             }
         }
-        ////////////////////////////////////////////////////////////////////스와이프
+        // /////////////////////////////////////////////////////////////////스와이프
         if (self.getEnableSwipe() && self._renderer.getScissorTest()) {
             let rect = self._rectBaseWindow;
             self._renderer.setScissor(rect.left, rect.top, rect.width, rect.height);
@@ -10162,7 +10223,7 @@ class U3dApp extends U3dObject {
         } else {
             self._renderer.draw(clear, UDEF.DRAW_TYPE.DEFAULT);
         }
-        ////////////////////////////////////////////////////////////////////U3dView
+        // /////////////////////////////////////////////////////////////////U3dView
 
         // 프레임 분할 작업
         const views = this.getRenderViewList?.(2, 4) ?? this._viewList;
@@ -10735,11 +10796,10 @@ class U3dApp extends U3dObject {
 
     /**
      * U3dApp에 레이어를 추가하는 함수
+     *
      * @param {import('@union3d/3dLayer/U3dLayer').U3dLayer} layer 추가할 레이어 객체 (예: U3dImageXYZLayer, U3dHeightXYZLayer 등)
      * @returns {import('@union3d/3dLayer/U3dLayer').U3dLayer | undefined} 추가된 레이어 객체
      */
-    /// <summary>레이어를 앱에 등록·초기화하고 해당 종류의 앱 공통 투명도 설정을 적용합니다.</summary>
-    /// <param name="layer">U3dLayer 형식의 추가할 레이어이며 null·undefined 또는 중복 등록은 기존 거부 경로로 처리하고, 성공 시 앱이 레이어 연결을 관리합니다.</param>
     addLayer(layer) {
         if (!layer || !this._layerlist.addLayer(layer)) {
             layer?._rejectReady(new Error('레이어를 앱에 추가하지 못했습니다.'));
@@ -10753,14 +10813,13 @@ class U3dApp extends U3dObject {
             const value = this.getProperties(UDEF.APP_PROP.IMAGE.OPACITY);
             if (enable === true) {
                 layer.ready.then(
-                /// <summary>영상 레이어 준비 완료 후 앱과 현재 레이어의 수명을 확인하여 공통 투명도를 적용합니다.</summary>
+                // 영상 레이어 준비 완료 후 앱과 현재 레이어의 수명을 확인하여 공통 투명도를 적용합니다.
                 () => {
                     // Promise 콜백은 다음 마이크로태스크에서 실행됩니다. 그 사이 해제·교체된 레이어는 건드리지 않습니다.
                     if (this.isDisposed() || layer.isDisposed() || this.getLayerByName(layer.getName()) !== layer) return;
                     layer.setOpacity(value);
                 }).catch(
-                /// <summary>레이어 초기화 또는 투명도 적용 실패를 앱 오류 처리기로 전달합니다.</summary>
-                /// <param name="error">unknown 형식의 Promise 거부 사유이며 초기화 실패의 Error 또는 투명도 적용 중 발생한 예외를 변경 없이 전달합니다.</param>
+                // 레이어 초기화 또는 투명도 적용 실패를 앱 오류 처리기로 전달합니다.
                 error => {
                     __GError__(this, error, '2506418');
                 });
@@ -10770,21 +10829,19 @@ class U3dApp extends U3dObject {
             layer instanceof U3dModelStaticLayer ||
             layer instanceof U3dModelWFSLayer ||
             layer instanceof U3dModelU3FLayer ||
-            layer instanceof U3dModelI3FLayer ||
-            layer instanceof U3dModelA3FLayer
+            layer instanceof U3dModelI3FLayer
         ) {
             const enable = this.getProperties(UDEF.APP_PROP.MODEL.USE_OPACITY);
             const value = this.getProperties(UDEF.APP_PROP.MODEL.OPACITY);
             if (enable === true) {
                 layer.ready.then(
-                /// <summary>A3F를 포함한 모델 레이어 준비 완료 후 앱과 현재 레이어의 수명을 확인하여 공통 투명도를 적용합니다.</summary>
+                // 모델 레이어 준비 완료 후 앱과 현재 레이어의 수명을 확인하여 공통 투명도를 적용합니다.
                 () => {
                     // 준비 완료 직후 제거된 모델에 초기 투명도가 뒤늦게 적용되는 것을 막습니다.
                     if (this.isDisposed() || layer.isDisposed() || this.getLayerByName(layer.getName()) !== layer) return;
                     layer.setOpacity(value);
                 }).catch(
-                /// <summary>레이어 초기화 또는 투명도 적용 실패를 앱 오류 처리기로 전달합니다.</summary>
-                /// <param name="error">unknown 형식의 Promise 거부 사유이며 초기화 실패의 Error 또는 투명도 적용 중 발생한 예외를 변경 없이 전달합니다.</param>
+                // 레이어 초기화 또는 투명도 적용 실패를 앱 오류 처리기로 전달합니다.
                 error => {
                     __GError__(this, error, '2506418');
                 });
@@ -11068,7 +11125,6 @@ class U3dApp extends U3dObject {
         this._lightList = [];
     }
 
-    //////////////////////////////////////////////////////
 
     /**
      * 지정한 위치에 HTML 오버레이를 만들어 화면에 추가합니다.
@@ -11079,13 +11135,13 @@ class U3dApp extends U3dObject {
      * @param {string} [option.uuid] 오버레이 ID
      * @param {boolean} [option.useanchor] 앵커 사용 여부
      * @param {Array<number>} [option.anchor] 앵커 위치
-     * @param {{x: number, y: number}} [option.balloon] 말풍선 꼭지점 위치
+     * @param {{ x: number; y: number; }} [option.balloon] 말풍선 꼭지점 위치
      * @returns {import('@U3dOverlay').U3dOverlay | undefined} 생성된 오버레이
      *
      * @example
-     * const overlay = app.createOverlay('<div>서울</div>', {
-     *     position: {x: 126.97, y: 37.56, z: 0}
-     * });
+const overlay = app.createOverlay('<div>서울</div>', {
+    position: {x: 126.97, y: 37.56, z: 0}
+});
      */
     createOverlay(html, option) {
         if (!defined(html) || !defined(option.position)) return;
@@ -11559,13 +11615,13 @@ class U3dApp extends U3dObject {
         return this.pixelToGeographic(event, true, true);
     }
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////
     //2D,3D,지리좌표 변환 API Start//////////////////////////////////////////////////////////////////////////
     /**
      * 픽셀좌표(화면좌표)를 3D좌표로 변환하는 함수. <br>
-     * 교차 검색(intersect)를 통해 픽셀좌표(화면좌표)를 3D좌표로 변환한다.
+     * 교차 검색(intersect)를 통해 픽셀좌표(화면좌표)를 3D좌표로 변환합니다.
+     *
      * @param {import('@U3dMouseEvent').U3dMouseEvent} e GeOnDT 마우스 이벤트 객체
-     * @param {boolean} onlyTerrain 교차 검색 지형만 대상으로 할 것인지 여부. false면 씬에 추가된 모델까지 포함한다.
+     * @param {boolean} onlyTerrain 지형만 검색할지 여부(false이면 장면의 모델도 포함)
      * @param {boolean} recursive 교차 검색 시 자식 Object까지 포함할지 여부
      * @returns {WorldPosition} 3D좌표
      */
@@ -11644,10 +11700,10 @@ class U3dApp extends U3dObject {
         return this.vector3ToPixel(result);
     }
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     /**
      * 카메라 줌, 패닝, 회전속도(factor)를 지면과의 거리에 따라 자동으로 변경하는 기능 사용여부 설정 함수
+     *
      * @param {boolean} [use=true] 기능 사용여부
      */
     setAutoSpeed(use) {
@@ -11739,10 +11795,9 @@ class U3dApp extends U3dObject {
         return id;
     }
 
-    ////////////////////////////////////////////////////////////////////////////////////////////////////////
     /**
-     * 건물 지우기 등록 함수
-     * 입력받은 데이터에 제거할 건물을 등록한다.
+     * 건물 지우기 등록 함수 입력받은 데이터에 제거할 건물을 등록합니다.
+     *
      * @param {Array<KeyValue> | KeyValue} data 건물 지우기 데이터 배열 또는 오브젝트 (Object 구성 {layer : 레이어이름, uid : 유니크아이디})
      */
     registerRemoveModel(data) {
@@ -12540,7 +12595,7 @@ function checkCollision(mesh, cubeBox) {
 }
 
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function removeModelByObject(obj) {
     var uid = obj.uid;
@@ -12867,22 +12922,6 @@ function createFlyControls() {
     self._controls['fly'] = control;
 }
 
-/**
- * 앱 작업이 끝날 때까지 대기한 뒤 완료 콜백을 실행합니다.
- *
- * @param {import('@U3dApp').U3dApp} self 작업량을 확인할 앱
- * @param {function} callback 앱을 this로 호출할 완료 콜백
- * @param {unknown} param 완료 콜백에 전달할 값
- */
-function listenEndWork(self, callback, param) {
-    if (self.getWorkingLevel2() <= 0) {
-        if (defined(callback))
-            callback.call(self, param);
-        return;
-    }
-    setTimeout(listenEndWork, 500, self, callback, param);
-
-}
 
 function rotateObject(model, scene, degreeX, degreeY, degreeZ) {
 

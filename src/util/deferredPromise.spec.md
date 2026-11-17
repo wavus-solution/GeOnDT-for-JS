@@ -18,7 +18,7 @@
 
 ### 1.4 주요 사용처와 연계 대상
 
-외부 콜백 기반 작업을 Promise로 연결하는 호출자가 사용할 수 있다. 기존 `deferred()`와 별도 모듈이며 현재 엔진 호출부의 자동 교체나 GeOnDT 정적 API 등록은 수행하지 않는다.
+외부 콜백 기반 작업을 Promise로 연결하는 엔진 호출부에서 사용한다. GeOnDT.deferred()는 이 함수를 통해 표준 Promise와 완료 제어 메서드를 제공한다. 기존 deferred.js의 객체 thenable 변환·reset·takeOver 계약은 제공하지 않는다.
 
 ## 3. 정규 자연어 수도코드
 

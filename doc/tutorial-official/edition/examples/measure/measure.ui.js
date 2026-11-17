@@ -118,7 +118,7 @@ export function initializeUI(context, example) {
     }
 
     /**
-     * 스타일 입력의 유효성을 확인하고 처리 중인 버튼의 중복 실행을 막습니다.
+     * 스타일 입력을 검증하고 중복 실행을 막으며 상태 표시 후 팝업 크기를 다시 반영합니다.
      *
      * @param {Event} event 버튼 입력입니다.
      * @param {() => Promise<void>} action 적용할 동작입니다.
@@ -133,6 +133,7 @@ export function initializeUI(context, example) {
             field('status').textContent = error instanceof Error ? error.message : String(error);
         } finally {
             button.disabled = false;
+            context.app.getOverlayList().find(overlay => overlay.getElement() === popup)?.needUpdate();
         }
     }
 

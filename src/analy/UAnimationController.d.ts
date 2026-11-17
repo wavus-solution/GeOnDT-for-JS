@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -61,6 +61,18 @@ declare class UAnimationController extends UEventDispatcher {
      * @returns {number} 아직 처리하지 않은 경유지 개수입니다. <br>
      */
     get waypointQueueSize(): number;
+    /**
+     * 현재 목표와 대기 경유지를 도착 순서대로 복사하여 예상 도착 시간과 함께 반환합니다.<br>
+     * 새 입력과 프레임 지연이 없다고 가정하며 기본 속도, 남은 기한, 대기열 밀림 보정과 거리·보간 진행률의 도착 기준을 반영합니다.<br>
+     * 도착 허용 범위에 진입하는 시간을 추정하므로 각 구간의 실제 도착은 다음 프레임까지 늦어질 수 있습니다.<br>
+     * 일시정지 중에는 재개 시점을 알 수 없으므로 도착 시간을 Infinity로 반환합니다. 조회는 이동 상태를 바꾸지 않습니다.
+     *
+     * @param {number} [count=100] 반환할 목표의 최대 개수인 양의 정수
+     * @returns {Array<UAnimationScheduledWaypoint>} 호출 시점 기준 예상 시간(ms)과 목표 좌표의 복사본. 실행 중이 아니면 빈 배열
+     *
+     * @ignore
+     */
+    _getScheduledWaypoints(count?: number): Array<UAnimationScheduledWaypoint>;
     /**
      * 컨트롤러가 주행 중인지 반환합니다. <br>
      *
@@ -430,6 +442,20 @@ declare class UAnimationController extends UEventDispatcher {
     };
 
 /**
+     * 현재 이동 구간과 대기 경유지의 예상 도착 정보입니다.
+     */
+    type UAnimationScheduledWaypoint = {
+        /**
+         * 목표 월드 좌표(EPSG:3857)의 복사본
+         */
+        point: WorldPositionVector3;
+        /**
+         * 호출 시점부터 예상 도착까지의 시간(ms, 0 이상 정수). 재개 시점이나 이동 시간을 알 수 없으면 Infinity
+         */
+        time: number;
+    };
+
+/**
      * 애니메이션 컨트롤러의 상태 변화와 프레임 갱신을 구분하는 이벤트 이름 모음입니다. <br>
      */
     type UAnimationControllerEMI = {
@@ -479,4 +505,4 @@ declare class UAnimationController extends UEventDispatcher {
         ARRIVE: string;
     };
 
-export type { UAnimationController, UAnimationControllerCO, UAnimationControllerCO_Content, UAnimationControllerEMI, UAnimationNextFrameCommand };
+export type { UAnimationController, UAnimationControllerCO, UAnimationControllerCO_Content, UAnimationControllerEMI, UAnimationNextFrameCommand, UAnimationScheduledWaypoint };

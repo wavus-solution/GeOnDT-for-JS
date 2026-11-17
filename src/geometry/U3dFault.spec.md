@@ -72,8 +72,8 @@ U3dFaultCO extends U3dGeometryCO 부분 타입 명세
             단층의 가장 높은 점에서 단층면의 투명도 감소가 시작되는 실제 깊이(m)다.
         outline?, useline?, useLine?, edge?: boolean = false
             외곽선 표시 여부를 지정하는 호환 별칭이다.
-        lineWidth?: number = 4
-            화면 픽셀 기준 외곽 테두리 두께다.
+        lineWidth?: number = 1
+            outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀 기준 외곽 테두리 두께다. 기본 단위는 pixel이다.
 
 U3dFaultParam extends U3dGeometryStyleParam 부분 타입 명세
     이 명세에서 사용하는 필드:
@@ -106,11 +106,11 @@ U3dFault extends U3dGeometry 클래스 정의
     _applyHeight: boolean
         입력 상단 높이를 유지할지 여부
 
-    _edgeLine: LineSegments2 | undefined
+    _outline: LineSegments2 | undefined
         내부 삼각형 분할선을 제외한 외곽 테두리 또는 하이라이트에 사용하는 선 객체
 
     _lineWidth: number
-        화면 픽셀 기준 외곽 테두리 두께
+        outlineType 기준 단위의 외곽 테두리 두께이며 기본값은 1이다.
 
     _topCenterPosition: THREE.Vector3 | undefined
         단층 상단 양 끝점의 월드 중심 위치
@@ -157,7 +157,7 @@ U3dFault extends U3dGeometry 클래스 정의
         의존: UDEF — 기존 외곽선 자원 해제; 함수: {disposeObject3D()}
         동작:
             현재 재질과 재질이 소유한 map/_oriMap 텍스처를 중복 없이 해제하고 geometry를 해제한다.
-            U3dFault가 직접 소유한 _edgeLine만 해제·제거하며 사용자가 추가한 다른 자식은 유지한다.
+            U3dFault가 직접 소유한 _outline만 해제·제거하며 사용자가 추가한 다른 자식은 유지한다.
             루트 객체의 dispose()를 호출하지 않으므로 부모 연결, 이벤트 구독, 표시 상태와 _disposed 값은 변경하지 않는다.
 
     _getVertices() -> Array<THREE.Vector3> | undefined
@@ -182,10 +182,10 @@ U3dFault extends U3dGeometry 클래스 정의
         역할: 외곽 경계 지오메트리와 선 재질로 단층 외곽 테두리 객체를 생성한다.
         의존:
             LineSegmentsGeometry — 굵은 선분 위치 저장; 생성자: {new LineSegmentsGeometry()}
-            LineMaterial — 화면 픽셀 굵기를 지원하는 외곽선 재질 생성; 생성자: {new LineMaterial()}
+            LineMaterial — 미터·화면 픽셀 굵기를 지원하는 외곽선 재질 생성; 생성자: {new LineMaterial()}
             LineSegments2 — 굵은 외곽선 객체 생성; 생성자: {new LineSegments2()}
         동작:
-            외곽 경계 지오메트리가 없으면 undefined를 반환하고, 있으면 현재 선 색상과 화면 픽셀 기준 입력 두께를 적용한다.
+            외곽 경계 지오메트리가 없으면 undefined를 반환하고, 있으면 현재 선 색상과 outlineType 기준 입력 두께를 적용한다. meter는 위도 보정한 미터이며 기본 pixel은 화면 CSS 픽셀이다. 렌더 직전에 현재 단위·두께·DPR·뷰포트를 반영한다.
             최초 렌더 전에 raycast가 실행되어도 화면 픽셀 굵기가 정확하도록 생성 시 현재 renderer viewport를 material resolution에 설정한다.
             화면 크기가 바뀐 뒤에는 LineSegments2가 렌더 직전에 현재 viewport로 material resolution을 자동 갱신한다.
 
@@ -305,8 +305,8 @@ U3dFault extends U3dGeometry 클래스 정의
         동작:
             상속 setParam()으로 공통 속성을 반영한다.
             전달된 폭, 길이, 경사각, 상단 깊이, 주향, 축척, 외곽선, 투명도 감소 깊이와 정규화한 색상을 내부 상태에 저장한다.
-            형상 관련 값이 하나라도 전달되면 표시 여부를 보존한 채 단층 형상을 다시 생성한다.
-            외곽선 옵션만 변경되면 단층 형상을 다시 만들지 않고 현재 geometry의 외곽 테두리만 갱신한다.
+            형상 관련 값이 실제로 달라지면 표시 여부를 보존한 채 단층 형상을 한 번 다시 생성한다. 같은 값과 색상·투명도·외곽선 스타일 변경은 기존 형상과 재질을 유지한다. 색상 배열은 setColor()로 현재 uniform에 반영한다.
+            외곽선 표시 상태만 실제로 바뀌면 현재 geometry의 외곽 테두리를 생성하거나 제거한다. 같은 표시 상태와 두께 변경은 기존 외곽선 자원을 유지한다.
 
     getScaleRatio() -> number
         동작: 현재 _scaleRatio를 반환한다.
@@ -338,9 +338,9 @@ U3dFault extends U3dGeometry 클래스 정의
         동작: 입력값을 외곽선 상태에 저장하고 현재 geometry의 외곽 테두리를 다시 생성하거나 제거한다.
 
     setLineWidth(lineWidth: number) -> void
-        역할: 단층 외곽 테두리 두께를 화면 픽셀 단위로 변경한다.
-        처리 기준: 0보다 큰 유한한 값만 사용하고, 유효하지 않으면 기본 4px을 적용한다.
-        동작: 두께를 저장하고 현재 geometry의 외곽 테두리를 새 두께로 다시 생성한다.
+        역할: 단층 외곽 테두리 두께를 outlineType 기준 단위로 변경한다.
+        처리 기준: 0보다 큰 유한한 값만 사용하며 잘못된 값은 변경 전에 예외로 거부한다.
+        동작: 두께를 저장하고 기존 외곽선의 렌더 두께 값을 갱신한다. 형상·재질을 재생성하지 않으며 다음 렌더에서 현재 단위와 배율로 반영한다.
 
     override setProperties(properties: KeyValue) -> void
         동작: 입력 사용자 속성을 _properties에 저장한다.
@@ -357,7 +357,7 @@ U3dFault extends U3dGeometry 클래스 정의
     setHighLight(color: THREE.ColorRepresentation = 0x22aa22, opacity: number = 0.8) -> void
         역할: 단층에 선택 외곽선과 강조 색상·투명도를 적용한다.
         동작:
-            기존 외곽선이 있으면 표시하고 최소 6px로 굵게 하며, 없으면 현재 지오메트리에서 같은 굵기의 외곽 테두리를 만들어 자식으로 추가한다.
+            기존 외곽선이 있으면 표시하고 현재 단위에서 최소 6으로 굵게 하며, 없으면 현재 지오메트리에서 같은 굵기의 외곽 테두리를 만들어 자식으로 추가한다.
             입력 투명도와 색상을 단층 재질에 적용한다.
 
     resetHighLight() -> void

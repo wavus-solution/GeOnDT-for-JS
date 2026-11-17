@@ -247,6 +247,7 @@ class U3dModelDxfLayer extends U3dModelLayer {
                     vertexPoints.push(vertex);
                 }
                 const mesh = extrudeDxf.call(this, vertexPoints, this._extrudeHeight);
+                // 원본 엔티티 대신 표시할 메시이므로 같은 사용 위치의 키를 승계한다.
                 const color = colorList[materialIndex % colorList.length];
                 materialIndex++;
                 mesh.material.color.set(color);
@@ -684,8 +685,6 @@ function setLabel(mesh) {
     const self = this;
     const center = new THREE.Vector3();
     mesh.getBBox().getCenter(center);
-    const google = self._drawArg.getWorldToGoogle(center.x, center.y);
-    mesh.userData.id = UDEF.createGoogleKey(google.x, google.y) + '_' + mesh.id;
     mesh._utype = UDEF.UMESH_TYPE._building;
     mesh._ulayername = this._name;
     if (!mesh.userData.label) {
@@ -720,7 +719,8 @@ function regenerateExtrudeMesh(mesh, depth) {
     if (!mesh.geometry.parameters)
         return;
     // 기존 생성 옵션의 depth를 갱신하고 entity·label을 공유하는 새 메시를 받습니다.
-    return INTERNAL.regenerateExtrudeMesh(mesh, depth);
+    const replacement = INTERNAL.regenerateExtrudeMesh(mesh, depth);
+    return replacement;
 }
 
 /**

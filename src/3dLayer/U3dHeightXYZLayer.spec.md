@@ -118,16 +118,17 @@ U3dHeightXYZLayer extends U3dHeightLayer 클래스 정의
             요청 생성의 동기 예외와 비동기 오류가 연달아 발생해도 오류 종결과 부모 대체는 한 번만 실행한다.
             부모 대체를 시작하면 같은 deferred의 완료 권한을 부모 생성 흐름에 넘긴다.
         의존:
-            deferred — 완료 객체 생성; 함수: {deferred()}
+            deferredPromise — 완료 객체 생성; 함수: {deferredPromise()}
             defined — 선택 상태 존재 판정; 함수: {defined()}
             U3dHeightLayer — 선행조건, 부모 대체와 지형 적용; 함수: {prototype.createHeight.call(), createParentHeight(), updateHeight(), changeHeight()}; 속성 읽기: {_headerCache, _burnLevels}
             U3dLayer — 타일 상태·로딩 수 관리; 함수: {setStateTile(), resetStateTile(), plusLoadingTile(), minusLoadingTile()}
+            UDrawArg — 번 레벨 대체를 시작할 실제 레벨 경계 조회; 함수: {getPassLevel()}
             UFileLoader — 비동기 타일 요청, 소비자별 취소와 요청 생성 실패 정리; 함수: {load(), getLoading(), deleteCallBack(), abort()}; 속성 읽기·삭제: {callbackMap}; 속성 삭제: {loading}
             UCache — 활성 데이터·헤더 캐시 조회·확정과 실패 항목 제거; 함수: {createKeyByTile(), get(), add(), has(), remove()}
             LRUCache — 조회용 원자적 타일 항목 조회와 적용 실패 항목 제거; 함수: {get(), delete()}
             UDEF — 타일 로딩·완료 상태와 소비자 식별자; 상수: {TILE_STATE.{_loading, _end}}; 정적 함수: {createUUID()}
             __GInfo__ — 활성 캐시 중복 요청 진단; 함수: {__GInfo__()}
-            U3dLayer — 요청 정책과 취소 등록 상태; 속성 읽기: {_cache, _maxlevel, _isCache, _cancelTiles}; 속성 쓰기·삭제: {_cancelTiles}
+            U3dLayer — 요청 정책·레이어 수명과 취소 등록 상태; 속성 읽기: {_cache, _maxlevel, _isCache, _cancelTiles, _disposed}; 속성 쓰기·삭제: {_cancelTiles}
             THREE.Box3 — 레이어 범위와 타일 수평 경계의 교차 판정; 함수: {intersectsBox()}
             __UNION3D__.pako — 압축 응답 해제; 함수: {inflate()}
         동작:
@@ -136,16 +137,22 @@ U3dHeightXYZLayer extends U3dHeightLayer 클래스 정의
                 부모가 없으면 false로 완료한다.
             실제 레벨이 _maxlevel을 넘으면 부모가 있을 때 대체하고 없으면 false로 완료한다.
             타일을 로딩 상태로 바꾸고 URL과 캐시 키를 만든 뒤 로딩 수를 증가시킨다.
-            조회용 캐시에 타일 항목이 있으면 먼저 지형에 적용하고, 성공한 데이터와 헤더만 활성 캐시에 함께 복원한 뒤 완료 상태와 true 결과를 확정한다.
-            조회용 타일의 지형 반영이 실패하면 해당 조회용·활성 캐시 항목을 제거하고 로딩 수를 감소시킨 뒤 오류로 완료한다. 처분된 타일은 상태 초기화 후 false로 완료한다.
-            캐시에 없으면 고유 요청 ID의 소비자별 취소 callback을 등록하고 원격 파일을 요청한다.
-            성공 응답은 필요한 경우 압축을 해제한다. 결과가 전체 ArrayBuffer이면 그대로 사용하고 TypedArray 등 view이면 유효 byteOffset·byteLength 범위만 새 버퍼로 복사한다.
+            LRU 조회 전에 타일 키별 취소 callback을 등록한다. 이 등록이 자기 callback이고 취소되지 않았으며 레이어·타일이 모두 처분되지 않았을 때만 현재 요청으로 판정한다.
+            조회용 캐시에 타일 항목이 있으면 updateHeight 뒤 현재 요청인지 확인하고, changeHeight 뒤 다시 확인한다. 둘 다 통과한 데이터와 헤더만 활성 캐시에 함께 복원하고 성공 종결한다.
+            조회용 타일의 지형 반영이 실패해도 현재 요청이면 해당 조회용·활성 캐시 항목을 제거하고 로딩 수를 감소시킨 뒤 부모 대체 없이 오류로 거부한다. 현재 요청이 아니면 아래의 취소·무효 종결로 진행한다.
+            LRU에 없을 때만 고유 요청 ID를 만들고 원격 파일을 요청한다. 성공 응답 진입 시 이미 종결됐으면 반환하고 현재 요청이 아니면 취소·무효 종결로 진행한다.
+            성공 응답에서 _compress가 참이면 압축을 해제한다. 결과가 전체 ArrayBuffer이면 그대로 사용하고 TypedArray 등 view이면 유효 byteOffset·byteLength 범위만 새 버퍼로 복사한다.
             버전에 맞는 배열과 헤더로 변환한다.
-            변환 결과를 지형에 적용하고 성공한 경우에만 데이터와 헤더를 조회용·활성 캐시에 함께 반영한다.
-            지형 적용 뒤 로딩 수, 타일 상태와 true 결과를 확정한다.
-            성공 callback이 취소된 요청 또는 처분된 타일을 받으면 자료를 해석하지 않고 로딩 수를 줄이고 타일 상태를 초기화하여 false로 완료한다.
-            오류 종결은 취소 등록을 지우고 로딩 수를 한 번 줄인 뒤 메시지를 기록한다. 이미 종결된 오류 요청은 다시 처리하지 않는다.
-            처분된 타일은 상태 초기화 후 false로 완료하며, 그 외의 파싱·다운로드·요청 생성 실패는 부모가 있으면 대체하고 없으면 상태 초기화 후 오류로 완료한다.
+            변환 결과에 updateHeight를 적용한 뒤 현재 요청인지 확인하고, changeHeight 뒤 다시 확인한다. 둘 다 통과하고 _isCache가 참이면 데이터와 헤더를 조회용 캐시에 함께 반영한다.
+            지형 적용에 성공하면 활성 데이터 캐시에 저장하고, 헤더가 있으면 헤더 캐시에 저장하며 헤더가 없으면 기존 헤더 항목을 제거한다.
+            각 현재성 검사에서 무효이면 캐시·성공 상태를 확정하지 않고 취소·무효 종결로 진행한다. 사용자 callback이 시작한 새 요청의 상태·캐시를 이전 요청이 덮어쓰지 않도록 한다.
+            성공하면 종결 표식을 기록하고 자기 취소 등록을 해제한 뒤 타일 완료 상태, 로딩 수 감소, true 결과를 순서대로 확정한다.
+            취소·무효 종결은 자기 callback이 현재 등록인 경우에만 타일 상태와 취소 등록을 지우고, 자기 로딩 수를 한 번 줄인 뒤 반환 Promise를 false로 완료한다. 명시적 취소도 네트워크 통지보다 이 종결을 먼저 실행한다.
+            원격 요청의 명시적 취소는 자기 callback을 로더에서 제거하고 같은 URL의 다른 유효 소비자가 없을 때만 다운로드를 중단한다. LRU 경로는 로더 요청 ID가 없으므로 네트워크 정리를 생략한다.
+            늦은 성공·실패·취소 callback은 이미 종결되었으면 아무 동작도 하지 않는다.
+            오류를 받을 때 현재 요청이 아니면 오류 대신 취소·무효 종결로 처리한다. 현재 요청이면 취소 등록과 로딩 수를 정리하고 메시지를 기록한다.
+            현재 요청의 파싱·다운로드·요청 생성 실패는 부모가 있으면 대체하고, 없으면 상태 초기화 후 오류로 거부한다.
+            명시적 취소의 후속 오류 callback은 이미 false로 완료한 결과를 바꾸지 않는다. 외부 로더가 직접 통지한 미취소 요청의 abort는 부모 대체 없이 오류로 거부한다.
             요청 객체 생성이 즉시 실패하면 UFileLoader에 먼저 등록된 현재 callback과 단독 URL 로딩 항목을 회수한다.
             지오메트리 반영 실패는 관련 활성 캐시를 제거하고 부모 대체 없이 오류로 완료한다.
 
@@ -159,9 +166,12 @@ U3dHeightXYZLayer extends U3dHeightLayer 클래스 정의
             UMercator — 재사용 좌표 변환기로 타일 경계 계산; 함수: {TileBounds()}
             defined — 캐시 적중 여부 판정; 함수: {defined()}
             U3dQuadTile — URL용 상대 레벨 계산; 정적 함수: {getStartLevel()}
+            UDrawArg — 앱별 자료 시작 레벨 조회; 함수: {getDataLevel()}
+            U3dLayer — 앱에 연결된 그리기 인자 조회; 속성 읽기: {_drawArg}
         동작:
+            tileX·tileY·level이 0 이상의 정수가 아니면 RangeError로 거부한다.
             조회·분석용 LRU와 활성 지형 캐시에서 타일 데이터와 헤더 묶음을 찾는다.
-            캐시에 없으면 타일 경계의 중심으로 URL을 만들고 레이어 설정에 따라 파일을 요청·파싱한다.
+            캐시에 없으면 타일 경계의 중심으로 URL을 만든다. 상대 레벨은 level에서 drawArg.getDataLevel()을 빼며 drawArg·반환값이 없으면 getStartLevel()을 대신 사용한다. 레이어 설정에 따라 파일을 요청·파싱한다.
             성공한 원격 결과를 조회·분석용 LRU에 저장하고 반환한다.
 
     async getHeightAtPoints(points: Array<{x: number, y: number} & Partial<{level: number}>>, level: number = 15, printProgress?: boolean) -> Promise<Array<{x: number, y: number, z: number | string, level: number, errorMsg: string | undefined}>>
@@ -170,7 +180,7 @@ U3dHeightXYZLayer extends U3dHeightLayer 클래스 정의
             빈 목록은 빈 배열을 반환한다.
             x 또는 y가 0이어도 유효한 좌표로 처리하며 유한수가 아닌 좌표만 건너뛴다.
             좌표별 level이 null 또는 undefined이면 함수 level을 사용한다. 함수 인수의 기본값은 15이며 명시적 0은 그대로 사용한다.
-            타일 요청이나 변환에 실패한 좌표는 z를 error로 기록하고 다음 좌표를 계속 처리한다.
+            타일 캐시 조회·원격 요청·파싱에 실패한 좌표는 z를 error로 기록하고 다음 좌표를 계속 처리한다. 이 예외 처리 밖에서 수행하는 좌표 변환·고도 보간이 예외를 던지면 전체 Promise를 거부한다.
             주변 표본이 모두 NoData이면 z에 TERRAIN_NO_DATA를 기록한다.
         의존:
             UMercator — 재사용 좌표 변환기로 타일 인덱스와 경계 계산; 함수: {MetersToTile(), TileBounds()}
@@ -180,6 +190,7 @@ U3dHeightXYZLayer extends U3dHeightLayer 클래스 정의
         동작:
             각 유효 좌표를 타일 인덱스와 경계로 변환한다.
             조회용 캐시에서 먼저 타일 값을 찾고 누락되면 공용 타일 페이로드 준비 흐름에 위임한다.
+            이 타일 준비가 실패하면 x·y·level, z='error'와 오류 메시지를 결과에 추가하고 다음 좌표로 넘어간다.
             계산 결과가 undefined이면 TERRAIN_NO_DATA를 사용하고 x·y·level·errorMsg와 함께 새 결과 항목을 기록한다.
             보간 결과를 추가하고 요청·캐시·오류 수와 선택적 진행률을 갱신한다.
             모든 좌표 결과를 반환한다.
@@ -209,10 +220,11 @@ U3dHeightXYZLayer extends U3dHeightLayer 클래스 정의
         의존:
             Web API — XML 비동기 요청; 생성자: {new XMLHttpRequest()}; 함수: {overrideMimeType(), open(), send()}
             defined — 기본 URL과 구분자 판정; 함수: {defined()}
-            U3dLayer — 초기화 완료·실패 통지; 함수: {_resolveReady(), _rejectReady()}
+            U3dLayer — 초기화 완료·실패 통지 및 기존 완료 확인; 함수: {_resolveReady(), _rejectReady(), isReady()}
         동작:
             baseUrl 또는 레이어 기본 URL로 tilemapresource.xml 주소를 만든다.
-            HTTP 상태가 정확히 200이면 XML 설정을 반영하고 공간 범위를 계산한 뒤 _resolveReady()를 호출한다.
+            HTTP 상태가 정확히 200이면 XML 설정을 반영한다.
+                parseXml이 true이면 공간 범위를 계산하며, 이 결과도 true일 때 _resolveReady()를 호출한다.
             XML 파싱·공간 계산, HTTP 상태 또는 네트워크 요청이 실패하면 초기화 Promise를 거절한다.
             이미 완료한 레이어의 XML 적용 예외는 로그에 남기고 완료 상태를 유지한다.
             onload의 XML 반영·공간 계산이 예외를 던지면 직접 잡아 레이어 reject에 전달한다. 별도 타일 요청의 실패 계약은 변경하지 않는다.
@@ -225,9 +237,9 @@ U3dHeightXYZLayer extends U3dHeightLayer 클래스 정의
             U3dHeightLayer — 검증된 자료 버전과 복원 설정 확정; 속성 쓰기: {_majorVersion, _minorVersion, _dataScale, _dataOffset}
         동작:
             responseXML이 없고 responseText가 있으면 DOMParser로 문자열을 파싱한다. 문서를 얻지 못하면 false를 반환한다.
-            전체 검증 성공 뒤 주·부 버전과 버전 명시 상태를 먼저 저장하고 격자·표본 크기를 반영한다.
-            선택적 표본 형식과 압축 문자열이 null이 아니면 현재 설정을 덮어쓰며 압축은 문자열 true와 정확히 같은 경우에만 켠다.
-            데이터 배율·오프셋과 입력 공간 범위를 저장한 뒤 true를 반환한다.
+            전체 검증 성공 뒤 _majorVersion·_minorVersion·#hasDeclaredUmfVersion과 _width·_height·_unitHeight를 반영한다.
+            unitType이 null이 아니면 _unitType을 덮어쓴다. compress가 null이 아니면 _compress를 compress === 'true' 결과로 덮어쓴다.
+            _dataScale·_dataOffset·_boundingBox를 저장한 뒤 true를 반환한다.
             대체 파싱·검증·상태 반영 중 예외가 발생하면 메시지를 출력하고 false를 반환한다.
 
     override disposeTile(tile: U3dQuadTile, opt?: object) -> void
@@ -240,9 +252,13 @@ U3dHeightXYZLayer extends U3dHeightLayer 클래스 정의
         역할: 타일 중심과 레벨을 파일 URL로 변환한다.
         의존:
             UMathEngine — XYZ 타일 URL 생성; 정적 함수: {createUrl()}
-            U3dLayer — 상속 파일 확장자 조회; 속성 읽기: {_ext}
+            U3dLayer — 상속 파일 확장자와 그리기 인자 조회; 속성 읽기: {_ext, _drawArg}
             U3dQuadTile — 타일 시작 레벨 조회; 정적 함수: {getStartLevel()}
-        동작: 현재 URL, 확장자, 축 반전과 시작 레벨 설정으로 타일 URL을 만들어 반환한다.
+            UDrawArg — 앱별 자료 시작 레벨 조회; 함수: {getDataLevel()}
+            defined — 필수 URL 존재 확인; 함수: {defined()}
+        동작:
+            baseUrl이 정의되지 않으면 Error를 던진다.
+            자료 시작 레벨은 drawArg.getDataLevel()을 사용하며 drawArg·반환값이 없으면 getStartLevel()을 사용한다. 중심 좌표·상대 레벨·URL·확장자·축 반전과 함께 URL 생성기에 전달하여 결과를 반환한다.
 
     override setApp(app: U3dApp) -> void
         역할: 앱을 연결하고 지형 분할·스커트 설정을 동기화한다.
@@ -279,7 +295,7 @@ U3dHeightXYZLayer extends U3dHeightLayer 클래스 정의
             __GEONDT__.pako — 압축 응답 해제; 함수: {inflate()}
         동작:
             압축 설정이면 URL 확장자와 응답 압축 해제를 적용한다.
-            압축 해제 결과가 ArrayBuffer이면 그대로 사용하고 view이면 byteOffset·byteLength의 유효 범위만 새 버퍼로 복사한다.
+            _compress가 참이면 압축 해제 결과가 ArrayBuffer인지 확인하고, view이면 byteOffset·byteLength의 유효 범위만 새 버퍼로 복사한다.
             해제된 원본 응답을 버전에 맞는 타일 값으로 변환하여 완료하고, 요청·압축·파싱 오류는 거절한다.
 
     #putDataCache(tileKey: string, tilePayload: U3dHeightTilePayload) -> void
@@ -310,6 +326,9 @@ U3dHeightXYZLayer extends U3dHeightLayer 클래스 정의
             BoundingBox 또는 draw argument가 없으면 오류를 기록하고 false를 반환한다.
             최소·최대 좌표를 앱 좌표로 변환하여 2차원·3차원 레이어 범위와 Box3에 저장한다.
             계산을 완료하면 true를 반환한다.
+
+getExactArrayBuffer(source: ArrayBuffer | ArrayBufferView) -> ArrayBuffer
+    동작: ArrayBuffer이면 같은 참조를 반환한다. view이면 byteOffset·byteLength가 가리키는 유효 바이트만 새 Uint8Array에 복사하고 그 ArrayBuffer를 반환한다.
 
 U3dHeightXYZFormatState 타입 정의
     _width, _height: number | undefined
@@ -397,7 +416,7 @@ TileUrlParam 타입 정의
 
 ```spec
 UMF 2.0 헤더는 magic 4바이트, 버전·헤더 크기·격자·표본 형식·플래그, scale·offset, noData와 표본 수 순서로 구성된다.
-원격 요청으로 증가시킨 로딩 작업 수는 성공, 실패, 취소와 타일 처분의 모든 종결 경로에서 한 번 감소해야 한다.
+타일 생성에서 증가시킨 로딩 작업 수는 LRU 재사용·원격 요청의 성공, 실패, 취소와 타일 처분 종결 경로에서 한 번 감소해야 한다.
 활성 고도 캐시의 UMF 2.0 데이터에는 같은 타일 키의 헤더가 함께 있어야 한다.
 XML을 사용하지 않는 레이어도 파일의 UMF2 magic을 우선 판별한다.
 ```

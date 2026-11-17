@@ -73,9 +73,9 @@ dependencies: []
 
 - 드론 컴포넌트를 50Hz 간격으로 이동시키면서 촬영 영역과 누적 경로를 확인하고, 고도 범례와 등고선을 지도에 겹쳐 지형 높이를 비교합니다.
 - 드론을 선택하면 기본 `UFrustumTerrainProjectionHelper`와 `terrain: true`로 Far 면을 지형에 맞추는 `UFrustumHelper` 탭을 전환할 수 있습니다. 전환할 때 기존 Helper를 해제하고 선택한 Helper만 생성하며, FOV·자세·공통 표현 설정은 그대로 유지합니다.
-- moveSmoothly로 이동하는 드론의 `predictFuturePositions(100)`을 500ms마다 호출해 1~100단계 뒤의 예측점을 `{point, time}` 배열로 얻고, 그중 단계가 `FUTURE_POSITION_HELPER_STEP`(3)의 배수인 지점(3, 6, …, 99단계)에만 청록색 `ULandNormalDirectionHelper`를 표시해 부하를 줄입니다. `time`은 최근 이력의 평균 속도(총 이동 거리 ÷ 총 경과 시간)로 계산한, 호출 시점부터의 예상 도착 시간(ms)이며 각 Helper의 `userData.predictedArrivalMs`에 보관됩니다. 도착 이력 100개가 쌓인 뒤 표시되며, 드론당 표시 단계 수(33개)만큼의 Helper를 같은 인덱스로 재사용합니다. 예측 검증은 표시 여부와 무관하게 100단계 전체로 수행합니다. 호출 주기와 단계 수는 `FUTURE_POSITION_UPDATE_INTERVAL`, `FUTURE_POSITION_COUNT`에서 조절합니다.
+- moveSmoothly로 이동하는 드론의 `predictFuturePositions(100)`을 500ms마다 호출해 최대 100단계 뒤의 예측점을 `{point, time}` 배열로 얻고, 그중 단계가 `FUTURE_POSITION_HELPER_STEP`(3)의 배수인 지점(3, 6, …, 99단계)에만 청록색 `ULandNormalDirectionHelper`를 표시해 부하를 줄입니다. 현재 목표와 대기 경유지를 먼저 반환하며, 도착 이력이 2개 이상이면 예약 목표를 포함한 결과를 이력 수와 요청 개수 중 작은 값까지 채웁니다. 이력이 10개이면 10개부터 반환하고 이력이 쌓이면 최대 100개까지 늘어납니다. 이미 알려진 예약 목표가 더 많으면 요청 상한까지 먼저 반환합니다. `time`은 호출 시점부터의 예상 도착 시간(ms)으로 예약 경로의 이동 정책과 이후 이력의 잡음을 보정한 평균 속도를 반영하며 각 Helper의 `userData.predictedArrivalMs`에 보관됩니다. 드론당 표시 단계 수(최대 33개)만큼의 Helper를 같은 인덱스로 재사용합니다. 예측 검증은 표시 여부와 무관하게 반환된 단계 전체로 수행합니다. 호출 주기와 단계 수는 `FUTURE_POSITION_UPDATE_INTERVAL`, `FUTURE_POSITION_COUNT`에서 조절합니다.
 - 예측이 맞았는지 확인하기 위해 `moveSmoothly`의 도착 콜백에서 실제 도착 시각·좌표를 앞선 예측의 같은 단계와 비교합니다. 예측 하나의 마지막 단계까지 비교가 끝나면 콘솔에 `[예측 검증]`으로 시간 오차(평균·절대평균·최대)와 거리 오차(평균·최대)를 출력하고, `window.futurePositionVerification`에서 드론별 최근 요약(`lastSummary`)과 진행 중 예측(`pending`)을 볼 수 있습니다.
-- 호출 주기는 예측 지점까지의 이동 시간이 아닙니다. 예측은 최근 웨이포인트의 직선 추세를 연장한 결과이며 곡선 경로를 뜻하지 않습니다. 이력이 부족하면 API는 undefined를 반환하며, setPosition 모드에서는 예측 표시를 비웁니다.
+- 호출 주기는 예측 지점까지의 이동 시간이 아닙니다. 예약 경로 뒤의 예측은 최근 도착 이력의 방향·속도·선회 추세를 연장한 결과입니다. 도착 이력이 2개 미만이고 예약 목표도 없으면 API는 undefined를 반환하며, setPosition 모드에서는 예측 표시를 비웁니다.
 
 지면 투영 Helper의 이미지 표현은 여러 stamp가 공유하는 frame에 배치됩니다. `textureFit: 'contain'`도 `stretch`와 같은 매핑으로 출력하며, 사다리꼴·오목하거나 분리된 촬영 영역 밖의 이미지는 잘립니다. 이미지 전체 표시와 종횡비 유지는 보장하지 않습니다. 독립적인 4점 `UTerrainStamp`의 `contain`은 기존 동작을 유지합니다.
 

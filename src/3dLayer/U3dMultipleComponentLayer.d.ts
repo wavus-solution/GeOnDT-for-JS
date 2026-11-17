@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -353,7 +353,7 @@ declare class U3dMultipleComponentLayer extends U3dModelBasicLayer {
     labelVisible: any;
     /**
      * 원본 모델을 제외하고 레이어에 배치된 컴포넌트를 한꺼번에 화면에 나타내는 메서드입니다. <br>
-     * 개별 컴포넌트를 hideComponent로 숨겨 둔 경우 그 컴포넌트는 숨겨진 상태로 남습니다.
+     * 모든 등록 컴포넌트에 표시를 요청하며 개별 비동기 실패는 엔진 오류로 보고합니다.
      *
      * @override
      */
@@ -361,12 +361,14 @@ declare class U3dMultipleComponentLayer extends U3dModelBasicLayer {
     /**
      * 레이어에 배치된 컴포넌트를 한꺼번에 화면에서 숨기는 메서드입니다. <br>
      * 컴포넌트는 그대로 남아 있으므로 show로 다시 나타낼 수 있습니다.
+     * 개별 숨김의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
      */
     hide(): void;
     /**
      * 현재 레이어에 배치된 모든 컴포넌트의 스타일을 한꺼번에 변경합니다. <br>
      * option에 지정한 속성만 적용하며 생략하거나 null로 지정한 속성은 기존 값을 유지합니다. <br>
      * 이 설정은 호출 시점에 등록된 컴포넌트에만 적용되고 이후 추가하는 컴포넌트의 기본 스타일은 바꾸지 않습니다.
+     * 가시성 변경의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
      *
      * @param {U3dMultipleComponentLayerStyle} option 적용할 색상, 불투명도, 가시성, 밝기와 대비 <br>
      */
@@ -532,6 +534,7 @@ declare class U3dMultipleComponentLayer extends U3dModelBasicLayer {
     /**
      * 지정한 위치에 컴포넌트 하나를 만들어 레이어에 배치하는 메서드입니다. <br>
      * 만들어진 컴포넌트는 곧바로 화면에 올라가고 레이어의 컴포넌트 목록에 등록되며 CREATE 이벤트가 발생합니다. <br>
+     * 초기 가시성 변경의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다. <br>
      * opt에 movepointlist나 pathgeometry를 넣으면 그 경로를 따라 달리는 주행 애니메이션이 함께 준비됩니다. <br>
      * 레이어가 이미 주행 중이면 새로 만든 컴포넌트도 바로 달리기 시작하고, 일시정지 상태이면 멈춘 상태로 배치됩니다. <br>
      * 이름이 이미 등록된 컴포넌트와 같으면 화면에는 올라가지만 목록에는 등록되지 않으므로 이름은 서로 다르게 지으십시오. <br>

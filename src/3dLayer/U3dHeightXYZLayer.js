@@ -9,7 +9,7 @@ import {UMathEngine} from '@union3d/math/UMathEngine';
 import {UDEF} from '@union3d/core/UDEF';
 import {Guid} from '@union3d/util/Guid';
 import {U3dMessage} from '@union3d/message/U3dMessage';
-import {deferred} from "@union3d/util/deferred";
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import {LRUCache} from "@union3d/util/LRUCache";
 import {UMercator} from "@union3d/math/UMercator";
 import {__GEONDT__} from "@union3d/app/TPImporter";
@@ -246,8 +246,8 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
         const cache = /** @type {import('@union3d/core/UCache').UCache} */(/** @type {unknown} */(this._cache));
         const cacheHeader = /** @type {import('@union3d/core/UCache').UCache} */(/** @type {unknown} */(this._headerCache));
         const {work} = opt;
-        /** @type {DeferredObject<boolean>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<boolean>} */
+        const promise = deferredPromise();
 
         if (defined(this._box3)) {
 
@@ -311,6 +311,36 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
 
         // callback 삭제, AbortController와 요청 생성 예외가 연달아 들어와도 부모 대체나 Promise 완료는 한 번만 실행한다.
         let hasFinishedRequest = false;
+        let isCancelled = false;
+        /** @type {string | undefined} */
+        let requestId;
+        const ownsRequest = () => this._cancelTiles[skey] === cancelRequest;
+        const isCurrent = () => ownsRequest() && !isCancelled && !this._disposed && !tile._disposed;
+        const releaseRequest = () => {
+            if (ownsRequest()) delete this._cancelTiles[skey];
+        };
+        const finishCancelled = () => {
+            if (hasFinishedRequest) return;
+            hasFinishedRequest = true;
+            // 이전 응답은 자기 집계·대기만 끝냅니다. 같은 키의 새 _loading은 건드리지 않습니다.
+            if (ownsRequest()) this.resetStateTile(tile);
+            releaseRequest();
+            finishLoading();
+            promise.resolve(false);
+        };
+        const cancelRequest = () => {
+            if (hasFinishedRequest) return;
+            isCancelled = true;
+            // 캐시 응답은 callbackMap에 없으므로 네트워크 통지를 기다리지 않고 먼저 종결합니다.
+            finishCancelled();
+            if (requestId === undefined) return;
+            const sharedCallbacks = this._loader.getLoading(url) ?? [];
+            const hasOtherConsumer = sharedCallbacks.some(callback =>
+                callback.id !== requestId && defined(UFileLoader.callbackMap[callback.id]));
+            this._loader.deleteCallBack(requestId);
+            if (!hasOtherConsumer) this._loader.abort(url);
+        };
+        this._cancelTiles[skey] = cancelRequest;
 
         /**
          * 원격 요청 실패를 정리하고 가능한 경우 부모 타일 고도로 대체합니다.
@@ -322,8 +352,9 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
          */
         const finishWithError = (error, message, useParent) => {
             if (hasFinishedRequest) return;
+            if (!isCurrent()) { finishCancelled(); return; }
             hasFinishedRequest = true;
-            delete this._cancelTiles[skey];
+            releaseRequest();
             finishLoading();
             work?.setMsg(message);
 
@@ -350,7 +381,9 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
             try {
                 // 지오메트리 반영이 끝난 뒤 활성 캐시에 기록하여 실패한 자료가 정상 캐시로 남지 않게 한다.
                 this.updateHeight(tile, cachedTile.data, cachedTile.header);
+                if (!isCurrent()) { finishCancelled(); return promise; }
                 this.changeHeight(tile);
+                if (!isCurrent()) { finishCancelled(); return promise; }
 
                 cache.add(skey, cachedTile.data);
                 if (defined(cachedTile.header))
@@ -358,10 +391,13 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
                 else if (cacheHeader.has(skey))
                     cacheHeader.remove(skey);
 
-                finishLoading();
+                hasFinishedRequest = true;
+                releaseRequest();
                 this.setStateTile(tile, UDEF.TILE_STATE._end);
+                finishLoading();
                 promise.resolve(true);
             } catch (error) {
+                if (!isCurrent()) { finishCancelled(); return promise; }
                 // 한 번 실패한 LRU 항목은 다음 호출에서 반복 사용하지 않도록 제거한다.
                 this.#dataCache?.delete(skey);
                 cache.remove(skey);
@@ -371,33 +407,13 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
             return promise;
         }
 
-        const requestId = UDEF.createUUID();
-        let isCancelled = false;
-        this._cancelTiles[skey] = () => {
-            if (isCancelled) return;
-            isCancelled = true;
-
-            const sharedCallbacks = this._loader.getLoading(url) ?? [];
-            const hasOtherConsumer = sharedCallbacks.some((callback) =>
-                callback.id !== requestId && defined(UFileLoader.callbackMap[callback.id])
-            );
-
-            // 현재 타일의 callback만 먼저 제거하여 같은 URL을 기다리는 좌표 조회나 다른 소비자를 보존한다.
-            this._loader.deleteCallBack(requestId);
-            if (!hasOtherConsumer)
-                this._loader.abort(url);
-        };
+        requestId = UDEF.createUUID();
         try {
             this._loader.load(url,
                 (/** @type {ArrayBuffer} */ arrayBuffer) => {
-                    delete this._cancelTiles[skey];
                     // THREE.Cache의 비동기 callback은 callbackMap 제거로 취소되지 않으므로 취소 플래그도 확인한다.
-                    if (isCancelled || tile._disposed) {
-                        finishLoading();
-                        this.resetStateTile(tile);
-                        promise.resolve(false);
-                        return;
-                    }
+                    if (hasFinishedRequest) return;
+                    if (!isCurrent()) { finishCancelled(); return; }
 
                 /**
                  *
@@ -419,7 +435,9 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
 
                     try {
                         this.updateHeight(tile, tilePayload.data, tilePayload.header);
+                        if (!isCurrent()) { finishCancelled(); return; }
                         this.changeHeight(tile);
+                        if (!isCurrent()) { finishCancelled(); return; }
 
                         // 파싱뿐 아니라 실제 지오메트리 반영까지 성공한 타일만 재사용 캐시에 보관한다.
                         if (this._isCache)
@@ -430,10 +448,13 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
                         else if (cacheHeader.has(skey))
                             cacheHeader.remove(skey);
 
-                        finishLoading();
+                        hasFinishedRequest = true;
+                        releaseRequest();
                         this.setStateTile(tile, UDEF.TILE_STATE._end);
+                        finishLoading();
                         promise.resolve(true);
                     } catch (error) {
+                        if (!isCurrent()) { finishCancelled(); return; }
                         cache.remove(skey);
                         cacheHeader.remove(skey);
                         finishWithError(error, 'Height data apply fail', false);
@@ -463,7 +484,6 @@ class U3dHeightXYZLayer extends U3dHeightLayer {
             delete UFileLoader.callbackMap[requestId];
             if (!hasOtherRegisteredConsumer)
                 delete UFileLoader.loading[url];
-            delete this._cancelTiles[skey];
             finishWithError(error, 'Data download setup fail', true);
         }
 

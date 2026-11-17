@@ -1,7 +1,6 @@
 import {U3dModelLayer} from '@union3d/3dLayer/U3dModelLayer';
-import {defined} from '/union3d/util/defined.js';
-import {UDEF} from '/union3d/core/UDEF.js';
-import {deferred} from "@deferred";
+import {defined} from '@util/defined';
+import {UDEF} from '@union3d/core/UDEF';
 
 class U3dTerrainLayer extends U3dModelLayer{
     constructor( opt = {} ) {
@@ -53,7 +52,7 @@ class U3dTerrainLayer extends U3dModelLayer{
      * @ignore
      */
     dispose() {
-        return deferred().resolve(true);
+        return Promise.resolve(true);
     };
 }
 
@@ -82,14 +81,25 @@ U3dTerrainLayer.prototype.isTexture = function (tile) {
 }
 
 /**
- * 입력받은 타일을 Scene에 추가하는 함수
- * @param {Object} tile 추가할 타일
+ * 타일 메시를 장면에 부착하고 같은 타일이 유지되면 캐시에 등록합니다.
+ *
+ * @override
+ *
+ * @param {import('@U3dQuadTile').U3dQuadTile} tile 추가할 타일
  */
 U3dTerrainLayer.prototype.addTileFromScene = function (tile) {
-    if(!tile || !tile._mesh) return;
+    if (!tile || tile._disposed || !tile._mesh) return;
 
-    this.getGroup()?.add(tile._mesh);
-    this._cache.add(tile.getKey(), tile._mesh);
+    const mesh = tile._mesh;
+    const key = tile.getKey();
+    const group = this.getGroup();
+    const cache = this._cache;
+    group?.add(mesh);
+    // childadded 수신자는 트리를 재시작하거나 메시·그룹·캐시를 교체할 수 있습니다.
+    // 부착 전에 잡은 참조를 확인하여 폐기된 타일이나 후속 회차를 잘못 등록하지 않습니다.
+    if (tile._disposed || tile._mesh !== mesh || this._cache !== cache
+        || this.getGroup() !== group || (group && mesh.parent !== group)) return;
+    cache.add(key, mesh);
 };
 
 /**

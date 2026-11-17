@@ -1,0 +1,41 @@
+<template data-example-rail>
+    <button class="rail-button" type="button" data-panel-target="windSimulation-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">≋</span><span>바람길</span>
+    </button>
+</template>
+
+<aside class="glass-panel example-panel" id="windSimulation-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div><span class="eyebrow">WIND SIMULATION</span><h2>바람길 시뮬레이션</h2></div>
+        <button class="panel-close" type="button" data-panel-close="windSimulation-panel" aria-label="바람길 패널 닫기">×</button>
+    </header>
+    <div class="panel-content">
+        <p class="panel-description">지역을 선택해 바람길을 만들고 포항 경로를 보행 시점으로 살펴봅니다.</p>
+        <section class="windSimulation-section" aria-labelledby="windSimulation-region-heading">
+            <h3 id="windSimulation-region-heading">바람길 생성</h3>
+            <div class="windSimulation-actions">
+                <button class="glass-button" type="button" data-wind="seoul">서울 지역</button>
+                <button class="glass-button" type="button" data-wind="pohang">포항 지역</button>
+                <button class="glass-button" type="button" data-wind-stop disabled>바람길 정지</button>
+            </div>
+            <p class="windSimulation-note">서울은 저장된 기상 샘플, 포항은 고정 풍향과 수목 마스크를 사용합니다. 실시간 기상 정보가 아닙니다.</p>
+        </section>
+        <section class="windSimulation-section" aria-labelledby="windSimulation-route-heading">
+            <h3 id="windSimulation-route-heading">포항 보행 모드</h3>
+            <div class="windSimulation-actions">
+                <button class="glass-button" type="button" data-route="start" disabled>시작</button>
+                <button class="glass-button" type="button" data-route="stop" disabled>정지</button>
+                <button class="glass-button" type="button" data-route="restart" disabled>재시작</button>
+            </div>
+            <p class="windSimulation-note">포항 바람길을 생성한 뒤 보행을 시작할 수 있습니다.</p>
+        </section>
+        <section class="windSimulation-section" aria-labelledby="windSimulation-result-heading">
+            <h3 id="windSimulation-result-heading">결과</h3>
+            <dl class="windSimulation-results" aria-live="polite">
+                <div><dt>지역</dt><dd data-wind-region>선택 전</dd></div>
+                <div><dt>바람길</dt><dd data-wind-status>대기</dd></div>
+                <div><dt>보행</dt><dd data-route-status>대기</dd></div>
+            </dl>
+        </section>
+    </div>
+</aside>

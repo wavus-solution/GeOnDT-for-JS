@@ -4,7 +4,7 @@ theme: pastel-glass-map
 output: MapControllSetting.html
 editor: true
 category: map
-summary: 세 가지 컨트롤 프리셋과 39개 factor를 조절하며 팬·회전 관성 및 이동·회전·줌 감각을 비교합니다.
+summary: 마우스 버튼·Ctrl/Cmd 조합과 키별 팬 이동·회전을 지정하고 세 가지 컨트롤 프리셋과 39개 factor로 조작 감각을 비교합니다.
 tags:
   - 카메라
   - 컨트롤
@@ -33,6 +33,49 @@ runtime:
   loading: true
 verification:
   scenarios:
+    - id: keyboard-rotate-preset
+      actions:
+        - {type: select, selector: '[data-key-preset]', value: rotate}
+      states:
+        action: {type: element, selector: '[data-key-action]', properties: [value]}
+      expect:
+        action: {value: rotateUp}
+    - id: keyboard-custom-key
+      actions:
+        - {type: press, selector: '[data-key-code]', key: w}
+        - {type: select, selector: '[data-key-action]', value: rotateUp}
+        - {type: click, selector: '[data-apply-key]'}
+      states:
+        code: {type: element, selector: '[data-key-code]', properties: [value]}
+        action: {type: element, selector: '[data-key-action]', properties: [value]}
+      expect:
+        code: {value: KeyW}
+        action: {value: rotateUp}
+    - id: mouse-swapped-preset
+      actions:
+        - {type: select, selector: '[data-input-preset]', value: swapped}
+      states:
+        left: {type: element, selector: '#MapControllSetting-input-left', properties: [value]}
+        right: {type: element, selector: '#MapControllSetting-input-right', properties: [value]}
+        modifier: {type: element, selector: '#MapControllSetting-input-ctrl-left', properties: [value]}
+      expect:
+        left: {value: rotate}
+        right: {value: pan}
+        modifier: {value: pan}
+    - id: mouse-custom-and-restore
+      actions:
+        - {type: select, selector: '#MapControllSetting-input-middle', value: pan}
+        - {type: click, selector: '[data-reset-input]'}
+      states:
+        preset: {type: element, selector: '[data-input-preset]', properties: [value]}
+        left: {type: element, selector: '#MapControllSetting-input-left', properties: [value]}
+        middle: {type: element, selector: '#MapControllSetting-input-middle', properties: [value]}
+        right: {type: element, selector: '#MapControllSetting-input-right', properties: [value]}
+      expect:
+        preset: {value: default}
+        left: {value: pan}
+        middle: {value: none}
+        right: {value: rotate}
     - id: initial-panel
       states:
         panel: {type: element, selector: '#MapControllSetting-option-panel', properties: [visible]}
@@ -253,6 +296,43 @@ sources:
 | 현재 설정 코드 보기를 펼칩니다. | 실제 엔진 값을 담은 코드를 선택·복사할 수 있습니다. |
 | 왼쪽 컨트롤 버튼을 누릅니다. | 처음에는 패널이 닫히고, 다시 누르면 열립니다. |
 
+## 마우스 조작 설정
+
+조작 프리셋에서 **좌우 반전**을 선택하면 왼쪽 드래그는 회전, 오른쪽 드래그는 팬 이동, Ctrl/Cmd+왼쪽 드래그는 팬 이동으로 바뀝니다. 버튼별로 팬 이동·회전·사용 안 함을 지정할 수 있으며, Ctrl/Cmd 조합의 기본 동작 따르기는 해당 물리 버튼의 설정을 사용합니다.
+
+변경한 항목만 적용하고 생략한 항목은 유지합니다. 잘못된 타입·동작·설정 키는 예외를 발생시키며 설정과 진행 중 입력을 보존합니다. 유효한 변경은 드래그와 관성을 취소하고 다음 입력부터 적용됩니다. 같은 값을 다시 적용하면 진행 중 조작을 유지합니다.
+
+기본 조작으로 복원은 제품 기본 매핑을 되돌립니다. 감도 프리셋은 마우스 매핑을 바꾸지 않으며, 설정은 현재 컨트롤러에 적용됩니다. 저장은 서비스에서 별도로 처리합니다. 터치·휠·Shift 전환은 매핑 대상에 포함하지 않습니다.
+
+```javascript
+const control = app.getMapControl();
+control.setMouseBindings({
+    mouse: {left: 'rotate', right: 'pan'},
+    modifiers: {ctrlOrMeta: {left: 'pan'}}
+});
+```
+
+기존 `mouseButtons`의 숫자 설정은 새 API를 사용하기 전과 `resetMouseBindings()` 이후에 적용됩니다. 새 API를 설정한 뒤에는 `setMouseBindings()`로 변경합니다.
+
+## 키보드 조작 설정
+
+방향키 프리셋을 **회전**으로 바꾸면 위·아래·왼쪽·오른쪽 키로 카메라를 target 중심으로 회전합니다. **팬 이동**을 선택하면 방향키를 기본 팬 이동으로 돌립니다. 이 프리셋은 별도로 지정한 W/A/S/D 같은 키를 유지합니다.
+
+다른 키를 지정하려면 **사용할 키** 입력란을 선택해 실제 키를 누르고, **지정할 동작**을 선택한 뒤 **선택한 키에 적용**을 누릅니다. 사용 안 함은 해당 키의 지도 조작을 해제합니다. **키보드 기본 복원**은 추가 키를 제거하고 기본 방향키 팬 이동으로 복원합니다. DevTool의 Settings → 컨트롤러 → 키보드 조작 설정에도 같은 기능을 제공합니다.
+
+```javascript
+const control = app.getMapControl();
+control.setKeyBindings({
+    ArrowUp: 'rotateUp', ArrowDown: 'rotateDown',
+    ArrowLeft: 'rotateLeft', ArrowRight: 'rotateRight',
+    KeyW: 'panUp', KeyS: 'panDown', KeyA: 'panLeft', KeyD: 'panRight'
+});
+```
+
+키 이름은 `KeyboardEvent.code`를 사용합니다. 매핑은 부분 변경이며 조회 객체와 전달 객체는 내부 설정과 공유하지 않습니다. 키를 누를 때 한 단계 적용하고 길게 누르면 운영체제의 키 반복 입력으로 조작합니다. 팬 이동량은 `keyPanSpeed`, 키보드 1회 회전 각도는 `rotateSpeed` 도입니다. 회전은 기존 polar·azimuth 제한과 지면 충돌을 따르며 키 입력에는 관성을 추가하지 않습니다.
+
+입력란·선택 목록·편집 가능한 영역과 Ctrl/Alt/Cmd 단축키에서는 지도 조작을 처리하지 않습니다. Shift 임시 일인칭 전환은 유지하고 해당 키의 이동·회전 매핑은 거부합니다. 키 매핑 변경, 창 포커스 이탈과 종료 시 눌림 상태를 정리합니다. 키 설정은 현재 컨트롤러에 적용되며 저장은 서비스에서 별도로 처리합니다.
+
 ## 관성 조절 기준
 
 기본값은 낮은 시작 속도와 완만한 감속을 조합해 무게감을 조절합니다. 팬의 시작 속도 배율과 상한을 특히 낮춰 빠르게 놓았을 때의 과도한 이동을 줄입니다. 감속 계수만 낮추면 오히려 더 멀리 미끄러지므로 세기·상한과 함께 조절합니다.
@@ -265,7 +345,7 @@ sources:
 
 ## 프리셋 적용 코드
 
-회전 관성은 `rotateInertiaEnabled`, `rotateInertiaFactor`, `rotateInertiaDamping`, `rotateInertiaMinSpeed`, `rotateInertiaMaxSpeed`, `rotateInertiaSampleTime`으로 조절합니다. 속도는 각속도가 아닌 CSS px/s 단위의 마우스 입력 속도입니다. **오른쪽 드래그 또는 Ctrl+왼쪽 드래그를 바로 놓아** 확인하고, 팬 관성을 켠 상태에서 회전 관성만 꺼 두고 차이를 비교할 수 있습니다.
+회전 관성은 `rotateInertiaEnabled`, `rotateInertiaFactor`, `rotateInertiaDamping`, `rotateInertiaMinSpeed`, `rotateInertiaMaxSpeed`, `rotateInertiaSampleTime`으로 조절합니다. 속도는 각속도가 아닌 CSS px/s 단위의 마우스 입력 속도입니다. **회전으로 지정한 드래그를 바로 놓아** 확인하고, 팬 관성을 켠 상태에서 회전 관성만 꺼 두고 차이를 비교할 수 있습니다.
 
 마지막 드래그의 일반·앵커·1인칭 회전 방식과 앵커를 유지하며 추가 picking을 하지 않습니다. 기존 경로의 각도 제한과 충돌 처리를 따르고, 회전이 막히거나 새 입력을 받으면 잔여 속도를 버립니다. Shift로 시작한 1인칭 회전은 키를 놓아도 해당 드래그의 방식으로 감속합니다.
 
@@ -280,6 +360,8 @@ sources:
 ## 관련 API
 
 - `U3dAPP.getMapControl()`: 현재 지도의 컨트롤러를 가져옵니다.
+- `UMapControlBase.getKeyBindings()` / `setKeyBindings(patch)` / `resetKeyBindings()`: 키보드 매핑을 조회·부분 변경·기본 복원합니다. 지원 동작은 `panUp/Down/Left/Right`, `rotateUp/Down/Left/Right`, `none`입니다.
+- `UMapControlBase.getMouseBindings()` / `setMouseBindings(patch)` / `resetMouseBindings()`: 마우스 버튼·Ctrl/Cmd 매핑을 조회·부분 변경·기본 복원합니다. 조회 결과와 전달 객체는 내부 설정과 공유하지 않습니다.
 - `UMapControlBase.getFactor()`: 입력 감도·앵커·충돌·관성 factor 객체를 가져옵니다. 공개 계약은 `FactorOption`이며 관성 항목은 현재 소스의 `UMapControlBase.types.js`를 함께 참고합니다.
 - `UMapControlBase.setControlType(type, controlCase)`: `GeOnDT.constant.CONTROL_TYPE`의 앵커·일반·1인칭 방식을 지정합니다. 일부 입력만 변경할 때 `CONTROL_CASE`를 함께 전달합니다.
 - `UMapControlBase.getUseCollision()` / `setUseCollision(value)`: 지면 충돌 사용 상태를 읽고 수정합니다.

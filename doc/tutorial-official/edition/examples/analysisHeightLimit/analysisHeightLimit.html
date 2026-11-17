@@ -1,0 +1,46 @@
+<template data-example-rail>
+    <button class="rail-button" type="button" data-panel-target="height-limit-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">▦</span><span>고도제한</span>
+    </button>
+</template>
+<aside class="glass-panel example-panel example-option-panel" id="height-limit-panel" aria-hidden="true">
+    <header class="panel-header">
+        <h2>고도제한 분석</h2>
+        <button class="panel-close" type="button" data-panel-close="height-limit-panel" aria-label="고도제한 패널 닫기">×</button>
+    </header>
+    <div class="panel-content">
+        <p class="panel-description">다각형 영역과 제한 고도를 지정해 초과한 건물과 높이를 확인합니다.</p>
+        <section aria-labelledby="height-limit-area-heading">
+            <h3 id="height-limit-area-heading">분석 영역</h3>
+            <div class="height-limit-actions">
+                <button class="height-limit-button height-limit-primary" type="button" data-height-limit-draw>영역 그리기</button>
+                <button class="height-limit-button" type="button" data-height-limit-cancel disabled>그리기 취소</button>
+            </div>
+            <p class="height-limit-note">지도에 세 지점 이상을 클릭하고 더블클릭으로 마칩니다.</p>
+            <form data-height-limit-form novalidate>
+                <label class="height-limit-field" for="height-limit-height">제한 고도 (m)</label>
+                <div class="height-limit-input-row">
+                    <input id="height-limit-height" data-height-limit-height type="number" min="0" step="any" value="100" required aria-describedby="height-limit-height-note">
+                    <button class="height-limit-button" type="submit" data-height-limit-apply disabled>분석 적용</button>
+                </div>
+                <p class="height-limit-note" id="height-limit-height-note">건물 자체의 높이가 아닌 지도상의 고도 기준입니다. 생성한 영역은 결과 표의 고도 수정 버튼으로 다시 변경할 수 있습니다.</p>
+            </form>
+            <p data-height-limit-status role="status" aria-live="polite"></p>
+        </section>
+        <section class="height-limit-result-section" aria-labelledby="height-limit-result-heading">
+            <div class="height-limit-section-header">
+                <h3 id="height-limit-result-heading">영역별 분석 결과</h3>
+                <button class="height-limit-button height-limit-quiet" type="button" data-height-limit-reset>초기화</button>
+            </div>
+            <p class="height-limit-note" data-height-limit-empty>적용한 분석 영역이 없습니다.</p>
+            <div class="height-limit-table-wrap">
+                <table>
+                    <caption>분석 영역별 제한 고도와 초과 객체 수</caption>
+                    <thead><tr><th scope="col">영역</th><th scope="col">제한 고도</th><th scope="col">초과 객체</th><th scope="col">최대 초과</th><th scope="col">관리</th></tr></thead>
+                    <tbody data-height-limit-results></tbody>
+                </table>
+            </div>
+            <p class="height-limit-note" data-height-limit-model role="status"></p>
+        </section>
+    </div>
+</aside>

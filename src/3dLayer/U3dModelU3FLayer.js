@@ -13,10 +13,10 @@ import {U3FPackageParser} from '@union3d/core/parser/U3FPackageParser';
 import {U3dQuadTileWork} from '@union3d/quadtree/U3dQuadTileWork';
 import {USharedMesh} from '@union3d/core/mesh/USharedMesh';
 import {U3dEvent} from '@union3d/event/U3dEvent';
-import {U3dMessage, __GInfo__} from '@U3dMessage';
+import {U3dMessage, __GInfo__, __GError__} from '@U3dMessage';
 import {UTaskProcessor} from '@union3d/core/UTaskProcessor';
 import {UWorkerParameter} from '@union3d/worker/util/UWorkerParameter';
-import {deferred} from '@util/deferred';
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import {TileInfo, U3fPackagedInfo} from '@union3d/meta/U3fPackagedInfo';
 import {UCheckTime} from '@union3d/core/UCheckTime';
 import {Yield} from '@util/Yield';
@@ -52,7 +52,7 @@ const LAYER_LOAD_STATES = new WeakMap();
 function getLayerLoadState(layer) {
     let state = LAYER_LOAD_STATES.get(layer);
     if (!state) {
-        state = {initialization: undefined, requests: new Map()};
+        state = {initialization: undefined, requests: new Map(), tileRequests: new Map(), modelRequests: new Map()};
         LAYER_LOAD_STATES.set(layer, state);
     }
     return state;
@@ -641,7 +641,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
      * 원본 레이어 정보를 읽어 표시 범위와 패키지 로딩 설정을 초기화합니다. <br>
      * 정보 요청·해석·부모 초기화에 실패하면 원래 사유로 레이어의 초기화를 거부합니다. <br>
      * 삭제 시 진행 중인 초기화는 AbortError로 거부하며, 늦은 응답은 적용하지 않습니다. <br>
-     * 초기화가 진행 중이면 같은 정보 요청을 반환합니다. 실패 후 reset()하면 재시도할 수 있습니다. <br>
+     * 초기화가 진행 중이면 같은 정보 요청을 반환합니다. 실패 후 내부에서 _resetReady()를 호출하면 재시도할 수 있습니다. <br>
      * needXml이 false이면 부모 초기화와 완료 통지만 수행하며 Promise를 반환하지 않습니다. <br>
      * 패키지 JSON을 요청하는 경우 반환된 Promise와 별도로 초기화가 진행됩니다.
      *
@@ -654,15 +654,15 @@ class U3dModelU3FLayer extends U3dModelLayer {
         if (this.isDisposed() || this._taskProcessorDisposing) {
             const reason = new DOMException('삭제된 U3F 레이어는 초기화할 수 없습니다.', 'AbortError');
             this._rejectReady(reason);
-            return this._needXml ? deferred().reject(reason) : undefined;
+            return this._needXml ? Promise.reject(reason) : undefined;
         }
         const state = getLayerLoadState(this);
         if (state.initialization) return state.initialization.request;
 
-        /** @type {DeferredObject<object> | undefined} */
+        /** @type {DeferredPromise<object> | undefined} */
         let jsonRequest;
         const initialization = {
-            request: /** @type {DeferredObject<object> | undefined} */(undefined),
+            request: /** @type {DeferredPromise<object> | undefined} */(undefined),
             cancel: (/** @type {unknown} */ reason) => {
                 if (state.initialization !== initialization) return;
                 // 먼저 현재 작업을 닫아 실패 수신자가 reset·재초기화를 해도 옛 콜백이 침범하지 않게 한다.
@@ -709,11 +709,11 @@ class U3dModelU3FLayer extends U3dModelLayer {
             }
             if (!this._basename.includes('.u3g')) this._basename += '.u3g';
             const url = this._proxyurl + this._baseUrl + '/' + this._basename;
-            const request = /** @type {DeferredObject<object>} */(this.getLayerInfo(url, drawArg));
+            const request = /** @type {DeferredPromise<object>} */(this.getLayerInfo(url, drawArg));
             initialization.request = request;
             request.then((/** @type {KeyValue} */ info) => {
                 if (!isCurrent()) return;
-                // 현재 Deferred는 성공 수신자의 예외를 다음 catch로 전달하지 않아 여기서 직접 종결한다.
+                // 정보 반영 중 발생한 예외도 현재 초기화 회차의 실패로 연결한다.
                 try {
                     if (defined(info.bbox)) {
                         const bbox = info.bbox;
@@ -736,7 +736,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
                     if (this._makeU3FPackage === UDEF.PACKAGED_MODEL && this._makeJson) {
                         this._jsonname = this._basename.replace('.u3g', '.json');
                         const jsonUrl = this._proxyurl + this._baseUrl + '/' + this._jsonname;
-                        jsonRequest = /** @type {DeferredObject<object>} */(this.getLayerJson(jsonUrl));
+                        jsonRequest = /** @type {DeferredPromise<object>} */(this.getLayerJson(jsonUrl));
                         jsonRequest.then((json) => {
                             if (!isCurrent()) return;
                             try {
@@ -761,7 +761,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
             return request;
         } catch (error) {
             fail(error);
-            return this._needXml ? deferred().reject(error) : undefined;
+            return this._needXml ? Promise.reject(error) : undefined;
         }
     }
 
@@ -806,10 +806,11 @@ class U3dModelU3FLayer extends U3dModelLayer {
      * @returns {Promise<object>} 해석한 레이어 정보가 전달되는 완료 객체
      */
     getLayerInfo(url, drawArg) {
-        /** @type {DeferredObject<object>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<object>} */
+        const promise = deferredPromise();
         if (this.isDisposed() || this._taskProcessorDisposing) {
-            return promise.reject(new DOMException('삭제된 U3F 레이어는 정보를 요청할 수 없습니다.', 'AbortError'));
+            promise.reject(new DOMException('삭제된 U3F 레이어는 정보를 요청할 수 없습니다.', 'AbortError'));
+            return promise;
         }
         const requests = getLayerLoadState(this).requests;
         try {
@@ -861,10 +862,11 @@ class U3dModelU3FLayer extends U3dModelLayer {
      * @ignore
      */
     getLayerJson(url) {
-        /** @type {DeferredObject<object>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<object>} */
+        const promise = deferredPromise();
         if (this.isDisposed() || this._taskProcessorDisposing) {
-            return promise.reject(new DOMException('삭제된 U3F 레이어는 정보를 요청할 수 없습니다.', 'AbortError'));
+            promise.reject(new DOMException('삭제된 U3F 레이어는 정보를 요청할 수 없습니다.', 'AbortError'));
+            return promise;
         }
         const requests = getLayerLoadState(this).requests;
         try {
@@ -907,14 +909,21 @@ class U3dModelU3FLayer extends U3dModelLayer {
      * @param {number} indexY 타일 Y 인덱스
      * @param {number} level 타일 레벨
      * @param {string} url 타일 정보 요청 URL
-     * @returns {Promise<import('@union3d/meta/U3fPackagedInfo').TileInfo>} 타일 정보 Promise
+     * @returns {Promise<import('@union3d/meta/U3fPackagedInfo').TileInfo | undefined>} 타일 정보 Promise. 유효한 패키지 타일이 없으면 undefined
      *
      * @ignore
      */
     getTileInfo(tile, indexX, indexY, level, url) {
         const self = this;
-        /** @type {DeferredObject<import('@union3d/meta/U3fPackagedInfo').TileInfo>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<import('@union3d/meta/U3fPackagedInfo').TileInfo | undefined>} */
+        const promise = deferredPromise();
+        if (self._disposed || !self._drawArg) {
+            promise.reject(false);
+            return promise;
+        }
+        const tileRequests = getLayerLoadState(self).tileRequests;
+        const tileKey = self.createKeyByTile(tile);
+        const owner = tileRequests.get(tileKey);
 
         if (self._makeJson && self._makeU3FPackage === UDEF.PACKAGED_MODEL) {
             if (self._packagedInfo.isValidTile(level, indexX, indexY)) {
@@ -925,7 +934,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
                 });
                 promise.resolve(self._packagedInfo.setInfo(tileInfo));
             } else {
-                promise.resolve();
+                promise.resolve(undefined);
             }
             return promise;
         }
@@ -940,7 +949,13 @@ class U3dModelU3FLayer extends U3dModelLayer {
         );
 
         if (self._cacheTiles.get(url)) {
-            INTERNAL.parseTileInfo(indexX, indexY, level, self, self._cacheTiles.get(url), promise, baseurl);
+            try {
+                INTERNAL.parseTileInfo(indexX, indexY, level, self, self._cacheTiles.get(url), promise, baseurl);
+            } catch (error) {
+                // 잘린 버퍼를 다시 캐시에서 읽으며 실패를 반복하지 않도록 제거합니다.
+                self._cacheTiles.remove(url);
+                promise.reject(error);
+            }
             return promise;
         }
         const loader = self._loader;
@@ -949,14 +964,26 @@ class U3dModelU3FLayer extends U3dModelLayer {
             url,
             //+ onLoad
             function (/** @type {ArrayBuffer} */ data) {
+                // 이전 타일의 응답이 같은 키의 새 요청에 캐시·메타데이터를 남기지 않습니다.
+                // 공개 getTileInfo 단독 호출에는 모델 생성 소유자가 없으므로 수명만 검사합니다.
+                if (self._disposed || !self._drawArg || self.isTileDisposed(tile, tile._drawArg)
+                    || (owner && tileRequests.get(tileKey) !== owner)) {
+                    promise.reject(false);
+                    return;
+                }
 
-                const key = self.createKeyByTile(tile);
-                if (!defined(self._u3fTiles[key]))
-                    self._u3fTiles[key] = [];
-
-                self._u3fTiles[key].push(url);
-                self._cacheTiles.add(url, data);
-                INTERNAL.parseTileInfo(indexX, indexY, level, self, data, promise, baseurl);
+                try {
+                    const key = self.createKeyByTile(tile);
+                    if (!defined(self._u3fTiles[key])) self._u3fTiles[key] = [];
+                    self._u3fTiles[key].push(url);
+                    self._cacheTiles.add(url, data);
+                    INTERNAL.parseTileInfo(indexX, indexY, level, self, data, promise, baseurl);
+                } catch (error) {
+                    // 로더 callback의 예외가 밖으로 빠져도 외부 Promise는 자동 거부되지 않습니다.
+                    // 손상된 정보도 현재 타일 작업의 실패로 연결해 다음 요청을 허용합니다.
+                    self._cacheTiles.remove(url);
+                    promise.reject(error);
+                }
             },
             //+ onProgress
             null,
@@ -987,10 +1014,41 @@ class U3dModelU3FLayer extends U3dModelLayer {
      * @ignore
      */
     getModelInfo(tile, index, url, baseurl, drawArg, tileInfo) {
-        if (this.isTileDisposed(tile, drawArg) || this._cacheModeles.get(url)) return undefined;
+        if (this._disposed || this._taskProcessorDisposing || this.isTileDisposed(tile, drawArg) || this._cacheModeles.get(url)) return undefined;
+
+        // 키가 같아도 재진입한 타일과 그룹은 다른 소유자입니다. 다운로드뿐 아니라
+        // Yield·썸네일·병합이 끝날 때까지 시작 당시의 그룹과 요청을 함께 확인합니다.
+        const state = getLayerLoadState(this);
+        const key = this.createKeyByTile(tile);
+        const group = this.getCache(tile);
+        let requests = state.modelRequests.get(key);
+        if (!requests) state.modelRequests.set(key, requests = new Map());
+        const previous = requests.get(url);
+        if (previous?.tile === tile && previous.group === group) return previous.completion;
+        previous?.cancel();
+        // previous.cancel()은 비어 있는 Map을 회수할 수 있으므로 현재 묶음을 다시 연결합니다.
+        state.modelRequests.set(key, requests);
+        /** @type {DeferredPromise<unknown>} */
+        const completion = deferredPromise();
+        const ownsRequest = () => requests.get(url) === request;
+        const isCurrent = () => ownsRequest() && !this._disposed && !this._taskProcessorDisposing
+            && !this.isTileDisposed(tile, drawArg) && this.getCache(tile) === group;
+        const release = () => {
+            if (!ownsRequest()) return;
+            requests.delete(url);
+            if (requests.size === 0 && state.modelRequests.get(key) === requests) state.modelRequests.delete(key);
+        };
+        const request = {tile, group, completion, cancel: () => {
+            if (!ownsRequest()) return;
+            // 취소한 호출자부터 종결합니다. 네트워크의 늦은 통지는 아래 소유권 검사에서 제외됩니다.
+            if (this.getCache(tile) === group) this._cacheModeles.remove(url);
+            release();
+            completion.reject(false);
+        }};
+        requests.set(url, request);
 
         // 작업을 시작하지 않는 경우의 undefined 반환은 유지합니다.
-        // 다운로드·파싱·변환의 완료 객체를 따로 만들지 않아 모든 실패가 최종 호출자까지 전달됩니다.
+        // 다운로드·파싱·변환의 실패는 같은 호출자에게 전달하고, 취소 시에는 네트워크보다 먼저 대기를 끝냅니다.
         const loadParsedObjects = async () => {
             if (this._useWorker) {
                 try {
@@ -1014,10 +1072,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
                 this._loader.load(url, resolve, null, () => reject(false));
             });
             await Yield();
-            if (this.isTileDisposed(tile, drawArg)) {
-                this.disposeTile(tile);
-                throw undefined;
-            }
+            if (!isCurrent()) throw undefined;
             const option = {
                 baseurl, index,
                 usesplitmodel: this._useSplitModel,
@@ -1039,15 +1094,19 @@ class U3dModelU3FLayer extends U3dModelLayer {
          * 메시 변환 전에 주소·인덱스를 반영하고 실제 변환 결과를 그대로 전달합니다.
          *
          * @param {Array<U3FParsedObj>} objects 단일 모델의 파싱 결과
+         * @param {number} [modelIndex=0] 패키지에서의 원본 순서
          * @returns {Promise<Array<U3FParsedObj>>} 메시 반영이 끝난 모델 정보
          */
-        const convertModel = async (objects) => {
+        const convertModel = async (objects, modelIndex = 0) => {
             await Yield();
+            if (!isCurrent()) throw undefined;
             if (!objects?.[0]) throw false;
+            // 원본 순서로 조각·합성 관계를 준비한다. 이후 geometry 변환·삭제에도 식별값은 유지한다.
+            INTERNAL.prepareModelIdentity(JSON.stringify(['layer', this._name]), objects, url, modelIndex);
             objects[0].modelurl = url;
             objects[0].baseurl = baseurl;
             objects[0].index = index;
-            const conversion = convertObj2Mesh(this, objects, tile, drawArg, tileInfo);
+            const conversion = convertObj2Mesh(this, objects, tile, drawArg, tileInfo, isCurrent);
             if (!defined(conversion)) throw undefined;
             return conversion;
         };
@@ -1055,9 +1114,8 @@ class U3dModelU3FLayer extends U3dModelLayer {
         const loadModel = async () => {
             try {
                 const objects = await loadParsedObjects();
-                if (this.isTileDisposed(tile, drawArg)
+                if (!isCurrent()
                     || (this._useWorker && tile.getParent() && !tile.getParent().updatePossible())) {
-                    this.disposeTile(tile);
                     throw undefined;
                 }
                 if (!objects?.length) throw false;
@@ -1070,9 +1128,9 @@ class U3dModelU3FLayer extends U3dModelLayer {
 
                 /** @type {Array<Array<U3FParsedObj>>} */
                 const converted = [];
-                await Promise.all(objects.map(async (/** @type {Array<U3FParsedObj>} */ model) => {
+                await Promise.all(objects.map(async (/** @type {Array<U3FParsedObj>} */ model, /** @type {number} */ modelIndex) => {
                     try {
-                        const result = await convertModel(model);
+                        const result = await convertModel(model, modelIndex);
                         // 기존과 같이 완료된 순서로 결과를 모읍니다.
                         if (defined(result)) converted.push(result);
                     } catch (error) {
@@ -1082,7 +1140,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
                     }
                 }));
                 if (converted.length === 0) throw undefined;
-                if (this.isTileDisposed(tile, drawArg)) throw true;
+                if (!isCurrent()) throw true;
 
                 // 마지막 모델의 성공 여부와 관계없이 모든 변환을 기다린 뒤 병합은 한 번만 실행합니다.
                 if (tileInfo.mergeInfos?.length > 0) {
@@ -1093,11 +1151,21 @@ class U3dModelU3FLayer extends U3dModelLayer {
                 }
                 return converted;
             } catch (error) {
-                this._cacheModeles.remove(url);
+                // 옛 요청의 실패로 같은 URL의 새 성공 표식을 제거해서는 안 됩니다.
+                if (isCurrent()) this._cacheModeles.remove(url);
                 throw error;
             }
         };
-        return loadModel();
+        loadModel().then(result => {
+            const current = isCurrent();
+            release();
+            if (current) completion.resolve(result);
+            else completion.reject(false);
+        }, error => {
+            release();
+            completion.reject(error);
+        });
+        return completion;
     }
 
     /**
@@ -1132,6 +1200,14 @@ class U3dModelU3FLayer extends U3dModelLayer {
      */
     disposeTileByKey(key) {
         const self = this;
+        const models = LAYER_LOAD_STATES.get(this)?.modelRequests.get(key);
+        if (models) for (const request of models.values()) request.cancel();
+        // 다운로드를 멈추기 전에 결과 반영 권한을 회수합니다. 늦은 성공·실패가 같은 키로
+        // 다시 생성한 타일 상태를 지우지 않으며, 이전 호출자도 대기 상태로 남지 않습니다.
+        const tileRequests = LAYER_LOAD_STATES.get(this)?.tileRequests;
+        const tileRequest = tileRequests?.get(key);
+        tileRequests?.delete(key);
+        tileRequest?.resolve(false);
         if (self.editedList.length > 0) {
             for (let k = 0; k < self.editedList.length; k++) {
                 const tempObj = self.getEditedEventById(self.editedList[k]);
@@ -1329,6 +1405,11 @@ class U3dModelU3FLayer extends U3dModelLayer {
             if (state) {
                 LAYER_LOAD_STATES.delete(this);
                 state.initialization?.cancel(reason);
+                for (const request of state.tileRequests.values()) request.resolve(false);
+                state.tileRequests.clear();
+                for (const models of state.modelRequests.values()) {
+                    for (const request of models.values()) request.cancel();
+                }
                 // 공개 요청도 함께 종결합니다. 늦은 콜백은 캡처한 이 목록만 정리합니다.
                 const requests = Array.from(state.requests);
                 state.requests.clear();
@@ -1405,6 +1486,15 @@ class U3dModelU3FLayer extends U3dModelLayer {
      */
     cleanMemory() {
         const self = this;
+
+        const state = LAYER_LOAD_STATES.get(this);
+        if (state) {
+            for (const request of state.tileRequests.values()) request.resolve(false);
+            state.tileRequests.clear();
+            for (const models of state.modelRequests.values()) {
+                for (const request of models.values()) request.cancel();
+            }
+        }
 
         self.cancelAllTile();
 
@@ -1751,6 +1841,18 @@ class U3dModelU3FLayer extends U3dModelLayer {
         }
         self.setStateTile(tile, UDEF.TILE_STATE._loading);
 
+        const tileKey = self.createKeyByTile(tile);
+        const tileRequests = getLayerLoadState(self).tileRequests;
+        if (defined((/** @type {import('@union3d/core/UCache').UCache} */(self._cache)).get(tile._key))) {
+            // 이미 만들어진 그룹은 다운로드·큐 등록이 필요하지 않습니다.
+            // 같은 키의 이전 대기만 무효화하고, 새 제어 객체·정리 콜백·URL 계산은 생략합니다.
+            const previous = tileRequests.get(tileKey);
+            tileRequests.delete(tileKey);
+            previous?.resolve(false);
+            self.setStateTile(tile, UDEF.TILE_STATE._end);
+            return Promise.resolve(false);
+        }
+
         const gcenter = tile._rectangle3d.centerMap();
         const baseurl = UMathEngine.createUrl3DF(gcenter.x
             , gcenter.y
@@ -1763,16 +1865,29 @@ class U3dModelU3FLayer extends U3dModelLayer {
         //+ 전체 로딩
         const vlevel = ALL_MODEL_LEVEL;
 
-        const endPromise = deferred();
-        if (defined((/** @type {import('@union3d/core/UCache').UCache} */(self._cache)).get(tile._key))) {
-            self.setStateTile(tile, UDEF.TILE_STATE._end);
-            endPromise.resolve(false);
+        /** @type {DeferredPromise<boolean>} */
+        const endPromise = deferredPromise();
+        const previous = tileRequests.get(tileKey);
+        tileRequests.set(tileKey, endPromise);
+        previous?.resolve(false);
+        const isCurrent = () => !self._disposed && tileRequests.get(tileKey) === endPromise;
+        const releaseRequest = () => {
+            if (tileRequests.get(tileKey) === endPromise) tileRequests.delete(tileKey);
+        };
+        // 큐 등록까지의 소유권입니다. 모델 파일의 개별 작업 수명은 기존 workPromise가 맡습니다.
+        endPromise.then(releaseRequest, releaseRequest);
+        //+ u3m load ///////////////////////////
+        let tilepromise;
+        try {
+            tilepromise = self.getTileInfo(tile, tile._x, tile._y, tile._rlevel, baseurl + 'info.u3m');
+        } catch (error) {
+            self.resetStateTile(tile);
+            endPromise.reject(false);
             return endPromise;
         }
-        //+ u3m load ///////////////////////////
-        const tilepromise = self.getTileInfo(tile, tile._x, tile._y, tile._rlevel, baseurl + 'info.u3m');
 
-        tilepromise.then(function (/** @type {{objects: Array<unknown>, levels: Array<number>}} */ results) {
+        tilepromise.then(function (results) {
+            if (!isCurrent()) { endPromise.resolve(false); return; }
             if (self.isTileDisposed(tile, drawArg)) {
                 self.resetStateTile(tile);
                 endTileWork(self, tile, [disposeU3FModel], true);
@@ -1790,6 +1905,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
             if (!defined((/** @type {import('@union3d/core/UCache').UCache} */(self._cache)).get(key))) {
                 self.createGroupByKey(key);
             }
+            if (!isCurrent()) { endPromise.resolve(false); return; }
             self.setStateTile(tile, UDEF.TILE_STATE._end);
 
             if (self._makeU3FPackage === UDEF.PACKAGED_MODEL) {
@@ -1804,12 +1920,13 @@ class U3dModelU3FLayer extends U3dModelLayer {
                 if (!self._modelUrlMap[tile._key])
                     self._modelUrlMap[tile._key] = [];
 
-                self._modelUrlMap[tile._key].push(modelurl); // abort를 하기위해 작업 시작시 기록한다.
+                const requestUrls = self._modelUrlMap[tile._key];
+                requestUrls.push(modelurl); // abort를 하기위해 작업 시작시 기록한다.
 
-                const workPromise = deferred();
-                workPromise.finally(() => {
-                    delete self._modelUrlMap[tile._key];  // abort를 하기위해 작업 시작시 기록한 작업을 지운다.
-                })
+                const workPromise = deferredPromise();
+                workPromise.then(() => {
+                    if (self._modelUrlMap[tile._key] === requestUrls) delete self._modelUrlMap[tile._key];
+                }, () => { if (self._modelUrlMap[tile._key] === requestUrls) delete self._modelUrlMap[tile._key]; });
 
                 const opt = {
                     self: self
@@ -1821,6 +1938,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
                     , drawArg: drawArg
                     , endPromise: workPromise
                     , tileInfo: results
+                    , group: self.getCache(tile)
                 };
 
                 const work = new U3dQuadTileWork({
@@ -1852,12 +1970,13 @@ class U3dModelU3FLayer extends U3dModelLayer {
                     if (!self._modelUrlMap[tile._key])
                         self._modelUrlMap[tile._key] = [];
 
-                    self._modelUrlMap[tile._key].push(modelurl); // abort를 하기위해 작업 시작시 기록한다.
+                    const requestUrls = self._modelUrlMap[tile._key];
+                    requestUrls.push(modelurl); // abort를 하기위해 작업 시작시 기록한다.
 
-                    const workPromise = deferred();
+                    const workPromise = deferredPromise();
 
                     workPromise.finally(() => { // abort를 하기위해 작업 시작시 기록한 작업을 지운다.
-                        if (self._modelUrlMap[tile._key]) {
+                        if (self._modelUrlMap[tile._key] === requestUrls) {
                             for (let i = 0; i < self._modelUrlMap[tile._key].length; i++) {
                                 if (self._modelUrlMap[tile._key][i] === modelurl) {
                                     self._modelUrlMap[tile._key].splice(i, 1);
@@ -1868,7 +1987,9 @@ class U3dModelU3FLayer extends U3dModelLayer {
                             if (self._modelUrlMap[tile._key].length === 0)
                                 delete self._modelUrlMap[tile._key];
                         }
-                    })
+                    }).catch(error => {
+                        if (!self._disposed) __GError__(self, '모델 타일 작업이 실패했습니다. ' + error, '306003');
+                    });
 
                     const opt = {
                         self: self
@@ -1880,6 +2001,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
                         , drawArg: drawArg
                         , endPromise: workPromise
                         , tileInfo: results
+                        , group: self.getCache(tile)
                     };
 
                     const work = new U3dQuadTileWork({
@@ -1901,7 +2023,8 @@ class U3dModelU3FLayer extends U3dModelLayer {
             endPromise.resolve(true);
             return;
         }).catch(function () {
-            self.resetStateTile(tile);
+            // 실패 통지 전에 같은 키로 새 요청이 시작되었으면 그 요청의 _loading은 보존합니다.
+            if (isCurrent()) self.resetStateTile(tile);
             endPromise.reject(false);
         })
 
@@ -1919,7 +2042,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
      * @param {number} max
      * @param {import('@U3dQuadTile').U3dQuadTile} tile
      * @param {import('@UDrawArg').UDrawArg} drawArg
-     * @param {DeferredObject<boolean>} endPromise
+     * @param {DeferredPromise<boolean>} endPromise
      *
      * @ignore
      */
@@ -1964,6 +2087,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
                 , modelurl: modelurl
                 , drawArg: drawArg
                 , endPromise: endPromise
+                , group: self.getCache(tile)
             };
 
             let work = new U3dQuadTileWork({
@@ -2018,7 +2142,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
      *
      * @param {ModelMesh} mesh
      * @param {number | function(import('three').Object3D, import('@UDrawArg').UDrawArg): void} [faceIndex] faceIndex 또는 afterFunction
-     * @param {function(import('three').Object3D, import('@UDrawArg').UDrawArg, string): void} [onAfterFunction]
+     * @param {function(import('three').Object3D, import('@UDrawArg').UDrawArg, string): void} [onAfterFunction] 텍스처 처리 후 모델·렌더링 문맥·모델 ID를 받는 콜백
      * @returns {any}
      *
      * @ignore
@@ -2026,9 +2150,12 @@ class U3dModelU3FLayer extends U3dModelLayer {
     mergedMeshDivision(mesh, faceIndex, onAfterFunction) {
         const self = this;
         if (!defined(faceIndex) || typeof faceIndex === 'function') {
+            /** @type {undefined | function(import('three').Object3D, import('@UDrawArg').UDrawArg): void} */
             const afterFunction = typeof faceIndex === 'function'
                 ? /** @type {(mesh: import('three').Object3D, drawArg: import('@UDrawArg').UDrawArg) => void} */(faceIndex)
-                : undefined;
+                : onAfterFunction
+                    ? (target, drawArg) => onAfterFunction(target, drawArg, String((/** @type {import('@UMesh').UMesh} */(target)).getUid()))
+                    : undefined;
             return U3dModelLayer.prototype.mergedMeshDivision.call(self, mesh, afterFunction);
         } else {
             const info = self.divisionMeshFromFace(mesh, faceIndex);
@@ -2242,8 +2369,8 @@ class U3dModelU3FLayer extends U3dModelLayer {
     /**
      * 메쉬의 바운딩 박스 정보를 구합니다.
      *
-     * @param {ModelMesh} mesh
-     * @returns {Array<{id: string, info: object}> | void}
+     * @param {ModelMesh} mesh 병합 그룹 정보를 조회할 메시
+     * @returns {Array<{id: string, info: object}> | undefined} 병합 그룹 정보 배열. 메시가 없거나 재질이 배열이 아니면 undefined
      *
      * @ignore
      */
@@ -2357,9 +2484,7 @@ class U3dModelU3FLayer extends U3dModelLayer {
             if (!children?.length) continue;
 
             const isEdited = children.some(ch =>
-                self.editFilter(ch.userData.id) ||
-                self.editFilter(ch.userData.oid) ||
-                self.editFilter(ch.getUid())
+                self.editFilter(ch.puid)
             );
             if (!isEdited) continue;
 
@@ -2831,7 +2956,7 @@ function changeTexture(opt) {
                                     mesh.visible = true;
 
                                 if (self.removedList.length > 0) {
-                                    if (self.removeFilter(mesh.userData.id) || self.removeFilter(mesh.userData.oid)) {
+                                    if (self.removeFilter(mesh.puid)) {
                                         if (mesh._isMerged)
                                             mesh.visible = false;
                                     }
@@ -2880,8 +3005,9 @@ function modelProcess(opt) {
     const drawArg = opt.drawArg;
     const endPromise = opt.endPromise;
     const tileInfo = opt.tileInfo;
+    const group = opt.group;
 
-    if (self.isTileDisposed(tile, tile._drawArg)) {
+    if (self._disposed || self.getCache(tile) !== group || self.isTileDisposed(tile, tile._drawArg)) {
         endPromise.resolve(false);
         return endPromise;
     }
@@ -2902,6 +3028,12 @@ function modelProcess(opt) {
         return endPromise;
     }
     modelpromise.then(function (/** @type {any} */ objects) {
+        // 메타데이터·모델 완료 사이에 같은 키의 그룹이 교체될 수 있습니다.
+        // 옛 타일을 키로 해제하면 새 그룹까지 삭제하므로 여기서는 자기 작업만 끝냅니다.
+        if (self._disposed || self.getCache(tile) !== group || self.isTileDisposed(tile, tile._drawArg)) {
+            endPromise.resolve(false);
+            return;
+        }
         if (!defined(objects)) {
             U3dMessage.error(self._classtype, U3dMessage.CNT.CMM.NON_OBJECT_1, "6108255");
             endPromise.resolve(false);
@@ -2918,12 +3050,6 @@ function modelProcess(opt) {
 
         if (!Array.isArray(objects) || !defined(index)) {
             U3dMessage.error(self._classtype, U3dMessage.CNT.CMM.NON_OBJECT_1, "6108610");
-            endPromise.resolve(false);
-            return endPromise;
-        }
-
-        if (self.isTileDisposed(tile, tile._drawArg)) {
-            self.disposeTile(tile);
             endPromise.resolve(false);
             return endPromise;
         }
@@ -2986,7 +3112,7 @@ async function createTextureFromImageRawArray(self, thumbimages, promLast) {
     } else {
         const promiseList = [];
         for (let thumbimage of thumbimages) {
-            const promise = deferred();
+            const promise = deferredPromise();
             promiseList.push(promise);
             self.createTextureFromImageRaw(thumbimage, promise);
         }
@@ -3008,7 +3134,7 @@ async function createTextureFromImageRawArray(self, thumbimages, promLast) {
  *
  * @param {import('@union3d/3dLayer/U3dModelU3FLayer').U3dModelU3FLayer} self
  * @param {Array<string>} arrayUrl
- * @param {DeferredObject<import('three').Texture | Array<import('three').Texture>>} promLast
+ * @param {DeferredPromise<import('three').Texture | Array<import('three').Texture>>} promLast
  * @param {string} [curUrl]
  * @param {Array<import('three').Texture>} [textures]
  *
@@ -3111,18 +3237,18 @@ function setMaterialStyle(material, style) {
  * @param {import('@U3dQuadTile').U3dQuadTile} tile
  * @param {import('@UDrawArg').UDrawArg} drawArg
  * @param {import('@union3d/meta/U3fPackagedInfo').TileInfo} tileInfo
+ * @param {function(): boolean} isCurrent 요청이 현재 타일 그룹의 반영 권한을 가지는지 판정
  * @returns {Promise<Array<U3FParsedObj>> | undefined}
  *
  * @ignore
  */
-function convertObj2Mesh(self, objs, tile, drawArg, tileInfo) {
+function convertObj2Mesh(self, objs, tile, drawArg, tileInfo, isCurrent) {
     if (!defined(objs) || !defined(drawArg)) {
         throw new Error('objs or drawArg is null!');
         return;
     }
     return UDEF.createPromise(function (resolve, reject) {
-        if (!tile || self.isTileDisposed(tile, tile._drawArg)) {
-            self.disposeTile(tile);
+        if (!isCurrent()) {
             reject(true);
             return;
         }
@@ -3146,15 +3272,14 @@ function convertObj2Mesh(self, objs, tile, drawArg, tileInfo) {
         }
         let key = /** @type {string} */(self.createKeyFromTile(tile));
         self._tileModelMap[key] = self._tileModelMap[key] || {};
-        let grouping = true;
-
         UDEF.createPromise(function (imageResolve, imageReject) {
-            // 이미지가 없는 입력의 즉시 완료와 이미지 선택 방식은 기존 계약을 유지합니다.
-            if (INTERNAL.hasNoModelImages(objs)) {
+            if (!isCurrent()) { imageReject(true); return; }
+            // 텍스처를 쓰지 않으면 원본의 이미지 유무와 관계없이 형상 생성을 계속합니다.
+            if (!self._useTexture || INTERNAL.hasNoModelImages(objs)) {
                 imageResolve();
                 return;
             }
-            if (grouping && self._useTexture) {
+            if (self._useTexture) {
 
                 //+ thumb 이미지 넣기
                 if (!defined(INTERNAL.getModelPreview(objs))) {
@@ -3178,8 +3303,7 @@ function convertObj2Mesh(self, objs, tile, drawArg, tileInfo) {
                 }
             }
         }).then(function (/** @type {import('three').Texture} */ texture) {
-            if (self.isTileDisposed(tile, tile._drawArg)) {
-                self.disposeTile(tile);
+            if (!isCurrent()) {
                 deleteTexture(texture);
                 reject(true);
                 return;
@@ -3330,29 +3454,26 @@ function resetMaterialColor(material) {
 function finishRestoredMesh(self, mesh, obj) {
     // 건물 mesh 생성 후, remove 상태 확인 및 가시화 결정
     if (defined(mesh.isMerged)) {
-        let removeCheckId = mesh.getUid() + UDEF.U3F_DETACHED_TOKEN;
+        let removeCheckId = mesh.puid;
         if (self.removeFilter(removeCheckId)) {
             mesh.visible = false;
             if (!mesh.isMerged())
                 mesh._sleeping = true;
         }
-    } else if (self.removeFilter(mesh.userData.id) || self.removeFilter(mesh.userData.oid)) {
+    } else if (self.removeFilter(mesh.puid)) {
         if (mesh._isMerged)
             mesh.visible = false;
     }
     // 복원 입력과 편집 목록을 대조한 결과로 공개 편집 이벤트 적용 여부를 결정합니다.
     const editIndex = INTERNAL.getEditedModelIndex(self, obj);
 
-    if (self.editFilter(mesh.userData.id) || self.editFilter(mesh.userData.oid) || editIndex > -1) {
+    if (self.editFilter(mesh.puid) || editIndex > -1) {
         if (mesh._isMerged) {
             mesh.visible = false;
             let editMeshes = mesh.mergedMeshDivision(self.removedList);
             if (editMeshes && editMeshes.children.length > 0) {
-                self.setEditEvent(editMeshes.children);
-                for (let editMesh of editMeshes.children) {
-                    self.setSplitEvent(mesh, editMesh);
-                    editMesh.setManualUpdate();
-                }
+                // 일반 조각과 피처 합성 모델의 ID가 다르므로 두 편집 단위를 모두 복원한다.
+                self._restoreSplitModels(mesh, editMeshes);
                 return true;
             }
         }

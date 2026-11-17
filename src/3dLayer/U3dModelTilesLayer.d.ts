@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,7 +8,6 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dModelLayer, U3dModelLayerCO } from "./U3dModelLayer.js";
 import type { U3DTileset } from "../3dTiles/U3DTileset.js";
-import type { UModelTileMaterialStateVo } from "../3dTiles/vo/UModelTileMaterialStateVo.js";
 import type { UCheckTime } from "../core/UCheckTime.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UFrustum } from "../core/UFrustum.js";
@@ -18,17 +17,12 @@ import type { UMetaData } from "../meta/UMetaData.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { DegreeEulerLike, ModelMesh } from "../types/global.js";
 import type { LRUCache } from "../util/LRUCache.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /**
- * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer <br>
- *
- * 3D Tiles 콘텐츠를 로드하여 계층별로 표시하는 모델 레이어입니다. <br>
- * 원본 타일 경계 또는 선택적 콘텐츠 이동 범위로 탐색·LOD·표시 수명을 판정합니다. <br>
- * 모델 레이어와 시퀀스 확장에서 사용하며 파일 로딩·배치·캐시와 선택 경계 설정을 관리합니다.
+ * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer
  *
  * @group 3dLayer
- *
  * @extends {U3dModelLayer}
  */
 declare class U3dModelTilesLayer extends U3dModelLayer {
@@ -54,12 +48,14 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      * @ignore
      */
     _contentOffsetBoundsDirty: boolean;
-    /** @type {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} */
-    _materialStateMap: WeakMap<three.Material, UModelTileMaterialStateVo>;
-    /** @param {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} value 연결 전 사용할 원본 상태 저장소입니다. */
-    set materialStateMap(value: WeakMap<three.Material, UModelTileMaterialStateVo>);
-    /** @returns {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} 원본 상태 참조입니다. */
-    get materialStateMap(): WeakMap<three.Material, UModelTileMaterialStateVo>;
+    /**
+     * 레이어가 소유하는 재질 원본 상태입니다. 외부에서 항목을 교체하면 배율 복원 기준을 잃습니다.
+     *
+     * @type {WeakMap<import('three').Material, UModelTileMaterialState>}
+     *
+     * @ignore
+     */
+    _materialStateMap: WeakMap<three.Material, UModelTileMaterialState>;
     /**
      * 콘텐츠 캐시의 최대 항목 수입니다.
      *
@@ -202,8 +198,7 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
     /**
      * 0 이동을 포함하는 선택적 월드 이동 범위를 설정합니다.
      *
-     * @param {ModelContentOffsetBounds | null} [bounds=null] 원본 형상에 더할 월드 X/Y/Z 최소·최대 이동량. 배열을 복사하며 null이면 기존 판정입니다.
-     * @returns {void}
+     * @param {ModelContentOffsetBounds | null} [bounds=null] 원본 형상에 더할 월드 X·Y·Z 이동 범위(null이면 기존 경계 판정)
      */
     setContentOffsetBounds(bounds?: ModelContentOffsetBounds | null): void;
     /**
@@ -215,8 +210,7 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
     /**
      * 선택 경계 이동 범위를 검증 후 설정합니다.
      *
-     * @param {ModelContentOffsetBounds | null} value 원본을 변경하지 않을 범위. null이면 기존 판정으로 복귀합니다.
-     * @returns {void}
+     * @param {ModelContentOffsetBounds | null} value 이동 경계 범위(null이면 기존 판정으로 복귀)
      */
     set contentOffsetBounds(value: ModelContentOffsetBounds | null);
     /**
@@ -228,8 +222,7 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
     /**
      * 갱신 대기 상태의 직접 변경을 거부합니다.
      *
-     * @param {boolean} value 요청한 상태. setContentOffsetBounds와 update만 관리합니다.
-     * @returns {void}
+     * @param {boolean} value 요청한 이동 경계 상태(직접 변경 불가)
      */
     set contentOffsetBoundsDirty(value: boolean);
     /**
@@ -265,8 +258,8 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      * @override
      *
      * @param {import('@UDrawArg').UDrawArg} drawArg 현재 프레임의 렌더링 문맥
-     * @param {number} [curTime] 사용하지 않는 매개변수. 다른 레이어와 같은 호출 형태를 위해 유지
-     * @param {boolean} [force=false] `true`면 갱신 주기를 무시하고 즉시 갱신
+     * @param {number} [curTime] 공통 레이어 호출 형식과 맞추기 위해 유지하는 미사용 인수
+     * @param {boolean} [force=false] 갱신 주기를 무시하고 즉시 갱신할지 여부(기본값 false)
      */
     override update(drawArg: UDrawArg, curTime?: number, force?: boolean): void;
     /**
@@ -460,13 +453,13 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      * @param {import('@U3DTileset').U3DTileset} tile 탐색할 타일
      * @param {import('@U3DTileset').U3DTileset} parent 형제 로딩 상태를 집계할 부모
      * @param {string | number} updateId 현재 갱신 세대 ID
-     * @param {boolean} [isFirst=true] 최초 경계 교차 검사를 수행할지 여부
+     * @param {boolean} [isFirst=true] 최초 경계 교차 검사를 수행할지 여부(기본값 true)
      * @param {TileCheckContext} [checkContext] 같은 탐색 주기에서 공유할 판정 문맥
-     * @returns {Promise<import('@U3DTileset').U3DTileset> | undefined} 현재 타일 요청이며 취소·범위 제외 시 undefined
+     * @returns {undefined | Promise<import('@U3DTileset').U3DTileset>} 현재 타일 요청이며 취소·범위 제외 시 undefined
      *
      * @ignore
      */
-    searchTiles(tile: U3DTileset, parent: U3DTileset, updateId: string | number, isFirst?: boolean, checkContext?: TileCheckContext): Promise<U3DTileset> | undefined;
+    searchTiles(tile: U3DTileset, parent: U3DTileset, updateId: string | number, isFirst?: boolean, checkContext?: TileCheckContext): undefined | Promise<U3DTileset>;
     /**
      * 타일(tile)의 요청 완료 객체를 저장하고 성공·실패 시 콘텐츠 상태를 반영합니다.
      *
@@ -595,12 +588,11 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      * 아직 큐에 있는 파서는 최신 세대가 타일을 이어받지 않았을 때만 <br>
      * 제거하고, 이미 실행 중인 파서는 타일 dispose 여부를 완료 시점에 다시 확인합니다.
      *
-     * @param {(item: ModelTileParserQueueItem) => DeferredObject<import('@U3DTileset').U3DTileset>} fnc 파서 함수. <br>
-     *        호출 즉시 결과를 반환하는 동기 함수가 아니라 then/catch를 제공하는 DeferredObject를 반환해야 합니다.
+     * @param {(item: ModelTileParserQueueItem) => Promise<import('@U3DTileset').U3DTileset>} fnc 타일 처리 결과를 Promise로 반환하는 파서 함수
      * @param {ModelTileParserQueueItem} item 파서 파라미터
      * @returns {Promise<import('@U3DTileset').U3DTileset>} 비동기 처리 객체
      */
-    addParserQueue(fnc: (item: ModelTileParserQueueItem) => DeferredObject<U3DTileset>, item: ModelTileParserQueueItem): Promise<U3DTileset>;
+    addParserQueue(fnc: (item: ModelTileParserQueueItem) => Promise<U3DTileset>, item: ModelTileParserQueueItem): Promise<U3DTileset>;
     /**
      * 레이어 표시 여부를 바꾸고 숨길 때 타일 데이터를 회수합니다. <br>
      * 부모의 표시 완료 객체는 반환하지 않습니다.
@@ -738,28 +730,6 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      */
     cesiumFromRadians(longitude: number, latitude: number, height: number): three.Vector3;
     /**
-     * 타일 콘텐츠 요청의 세대 승계와 dispose 취소 불변식을 격리된 가짜 상태로 검사합니다.
-     *
-     * 실제 레이어의 타일·캐시·로더는 변경하지 않습니다. <br>
-     * 같은 요청 상태를 새 updateId가 이어받을 때 <br>
-     * 공유 Promise와 큐/파서 파라미터가 유지되는지, dispose 취소 시 저장된 최종 URL만 abort되는지, <br>
-     * 상태 Map과 tile.work가 객체 identity 기준으로 한 번만 정리되는지를 확인합니다.
-     *
-     * @returns {boolean} 모든 요청 생명주기 불변식을 만족하면 true
-     */
-    __$testTileContentRequestLifecycle(): boolean;
-    /**
-     * 다운로드 WorkProcess 슬롯 반납 시점과 파이프라인 완료 시점의 분리 계약을 검사합니다.
-     *
-     * `#processQueue()`의 private 접근 때문에 실제 생성된 인스턴스에 bind되어 실행되어야 하며, <br>
-     * 레이어의 로더와 파서 큐 등록을 가짜 구현으로 잠시 교체한 뒤 종료 전에 복원합니다. <br>
-     * 실제 네트워크 요청과 WorkProcess 큐에는 작업을 만들지 않습니다.
-     *
-     * @returns {boolean} 사전 폐기·네트워크 실패에서 두 Promise가 함께 실패하고, <br>
-     *          파서 경로에서 슬롯이 파싱 완료보다 먼저 반납되면 true
-     */
-    __$testTileContentSlotRelease(): boolean;
-    /**
      * 표시 그룹과 타일 참조의 일관성을 확인합니다.
      *
      * @param {boolean} [showLog=false] 기존 호출 형식으로 받으며 검사에는 사용하지 않는 값
@@ -868,7 +838,7 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
         /**
          * 여러 탐색 세대가 함께 기다리는 작업 Promise
          */
-        promise: DeferredObject<U3DTileset>;
+        promise: DeferredPromise<U3DTileset>;
         /**
          * 현재 다운로드·파싱 진행 단계
          */
@@ -1252,4 +1222,22 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      */
     type ModelTileMaterialOwner = Pick<U3dModelTilesLayer, "_materialStateMap">;
 
-export type { ModelContentOffsetBounds, ModelContentOffsetContext, ModelTileBatchOwner, ModelTileBatchResult, ModelTileBoundInfo, ModelTileCalculationInfo, ModelTileCameraOwner, ModelTileContentQueueInfo, ModelTileContentRequestPhase, ModelTileContentRequestState, ModelTileDepthOwner, ModelTileErrorOwner, ModelTileMaterialOwner, ModelTileMeshOwner, ModelTileOpacityOwner, ModelTileParserQueueItem, ModelTilePriorityOwner, ModelTileTransformInfo, ModelTileTraversalOwner, TileCheckContext, U3dModelTilesLayer, U3dModelTilesLayerCO, U3dModelTilesLayerCO_Content, viewSizeOffsetFunction };
+/**
+     * 레이어 불투명도와 강조 해제 시 복원할 재질의 원본 표시 설정입니다.
+     */
+    type UModelTileMaterialState = {
+        /**
+         * 레이어 배율을 곱하기 전의 불투명도(0~1)
+         */
+        sourceOpacity: number;
+        /**
+         * 원본 투명 렌더링 여부
+         */
+        sourceTransparent: boolean;
+        /**
+         * 원본 깊이 기록 여부
+         */
+        sourceDepthWrite: boolean;
+    };
+
+export type { ModelContentOffsetBounds, ModelContentOffsetContext, ModelTileBatchOwner, ModelTileBatchResult, ModelTileBoundInfo, ModelTileCalculationInfo, ModelTileCameraOwner, ModelTileContentQueueInfo, ModelTileContentRequestPhase, ModelTileContentRequestState, ModelTileDepthOwner, ModelTileErrorOwner, ModelTileMaterialOwner, ModelTileMeshOwner, ModelTileOpacityOwner, ModelTileParserQueueItem, ModelTilePriorityOwner, ModelTileTransformInfo, ModelTileTraversalOwner, TileCheckContext, U3dModelTilesLayer, U3dModelTilesLayerCO, U3dModelTilesLayerCO_Content, UModelTileMaterialState, viewSizeOffsetFunction };

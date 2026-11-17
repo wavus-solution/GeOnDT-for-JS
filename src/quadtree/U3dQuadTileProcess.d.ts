@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -75,7 +75,8 @@ declare class U3dQuadTileProcess extends U3dProcess {
     _dequeueTask(startImmediately: boolean): boolean;
     /**
      * 슬롯 점유와 단일 종결을 공유하되 실제 호출 경계만 예약 경로에 맞춥니다.
-     * 공통 예산 대기는 진입 전이므로 30초 응답 제한에 포함되지 않습니다.
+     * 즉시 완료된 Promise까지 먼저 종결하고 실제 대기만 슬롯 확보 시각 기준의 30초 제한으로 보호합니다.
+     * 공통 예산 대기는 진입 전이므로 응답 제한에 포함되지 않습니다.
      *
      * @param {import('@union3d/quadtree/U3dQuadTileTask').U3dQuadTileTask} obj 실행할 작업
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 대상 타일

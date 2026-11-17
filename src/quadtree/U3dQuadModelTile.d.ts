@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -57,6 +57,7 @@ declare class U3dQuadModelTile extends U3dQuadTile {
     /**
      * 갱신 가능 여부나 경계 상자 교차 여부에 따라 자식 타일을 계산해 갱신 대상으로 등록하고, 그렇지 않으면 처분 대상으로 등록합니다.
      * 강제 검색도 일반 검색과 같은 모델 상한에서 자식 생성을 중단합니다.
+     * 하위 갱신·정리가 실패해도 이 호출이 증가시킨 검색 수를 복원합니다.
      *
      * @override
      *
@@ -64,8 +65,10 @@ declare class U3dQuadModelTile extends U3dQuadTile {
      * @param {import('@union3d/core/UFrameState').UFrameState} frameState 갱신·처분 대상을 모으는 프레임 상태
      * @param {boolean} [force=false] 강제 갱신 여부
      * @param {import('three').Box3} [box3] 자식 검색에 쓸 경계 상자. 없으면 갱신 가능 여부만 사용합니다
+     * @returns {false | void} 그리기 인수가 없거나 해제된 타일이면 false, 갱신 후에는 반환값 없음
+     * @throws {unknown} 갱신 가능 판정·자식 갱신·정리 중 발생한 원래 오류
      */
-    override update(drawArg: UDrawArg | undefined, frameState: UFrameState, force?: boolean, box3?: three.Box3): boolean;
+    override update(drawArg: UDrawArg | undefined, frameState: UFrameState, force?: boolean, box3?: three.Box3): false | void;
     _disposeCause: number;
     createMesh(): boolean;
 }

@@ -1,4 +1,5 @@
 // @ts-check
+import * as THREE from 'three';
 import {defined} from '@util/defined';
 import {defaultValue} from '@util/defaultValue';
 import {UDEF} from '@union3d/core/UDEF';
@@ -166,15 +167,45 @@ class UAnalyAlarm extends UAnaly {
      */ _measureFeature;
 
     /**
+     * @type {Record<string, (() => void) | undefined>}
+     * @ignore
+     */
+    _modelAlarmStops = {};
+    /**
+     * 그룹이 소유하는 검색 영역이며 그룹 삭제·분석 정리 때 함께 제거합니다.
+     * @type {Map<import('@UGroup').UGroup, import('@UMeasureFeature').UMeasureFeature>}
+     * @ignore
+     */
+    _groupFeatures = new Map();
+    /**
+     * 그룹별 병합 부분 선택을 원본 메시의 현재 선택 상태와 분리해 보관합니다.
+     * @type {Map<import('@UGroup').UGroup, Map<string, UAnalyAlarmGroupSelection>>}
+     * @ignore
+     */
+    _groupSelections = new Map();
+    /**
+     * @type {'color' | 'outline' | 'ring'}
+     * @ignore
+     */
+    _modelSelectType;
+    /**
+     * @type {KeyValue | U3dSelectRingOption | undefined}
+     * @ignore
+     */
+    _modelSelectTypeOption;
+
+    /**
      * 알람 목록과 선택·프레임 상태를 초기화합니다. 앱은 setApp()으로 별도 연결합니다.
      *
-     * @param {UAnalyAlarmCO} [opt={}]
+     * @param {UAnalyAlarmCO} [opt={}] 알람 생성 옵션
+     * @throws {RangeError} 건물 알람 강조 방식이 지원되지 않는 경우
      */
     constructor(opt) {
         super();
         opt = opt || {};
         const self = this;
         self.name = defaultValue(opt.name, 'Alarm');
+        self.setModelSelectType(opt.modelSelectType ?? 'color', opt.modelSelectTypeOption);
         self._clickId = undefined;
         self._dblClickId = undefined;
         self._poiGroup = new UGroup();
@@ -267,10 +298,13 @@ class UAnalyAlarm extends UAnaly {
      */
     clear() {
         const self = this;
+        Object.keys(self._modelAlarmStops).forEach(id => self.stopActiveAlarm(id));
         self.getPOIGroupChildren().forEach(function (poi) {
             self.stopActiveAlarm(poi.id);
             if (poi.userData.cursor) self._removeCursor(poi);
         });
+        for (const group of self._groupFeatures.keys()) self._removeGroupFeature(group);
+        for (const group of self._groupSelections.keys()) INTERNAL.releaseGroupModels(self, group);
         UAnaly.prototype.clear.call(self);
         const selectLayer = this._getSelectLayer();
         if (!defined(selectLayer))
@@ -394,7 +428,7 @@ class UAnalyAlarm extends UAnaly {
             if (app.getLayer(layerName)) {
                 const tiledModel = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (model));
                 self._modelGroup.push(model);
-                self._modelObject[model.getUid()] = {
+                self._modelObject[INTERNAL.makeId(model)] = {
                     layerName,
                     tile: defined(tiledModel._opt?._tile) ? tiledModel._opt._tile._key : tiledModel._tile?._key
                 };
@@ -452,7 +486,7 @@ class UAnalyAlarm extends UAnaly {
         const modelList = self.getModelGroupChildren();
         const modelTarget = modelList.find(function (child) {
             if (child instanceof UMesh)
-                return INTERNAL.equalsIgnoreCase(child.getUid(), id.toString());
+                return INTERNAL.makeId(child) === id;
             else
                 return INTERNAL.equalsIgnoreCase(child.name, id.toString());
         });
@@ -529,6 +563,7 @@ class UAnalyAlarm extends UAnaly {
 
     /**
      * 등록 모델 또는 그룹을 조회하고 현재 교차 모델로 복원합니다. 단일 그룹은 원본 그룹의 children을 교체합니다.
+     * 병합 부분 선택 그룹의 자식은 원본 UID를 유지하는 그룹 전용 강조 메시입니다.
      *
      * @param {Array<string | number> | string | number} idList 찾으려는 model 객체의 ID 또는 ID 배열
      * @returns {import('@union3d/core/UGroup').UGroup | import('@union3d/core/mesh/UMesh').UMesh | undefined} 찾은 model List 반환
@@ -548,12 +583,7 @@ class UAnalyAlarm extends UAnaly {
                     return INTERNAL.isEqual(child, idList[i]);
                 });
                 if (obj instanceof UGroup) {
-                    obj.children.forEach(function (child) {
-                        const mesh = /** @type {import('@UMesh').UMesh} */(child);
-                        const id = defined(mesh.getUid) ? mesh.getUid() : String(mesh.id);
-                        const resultMesh = self.getIntersectModel(id);
-                        if (defined(resultMesh)) resultMesh.visible = true;
-                    });
+                    INTERNAL.restoreModelGroup(self, obj);
                     resultList.children.push(obj);
                 } else if (obj instanceof UMesh) {
                     const resultMesh = self.getIntersectModel(String(idList[i]));
@@ -571,7 +601,7 @@ class UAnalyAlarm extends UAnaly {
                 // 기존 그룹 참조를 유지하면서 현재 사용 가능한 자식 모델을 복원합니다.
                 return INTERNAL.restoreModelGroup(self, result);
             } else if (defined(result) && result instanceof UMesh) {
-                result = self.getIntersectModel(result.getUid());
+                result = self.getIntersectModel(INTERNAL.makeId(result));
                 if (defined(result)) result.visible = true;
             } else {
                 const idKey = String(idList);
@@ -631,19 +661,13 @@ class UAnalyAlarm extends UAnaly {
                     model.children.forEach(function (mesh) {
                         const meshLike = /** @type {import('@union3d/core/mesh/UMesh').UMesh} */ (/** @type {unknown} */ (mesh));
                         if (defined(meshLike.material)) {
-                            const mat = /** @type {Common_Material} */ (meshLike.material);
-                            if (!defined(mat._oriColor))
-                                mat._oriColor = mat.color.clone();
                             self.modelFlickerMode(meshLike, count, speed, color);
                         }
                     });
                 } else {
                     const modelLike = /** @type {import('@union3d/core/mesh/UMesh').UMesh} */ (/** @type {unknown} */ (model));
                     if (defined(model) && defined(modelLike.material)) {
-                    const mat = /** @type {Common_Material} */ (modelLike.material);
-                    if (!defined(mat._oriColor))
-                        mat._oriColor = mat.color.clone();
-                    self.modelFlickerMode(modelLike, count, speed, color);
+                        self.modelFlickerMode(modelLike, count, speed, color);
                     }
                 }
             }
@@ -659,14 +683,14 @@ class UAnalyAlarm extends UAnaly {
         const self = this;
         if (!(model instanceof UMesh)) return;
 
-        const id = model.getUid();
+        const id = INTERNAL.makeId(model);
         if (!defined(id)) return;
 
         let targetModel = model;
         if (!defined(model) || !defined(model.material)) {
             const drawArg = /** @type {import('@UDrawArg').UDrawArg} */ (self._drawArg);
             if (drawArg.getTile(self._modelObject[id].tile) && UDEF.TILE_TYPE.MODEL) {
-                const intersectModel = self.getIntersectModel(model.getUid());
+                const intersectModel = self.getIntersectModel(INTERNAL.makeId(model));
                 if (defined(intersectModel))
                     targetModel = intersectModel;
             } else {
@@ -682,6 +706,22 @@ class UAnalyAlarm extends UAnaly {
                 self.modelFlickerMode(targetModel, count, speed, color);
             }
         }
+    }
+
+    /**
+     * 이후 시작할 건물 알람의 강조 방식을 설정합니다. 실행 중인 알람의 타입은 유지합니다.
+     *
+     * @param {'color' | 'outline' | 'ring'} type 색상·외곽선·링 강조 방식
+     * @param {KeyValue | U3dSelectRingOption} [typeOption] 외곽선·링 옵션이며 생략하면 기본 옵션을 사용합니다.
+     * @returns {void} 반환값 없음
+     * @throws {RangeError} 지원하지 않는 강조 방식인 경우
+     */
+    setModelSelectType(type, typeOption) {
+        if (!['color', 'outline', 'ring'].includes(type)) {
+            throw new RangeError('건물 알람 강조 방식은 color, outline, ring 중 하나여야 합니다.');
+        }
+        this._modelSelectType = type;
+        this._modelSelectTypeOption = typeOption;
     }
 
     /**
@@ -705,8 +745,9 @@ class UAnalyAlarm extends UAnaly {
     }
 
     /**
-     * 모델의 기존 예약과 선택 색상 상태를 정리한 뒤 깜박임을 예약합니다.
-     * 정상 반복 종료에는 복원 색상을 적용하고 해당 ID의 예약 기록을 제거합니다.
+     * 기존 알람을 정리하고 전용 선택기로 모델 강조를 반복합니다.
+     * 종료·정지 시 알람 직전 표시를 복원하며 기존 사용자 선택은 유지합니다.
+     * 그룹 전용 대상의 범위와 예약은 같은 원본을 사용하는 다른 그룹과 독립적입니다.
      *
      * @param {import('@union3d/core/mesh/UMesh').UMesh} model 알람 대상 Model 객체
      * @param {number} count 알람 횟수
@@ -720,40 +761,13 @@ class UAnalyAlarm extends UAnaly {
     modelFlickerModeInit(model, count, speed, color) {
         const self = this;
         const speedSize = parseInt(String(speed));
-
         if (!(model instanceof UMesh)) return;
-
+        const alarmId = INTERNAL.modelAlarmKey(model);
+        self.stopActiveAlarm(alarmId);
         count = parseInt(String(count));
-        self.stopActiveAlarm(model.getUid());
-        if (count <= 0) return;
-
-        const alarmModel = /** @type {import('@union3d/core/mesh/UMesh').UMesh & Ananlysis_Mesh} */ (/** @type {unknown} */ (model));
-        const id = alarmModel.getUid();
-        let targetModel = model;
-        if (!defined(model) || !defined(alarmModel.material)) {
-            const intersected = self.getIntersectModel(id);
-            if (!defined(intersected)) return;
-            targetModel = intersected;
-        }
-
-        /** @type {import('three').ColorRepresentation} */ let oriColor = '#ffffff';
-        if (!defined(color)) color = '#00ff00';
-        if (defined(alarmModel.material)) {
-            const workMat = /** @type {Common_Material} */ (alarmModel.material);
-            if (defined(workMat._oriColor)) {
-                oriColor = workMat._oriColor;
-                workMat._oriColor = undefined;
-                delete workMat._oriColor;
-            }
-            workMat.opacity = 1;
-            alarmModel._isPicked = undefined;
-            delete alarmModel._isPicked;
-        }
-
+        if (!Number.isFinite(count) || count <= 0 || !Number.isFinite(speedSize) || speedSize < 0) return;
         const app = /** @type {import('@U3dApp').U3dApp} */ (self._app);
-
-        // 원본 색상과 재개 대상을 보존하여 모델 깜박임의 예약 실행을 시작합니다.
-        INTERNAL.startModelFlicker(self, app, alarmModel, targetModel, id, count, speed, speedSize, color, oriColor);
+        INTERNAL.startModelFlicker(self, app, model, alarmId, count, speedSize, color ?? '#00ff00');
     }
 
     /**
@@ -918,7 +932,7 @@ class UAnalyAlarm extends UAnaly {
     isDisposedStopModel(model) {
         const self = this;
         if (!defined(model)) return;
-        const uid = model.getUid();
+        const uid = INTERNAL.makeId(model);
         if (defined(self._modelObject[uid])) {
             const info = self._modelObject[uid];
             const drawArg = /** @type {import('@UDrawArg').UDrawArg} */ (self._drawArg);
@@ -935,7 +949,7 @@ class UAnalyAlarm extends UAnaly {
     }
 
     /**
-     * 등록 주소의 현재 모델을 조회하고 모델이 없으면 조건에 맞는 편집 모델을 조회합니다.
+     * 현재 선택 모델을 우선 사용하고 휴면 병합 원본이 조회되면 같은 ID의 분리 모델을 찾습니다.
      *
      * @param {string} id 찾고 싶은 model의 id
      * @returns {import('@union3d/core/mesh/UMesh').UMesh | undefined} selectedObject 결과 Model 반환
@@ -946,16 +960,21 @@ class UAnalyAlarm extends UAnaly {
         let layerName;
         if (defined(self._modelObject[id]))
             layerName = self._modelObject[id].layerName;
+        const selected = self._selector ? self._selector._selected : self._selected;
+        for (const candidate of Object.values(selected)) {
+            if (candidate instanceof UMesh && INTERNAL.isModelReady(candidate) &&
+                INTERNAL.makeId(candidate) === id &&
+                (!layerName || INTERNAL.searchLayerName(candidate) === layerName)) return candidate;
+        }
         const layer = /** @type {ModelLayerLike | undefined} */ (/** @type {unknown} */ (app.getLayer(/** @type {string} */ (layerName))));
         if (!defined(layer)) return;
-        const model = layer.getModelById(id, false);
-        if (!defined(model) && defined(layer.editedList) && layer.editedList.length > 0) {
+        let model = layer.getModelById(id);
+        if (defined(model) && !INTERNAL.isModelReady(model)) model = layer.getModelById(id, false);
+        if (!INTERNAL.isModelReady(model) && defined(layer.editedList) && layer.editedList.length > 0) {
             const info = layer.editedEvent?.[id];
-            if (defined(info)) {
-                return defined(info.mesh) ? info.mesh : undefined;
-            }
+            if (defined(info)) model = info.mesh;
         }
-        return model;
+        return INTERNAL.isModelReady(model) ? model : undefined;
     }
 
     /**
@@ -972,7 +991,7 @@ class UAnalyAlarm extends UAnaly {
                 if (modelList[i] instanceof UGroup) {
                     self.removeAlarm(modelList[i].name);
                 } else {
-                    self.removeAlarm(/** @type {import('@union3d/core/mesh/UMesh').UMesh} */ (/** @type {unknown} */ (modelList[i])).getUid());
+                    self.removeAlarm(INTERNAL.makeId(/** @type {import('@union3d/core/mesh/UMesh').UMesh} */ (/** @type {unknown} */ (modelList[i]))));
                 }
                 modelList.splice(i, 1);
                 i--;
@@ -1012,7 +1031,6 @@ class UAnalyAlarm extends UAnaly {
      */
     removeAlarm(id) {
         const self = this;
-        const oriColor = '#ffffff';
         const app = /** @type {import('@U3dApp').U3dApp} */ (self._app);
 
         const poiList = self.getPOIGroupChildren();
@@ -1020,7 +1038,6 @@ class UAnalyAlarm extends UAnaly {
             // 알람 목록의 대상 비교와 선택 키 복원에 같은 식별 결과를 사용한다.
             return INTERNAL.equalsIgnoreCase(poi.id.toString(), id.toString());
         });
-        let activeTarget = /** @type {unknown} */ (removeTarget);
         if (defined(removeTarget)) {
             self.removeDetailList(/** @type {string} */ (id));
             UDEF.disposeObject3D(removeTarget);
@@ -1028,54 +1045,45 @@ class UAnalyAlarm extends UAnaly {
             self._poiGroup.remove(/** @type {import('three').Object3D} */(/** @type {unknown} */(removeTarget)));
         } else {
             const modelList = self.getModelGroupChildren();
-            const modelTarget = modelList.find(function (model) {
+            const modelTargets = modelList.filter(function (model) {
                 return INTERNAL.isEqual(model, id);
             });
-            activeTarget = modelTarget;
-            if (defined(modelTarget) && modelTarget instanceof UGroup) {
-                modelTarget.children.forEach(function (child) {
-                    const mesh = /** @type {import('@UMesh').UMesh} */ (child);
-                    if (defined(mesh.getUid)) {
-                        const targetModel = self.getIntersectModel(mesh.getUid());
-                        if (defined(targetModel)) {
-                            const pickedTarget = /** @type {Ananlysis_Mesh} */ (targetModel);
-                            self.stopAlarmById(targetModel.getUid());
-                            const key = INTERNAL.makeObjectKey(targetModel);
-                            self._removeSelectedByKey(key, true);
-                            pickedTarget._isPicked = undefined;
-                            delete pickedTarget._isPicked;
-                            if (defined(targetModel.material)) {
-                                targetModel.setColor(oriColor);
-                                targetModel.setOpacity(1);
+            for (const modelTarget of modelTargets) {
+                if (modelTarget instanceof UGroup) {
+                    self._removeGroupFeature(modelTarget);
+                    modelTarget.children.forEach(function (child) {
+                        const mesh = /** @type {import('@UMesh').UMesh} */ (child);
+                        if (defined(mesh.getUid)) {
+                            self.stopActiveAlarm(INTERNAL.modelAlarmKey(mesh));
+                            const targetModel = self.getIntersectModel(INTERNAL.modelSourceId(mesh));
+                            if (defined(targetModel)) {
+                                const pickedTarget = /** @type {Ananlysis_Mesh} */ (targetModel);
+                                if (!INTERNAL.isGroupModel(mesh)) self.stopAlarmById(targetModel.getUid());
+                                const key = INTERNAL.makeObjectKey(targetModel);
+                                self._removeSelectedByKey(key, true);
+                                pickedTarget._isPicked = undefined;
+                                delete pickedTarget._isPicked;
                             }
                         }
-                    }
-                });
-            } else if (defined(modelTarget) && modelTarget instanceof UMesh) {
-                const targetModel = self.getIntersectModel(modelTarget.getUid());
-                if (defined(targetModel)) {
-                    const pickedTarget = /** @type {Ananlysis_Mesh} */ (targetModel);
-                    self.stopAlarmById(targetModel.getUid());
-                    self.removeSelected(targetModel);
-                    const key = INTERNAL.makeObjectKey(targetModel);
-                    self._removeSelectedByKey(key, true);
-                    pickedTarget._isPicked = undefined;
-                    delete pickedTarget._isPicked;
-                    if (defined(targetModel.material)) {
-                        targetModel.setColor(oriColor);
-                        targetModel.setOpacity(1);
+                    });
+                    INTERNAL.releaseGroupModels(self, modelTarget);
+                } else if (defined(modelTarget) && modelTarget instanceof UMesh) {
+                    self.stopActiveAlarm(modelTarget.getUid());
+                    const targetModel = self.getIntersectModel(modelTarget.getUid());
+                    if (defined(targetModel)) {
+                        const pickedTarget = /** @type {Ananlysis_Mesh} */ (targetModel);
+                        self.stopAlarmById(targetModel.getUid());
+                        self.removeSelected(targetModel);
+                        const key = INTERNAL.makeObjectKey(targetModel);
+                        self._removeSelectedByKey(key, true);
+                        pickedTarget._isPicked = undefined;
+                        delete pickedTarget._isPicked;
                     }
                 }
             }
-            self._modelGroup = modelList.filter(function (model) {
-                const mesh = /** @type {import('@UMesh').UMesh} */ (model);
-                if (defined(mesh.getUid))
-                    return !INTERNAL.equalsIgnoreCase(mesh.getUid().toString(), id.toString());
-                else
-                    return !INTERNAL.equalsIgnoreCase(model.name, id.toString());
-            });
+            self._modelGroup = modelList.filter(model => !modelTargets.includes(model));
         }
-        self.stopActiveAlarm(/** @type {string | number} */ (activeTarget));
+        if (removeTarget) self.stopActiveAlarm(removeTarget.id);
         self.clearSelect(true);
         app.setUpdateDate();
         self.dispatchEvent({type: 'click'});
@@ -1088,7 +1096,6 @@ class UAnalyAlarm extends UAnaly {
      */
     stopAlarmById(id) {
         const self = this;
-        const oriColor = '#ffffff';
         const app = /** @type {import('@U3dApp').U3dApp} */ (self._app);
         if (!defined(id)) return;
 
@@ -1106,55 +1113,19 @@ class UAnalyAlarm extends UAnaly {
             this._removeCursor(poiTarget);
             poiTarget.setPointSize(poiTarget.getPointDefaultSize());
             app.setUpdateDate();
-        } else if (defined(type) && type === 'model') {
-            const model = self.getIntersectModel(/** @type {string} */ (id));
-            if (defined(model)) {
-                const pickedModel = /** @type {Ananlysis_Mesh} */ (model);
-                if (defined(pickedModel._isPicked) && pickedModel._isPicked) {
-                    pickedModel._isPicked = undefined;
-                    delete pickedModel._isPicked;
-                }
-                if (defined(model.material)) {
-                    model.setColor(oriColor);
-                    model.setOpacity(1);
-                }
-            }
         } else {
-            const target = self._modelGroup.find(function (child) {
-                return INTERNAL.isEqual(child, id);
-            });
-            if (defined(target) && target instanceof UGroup) {
-                target.children.map(function (child) {
-                    const mesh = /** @type {import('@UMesh').UMesh} */ (child);
-                    if (defined(mesh.getUid)) {
-                        const meshUid = mesh.getUid();
-                        self.stopActiveAlarm(meshUid);
-                        const model = self.getIntersectModel(meshUid);
-                        if (defined(model)) {
-                            const pickedModel = /** @type {Ananlysis_Mesh} */ (model);
-                            if (defined(pickedModel._isPicked) && pickedModel._isPicked) {
-                                pickedModel._isPicked = undefined;
-                                delete pickedModel._isPicked;
-                            }
-                            if (defined(model.material)) {
-                                model.setColor(oriColor);
-                                model.setOpacity(1);
-                            }
-                        }
-                    }
+            const target = self._modelGroup.find(child => INTERNAL.isEqual(child, id));
+            if (target instanceof UGroup) {
+                for (const selection of self._groupSelections.get(target)?.values() || []) {
+                    self.stopActiveAlarm(selection.alarmId);
+                }
+                target.children.forEach(child => {
+                    if (child instanceof UMesh) self.stopActiveAlarm(INTERNAL.modelAlarmKey(child));
                 });
-            } else if (defined(target) && target instanceof UMesh) {
-                self.stopActiveAlarm(target.getUid());
-                const model = self.getIntersectModel(target.getUid());
-                if (defined(model)) {
-                    const pickedModel = /** @type {Ananlysis_Mesh} */ (model);
-                    if (defined(pickedModel._isPicked) && pickedModel._isPicked) {
-                        pickedModel._isPicked = undefined;
-                        delete pickedModel._isPicked;
-                    }
-                    if (defined(model.material)) {
-                        model.setColor(oriColor);
-                        model.setOpacity(1);
+            } else {
+                for (const selections of self._groupSelections.values()) {
+                    for (const selection of selections.values()) {
+                        if (selection.id === id) self.stopActiveAlarm(selection.alarmId);
                     }
                 }
             }
@@ -1166,6 +1137,7 @@ class UAnalyAlarm extends UAnaly {
      */
     stopAllAlarm() {
         const self = this;
+        Object.keys(self._modelAlarmStops).forEach(id => self.stopActiveAlarm(id));
         const poiGroup = self.getPOIGroupChildren();
         const modelGroup = self.getModelGroupChildren();
         if (defined(poiGroup) && poiGroup.length > 0) {
@@ -1181,14 +1153,15 @@ class UAnalyAlarm extends UAnaly {
                 if (model instanceof UGroup) {
                     self.stopAlarmById(model.name);
                 } else {
-                    self.stopAlarmById(/** @type {import('@union3d/core/mesh/UMesh').UMesh} */ (/** @type {unknown} */ (model)).getUid());
+                    self.stopAlarmById(INTERNAL.makeId(/** @type {import('@union3d/core/mesh/UMesh').UMesh} */ (/** @type {unknown} */ (model))));
                 }
             });
         }
     }
 
     /**
-     * ID별 프레임 예약을 취소합니다. 객체의 가시성·색상·크기·커서 자원은 변경하지 않습니다.
+     * ID별 프레임 예약을 취소하고 모델 알람의 강조·전용 선택기 자원을 정리합니다.
+     * POI의 가시성·크기·커서 자원은 변경하지 않습니다.
      *
      * @param {string | number} id 삭제 대상 ID
      */
@@ -1200,6 +1173,9 @@ class UAnalyAlarm extends UAnaly {
             self._infoActiveAlarm[id] = undefined;
             delete self._infoActiveAlarm[id];
         }
+        const cleanup = self._modelAlarmStops[id];
+        delete self._modelAlarmStops[id];
+        cleanup?.();
     }
 
     /**
@@ -1222,7 +1198,7 @@ class UAnalyAlarm extends UAnaly {
         if (object instanceof UMesh) {
             // 모델의 소유 레이어를 확인하여 레이어 선택 경로를 결정한다.
             const layerName = INTERNAL.searchLayerName(object);
-            const id = object.getUid();
+            const id = INTERNAL.makeId(object);
             const app = /** @type {import('@U3dApp').U3dApp} */ (this._app);
             if (app.getLayer(/** @type {string} */ (layerName))) {
                 this._addSelected_(/** @type {string} */ (layerName), id);
@@ -1377,25 +1353,33 @@ class UAnalyAlarm extends UAnaly {
     }
 
     /**
-     * 선택 키의 색상을 복원하고 조건에 따라 모델 로딩 리스너를 해제합니다.
+     * 같은 키의 현재 선택 객체를 우선 복원하고 조건에 따라 모델 로딩 리스너를 해제합니다.
      *
-     * @param {string} key
-     * @param {boolean} [isChecked=false]
+     * @param {string} key 해제할 선택 키
+     * @param {boolean} [isChecked=false] 소유 레이어의 로딩 연결도 해제할지 여부
      *
      * @ignore
      */
     _removeSelectedByKey(key, isChecked) {
         const self = this;
-        const selected = /** @type {import('@union3d/core/mesh/UMesh').UMesh} */ (/** @type {unknown} */ (self._selected[key]));
+        const selector = self._selector;
+        const current = selector?._selected[key];
+        const selected = /** @type {import('@UMesh').UMesh} */(current && current !== true ? current : self._selected[key]);
         if (!defined(selected) || !defined(selected.material)) return;
 
-        const mat = /** @type {Common_Material} */ (selected.material);
-        if (defined(mat._oriColor)) {
-            mat.color.set(mat._oriColor);
-            mat._oriColor = undefined;
-            delete mat._oriColor;
+        if (selector?._selected[key] === selected) {
+            // U3F의 부분 재질·텍스처·선택 참조는 원래 선택기의 해제 경로에서 함께 복원합니다.
+            selector.removeSelected(selected);
         } else {
-            mat.color.set(DEFAULT_COLOR);
+            const materials = Array.isArray(selected.material) ? selected.material : [selected.material];
+            for (const material of materials) {
+                const mat = /** @type {Common_Material} */ (material);
+                if (!mat.color) continue;
+                if (defined(mat._oriColor)) {
+                    mat.color.set(mat._oriColor);
+                    delete mat._oriColor;
+                } else if (!Array.isArray(selected.material)) mat.color.set(DEFAULT_COLOR);
+            }
         }
         delete self._selected[key];
 
@@ -1404,7 +1388,8 @@ class UAnalyAlarm extends UAnaly {
             const layer = /** @type {ModelLayerLike | undefined} */ (/** @type {unknown} */ ((/** @type {import('@U3dApp').U3dApp} */ (self._app)).getLayer(/** @type {string} */ (INTERNAL.searchLayerName(selected)))));
             if (defined(layer)) {
                 const callback = self._loadedListeners[key];
-                if(defined(callback)) layer.off?.(U3dEvent.MESH.LOADED, (callback));
+                if (defined(callback) && !U3dSelect._releaseLoadedTarget(callback, key))
+                    layer.off?.(U3dEvent.MESH.LOADED, callback);
 
                 self._loadedListeners[key] = undefined;
                 delete self._loadedListeners[key];
@@ -1434,16 +1419,17 @@ class UAnalyAlarm extends UAnaly {
             if (!defined(self._selected[key])) {
                 self._selectedGroup.children.push(model);
                 const tiledModel = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (model));
-                if (!defined(model.userData.id)) {
-                    model.children.map(function (child) {
+                const modelObject = /** @type {import('three').Object3D} */ (model);
+                if (!(modelObject instanceof THREE.Mesh)) {
+                    modelObject.children.map(function (child) {
                         const tiledChild = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (child));
-                        self._modelObject[tiledChild.getUid()] = {
+                        self._modelObject[INTERNAL.makeId(tiledChild)] = {
                             layerName,
                             tile: defined(tiledChild._opt?._tile) ? tiledChild._opt._tile._key : tiledChild._tile?._key
                         };
                     });
                 } else {
-                    self._modelObject[model.getUid()] = {
+                    self._modelObject[INTERNAL.makeId(model)] = {
                         layerName,
                         tile: defined(tiledModel._opt?._tile) ? tiledModel._opt._tile._key : tiledModel._tile?._key
                     };
@@ -1469,7 +1455,7 @@ class UAnalyAlarm extends UAnaly {
      */
     _addSelectedNotLayer_(object) {
         // 레이어 없는 모델의 선택 기록에 사용할 소유 이름을 조회한다.
-        const key = INTERNAL.searchLayerName(object) + '^' + object.id;
+        const key = INTERNAL.makeObjectKey(object);
         if (defined(object)) {
             if (!defined(this._selected[key])) {
                 this._selected[key] = object;
@@ -1501,9 +1487,10 @@ class UAnalyAlarm extends UAnaly {
     }
 
     /**
-     * 입력한 그룹명으로 선택 그룹을 등록하고 측정 결과를 정리합니다.
+     * 입력한 그룹명으로 선택 그룹을 등록하고 확정한 검색 영역의 소유권을 해당 그룹에 보관합니다.
      *
-     * @param {import('@U3dMouseEvent').U3dMouseEvent} e
+     * @param {import('@U3dMouseEvent').U3dMouseEvent} e 선택 완료 이벤트
+     * @returns {void} 반환값 없음
      *
      * @ignore
      */
@@ -1519,9 +1506,16 @@ class UAnalyAlarm extends UAnaly {
         if (defined(self._selectedGroup.name)) {
             self._modelGroup.push(self._selectedGroup);
         }
+        this._commitFeature();
+        const selector = self._selector;
+        const feature = this._measureFeature ?? selector?._measureFeature;
+        if (feature) {
+            self._groupFeatures.set(self._selectedGroup, feature);
+            this._measureFeature = undefined;
+            if (selector?._measureFeature === feature) selector._measureFeature = undefined;
+        }
         self._selectedGroup = new UGroup();
         self._multiModelGroup.clear();
-        this._clearMeasureFeature();
         app.setUpdateDate();
         self._pickList = [];
         self.dispatchEvent({type: 'click'});
@@ -1607,19 +1601,33 @@ class UAnalyAlarm extends UAnaly {
     }
 
     /**
-     * 측정점을 확정하고 선택기의 측정 피처가 있으면 앱에서 제거합니다.
-     *
+     * 미완료 측정점을 확정하고 분석·선택기에 남은 측정 피처를 중복 없이 제거합니다.
+     * @returns {void} 반환값 없음
      * @ignore
      */
     _clearMeasureFeature() {
         this._commitFeature();
         const app = /** @type {import('@U3dApp').U3dApp} */ (this._app);
-        const selector = /** @type {import('@union3d/select/U3dSelect').U3dSelect} */ (this._selector);
-        if (defined(this._selector) && defined(selector._measureFeature)) {
-            app.removeMeasureFeature(selector._measureFeature);
-            /** @ignore */
-            this._measureFeature = undefined;
-        }
+        const selector = this._selector;
+        const features = new Set([this._measureFeature, selector?._measureFeature]);
+        this._measureFeature = undefined;
+        if (selector) selector._measureFeature = undefined;
+        for (const feature of features) if (feature) app.removeMeasureFeature(feature);
+    }
+
+    /**
+     * 해당 그룹이 소유하는 영역과 피처 참조만 제거합니다.
+     * @param {import('@UGroup').UGroup} group 삭제할 알람 그룹
+     * @returns {void} 반환값 없음
+     * @ignore
+     */
+    _removeGroupFeature(group) {
+        const feature = this._groupFeatures.get(group);
+        if (!feature) return;
+        this._groupFeatures.delete(group);
+        if (this._measureFeature === feature) this._measureFeature = undefined;
+        if (this._selector?._measureFeature === feature) this._selector._measureFeature = undefined;
+        /** @type {import('@U3dApp').U3dApp} */ (this._app).removeMeasureFeature(feature);
     }
 
     /**
@@ -1680,25 +1688,16 @@ class UAnalyAlarm extends UAnaly {
                     const selVal = self._selected[key];
                     if (!defined(selVal)) return;
                     const object = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (selVal));
-                    const tiledObject = /** @type {import('@union3d/core/mesh/UU3fMesh').UU3fMesh} */ (/** @type {unknown} */ (object));
                     // 재로딩 이벤트를 등록할 때 선택 모델의 소유 레이어를 조회한다.
                     const layerName = INTERNAL.searchLayerName(object);
                     const layer = /** @type {ModelLayerLike | undefined} */ (/** @type {unknown} */ (app.getLayerByName(/** @type {string} */ (layerName))));
-                    if (defined(layer)) {
-                        // const loadCallback = /** @type {UAnalyAlarm_LoadedListener} */ (self._loadedListeners[key]);
-                        // loadCallback._meshId = object.getUid();
-                        let eventName = object.getUid();
-                        if (tiledObject.isMerged && !tiledObject.isMerged()) {
-                            const meshId = object.getUid();
-                            const editInfo = layer.getEditedEventById?.(meshId);
-                            if (defined(editInfo)) {
-                                const mergedId = editInfo.editData['split'];
-                                if (defined(mergedId)) eventName = mergedId;
-                            }
-                        }
+                    if (defined(layer) && typeof object.puid === 'string' && object.puid.length > 0) {
                         selector._reset[key] = true;
-                        // (/** @type {UAnalyAlarm_PickableMesh} */ (/** @type {unknown} */ (object)))._reset = true;
-                        layer.addEventListener?.(U3dEvent.MESH.LOADED, /** @type {Function} */ (self._loadedListeners[key]), false, eventName);
+                        const listener = self._loadedListeners[key];
+                        if (!listener) return;
+                        // 같은 부모의 다른 선택과 고유한 등록 이름을 유지하면서 이 대상만 복구한다.
+                        if (!U3dSelect._retainLoadedTarget(listener, key, object))
+                            layer.addEventListener?.(U3dEvent.MESH.LOADED, listener);
                     }
                 });
             });
@@ -1716,9 +1715,10 @@ class UAnalyAlarm extends UAnaly {
     }
 
     /**
-     * 선택기의 모델·리스너 정보를 알람 목록과 다음 선택 그룹에 반영합니다.
+     * 선택기의 모델·리스너 정보를 알람 목록에 반영하고 영역 선택 모델을 자식 유무와 관계없이 다음 그룹에 보관합니다.
      *
-     * @param {import('@UEventDispatcher').DispatchInputEvent} e
+     * @param {import('@UEventDispatcher').DispatchInputEvent} e 선택기가 반환한 모델 목록을 포함한 이벤트
+     * @returns {void} 반환값 없음
      *
      * @ignore
      */
@@ -1736,7 +1736,7 @@ class UAnalyAlarm extends UAnaly {
             dataList.forEach(function (selectedObject) {
                 // 선택 결과의 소유 레이어와 등록 ID를 조회하여 알람 목록에 반영한다.
                 const layerName = /** @type {string} */ (INTERNAL.searchLayerName(selectedObject));
-                const id = selectedObject.getUid();
+                const id = INTERNAL.makeId(selectedObject);
                 const layer = (/** @type {import('@U3dApp').U3dApp} */ (self._app)).getLayer(layerName);
                 if (type === 'point') {
                     if (defined(layer)) {
@@ -1752,23 +1752,14 @@ class UAnalyAlarm extends UAnaly {
                     self.dispatchEvent({type: 'click'});
                 }
                 if (type === 'area') {
-                    if (selectedObject.children.length > 0) {
-                        selectedObject.children.map(function (child) {
-                            const tiledChild = /** @type {import('@UMesh').UMesh} */ (/** @type {unknown} */ (child));
-                            self._modelObject[tiledChild.getUid()] = {
-                                layerName,
-                                tile: defined(tiledChild._opt?._tile) ? tiledChild._opt._tile._key : tiledChild._tile?._key
-                            };
-                        });
-                    } else {
-                        self._selectedGroup.children.push(selectedObject);
-                        self._selectedGroup._idList = self._selectedGroup._idList || [];
-                        self._selectedGroup._idList.push(selectedObject.getUid());
-                        self._modelObject[id] = {
-                            layerName,
-                            tile: defined(selectedObject._opt?._tile) ? selectedObject._opt._tile._key : selectedObject._tile?._key
-                        };
-                    }
+                    // 병합 부분 선택은 그룹이 소유한 강조 메시로 보관하여 다른 영역의 선택과 분리합니다.
+                    self._selectedGroup.children.push(INTERNAL.createGroupModel(self, self._selectedGroup, selectedObject, layer));
+                    self._selectedGroup._idList = self._selectedGroup._idList || [];
+                    self._selectedGroup._idList.push(id);
+                    self._modelObject[id] = {
+                        layerName,
+                        tile: defined(selectedObject._opt?._tile) ? selectedObject._opt._tile._key : selectedObject._tile?._key
+                    };
                 }
             });
         }

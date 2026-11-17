@@ -1,11 +1,12 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
+import type { U3dModelU3FLayer } from "../3dLayer/U3dModelU3FLayer.js";
 import type { UAnaly, UAnalyCO } from "./UAnaly.js";
 import type { UCssBilboard } from "../annotation/UCssBilboard.js";
 import type { DispatchInputEvent } from "../core/UEventDispatcher.js";
@@ -13,8 +14,8 @@ import type { UGroup } from "../core/UGroup.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { U3dMouseEvent } from "../event/U3dMouseEvent.js";
 import type { UMeasureFeature } from "../ol/UMeasureFeature.js";
-import type { U3dSelect } from "../select/U3dSelect.js";
-import type { EventCallBack, KeyValue } from "../types/global.js";
+import type { U3dSelect, U3dSelectRingOption } from "../select/U3dSelect.js";
+import type { Common_Material, EventCallBack, KeyValue } from "../types/global.js";
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
@@ -31,7 +32,8 @@ declare class UAnalyAlarm extends UAnaly {
     /**
      * 알람 목록과 선택·프레임 상태를 초기화합니다. 앱은 setApp()으로 별도 연결합니다.
      *
-     * @param {UAnalyAlarmCO} [opt={}]
+     * @param {UAnalyAlarmCO} [opt={}] 알람 생성 옵션
+     * @throws {RangeError} 건물 알람 강조 방식이 지원되지 않는 경우
      */
     constructor(opt?: UAnalyAlarmCO);
     /**
@@ -163,6 +165,33 @@ declare class UAnalyAlarm extends UAnaly {
      *
      * @ignore
      */ _measureFeature: UMeasureFeature | undefined;
+    /**
+     * @type {Record<string, (() => void) | undefined>}
+     * @ignore
+     */
+    _modelAlarmStops: Record<string, (() => void) | undefined>;
+    /**
+     * 그룹이 소유하는 검색 영역이며 그룹 삭제·분석 정리 때 함께 제거합니다.
+     * @type {Map<import('@UGroup').UGroup, import('@UMeasureFeature').UMeasureFeature>}
+     * @ignore
+     */
+    _groupFeatures: Map<UGroup, UMeasureFeature>;
+    /**
+     * 그룹별 병합 부분 선택을 원본 메시의 현재 선택 상태와 분리해 보관합니다.
+     * @type {Map<import('@UGroup').UGroup, Map<string, UAnalyAlarmGroupSelection>>}
+     * @ignore
+     */
+    _groupSelections: Map<UGroup, Map<string, UAnalyAlarmGroupSelection>>;
+    /**
+     * @type {'color' | 'outline' | 'ring'}
+     * @ignore
+     */
+    _modelSelectType: "color" | "outline" | "ring";
+    /**
+     * @type {KeyValue | U3dSelectRingOption | undefined}
+     * @ignore
+     */
+    _modelSelectTypeOption: KeyValue | U3dSelectRingOption | undefined;
     name: any;
     /**
      * 현재 알람에 연결된 선택기를 반환합니다.
@@ -255,6 +284,7 @@ declare class UAnalyAlarm extends UAnaly {
     findPOI(idList: Array<string | number>): Array<UGroup> | UGroup | undefined;
     /**
      * 등록 모델 또는 그룹을 조회하고 현재 교차 모델로 복원합니다. 단일 그룹은 원본 그룹의 children을 교체합니다.
+     * 병합 부분 선택 그룹의 자식은 원본 UID를 유지하는 그룹 전용 강조 메시입니다.
      *
      * @param {Array<string | number> | string | number} idList 찾으려는 model 객체의 ID 또는 ID 배열
      * @returns {import('@union3d/core/UGroup').UGroup | import('@union3d/core/mesh/UMesh').UMesh | undefined} 찾은 model List 반환
@@ -281,6 +311,15 @@ declare class UAnalyAlarm extends UAnaly {
      */
     disposedStopModelAlarm(model: UMesh): void;
     /**
+     * 이후 시작할 건물 알람의 강조 방식을 설정합니다. 실행 중인 알람의 타입은 유지합니다.
+     *
+     * @param {'color' | 'outline' | 'ring'} type 색상·외곽선·링 강조 방식
+     * @param {KeyValue | U3dSelectRingOption} [typeOption] 외곽선·링 옵션이며 생략하면 기본 옵션을 사용합니다.
+     * @returns {void} 반환값 없음
+     * @throws {RangeError} 지원하지 않는 강조 방식인 경우
+     */
+    setModelSelectType(type: "color" | "outline" | "ring", typeOption?: KeyValue | U3dSelectRingOption): void;
+    /**
      * 단일 모델 또는 배열의 모델 깜박임을 시작합니다.
      *
      * @param {import('@union3d/core/mesh/UMesh').UMesh | Array<import('@union3d/core/mesh/UMesh').UMesh>} model 알람을 설정하려는 model 객체
@@ -290,8 +329,9 @@ declare class UAnalyAlarm extends UAnaly {
      */
     modelFlickerMode(model: UMesh | Array<UMesh>, count: number, speed: number, color?: number | string): void;
     /**
-     * 모델의 기존 예약과 선택 색상 상태를 정리한 뒤 깜박임을 예약합니다.
-     * 정상 반복 종료에는 복원 색상을 적용하고 해당 ID의 예약 기록을 제거합니다.
+     * 기존 알람을 정리하고 전용 선택기로 모델 강조를 반복합니다.
+     * 종료·정지 시 알람 직전 표시를 복원하며 기존 사용자 선택은 유지합니다.
+     * 그룹 전용 대상의 범위와 예약은 같은 원본을 사용하는 다른 그룹과 독립적입니다.
      *
      * @param {import('@union3d/core/mesh/UMesh').UMesh} model 알람 대상 Model 객체
      * @param {number} count 알람 횟수
@@ -361,7 +401,7 @@ declare class UAnalyAlarm extends UAnaly {
      */
     isDisposedStopModel(model: UMesh): void;
     /**
-     * 등록 주소의 현재 모델을 조회하고 모델이 없으면 조건에 맞는 편집 모델을 조회합니다.
+     * 현재 선택 모델을 우선 사용하고 휴면 병합 원본이 조회되면 같은 ID의 분리 모델을 찾습니다.
      *
      * @param {string} id 찾고 싶은 model의 id
      * @returns {import('@union3d/core/mesh/UMesh').UMesh | undefined} selectedObject 결과 Model 반환
@@ -394,7 +434,8 @@ declare class UAnalyAlarm extends UAnaly {
      */
     stopAllAlarm(): void;
     /**
-     * ID별 프레임 예약을 취소합니다. 객체의 가시성·색상·크기·커서 자원은 변경하지 않습니다.
+     * ID별 프레임 예약을 취소하고 모델 알람의 강조·전용 선택기 자원을 정리합니다.
+     * POI의 가시성·크기·커서 자원은 변경하지 않습니다.
      *
      * @param {string | number} id 삭제 대상 ID
      */
@@ -448,10 +489,10 @@ declare class UAnalyAlarm extends UAnaly {
      */
     _polygonClick(e: U3dMouseEvent): boolean | undefined;
     /**
-     * 선택 키의 색상을 복원하고 조건에 따라 모델 로딩 리스너를 해제합니다.
+     * 같은 키의 현재 선택 객체를 우선 복원하고 조건에 따라 모델 로딩 리스너를 해제합니다.
      *
-     * @param {string} key
-     * @param {boolean} [isChecked=false]
+     * @param {string} key 해제할 선택 키
+     * @param {boolean} [isChecked=false] 소유 레이어의 로딩 연결도 해제할지 여부
      *
      * @ignore
      */
@@ -484,9 +525,10 @@ declare class UAnalyAlarm extends UAnaly {
      */
     _findModelSelect(layerName: string, id: string | number): UMesh | undefined;
     /**
-     * 입력한 그룹명으로 선택 그룹을 등록하고 측정 결과를 정리합니다.
+     * 입력한 그룹명으로 선택 그룹을 등록하고 확정한 검색 영역의 소유권을 해당 그룹에 보관합니다.
      *
-     * @param {import('@U3dMouseEvent').U3dMouseEvent} e
+     * @param {import('@U3dMouseEvent').U3dMouseEvent} e 선택 완료 이벤트
+     * @returns {void} 반환값 없음
      *
      * @ignore
      */
@@ -529,11 +571,18 @@ declare class UAnalyAlarm extends UAnaly {
      */
     _isSelected(object: UMesh): boolean;
     /**
-     * 측정점을 확정하고 선택기의 측정 피처가 있으면 앱에서 제거합니다.
-     *
+     * 미완료 측정점을 확정하고 분석·선택기에 남은 측정 피처를 중복 없이 제거합니다.
+     * @returns {void} 반환값 없음
      * @ignore
      */
     _clearMeasureFeature(): void;
+    /**
+     * 해당 그룹이 소유하는 영역과 피처 참조만 제거합니다.
+     * @param {import('@UGroup').UGroup} group 삭제할 알람 그룹
+     * @returns {void} 반환값 없음
+     * @ignore
+     */
+    _removeGroupFeature(group: UGroup): void;
     /**
      * 현재 측정점의 확정 결과가 있으면 분석의 피처 참조로 보관합니다.
      *
@@ -549,9 +598,10 @@ declare class UAnalyAlarm extends UAnaly {
      */
     _addSelectMode(type: string): void;
     /**
-     * 선택기의 모델·리스너 정보를 알람 목록과 다음 선택 그룹에 반영합니다.
+     * 선택기의 모델·리스너 정보를 알람 목록에 반영하고 영역 선택 모델을 자식 유무와 관계없이 다음 그룹에 보관합니다.
      *
-     * @param {import('@UEventDispatcher').DispatchInputEvent} e
+     * @param {import('@UEventDispatcher').DispatchInputEvent} e 선택기가 반환한 모델 목록을 포함한 이벤트
+     * @returns {void} 반환값 없음
      *
      * @ignore
      */
@@ -584,6 +634,14 @@ declare class UAnalyAlarm extends UAnaly {
          * 알람 타입
          */
         _type?: string;
+        /**
+         * 건물 알람의 강조 방식
+         */
+        modelSelectType?: "color" | "outline" | "ring";
+        /**
+         * 선택 강조 방식의 외곽선·링 옵션
+         */
+        modelSelectTypeOption?: KeyValue | U3dSelectRingOption;
     };
 
 /**
@@ -627,7 +685,7 @@ type ModelLayerLike = {
 /**
      * 모델 레이어의 ID 조회 함수입니다. 미발견 결과는 undefined입니다.
      */
-    type UAnalyAlarmModelLookup = (id: string | number, create?: boolean) => UMesh | undefined;
+    type UAnalyAlarmModelLookup = (id: string | number, isMerged?: boolean) => UMesh | undefined;
 
 /**
      * 모델 레이어의 편집 이벤트 조회 함수입니다. 미발견 결과는 undefined입니다.
@@ -648,12 +706,12 @@ type ModelLayerLike = {
      * 알람 예약 구현에 전달하는 프레임 상태와 취소·재개 기능입니다.
      * 공개 메서드를 대체하지 않고 원래 인스턴스의 상태와 호출 결과를 그대로 사용합니다.
      */
-    type UAnalyAlarmAnimationOwner = Pick<UAnalyAlarm, "_activeAnimaition" | "_infoActiveAlarm" | "_disposedAlarmInfo" | "stopActiveAlarm" | "isDisposedStopModel">;
+    type UAnalyAlarmAnimationOwner = Pick<UAnalyAlarm, "_activeAnimaition" | "_infoActiveAlarm" | "_disposedAlarmInfo" | "_modelAlarmStops" | "_modelSelectType" | "_modelSelectTypeOption" | "getIntersectModel" | "stopActiveAlarm" | "isDisposedStopModel">;
 
 /**
      * 모델 그룹 복원·경계 검사에서 사용하는 선택 상태와 조회 기능입니다.
      */
-    type UAnalyAlarmSelectionOwner = Pick<UAnalyAlarm, "_selected" | "getIntersectModel" | "_isSelected">;
+    type UAnalyAlarmSelectionOwner = Pick<UAnalyAlarm, "_selected" | "_groupSelections" | "getIntersectModel" | "_isSelected">;
 
 /**
      * 커서 조립 결과와 애니메이션 복원 기준의 위치 참조입니다.
@@ -669,4 +727,94 @@ type ModelLayerLike = {
         poiPosition: three.Vector3;
     };
 
-export type { Alarm_DetailOpt, ModelEditInfo, ModelLayerLike, UAnalyAlarm, UAnalyAlarmAnimationOwner, UAnalyAlarmCO, UAnalyAlarmCO_Content, UAnalyAlarmCursorResult, UAnalyAlarmEditedLookup, UAnalyAlarmModelLookup, UAnalyAlarmSelectionOwner };
+/**
+     * 일반 선택기의 텍스처 복원 정보까지 보존하는 알람 대상 재질입니다.
+     */
+    type UAnalyAlarmMaterial = Common_Material & {
+        _oriNormalMap?: three.Texture;
+    };
+
+/**
+     * 알람이 잠시 빌려 쓰는 일반 선택의 색상·투명도·텍스처 복원 정보입니다.
+     */
+    type UAnalyAlarmMaterialState = {
+        /**
+         * 기존 선택의 복원색
+         */
+        color: three.Color | undefined;
+        /**
+         * 기존 선택의 복원 투명도
+         */
+        opacity: number | undefined;
+        /**
+         * 원래 투명 처리 여부
+         */
+        transparent: boolean;
+        /**
+         * 색상 복원에서 제외할 텍스처 정보
+         */
+        map?: three.Texture;
+        /**
+         * 색상 복원에서 제외할 법선 텍스처 정보
+         */
+        normalMap?: three.Texture;
+    };
+
+/**
+     * 병합 모델에서 그룹이 선택한 건물과 독립된 강조 메시입니다. 정점 버퍼는 원본에서 빌립니다.
+     */
+    type UAnalyAlarmGroupSelection = {
+        /**
+         * 원본 모델 ID
+         */
+        id: string;
+        /**
+         * 그룹별 예약 키
+         */
+        alarmId: string;
+        /**
+         * 선택된 하위 건물 ID
+         */
+        childIds: Array<string>;
+        /**
+         * 선택 당시 인덱스 범위
+         */
+        ranges: Array<{
+            start: number;
+            count: number;
+        }>;
+        /**
+         * 현재 원본 모델
+         */
+        source: UMesh;
+        /**
+         * 현재 빌린 버퍼의 소유 지오메트리
+         */
+        geometry: three.BufferGeometry;
+        /**
+         * 복제 재질에 대응하는 원본 재질 인덱스
+         */
+        materialIndices: Array<number>;
+        /**
+         * 하위 건물 범위와 표시 상태 조회
+         */
+        layer: Pick<U3dModelU3FLayer, "getBoundingBoxInfo" | "getVisible"> | undefined;
+        /**
+         * 원본 해제 시 강조 메시를 즉시 숨기는 수신자
+         */
+        onSourceDispose: () => void;
+        /**
+         * 실행 중인 강조를 표시 자원 교체 전에 복원하는 수신자
+         */
+        beforeUpdate?: () => void;
+        /**
+         * 그룹이 소유한 강조 메시
+         */
+        view: UMesh & {
+            _isMerged: boolean;
+            _pickMaterials: Array<number>;
+            isMerged: () => boolean;
+        };
+    };
+
+export type { Alarm_DetailOpt, ModelEditInfo, ModelLayerLike, UAnalyAlarm, UAnalyAlarmAnimationOwner, UAnalyAlarmCO, UAnalyAlarmCO_Content, UAnalyAlarmCursorResult, UAnalyAlarmEditedLookup, UAnalyAlarmGroupSelection, UAnalyAlarmMaterial, UAnalyAlarmMaterialState, UAnalyAlarmModelLookup, UAnalyAlarmSelectionOwner };

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -16,13 +16,12 @@ import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { UBufferGeometry } from "../core/geometry/UBufferGeometry.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
-import type { U3dCumulativePath, U3dCumulativePath_StyleOpt } from "../geometry/U3dCumulativePath.js";
+import type { U3dCumulativePath, U3dCumulativePath_StyleOpt, WaypointRecord } from "../geometry/U3dCumulativePath.js";
 import type { U3dPOI } from "../geometry/U3dPOI.js";
 import type { U3dPathGeometry } from "../geometry/U3dPathGeometry.js";
 import type { InstancedMesh2 } from "../lib/instanced_mesh_extention/core/InstancedMesh2.js";
 import type { U3dOverlay } from "../overlay/U3dOverlay.js";
 import type { Degree, DegreeEulerLike, Double_Array, GeoPosition, GeoPositionVector3, GooglePosition, KeyValue, ModelMesh, RadianEulerLike, WorldPosition, WorldPositionVector3 } from "../types/global.js";
-import type { DeferredObject } from "../util/deferred.js";
 import type { USpotLight } from "../view/USpotLight.js";
 
 /**
@@ -99,20 +98,22 @@ declare class U3dComponentPosition {
      */
     get waypointHistory(): Array<WorldPositionVector3>;
     /**
-     * 최근 도착한 지점들을 바탕으로 앞으로 도착할 예측 지점 (count개)과 예상 도착 시간을 계산합니다.<br>
-     * 마지막 도착 지점에서 시작해 최근 도착 지점 간 평균 간격만큼 한 단계씩 나아간 지점을 반환합니다.<br>
-     * 최근 도착 지점들이 한쪽으로 꺾이는 추세이면 그 수평 회전율을 이어받아 단계마다 진행 방향을 회전시키므로 예측 지점이 원호를 그립니다.
-     * turnWeight는 회전율 반영 비율이며 0이면 직선 예측, 1이면 추정한 회전율을 그대로 사용합니다(기본 1). 고도(z) 변화는 직선 추세를 유지합니다.<br>
-     * 첫 단계 방향은 최근 이동 추세 방향과 현재 진행 방향(지금 향하고 있는 목표 지점 방향)을 headingWeight 비율로 섞어 정합니다.
-     * 0이면 최근 이동 추세만, 1이면 현재 진행 방향만 사용합니다(기본 1). 현재 진행 방향을 알 수 없으면 최근 이동 추세만 사용합니다.<br>
-     * time은 호출 시점부터 그 지점 도착까지의 예상 시간(ms)이며 계산할 수 없으면 Infinity입니다.<br>
-     * 도착 이력이 count개보다 적으면 undefined를 반환합니다.<br>
-     * count는 2~100 사이의 정수, headingWeight와 turnWeight는 0~1 사이의 숫자여야 하며 아니면 TypeError 또는 RangeError가 발생합니다.
+     * 현재 이동 목표와 대기 경유지를 우선 반영하여 앞으로 도착할 지점(최대 count개)과 예상 도착 시간을 계산합니다.<br>
+     * 예약 목표 이후는 마지막 예약 목표에서, 예약 목표가 없으면 마지막 도착점에서 잡음을 보정한 도착 지점 간 평균 간격만큼 연장합니다.<br>
+     * 최근 도착 지점의 거리 기반 방향·회전율을 사용하며, 짧은 구간과 위치 잡음으로 설명되는 회전은 신뢰도를 낮춥니다.
+     * 이력에서 추정한 초기 회전율은 내부에서 전부 반영합니다.<br>
+     * 가까운 1초 이동 거리(최대 45도 선회)까지 초기 회전율을 유지한 뒤 지수 감쇠합니다. 감쇠 거리는 최근 분석 거리의 절반과 2초 이동 거리 중 큰 값을 사용하되, 외삽의 총 방위각 변화가 90도를 넘지 않도록 제한합니다. 고도(z) 변화는 직선 추세를 유지합니다.<br>
+     * 이력으로 연장하는 첫 단계 방향은 최근 이동 추세 방향과 마지막 예약 구간 방향을 headingWeight 비율로 섞어 정합니다.
+     * 0이면 이력 방향을, 1이면 신뢰 가능한 예약 구간 방향을 우선 사용합니다(기본 1). 방향이 불명확하거나 구간이 잡음보다 짧으면 이력 방향을 유지합니다.<br>
+     * time은 호출 시점부터 그 지점 도착까지의 예상 시간(ms)이며 계산할 수 없거나 일시정지 중이면 Infinity입니다.<br>
+     * 직선·원호 형상과 위치 잡음을 구분해 평균 이동 거리와 속도를 보정하며, 같은 도착 이력의 분석은 재사용합니다.<br>
+     * 도착 이력이 2개 이상이면 이력 수와 count 중 작은 개수까지 외삽 결과를 채웁니다. 이력이 쌓일수록 반환 개수가 늘어납니다.<br>
+     * 이미 알려진 예약 목표는 이력 수와 관계없이 count개까지 우선 반환합니다. 이력이 2개 미만이고 예약 목표도 없으면 undefined를 반환합니다.<br>
+     * count는 2~100 사이의 정수, headingWeight는 0~1 사이의 숫자여야 하며 아니면 TypeError 또는 RangeError가 발생합니다.
      *
-     * @param {number} count 분석할 최근 도착 지점 수와 반환할 미래 단계 수인 2~100 사이의 정수
-     * @param {number} [headingWeight=1] 현재 진행 방향 반영 비율 (0~1). 0이면 도착 이력 추세만, 1이면 현재 진행 방향만 사용합니다.
-     * @param {number} [turnWeight=1] 회전율 반영 비율 (0~1). 0이면 직선 예측, 1이면 도착 이력에서 추정한 수평 회전율을 그대로 반영합니다.
-     * @returns {Array<PredictedPosition> | undefined} 가까운 예측점부터 순서대로 담은 위치와 예상 경과 시간 목록 또는 이력이 부족할 때 undefined
+     * @param {number} count 반환할 미래 단계의 최대 개수인 2~100 사이의 정수. 도착 이력 2개부터 이력 수만큼 점진적으로 외삽하며 분석 창은 출력 개수와 독립적입니다.
+     * @param {number} [headingWeight=1] 이력 외삽에 예약 구간의 진행 방향을 반영할 비율 (0~1). 잡음에 비해 짧은 구간은 신뢰도로 감쇠하며 이미 예약된 좌표는 바꾸지 않습니다.
+     * @returns {Array<PredictedPosition> | undefined} 도착 순서대로 담은 위치와 예상 경과 시간 목록. 예약 목표와 충분한 이력이 모두 없으면 undefined
      *
      * @example
      * const predicted = component.predictFuturePositions(10, 0.5);
@@ -123,14 +124,11 @@ declare class U3dComponentPosition {
      * }
      *
      * @example
-     * // 이력 추세만으로 예측 (현재 주행 진행 방향 미반영)
+     * // 예약 목표 이후를 이력 추세만으로 연장
      * const trendOnly = component.predictFuturePositions(5, 0);
      *
-     * @example
-     * // 회전을 반영하지 않는 직선 예측
-     * const straight = component.predictFuturePositions(10, 1, 0);
      */
-    predictFuturePositions(count: number, headingWeight?: number, turnWeight?: number): Array<PredictedPosition> | undefined;
+    predictFuturePositions(count: number, headingWeight?: number): Array<PredictedPosition> | undefined;
     /**
      * 주행 애니메이션이 현재 실행 중인지 여부. `moveStart`/`moveStop`이 갱신하는 내부 상태입니다.
      *
@@ -938,12 +936,16 @@ declare class U3dComponentPosition {
     removeCumulativeRoute(): void;
     /**
      * 누적 경로(궤적)의 스타일을 변경하는 함수
+     * 새 경로의 첫 좌표를 출발점에 유지하며 drawOffset은 이동 거리에 따라 적용합니다.
      * @param {U3dCumulativePath_StyleOpt} opt 변경 옵션
      */
     setCumulativePathStyle(opt: U3dCumulativePath_StyleOpt): void;
     /**
      * 누적 경로(궤적)의 초기 좌표 값(이전 히스토리)을 설정하는 함수.
      * 이미 경로가 있으면 현재 스타일과 표시 설정을 사용해 새 초기 이력으로 교체합니다.
+     * 렌더 노드의 시각은 호출 시각을 기준으로 현재 위치까지의 거리와 speed로 역산한 epoch 시각(ms)입니다.
+     * 속도가 0이거나 유효하지 않으면 모든 초기 지점에 호출 시각을 사용합니다.
+     * cumulativeProperty.lastInfo.time은 기존처럼 시작부터의 경과 시간(ms)을 유지합니다.
      * @param {Array<GeoPositionVector3>} positions 위경도 좌표 배열
      */
     setInitPathPositions(positions: Array<GeoPositionVector3>): void;
@@ -1344,14 +1346,18 @@ declare class U3dComponentPosition {
     _tempLODMode: string;
     /**
      * 컴포넌트 가시화(show) 함수
-     * @returns {DeferredObject<unknown> | undefined} 숨김 상태를 표시한 경우 true로 resolve하며 이미 표시 중이면 undefined
+     * 자식 컴포넌트의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
+     *
+     * @returns {Promise<unknown> | undefined} 숨김 상태를 표시한 경우 true로 resolve하며 이미 표시 중이면 undefined
      */
-    show(): DeferredObject<unknown> | undefined;
+    show(): Promise<unknown> | undefined;
     /**
      * 컴포넌트 비가시화(hide) 함수
-     * @returns {DeferredObject<unknown> | undefined} 표시 상태를 숨긴 경우 true로 resolve하며 이미 숨김 상태면 undefined
+     * 자식 컴포넌트의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
+     *
+     * @returns {Promise<unknown> | undefined} 표시 상태를 숨긴 경우 true로 resolve하며 이미 숨김 상태면 undefined
      */
-    hide(): DeferredObject<unknown> | undefined;
+    hide(): Promise<unknown> | undefined;
     /**
      * 컴포넌트의 경계영역(BoundingBox)을 반환하는 함수
      * @returns {import('three').Box3} 컴포넌트의 경계영역
@@ -2178,15 +2184,93 @@ declare class U3dComponentPosition {
     };
 
 /**
+     * 동일한 도착 이력에서 재사용하는 예측 분석입니다.
+     */
+    type U3dPredictionAnalysis = {
+        /**
+         * 캐시 유효성을 비교할 좌표·시각의 복사본
+         */
+        records: Array<WaypointRecord>;
+        /**
+         * 잡음을 보정한 경로 추정
+         */
+        path: U3dPredictionPath;
+        /**
+         * 이력 끝의 운동 추정
+         */
+        motion: U3dPredictionMotion | undefined;
+    };
+
+/**
+     * 도착 이력의 형상과 잡음을 분리한 예측용 경로 추정입니다.
+     */
+    type U3dPredictionPath = {
+        /**
+         * 잡음에 의한 왕복 이동을 보정한 이력의 총 거리(m)
+         */
+        pathLength: number;
+        /**
+         * 예측 단계당 평균 이동 거리(m)
+         */
+        stepLength: number;
+        /**
+         * 경로 형상을 제외한 위치 잡음 추정값(m)
+         */
+        noise: number;
+        /**
+         * 운동 추정에 사용할 좌표. 입력 좌표는 변경하지 않습니다.
+         */
+        points: Array<three.Vector3>;
+        /**
+         * 직선 이력의 단위 진행 방향
+         */
+        direction: three.Vector3 | undefined;
+        /**
+         * 신뢰 가능한 직선 경로인지 여부
+         */
+        linear: boolean;
+        /**
+         * 이동보다 위치 잡음으로 설명되는 이력인지 여부
+         */
+        stationary: boolean;
+    };
+
+/**
+     * 미래 위치의 외삽에 사용하는 거리 기반 운동 추정입니다.
+     */
+    type U3dPredictionMotion = {
+        /**
+         * 이력 끝의 단위 진행 방향
+         */
+        direction: three.Vector3 | undefined;
+        /**
+         * 예측 단계당 수평 회전율(rad)
+         */
+        yawRate: number;
+        /**
+         * 방향으로 신뢰할 최소 이동 거리(m)
+         */
+        headingBaseline: number;
+        /**
+         * 관측 거리에서 구한 회전 감쇠 거리(m). 실제 외삽에서는 이동 시간과 누적 회전 한도를 함께 적용합니다.
+         */
+        turnDecayDistance: number;
+        /**
+         * 이동 범위가 잡음 기준보다 작은지 여부
+         */
+        stationary: boolean;
+    };
+
+/**
      * `predictFuturePositions`가 반환하는 예측 지점 한 건
      */
     type PredictedPosition = {
         /**
-         * 예측된 월드 좌표 (EPSG:3857, m)
+         * 예측된 월드 좌표(EPSG:3857), m
          */
         point: WorldPositionVector3;
         /**
-         * 호출 시점부터 해당 지점 도착까지의 예상 경과 시간 (ms, 0 이상 정수). 평균 속도가 0이면 `Infinity`
+         * 호출 시점부터 해당 지점 도착까지의 예상 경과 시간 (ms, 0 이상 정수). 예약 목표는 남은 기한·속도·밀림 보정·도착 허용 범위, 이후는 잡음을 보정한 이력 평균 속도로 계산하며 일시정지 중이거나 이동 시간을 알 수 없으면 `Infinity`
          */
         time: number;
     };
@@ -2746,4 +2830,4 @@ type ComponentParam = {
         durationMs?: number | null;
     };
 
-export type { Box3WithCenter, CPBox3CenterExt, ComponentChildExt, ComponentChildObject3D, ComponentParam, CrowdPolygon, CrowdPolygonGeom, CumulativeInfo, CumulativeProperty, ExtendedObject3D, ExtendedObject3DExt, GooglePositionCallbackExt, GooglePositionWithCallback, InstancedComponent, LOD_Info, LOD_UpdateFunc, LightLike, LightLikeExt, MaterialableExt, MoveSmoothlyOpt, MutableMaterial, MutableMaterialExt, OverlayExt, OverlayObject, PassCallback, PassCallbackPayload, PathGeometryExt, PathGeometryGeometry, PathGeometryLike, PathGeometryOption, PickableObject3D, PickableObject3DExt, PoiLike, PredictedPosition, RotatableGroup, RotatableGroupExt, SmoothAniContext, SmoothAniContextExt, U3dComponentAnimationInfo, U3dComponentColorAdjustmentMaterialState, U3dComponentPosition, U3dComponentPositionCO, U3dComponentUniformLayout, U3dComponentUniformMesh, UnknownRecord, VerticesExt };
+export type { Box3WithCenter, CPBox3CenterExt, ComponentChildExt, ComponentChildObject3D, ComponentParam, CrowdPolygon, CrowdPolygonGeom, CumulativeInfo, CumulativeProperty, ExtendedObject3D, ExtendedObject3DExt, GooglePositionCallbackExt, GooglePositionWithCallback, InstancedComponent, LOD_Info, LOD_UpdateFunc, LightLike, LightLikeExt, MaterialableExt, MoveSmoothlyOpt, MutableMaterial, MutableMaterialExt, OverlayExt, OverlayObject, PassCallback, PassCallbackPayload, PathGeometryExt, PathGeometryGeometry, PathGeometryLike, PathGeometryOption, PickableObject3D, PickableObject3DExt, PoiLike, PredictedPosition, RotatableGroup, RotatableGroupExt, SmoothAniContext, SmoothAniContextExt, U3dComponentAnimationInfo, U3dComponentColorAdjustmentMaterialState, U3dComponentPosition, U3dComponentPositionCO, U3dComponentUniformLayout, U3dComponentUniformMesh, U3dPredictionAnalysis, U3dPredictionMotion, U3dPredictionPath, UnknownRecord, VerticesExt };

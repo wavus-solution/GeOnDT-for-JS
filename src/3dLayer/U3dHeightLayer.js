@@ -2,6 +2,8 @@
 import {U3dLayer} from '@U3dLayer';
 import {defined} from '@util/defined';
 import {UHeightUtil} from '@union3d/core/height/UHeightUtil';
+import {TERRAIN_NORMAL_UPDATER} from '@union3d/core/height/UTerrainNormalUpdater';
+import {UHeightEditOrderManager} from '@union3d/core/height/UHeightEditOrderManager';
 import {UDEF} from '@union3d/core/UDEF';
 import {U3dPOI} from '@union3d/geometry/U3dPOI';
 import {U3dEvent} from '@union3d/event/U3dEvent';
@@ -137,43 +139,37 @@ class U3dHeightLayer extends U3dLayer {
     static terrains = new Map();
 
     /**
-     * @param {string} key 고도를 가져올 타일 키 값
-     * @returns {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry | undefined}
+     * 처리 경로가 같은 공유 지형 geometry를 조회합니다.
      *
-     * @ignore
+     * @param {string} key 원래 타일 키 문자열입니다.
+     * @returns {undefined | import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry}
      */
-    static getTerrains(key) {
-        return this.terrains.get(key);
-    }
+    static getTerrains(key) { return this.terrains.get(key); }
 
     /**
-     * @param {string} key 고도를 적용할 타일 키 값
-     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} value
+     * 해당 처리 경로에만 공유 지형 geometry를 등록합니다.
      *
-     * @ignore
+     * @param {string} key 원래 타일 키 문자열입니다.
+     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} value 캐시에서 공유할 지오메트리
      */
-    static setTerrains(key, value) {
-        this.terrains.set(key, value);
-    }
+    static setTerrains(key, value) { this.terrains.set(key, value); }
 
     /**
-     * @param {string} key 고도를 제거할 타일 키 값
+     * 해당 처리 경로의 geometry 참조만 제거합니다. <br>
+     * 실제 해제는 호출자가 담당합니다.
      *
-     * @ignore
+     * @param {string} key 원래 타일 키 문자열입니다.
      */
-    static deleteTerrains(key) {
-        this.terrains.delete(key);
-    }
+    static deleteTerrains(key) { this.terrains.delete(key); }
 
     /**
-     * @param {string} key
+     * 해당 처리 경로에 원래 타일 키가 등록되어 있는지 확인합니다.
+     *
+     * @param {string} key 원래 타일 키 문자열입니다.
      * @returns {boolean}
-     *
-     * @ignore
      */
-    static hasTerrains(key) {
-        return this.terrains.has(key);
-    }
+    static hasTerrains(key) { return this.terrains.has(key); }
+
 
     /**
      * 현재 설정된 지형 높이 배율을 반환합니다.
@@ -189,7 +185,8 @@ class U3dHeightLayer extends U3dLayer {
      * 입력값은 기존 배율과 곱하지 않고 새 배율로 저장하며, 0.1 미만이면 0.1로 보정합니다. <br>
      * scale을 생략하거나 undefined 또는 null을 전달하면 초기값 1.0을 적용합니다. <br>
      * 문자열을 전달하면 현재 배율과 타일 메시를 변경하지 않고 TypeError가 발생합니다. <br>
-     * 호출 시 레이어 캐시에 등록된 타일 중 현재 메시가 있는 타일에는 즉시 적용하고, 아직 메시가 없는 타일에는 이후 고도가 연결될 때 저장된 배율을 적용합니다.
+     * 호출 시 레이어 캐시에 등록된 타일 중 현재 메시가 있는 타일에는 즉시 적용하고, 아직 메시가 없는 타일에는 이후 고도가 연결될 때 저장된 배율을 적용합니다. <br>
+     * 현재 지도 컨트롤러가 지형 충돌을 사용 중이면 모든 타일 배율을 반영한 뒤 현재 카메라 위치의 충돌 높이도 다시 계산합니다.
      *
      * @param {number | null | undefined} [scale=1.0] 지형 타일 메시의 Z축에 설정할 배율, 생략하거나 undefined·null이면 1.0이며 0.1 미만은 0.1로 보정됨
      * @throws {TypeError} scale이 문자열일 때 발생합니다.
@@ -209,6 +206,10 @@ class U3dHeightLayer extends U3dLayer {
             // 적용 대상은 이 레이어의 활성 타일이며, 표시 행렬과 경계의 일관성은 타일이 관리한다.
             tile?._setHeightScale(this._heightScale);
         }
+
+        // 일반 control.update()는 아직 적용하지 않은 입력량까지 소비할 수 있으므로,
+        // 타일 배율을 모두 바꾼 뒤 충돌 높이만 전용 경로로 한 번 갱신합니다.
+        this._drawArg?._app?.getMapControl?.()?._refreshCollisionHeight?.();
     }
 
     /**
@@ -216,7 +217,7 @@ class U3dHeightLayer extends U3dLayer {
      * 부모가 아직 내려받는 중이면 부모의 로드 완료를 한 번 기다린 뒤 이어서 진행합니다. <br>
      * 성공과 실패는 반환값이 아니라 opt.promise와 타일 작업 상태로 전달합니다.
      *
-     * @param {import('@U3dQuadTile').U3dQuadTile} tile 부모 고도를 대신 적용할 타일
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 부모 고도를 적용할 타일
      * @param {U3dHeightWorkOption} opt 작업 상태와 완료 결과를 받을 옵션
      * @returns {undefined} 항상 undefined이며, 생성 성공 여부는 opt.promise가 받음
      */
@@ -252,6 +253,7 @@ class U3dHeightLayer extends U3dLayer {
         const tileParent = /** @type {import('@U3dQuadTile').U3dQuadTile} */(tile.getParent());
         const parentKey = tileParent.getKey();
         // 성공 여부는 전달받은 Promise와 타일 상태에 직접 반영한다.
+        // 같은 모드의 부모 geometry에서 사분면 자료를 생성하고 헤더·자식 고도 적용을 이어갑니다.
         const createGeometry = () => {
             const parentHeader = /** @type {U3dHeightTileHeader | undefined} */(headerCache.get(parentKey));
             let data;
@@ -337,8 +339,8 @@ class U3dHeightLayer extends U3dLayer {
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} [tile] 고도를 반영할 타일
      * @param {ArrayLike<number>} [ioBuf] 가로 표본 수와 세로 표본 수의 곱만큼 담긴 고도 표본 배열
-     * @param {U3dHeightTileHeader} [headerBuf] 이 표본에만 적용할 격자 크기와 배율·오프셋·없음 값 정보
-     * @returns {boolean | undefined} 고도를 반영하면 true, ioBuf를 생략하면 undefined
+     * @param {U3dHeightTileHeader} [headerBuf] 현재 표본의 격자·배율·오프셋·NoData 정보(생략하면 기존 캐시 사용)
+     * @returns {undefined | boolean} 고도를 반영하면 true, ioBuf를 생략하면 undefined
      */
     updateHeight(tile, ioBuf, headerBuf) {
         if (!defined(ioBuf)) return;
@@ -437,20 +439,11 @@ class U3dHeightLayer extends U3dLayer {
 
         this.updateGeometryWidthBoxList(geometry, tileCommon);
 
-        if (shouldRecomputeNormals)
-            geometry.computeVertexNormals();
-
-        // GPU 재업로드 표시. three는 attribute '객체' 단위로 버퍼를 관리해서, 처음 보는 객체는 현재 배열로 버퍼를 새로 만들고
-        // 이미 올린 객체는 version이 올라갔을 때만 다시 올린다(WebGLAttributes.update).
-        // - 첫 로드: 새 geometry의 새 attribute 객체에 고도를 쓴 뒤 change()로 타일 geometry에 끼우므로, 첫 렌더가 곧 업로드다.
-        //   이 표시는 version만 1로 시작시킬 뿐 추가 업로드가 없다. (예전 코드에 표시가 없어도 잘 보였던 이유)
-        // - 재적용(updateHeightByUser)·병합 분기(_layer가 다른 레이어): 같은 attribute 객체의 배열을 제자리에서 고치므로
-        //   표시가 없으면 GPU는 모른다. 예전에는 타일 geometry.dispose()로 버퍼를 통째로 지워 재생성시켰지만,
-        //   지금 그 dispose()는 공유분 반납(UPlaneBufferGeometry)이라 강제 업로드로 쓸 수 없다. position(+normal)만
-        //   bufferSubData로 올리는 이 방식이 더 싸고, 같은 geometry를 공유하는 지형 메시(UTerrainMesh)에도 그대로 반영된다.
+        // 공유 속성을 재사용하는 고도 재적용도 GPU에 전달되도록 계산 입력의 변경을 먼저 표시합니다.
         geometry.attributes.position.needsUpdate = true;
-        if (shouldRecomputeNormals)
-            geometry.attributes.normal.needsUpdate = true;
+        TERRAIN_NORMAL_UPDATER._update(tileCommon, geometry, {
+            maxLevel: this._maxlevel, allowParent: !merged, recomputeNormals: shouldRecomputeNormals
+        });
 
         return true;
     }
@@ -514,6 +507,7 @@ class U3dHeightLayer extends U3dLayer {
         tile._setHeightScale(this.getHeightScale());
 
         tile.changeGeometry(geometry);
+        TERRAIN_NORMAL_UPDATER._attach(tile, geometry);
         tile.setHeightLoaded();
     }
 
@@ -547,11 +541,8 @@ class U3dHeightLayer extends U3dLayer {
             'CustomLand'
         );
         geometry.clearCustomBox();
-        for (const result of results) {
-            for (const item of result) {
-                const customLand = item.key;
-                UHeightUtil.updateGeometryWidthBox(geometry, customLand, this._skirt, tile);
-            }
+        for (const customLand of UHeightEditOrderManager.forApp(app).order(results)) {
+            UHeightUtil.updateGeometryWidthBox(geometry, customLand, this._skirt, tile);
         }
     }
 
@@ -561,8 +552,7 @@ class U3dHeightLayer extends U3dLayer {
      * @override
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 해제할 타일
-     * @param {Partial<{deletefunc: Function}>} [opt] 상위 레이어에 그대로 전달할 타일 해제 옵션
-     * @returns {void}
+     * @param {Partial<{ deletefunc: Function; }>} [opt] 상위 레이어에 전달할 타일 해제 옵션
      * @throws {Error} 단일 실패는 원래 오류를, 복수 실패는 errors 배열을 가진 오류를 전달합니다.
      */
     disposeTile(tile, opt) {

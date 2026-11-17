@@ -1,12 +1,13 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dComponentPosition } from "../3dLayer/U3dComponentPosition.js";
+import type { U3dModelLayer } from "../3dLayer/U3dModelLayer.js";
 import type { U3dShaderMeasureLayer } from "../3dLayer/U3dShaderMeasureLayer.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { U3dObject } from "../core/U3dObject.js";
@@ -19,19 +20,37 @@ import type { UMeasureFeature } from "../ol/UMeasureFeature.js";
 import type { U3dObjectBarrier } from "./U3dObjectBarrier.js";
 import type { U3dSelectionBox } from "./U3dSelectionBox.js";
 import type { U3dSelectionRing } from "./U3dSelectionRing.js";
-import type { EventCallBack, GeoPosition, KeyValue, WorldPosition } from "../types/global.js";
+import type { EventCallBack, GeoPosition, KeyValue, ModelMesh, WorldPosition } from "../types/global.js";
 import type { OLGeometry } from "../types/ol.js";
 
 /**
- * ~extends import('@UEventDispatcher').UEventDispatcher <br>
- *
- * 지도 위 3D 객체를 사용자가 고르는 기능(선택)을 담당하는 클래스입니다. <br>
- * 클릭(POINT), 영역·선·원 그리기(AREA/LINE/CIRCLE), 드래그 사각형(BOX) 모드로 객체를 찾아 내부 선택 목록에 넣고, 외곽선 또는 색상으로 강조 표시하며, 진행 상황을 `U3dSelect.EVENT`(`start`/`change`/`end`) 이벤트로 알립니다. <br>
- * 생성 후 `setApp(app)`으로 앱을 연결하고 `active()`를 호출해야 사용자 입력을 받기 시작하며, 다 쓰면 `remove()`로 해제합니다.
+ * ~extends import('@UEventDispatcher').UEventDispatcher
  *
  * @group select
  */
 declare class U3dSelect extends UEventDispatcher {
+    /**
+     * 알람 등이 보관한 선택 구독에 해당 대상만 다시 연결합니다.
+     * 같은 콜백의 고유 등록 이름과 다른 대상의 구독을 보존합니다.
+     *
+     * @param {Function} listener 선택기로부터 전달받은 로드 콜백
+     * @param {string} key 선택 키
+     * @param {ModelMesh} object 현재 선택 객체
+     * @returns {boolean} 선택기가 관리하는 콜백인지 여부
+     *
+     * @ignore
+     */
+    static _retainLoadedTarget(listener: Function, key: string, object: ModelMesh): boolean;
+    /**
+     * 공유 로드 구독에서 선택 한 건만 해제합니다. 마지막 대상 해제 때 이벤트도 제거합니다.
+     *
+     * @param {Function} listener 선택기로부터 전달받은 로드 콜백
+     * @param {string} key 해제할 선택 키
+     * @returns {boolean} 선택기가 관리하는 콜백인지 여부
+     *
+     * @ignore
+     */
+    static _releaseLoadedTarget(listener: Function, key: string): boolean;
     /**
      * 이 클래스가 dispatch하는 선택 이벤트 이름입니다. <br>
      * `on(U3dSelect.EVENT.END, callback)`처럼 사용합니다. <br>
@@ -133,6 +152,17 @@ declare class U3dSelect extends UEventDispatcher {
      * @type {Record<string, EventCallBack | undefined>}
      */
     _loadedListeners: Record<string, EventCallBack | undefined>;
+    /**
+     * 현재 검색의 분리 대기와 후속 콜백만 보관하며, 선택 해제 시 소유 참조를 끊습니다.
+     * @type {{owner: U3dSelect | undefined, pending: Set<Promise<Array<import('three').Object3D>>>, cleanups: Set<function(boolean): void>, end: undefined | function(): void}}
+     * @ignore
+     */
+    _divisionSelection: {
+        owner: U3dSelect | undefined;
+        pending: Set<Promise<Array<three.Object3D>>>;
+        cleanups: Set<(arg0: boolean) => void>;
+        end: undefined | (() => void);
+    };
     /**
      * 앱에 등록한 `click` 리스너 식별자. 비활성 상태면 undefined.
      *
@@ -404,11 +434,11 @@ declare class U3dSelect extends UEventDispatcher {
      * @param {USelect | Array<USelect>} [object] 지정하면 해당 대상이나 상위 그룹의 hover만 해제합니다. 생략하면 모두 해제합니다.
      */
     clearHover(object?: USelect | Array<USelect>): void;
-    _measureGeom: any;
+    _measureGeom: OLGeometry;
     /**
      * 선택 객체에 Outline(외곽선) 하이라이트를 적용하는 함수 <br>
      * `selectType === UDEF.SELECT_TYPE.OUTLINE`|| 'outline' 에서 사용되며, 외부에서 직접 호출할 수도 있습니다.
-     * 생성 옵션 또는 setSelectType()에 저장한 mode·renderOrder·lineWidth·width·farPoint를 배리어에 전달합니다.
+     * 생성 옵션 또는 setSelectType()에 저장한 mode·bounceSpeed·renderOrder·lineWidth·width·farPoint를 배리어에 전달합니다.
      *
      * @param {USelect} selected 선택 객체(모델/메시)
      *
@@ -452,6 +482,7 @@ declare class U3dSelect extends UEventDispatcher {
      * `getSelectWork()` 형태의 작업 정보를 이용해 선택을 재현하는 함수 <br>
      * - 드로잉(측정 레이어) 재생성 <br>
      * - 교차 객체 탐색 후 선택/하이라이트 반영
+     * 영역 검색의 U3F 분리가 진행 중이면 해당 분리 결과를 반영한 뒤 END 이벤트를 전달합니다.
      *
      * @param {{type:string, points:Array<GeoPosition>}} work 선택 작업 정보. `type`은 선택 모드, `points`는 위경도 좌표계(EPSG:4326) 좌표 목록으로 `getSelectWork()`의 반환값을 그대로 넘긴다
      * @returns {boolean|undefined} 재현 성공 시 true. 입력이 유효하지 않거나 앱·측정 레이어가 없으면 반환 없음(POINT 모드는 재현 후에도 반환 없음)
@@ -507,7 +538,9 @@ declare class U3dSelect extends UEventDispatcher {
     isActive(): boolean;
     /**
      * 선택기능 초기화 함수 <br>
-     * 선택/드로잉 상태를 초기화하고 측정 레이어의 draw feature를 정리합니다.
+     * 선택/드로잉 상태를 초기화하고 측정 레이어의 draw feature를 정리합니다. <br>
+     * 선택과 자체 드로잉을 정리합니다. <br>
+     * 종료된 앱의 측정·장면 자원에는 접근하지 않습니다.
      */
     clear(): void;
     /**
@@ -548,10 +581,10 @@ declare class U3dSelect extends UEventDispatcher {
      */
     clearDrawnSelect(): void;
     /**
-     * 선택 취소하는 함수
+     * 선택 취소하는 함수 <br>
+     * 선택 강조와 보관 참조를 비우고 앱이 살아 있을 때만 그리기 갱신을 요청합니다.
      *
-     * @param {boolean} [isCheckIdle=false] 분할(mesh division(*u3f model 한정)) 상태 점검/정리 호출 여부
-     *
+     * @param {boolean} [isCheckIdle=false] U3F 분할 메시의 유휴 정리도 요청할지 여부(기본값 false)
      */
     clearSelect(isCheckIdle?: boolean): void;
     /**
@@ -586,9 +619,9 @@ declare class U3dSelect extends UEventDispatcher {
      * 객체로부터 내부 선택 키를 생성하여 반환하는 함수
      *
      * @param {USelect} object 대상 객체
-     * @returns {string|void} 선택 키(생성 실패 시 반환 없음)
+     * @returns {string | undefined} 선택 키. 생성할 수 없으면 undefined
      */
-    getObjectKey(object: USelect): string | void;
+    getObjectKey(object: USelect): string | undefined;
     /**
      * 선택영역 형상 스타일 변경 함수 <br>
      * AREA/LINE/CIRCLE 모드에서 그려지는 도형의 외곽선·채움 스타일을 바꿉니다. <br>
@@ -633,10 +666,11 @@ declare class U3dSelect extends UEventDispatcher {
      */
     override on(type: string, listener: EventCallBack): string | null;
     /**
-     * 해당 모델의 선택을 취소하는 기능
-     * 링은 이동 전 저장한 선택 키를 객체 참조로 찾아 해제합니다.
+     * 지정한 대상의 선택과 강조를 해제합니다. <br>
+     * 링 선택은 대상의 참조로 이동 전에 보관한 선택 키를 찾아 해제합니다. <br>
+     * 연결한 앱이 살아 있을 때 화면 갱신을 요청합니다.
      *
-     * @param {USelect} object 모델객체
+     * @param {USelect} object 선택을 해제할 원래 대상 참조, 형상·재질의 소유권은 변경하지 않음
      */
     removeSelected(object: USelect): void;
     /**
@@ -654,12 +688,16 @@ declare class U3dSelect extends UEventDispatcher {
     /**
      * 해당 모델을 선택하는 기능 <br>
      * 선택 목록에 넣고 현재 강조 방식(outline/color)으로 표시하며, 배열을 넘기면 각 원소를 차례로 선택합니다. <br>
+     * 배열 머티리얼의 병합 메시도 교차 면 정보가 없으면 전체 모델을 선택합니다. <br>
      * `USelect`가 아닌 값과 공유 메시(`USharedMesh`)는 조용히 무시됩니다. <br>
-     * 이벤트는 발생시키지 않습니다.
+     * 이벤트는 발생시키지 않습니다. <br>
+     * 살아 있는 앱에서만 대상을 강조합니다. <br>
+     * 종료된 앱의 지연 요청은 자원을 조회하지 않고 정상 종결합니다.
      *
-     * @param {USelect | Array<USelect>} object 선택할 객체 또는 객체 배열
-     * @param {U3dIntersectLike} [intersect] picking 결과. 병합 메시의 부분(`faceIndex`)이나 인스턴스(`instanceId`)만 강조할 때 전달
-     * @returns {Promise<void>} 선택 처리가 끝나면 이행되는 Promise. 내부 선택 목록이 없는 비정상 상태에서만 거부된다
+     * @param {USelect | Array<USelect>} object 선택할 객체 또는 객체 배열, 호출자가 소유한 USelect 또는 USelect 배열 입력이며 형상·재질의 소유권은 이전하지 않습니다.
+     * @param {U3dIntersectLike} [intersect] 부분 면이나 인스턴스 강조에 사용할 picking 결과(faceIndex·instanceId)
+     * @returns {Promise<void>} 선택 처리가 끝나면 이행되는 Promise. <br>
+     * 내부 선택 목록이 없는 비정상 상태에서만 거부됩니다.
      */
     addSelected(object: USelect | Array<USelect>, intersect?: U3dIntersectLike): Promise<void>;
     /**
@@ -1111,4 +1149,50 @@ declare class U3dSelect extends UEventDispatcher {
         normalizedY: number | undefined;
     };
 
-export type { NormalizedPosition, SelectBoxEvent, SelectPointerEvent, SelectPointerEventExt, SelectorColorOption, SelectorFill, SelectorStroke, U3dIntersectLike, U3dSelect, U3dSelectCO, U3dSelectCO_Content, U3dSelectHoverEvent, U3dSelectHoverOption, U3dSelectHoverTarget, U3dSelectRingEndStyle, U3dSelectRingOption, U3dSelectRingTailStyle, USelect };
+/**
+     * 같은 부모 로드 구독에 속한 선택 한 건의 복원 기준입니다.
+     * 부모 ID와 선택 대상 ID는 다를 수 있으며 교차 정보는 대상별로 보관합니다.
+     */
+    type U3dSelectLoadTarget = {
+        /**
+         * 선택한 데이터 대상의 puid
+         */
+        id: string;
+        /**
+         * 부분 교차 정보 없이 병합 모델 전체를 선택했는지 여부
+         */
+        wholeMerged: boolean;
+        /**
+         * 선택 당시의 교차 정보 사본
+         */
+        intersect: U3dIntersectLike | undefined;
+    };
+
+/**
+     * 한 선택기가 같은 부모 데이터에 등록한 로드 구독입니다.
+     * 대상이 모두 해제될 때만 이벤트를 제거하며 분리 결과는 로드 객체별로 재사용합니다.
+     */
+    type U3dSelectLoadSubscription = {
+        /**
+         * 구독 소유 선택기
+         */
+        owner: U3dSelect;
+        /**
+         * 이벤트를 등록한 레이어
+         */
+        layer: U3dModelLayer;
+        /**
+         * 부모 또는 직접 선택 모델의 puid
+         */
+        parentId: string;
+        /**
+         * 현재 구독에 속한 선택 키와 복원 기준
+         */
+        targets: Map<string, U3dSelectLoadTarget>;
+        /**
+         * 로드 객체별 분리 결과와 재진입 방지용 빈 목록
+         */
+        divisions: WeakMap<three.Object3D, Array<ModelMesh>>;
+    };
+
+export type { NormalizedPosition, SelectBoxEvent, SelectPointerEvent, SelectPointerEventExt, SelectorColorOption, SelectorFill, SelectorStroke, U3dIntersectLike, U3dSelect, U3dSelectCO, U3dSelectCO_Content, U3dSelectHoverEvent, U3dSelectHoverOption, U3dSelectHoverTarget, U3dSelectLoadSubscription, U3dSelectLoadTarget, U3dSelectRingEndStyle, U3dSelectRingOption, U3dSelectRingTailStyle, USelect };

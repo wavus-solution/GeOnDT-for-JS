@@ -1,0 +1,38 @@
+.section-example-panel {width: min(450px, calc(100% - 100px)); color: var(--theme-text); color-scheme: dark;}
+.section-example-panel h2 {margin: 0; font-size: 20px; line-height: 1.3;}
+.section-example-panel h3 {margin: 0; font-size: 16px; line-height: 1.5;}
+.section-example-panel .panel-content {padding: 16px; font-size: 14px; line-height: 1.5;}
+.section-example-panel .section-description {margin: 0 0 20px;}
+.section-example-panel .section-field {display: block; margin: 12px 0 8px;}
+.section-example-panel select {width: 100%; height: 40px; padding: 8px 12px; border: 1px solid #89acbc; border-radius: 6px; background: #1e4358; color: var(--theme-text); font: inherit;}
+.section-example-panel option {background: #1e4358; color: var(--theme-text);}
+.section-example-panel .section-actions, .section-example-panel .section-heading {display: flex; align-items: center; gap: 8px; flex-wrap: wrap;}
+.section-example-panel .section-actions {margin-top: 12px;}
+.section-example-panel .section-heading {justify-content: space-between;}
+.section-example-panel .section-button {min-height: 40px; padding: 8px 12px; border: 1px solid #89acbc; border-radius: 6px; background: #1e4358; color: var(--theme-text); font: inherit; font-size: 13px; cursor: pointer;}
+.section-example-panel .section-primary {background: var(--theme-accent); border-color: var(--theme-accent); color: #173e52;}
+.section-example-panel .section-quiet {background: transparent; border-color: transparent; text-decoration: underline; text-underline-offset: 3px;}
+.section-example-panel .section-button:hover:not(:disabled) {background: #254e64; color: var(--theme-text);}
+.section-example-panel .section-delete {min-height: 32px; padding: 4px 12px; border-color: #ffd4cc; background: #ffd4cc; color: #542923; font-weight: 600; white-space: nowrap;}
+.section-example-panel .section-delete:hover:not(:disabled) {background: #ffb8aa; color: #542923;}
+.section-example-panel .section-button:disabled {opacity: .6; cursor: not-allowed;}
+.section-example-panel :is(button, input, select, summary):focus-visible {outline: 2px solid var(--theme-accent); outline-offset: 2px;}
+.section-example-panel .section-note {margin: 8px 0; color: #d3e5ed; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere;}
+.section-example-panel [data-section-status] {min-height: 3em; margin: 16px 0;}
+.section-example-panel .section-group {margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--theme-line);}
+.section-example-panel summary {display: flex; justify-content: space-between; gap: 8px; cursor: pointer; font-weight: 600; line-height: 1.6; padding: 4px 0;}
+.section-example-panel summary::after {content: '+';}
+.section-example-panel details[open] > summary::after {content: '−';}
+.section-example-panel .section-check {display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; font-size: 13px;}
+.section-example-panel input[type="checkbox"] {width: 17px; height: 17px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--theme-accent);}
+.section-example-panel .section-range {display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 12px 0; font-size: 13px;}
+.section-example-panel output {padding: 0; color: inherit; font: inherit;}
+.section-example-panel input[type="range"] {grid-column: 1 / -1; width: 100%; accent-color: var(--theme-accent);}
+.section-example-panel .section-result {display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; margin-top: 12px; padding: 10px; border: 1px solid #89acbc; border-radius: 6px; background: #1e4358;}
+.section-example-panel .section-result > details {min-width: 0;}
+.section-example-panel .section-result summary {word-break: keep-all; overflow-wrap: anywhere;}
+.section-example-panel .section-result ul {max-height: 180px; overflow: auto; margin: 8px 0; padding-left: 20px; font-size: 12px; white-space: normal; overflow-wrap: anywhere;}
+@media (max-width: 480px) {
+    .section-example-panel {width: calc(100% - 92px);}
+    .section-example-panel .panel-content {padding-bottom: 64px;}
+}

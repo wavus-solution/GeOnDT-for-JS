@@ -5,7 +5,7 @@ import { defaultValue } from '@union3d/util/defaultValue';
 import { UDEF } from '@union3d/core/UDEF';
 import { UMTLLoader } from '@union3d/core/loader/UMTLLoader';
 import { UOBJLoader } from '@union3d/core/loader/UOBJLoader';
-import { deferred } from "@union3d/util/deferred";
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import { INTERNAL } from '@union3d/3dLayer/U3dModelBIMObjLayer.internal';
 
 /**
@@ -542,14 +542,14 @@ class U3dModelBIMObjLayer extends U3dModelLayer {
     }
 
     /**
-     * 제어 케이스를 서버에 POST하고 같은 URL을 다시 읽어 사전에 반영합니다. XHR의 status가 200이 아니면 readyState와 무관하게 거부합니다.
+     * 제어 케이스를 서버에 POST하고 같은 URL을 다시 읽어 사전에 반영합니다. XHR 응답 완료 후 상태를 검사하고 재조회·반영까지 기다립니다.
      *
      * @param {string} [caseName] 제어 케이스 이름
      * @param {boolean} [useProxy] 저장 요청에 프록시를 사용할지 여부
      * @returns {Promise<void>} 저장과 재조회 완료
      */
     exportControlCase(caseName, useProxy) {
-        const promise = deferred();
+        const promise = deferredPromise();
         if (!defined(caseName)) {
             promise.reject("caseName is undefined");
             return promise;
@@ -573,22 +573,21 @@ class U3dModelBIMObjLayer extends U3dModelLayer {
             rawFile.overrideMimeType("application/json");
             rawFile.open("POST", url, true);
             rawFile.onreadystatechange = () => {
-                if (rawFile.status !== 200) {
-                    const status = rawFile.status;
-                    const message = url + " url load error [" + status + "]";
-                    promise.reject(message);
-                } else {
-                    if (rawFile.readyState === 4) {
-                        controlCase.setFlag("update");
-                        const controlList = [];
-                        loadControlTask.call(this, controlCase.getUrl(), controlList)
-                            .then(() => {
-                                setControlCase.call(this, controlList);
-                                promise.resolve();
-                            }).catch(function (message) {
-                                promise.reject(message);
-                            });
+                // 중간 readyState의 status=0을 실패로 처리하지 않습니다.
+                if (rawFile.readyState !== 4) return;
+                try {
+                    if (rawFile.status !== 200) {
+                        promise.reject(url + " url load error [" + rawFile.status + "]");
+                        return;
                     }
+                    controlCase.setFlag("update");
+                    const controlList = [];
+                    // 저장 후 재조회와 사전 반영까지 한 체인에서 완료·실패를 전달합니다.
+                    loadControlTask.call(this, controlCase.getUrl(), controlList)
+                        .then(() => setControlCase.call(this, controlList))
+                        .then(promise.resolve, promise.reject);
+                } catch (error) {
+                    promise.reject(error);
                 }
             };
             rawFile.send(JSON.stringify(json));
@@ -797,7 +796,7 @@ class U3dModelBIMObjLayer extends U3dModelLayer {
      * @returns {Promise<void>} 파일 목록 로드 완료
      */
     load() {
-        const loadPromise = deferred();
+        const loadPromise = deferredPromise();
         try {
             const values = Object.values(this._files);
             if (defined(values) && values.length > 0) {
@@ -1435,7 +1434,7 @@ class MetaDataTree {
  * @returns {Promise<void>} 작업 완료 상태
  */
 async function loadTask(metaData) {
-    const taskPromise = deferred();
+    const taskPromise = deferredPromise();
     try {
         const materials = await loadMTLLoader.call(this, metaData.modelUrl, metaData.materialsFile);
         const object = await loadOBJLoader.call(this, metaData.modelUrl, metaData.mergeFile, materials);
@@ -1461,7 +1460,7 @@ async function loadTask(metaData) {
  * @returns {Promise<void>} 작업 완료 상태
  */
 function setControlCase(controlCaseList) {
-    const promise = deferred();
+    const promise = deferredPromise();
     if (!defined(controlCaseList) || controlCaseList.length === 0) {
         promise.resolve();
         return promise;
@@ -1501,28 +1500,31 @@ function setControlCase(controlCaseList) {
  * @returns {Promise<void>} 작업 완료 상태
  */
 function loadControlTask(controlFileUrl, resultList) {
-    const taskPromise = deferred();
+    const taskPromise = deferredPromise();
     try {
         const url = (this._useproxy ? this._proxyurl : '') + this._serverUrl + this._getControlUrl + controlFileUrl;
         const rawFile = new XMLHttpRequest();
         rawFile.overrideMimeType("application/json");
         rawFile.open("GET", url, true);
         rawFile.onreadystatechange = function () {
-            if (rawFile.status !== 200) {
-                const status = rawFile.status;
-                console.debug(url + " url load error [" + status + "]");
-                taskPromise.resolve();
-            } else {
-                if (rawFile.readyState === 4) {
-                    const controlCase = JSON.parse(rawFile.responseText);
-                    if (!defined(controlCase) || !defined(controlCase.params) || !defined(controlCase.params.data)) {
-                        console.debug(url + " url response data is not available");
-                    } else {
-                        controlCase.params.data.url = controlFileUrl;
-                        resultList.push(controlCase.params.data);
-                    }
+            if (rawFile.readyState !== 4) return;
+            try {
+                // 선택 제어 파일의 HTTP 실패는 기존처럼 목록에서 제외하고 계속합니다.
+                if (rawFile.status !== 200) {
+                    console.debug(url + " url load error [" + rawFile.status + "]");
                     taskPromise.resolve();
+                    return;
                 }
+                const controlCase = JSON.parse(rawFile.responseText);
+                if (!defined(controlCase) || !defined(controlCase.params) || !defined(controlCase.params.data)) {
+                    console.debug(url + " url response data is not available");
+                } else {
+                    controlCase.params.data.url = controlFileUrl;
+                    resultList.push(controlCase.params.data);
+                }
+                taskPromise.resolve();
+            } catch (error) {
+                taskPromise.reject(error);
             }
         };
         rawFile.send(null);
@@ -1541,7 +1543,8 @@ function loadControlTask(controlFileUrl, resultList) {
  * @returns {Promise<Array<U3dBIMControlResponse> | undefined>} 작업 완료 상태
  */
 function loadControlCases() {
-    const promise = deferred();
+    /** @type {DeferredPromise<Array<U3dBIMControlResponse> | undefined>} */
+    const promise = deferredPromise();
     if (!defined(this._controlFileUrlList) || this._controlFileUrlList.length === 0) {
         promise.resolve();
         return promise;
@@ -1576,7 +1579,7 @@ function loadControlCases() {
  * @returns {Promise<void>} 작업 완료 상태
  */
 function setMetaDate(metaData, object, json) {
-    const promise = deferred();
+    const promise = deferredPromise();
     if (!defined(metaData)) {
         promise.resolve();
         return promise;
@@ -1630,7 +1633,7 @@ function setMetaDate(metaData, object, json) {
 }
 
 /**
- * 메타데이터 JSON을 GET으로 읽습니다. URL이 없으면 결과 없이 완료하고, 비동기 콜백의 JSON 해석 예외는 별도로 잡지 않습니다.
+ * 메타데이터 JSON을 GET으로 읽습니다. URL이 없으면 결과 없이 완료하고, JSON 해석 예외는 반환 Promise에 전달합니다.
  *
  * @this {U3dModelBIMObjLayer}
  *
@@ -1639,7 +1642,8 @@ function setMetaDate(metaData, object, json) {
  * @returns {Promise<Record<string, U3dBIMMetaRecord> | undefined>} 작업 완료 상태
  */
 function loadMetaFile(metaFileUrl, object) {
-    const promise = deferred();
+    /** @type {DeferredPromise<Record<string, U3dBIMMetaRecord> | undefined>} */
+    const promise = deferredPromise();
     if (!defined(metaFileUrl)) {
         promise.resolve();
         return promise;
@@ -1655,16 +1659,17 @@ function loadMetaFile(metaFileUrl, object) {
         rawFile.overrideMimeType("application/json");
         rawFile.open("GET", metaFileUrl, true);
         rawFile.onreadystatechange = () => {
-            if (rawFile.status !== 200) {
-                const status = rawFile.status;
-                const message = metaFileUrl + " load error " + status + " ";
-                promise.reject(message);
-            } else {
-                if (rawFile.readyState === 4) {
-                    __GInfo__(this, '메타 정보 로드가 완료되었습니다.', '7936671');
-                    const json = JSON.parse(rawFile.responseText);
-                    promise.resolve(json);
+            if (rawFile.readyState !== 4) return;
+            try {
+                if (rawFile.status !== 200) {
+                    promise.reject(metaFileUrl + " load error " + rawFile.status + " ");
+                    return;
                 }
+                __GInfo__(this, '메타 정보 로드가 완료되었습니다.', '7936671');
+                promise.resolve(JSON.parse(rawFile.responseText));
+            } catch (error) {
+                // XHR 콜백의 예외는 요청을 시작한 바깥 try/catch에 도달하지 않습니다.
+                promise.reject(error);
             }
         };
         rawFile.send(null);
@@ -1685,7 +1690,7 @@ function loadMetaFile(metaFileUrl, object) {
  * @returns {Promise<void>} 작업 완료 상태
  */
 function setOBJ(metaData, object) {
-    const promise = deferred();
+    const promise = deferredPromise();
     if (!defined(object) || !defined(metaData) || !defined(metaData.name) || !defined(metaData.location) || !defined(metaData.boundingBox)) {
         const message = 'OBJ 인스턴스 설정 중 입력 파라메터가 잘 못되었습니다.';
         promise.reject(message);
@@ -1740,7 +1745,8 @@ function setOBJ(metaData, object) {
  * @returns {Promise<import('three').Object3D>} 작업 완료 상태
  */
 function loadOBJLoader(modelUrl, mergeFile, materials) {
-    const promise = deferred();
+    /** @type {DeferredPromise<import('three').Object3D>} */
+    const promise = deferredPromise();
     const loader = new UOBJLoader();
     if (!defined(materials) || !defined(modelUrl) || !defined(mergeFile)) {
         const message = 'OBJLoader 로드 중 입력 파라메터가 잘 못되었습니다.';
@@ -1771,7 +1777,8 @@ function loadOBJLoader(modelUrl, mergeFile, materials) {
  * @returns {Promise<import('three/addons/loaders/MTLLoader.js').MTLLoader.MaterialCreator>} 작업 완료 상태
  */
 function loadMTLLoader(modelUrl, materialsFile) {
-    const promise = deferred();
+    /** @type {DeferredPromise<import('three/addons/loaders/MTLLoader.js').MTLLoader.MaterialCreator>} */
+    const promise = deferredPromise();
     const mtlLoader = new UMTLLoader();
     if (!defined(modelUrl) || !defined(materialsFile)) {
         const message = 'MTLLoader 로드 중 입력 파라메터가 잘 못되었습니다.';
@@ -1782,9 +1789,11 @@ function loadMTLLoader(modelUrl, materialsFile) {
     mtlLoader.setCrossOrigin('anonymous');
     __GInfo__(this, "OBJ 머터리얼 로드를 시작합니다.", '7941034');
     mtlLoader.load("/" + materialsFile, (materials) => {
+        try {
         materials.preload();
         __GInfo__(this, "OBJ 머터리얼 로드가 완료되었습니다.", '7941188');
         promise.resolve(materials);
+        } catch (error) { promise.reject(error); }
     }, function (xhr) {
     }, function (error) {
         const message = 'MTLLoader 로드 중 오류가 발생하였습니다.';

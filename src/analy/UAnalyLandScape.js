@@ -9,6 +9,7 @@ import {UDEF} from '@union3d/core/UDEF';
 import {UGroup} from '@union3d/core/UGroup';
 import {UScene} from '@UScene';
 import {U3dMouseEvent} from '@U3dMouseEvent';
+import {U3dSelect} from '@union3d/select/U3dSelect';
 import {ViewPoint} from '@union3d/analy/ViewPoint';
 import {UViewBox} from '@union3d/analy/UViewBox';
 import {UTween} from '@union3d/core/UTween';
@@ -292,8 +293,10 @@ class UAnalyLandScape extends UAnaly {
     /** @type {import('@union3d/core/UTween').UTween | undefined} */ _tween;
     /** @type {import('@U3dApp').U3dAppTweenHandle | undefined} */ _currentTween;
     /** @type {DeferredPromise<void> | undefined}  */ _currentTweenPromise;
-    /** @type {import('three').Material | Array<import('three').Material> | undefined} */ _originMaterial;
-    /** @type {Array<import('three').Material>} */ #selectionMaterials = [];
+    /** @type {import('@union3d/select/U3dSelect').U3dSelect | undefined} */ _selector;
+    /** @type {boolean} */ #ownsSelector = false;
+    /** @type {boolean} */ #selectActive = false;
+    /** @type {EventCallBack} */ #selectorEndListener = event => this.#selectBuilding(event);
     /** @type {import('three').Object3D | undefined} */ _building;
     /** @type {string | null | undefined} */ _clickId;
 
@@ -347,37 +350,115 @@ class UAnalyLandScape extends UAnaly {
     }
 
     /**
-     * 클릭으로 건물을 선택하는 모드를 설정합니다. <br>
-     * 활성화하면 기존 클릭 동작을 교체하며 비활성화하면 선택 표시도 해제합니다.
+     * 경관 분석에 앱을 연결하며 선택기는 생성하지 않습니다. <br>
+     * 앱을 바꾸면 이전 입력과 선택을 정리하고, 주입된 선택기는 새 앱에 다시 연결합니다.
+     *
+     * @override
+     *
+     * @param {import('@U3dApp').U3dApp} app 경관 분석을 사용할 앱
+     */
+    setApp(app) {
+        if (this._app === app) {
+            super.setApp(app);
+            return;
+        }
+        this.#clearClick();
+        this.clearSelect();
+        if (this.#ownsSelector) {
+            this._selector?.remove();
+            this._selector = undefined;
+            this.#ownsSelector = false;
+        }
+        super.setApp(app);
+        if (this._selector && this._selector._app !== app) this._selector.setApp(app);
+    }
+
+    /**
+     * 사용자가 구성한 공통 선택기를 경관 분석에 연결합니다. <br>
+     * 선택기의 옵션과 사용자 이벤트는 유지하며 선택 중 교체하면 새 선택기로 입력을 이어갑니다.
+     * 주입된 선택기의 최종 제거는 호출자가 담당합니다.
+     *
+     * @param {import('@union3d/select/U3dSelect').U3dSelect} selector 사용할 공통 선택기
+     * @throws {TypeError} U3dSelect 인스턴스가 아닌 경우
+     *
+     * @example
+     * const selector = new U3dSelect({mode: 'point', selectType: 'outline'});
+     * selector.on('end', event => console.log(event.data));
+     * analy.setSelector(selector);
+     * analy.select(true);
+     */
+    setSelector(selector) {
+        if (!(selector instanceof U3dSelect)) throw new TypeError('selector는 U3dSelect 인스턴스여야 합니다.');
+        if (this._selector === selector) return;
+        const active = this.#selectActive;
+        this.#clearClick();
+        this.clearSelect();
+        if (this.#ownsSelector) this._selector?.remove();
+        this._selector = selector;
+        this.#ownsSelector = false;
+        if (this._app && selector._app !== this._app) selector.setApp(this._app);
+        if (active) this.select(true);
+    }
+
+    /**
+     * 선택 설정을 변경할 수 있는 공통 선택기 원본을 반환합니다. <br>
+     * setSelector()나 첫 선택 활성화 전에는 undefined이며 clear() 후에도 같은 선택기를 반환합니다.
+     * deactive()는 내부 기본 선택기만 제거합니다.
+     *
+     * @returns {import('@union3d/select/U3dSelect').U3dSelect | undefined} 현재 선택기 또는 미설정 시 undefined
+     *
+     * @example
+     * analy.getSelector()?.setSelectType('outline');
+     */
+    getSelector() {
+        return this._selector;
+    }
+
+    /**
+     * 연결된 선택기의 입력을 활성화하거나 해제합니다. <br>
+     * 선택기가 없으면 앱이 연결된 활성화 시 기본 선택기를 생성합니다.
+     * 선택 결과의 첫 건물을 층별 분석 대상으로 사용하며 비활성화하면 선택 표시도 해제합니다.
      *
      * @param {boolean} active 건물 선택 모드 활성 여부
      */
     select(active) {
-        if (defined(this._clickId)) {
-            this.#clearClick();
-        }
+        this.#clearClick();
         if (active) {
-            this._clickId = this._app?.on('click', this.#select_.bind(this));
+            if (!this._app) return;
+            // U3Select없으면 디폴트하게 등록
+            let selector = this._selector;
+            if (!selector) {
+                selector = new U3dSelect();
+                selector.setSelectedColor(SELECTED_COLOR, 1);
+                this.setSelector(selector);
+                this.#ownsSelector = true;
+            }
+            if (selector._app !== this._app) selector.setApp(this._app);
+            selector.on(U3dSelect.EVENT.END, this.#selectorEndListener);
+            this.#selectActive = true;
+            selector.active();
         } else {
-            this.#clearClick();
             this.clearSelect();
         }
     }
 
     /**
      * 건물의 선택 표시와 선택 지점의 임시 POI를 해제합니다. <br>
-     * 선택 전의 재질 참조를 복원하고 선택 표시용 복제 재질만 해제합니다.
+     * 선택 표시·복원과 자원 정리는 공통 선택기에 위임합니다.
      */
     clearSelect() {
-        // dispose 이벤트에서 다시 정리하더라도 이번 선택의 복제본을 중복 해제하지 않는다.
-        const selectionMaterials = this.#selectionMaterials;
-        this.#selectionMaterials = [];
-        if (defined(this._selected)) {
-            (/** @type {THREE.Mesh} */ (this._selected)).material = /** @type {THREE.Material | Array<THREE.Material>} */ (this._originMaterial);
-            this._originMaterial = undefined;
-            this._selected = undefined;
-            this.isSelected = false;
-        }
+        this._selector?.clearSelect(true);
+        this.#clearBuildingSelection();
+    }
+
+    /**
+     * 선택기의 결과를 유지하면서 분석 대상과 임시 POI를 해제합니다.
+     *
+     * @ignore
+     */
+    #clearBuildingSelection() {
+        this._selected = undefined;
+        this.isSelected = false;
 
         if (defined(this._selectedViewPoint)) {
             /** @type {import('@union3d/analy/ViewPoint').ViewPoint} */
@@ -390,10 +471,6 @@ class UAnalyLandScape extends UAnaly {
             }
 
             this._selectedViewPoint = undefined;
-        }
-        // 원본 재질과 복제본이 공유하는 texture는 이 분석의 소유 자원이 아니다.
-        for (const material of selectionMaterials) {
-            material.dispose();
         }
     }
 
@@ -449,11 +526,21 @@ class UAnalyLandScape extends UAnaly {
 
     /**
      * 분석을 비활성화하고 회전 핸들(handle)에 중단을 요청한 뒤 pan 모드로 돌아갑니다. <br>
+     * 내부 기본 선택기는 제거하고 참조를 비우며 외부 주입 선택기는 유지합니다.
      * 등록한 관측점과 가시영역은 제거하지 않습니다.
      *
      * @override
      */
     deactive() {
+        this.select(false);
+        // 내부적으로 기본 설정한 selector는 알아서 정리
+        // setSelector는 사용자가 정리하도록 둔다.
+        if (this.#ownsSelector) {
+            const selector = this._selector;
+            this._selector = undefined;
+            this.#ownsSelector = false;
+            selector?.remove();
+        }
         super.deactive();
         this.stopFlyRotation();
         this._app?.setPanMode();
@@ -461,16 +548,17 @@ class UAnalyLandScape extends UAnaly {
 
     /**
      * 가시영역·관측점·건물 선택과 클릭 등록을 정리합니다. <br>
+     * 내부·외부 선택기 모두 인스턴스·설정·참조와 사용자 이벤트를 유지합니다.
      * 이동·회전 애니메이션과 다음 순회를 예약한 타이머는 중단하지 않습니다.
      *
      * @override
      */
     clear() {
+        this.#clearClick();
         this.removeLines();
         this.removeAllViewPoints();
         this.removeAllViewTargets();
         this.clearSelect();
-        this.#clearClick();
         this._app?.getSceneComment()?.remove(/** @type {import('three').Object3D} */(/** @type {unknown} */(this._pointGroup)));
         this.update();
         this._app?.setUpdateDate();
@@ -1141,9 +1229,7 @@ class UAnalyLandScape extends UAnaly {
      * moveEnd 이벤트는 이동 요청 직후 발생하며 실제 이동 완료를 뜻하지 않습니다.
      */
     flyToClick() {
-        if (defined(this._clickId)) {
-            this.#clearClick();
-        }
+        this.#clearClick();
         this._clickId = this._app?.on('click', this.#flyToClick_.bind(this));
     }
 
@@ -1156,9 +1242,7 @@ class UAnalyLandScape extends UAnaly {
      * @param {number} [slow=1] 기준 시간에 곱할 배율
      */
     rotationToClick(repeat = true, height = 200, duration = 10000, slow = 1) {
-        if (defined(this._clickId)) {
-            this.#clearClick();
-        }
+        this.#clearClick();
         this._clickId = this._app?.on('click', this.#rotationToClick_.bind(this, repeat, height, duration, slow));
     }
 
@@ -1439,57 +1523,53 @@ class UAnalyLandScape extends UAnaly {
      * @ignore
      */
     #clearClick() {
-        this._app?.unkey('click', this._clickId ?? undefined);
+        if (defined(this._clickId)) this._app?.unkey('click', this._clickId ?? undefined);
         this._clickId = undefined;
+        if (this.#selectActive && this._selector) {
+            this.#selectActive = false;
+            this._selector.off(U3dSelect.EVENT.END, this.#selectorEndListener);
+            this._selector.deactive();
+        }
     }
 
     /**
-     * @param {import('@U3dMouseEvent').U3dMouseEvent} e
+     * @param {UAnalyLandScapeSelectEvent} event 공통 선택기의 선택 완료 이벤트
      *
      * @ignore
      */
-    #select_(e) {
-        this.clearSelect();
-        const intersects = this._app?.intersectAtPixel(e) ?? [];
-        /** @type {import('three').Intersection | undefined} */ let selected;
-        intersects.some(function (/** @type {import('three').Intersection} */ v) {
-            if ((/** @type {Partial<{_utype: (string | number)}>} */(v.object))._utype === UDEF.UMESH_TYPE._building) {
-                selected = v;
-                return true;
-            }
-            return false;
-        });
-        if (!defined(selected)) {
-            this._selected = undefined;
-            this.isSelected = false;
-            this.dispatchEvent({type: 'select', data: this._selected});
+    #selectBuilding(event) {
+        this.#clearBuildingSelection();
+        /** @type {import('three').Object3D | undefined} */
+        let object;
+        /** @type {import('three').Intersection | undefined} */
+        let intersect;
+        for (const entry of event.data ?? []) {
+            const candidate = entry instanceof THREE.Object3D ? entry
+                : entry && 'object' in entry ? entry.object : undefined;
+            if (!(candidate instanceof THREE.Object3D)
+                || (/** @type {Partial<{_utype: string | number}>} */ (candidate))._utype !== UDEF.UMESH_TYPE._building) continue;
+            object = candidate;
+            intersect = entry === candidate
+                ? (/** @type {import('three').Object3D & Partial<{_intersect: import('three').Intersection}>} */ (candidate))._intersect
+                : /** @type {import('three').Intersection} */ (entry);
+            break;
+        }
+        if (!object) {
+            this.dispatchEvent({type: 'select', data: undefined});
             return;
         }
-        const object = /** @type {import('three').Mesh} */((/** @type {import('three').Intersection} */(selected)).object);
-        const originalMaterial = object.material;
-        const materials = Array.isArray(originalMaterial) ? originalMaterial : [originalMaterial];
-        /** @type {Array<import('three').Material>} */
-        const selectionMaterials = [];
-        try {
-            // 원본을 공유하는 다른 건물의 색상까지 바뀌지 않도록 선택 표시만 분리한다.
-            for (const material of materials) {
-                const selectionMaterial = material.clone();
-                selectionMaterials.push(selectionMaterial);
-                (/** @type {import('three').MeshStandardMaterial} */ (selectionMaterial)).color.set(SELECTED_COLOR);
-            }
-        } catch (error) {
-            // 일부 복제에 실패하면 원본을 교체하지 않고 이미 만든 재질만 정리한다.
-            for (const material of selectionMaterials) {
-                material.dispose();
-            }
-            throw error;
-        }
-        this._originMaterial = originalMaterial;
-        this.#selectionMaterials = selectionMaterials;
-        object.material = Array.isArray(originalMaterial) ? selectionMaterials : selectionMaterials[0];
         this._selected = object;
-        // 선택한 교차점 원본을 임시 관측점 위치로 사용한다.
-        const point = INTERNAL.facePad(selected);
+        let point;
+        if (intersect?.point) {
+            // 사용자 이벤트가 공유하는 교차점은 변경하지 않고 POI 위치만 면에서 띄웁니다.
+            point = intersect.point.clone();
+            if (intersect.face) point = INTERNAL.facePad({...intersect, point});
+        } else {
+            // 영역 선택은 클릭 교차점이 없으므로 건물 경계 중심을 층별 생성 기준으로 삼습니다.
+            const building = /** @type {UAnalyLandScapeBuilding} */ (object);
+            const box = building.getBBox?.() ?? building._bbox ?? new THREE.Box3().setFromObject(object);
+            point = box.getCenter(new THREE.Vector3());
+        }
         this._selectedViewPoint = /** @type {import('@union3d/analy/ViewPoint').ViewPoint} */(this.#createViewPoint(
             Object.assign({}, {name: 'selected_viewpoint', position: point}, this.selectPoiOptions)
         ));

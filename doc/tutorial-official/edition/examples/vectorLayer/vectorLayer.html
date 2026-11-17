@@ -71,7 +71,7 @@
             </div>
 
             <div class="param vector-form-grid" data-param-target="Line">
-                <label>선두께<input id="lineWidth" type="number" name="lineWidth" value="5"></label>
+                <label>선두께<input id="lineWidth" type="number" name="lineWidth" value="2"></label>
             </div>
 
             <div class="param vector-form-grid" data-param-target="Box">
@@ -79,31 +79,52 @@
                 <label>상하폭<input type="number" name="height" value="10"></label>
                 <label>높이<input type="number" name="depth" value="10"></label>
                 <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
-                <label class="vector-check"><input type="checkbox" name="outline"><span>외곽선 여부</span></label>
+                <label class="vector-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+                <label>외곽선 단위<select name="outlineType"><option value="meter">미터 (m)</option><option value="pixel">픽셀 (px)</option></select></label>
+                <label>외곽선 색상<input type="color" name="lineColor" value="#000000"></label>
+                <label>외곽선 투명도<input type="number" min="0" max="1" step="0.01" name="lineOpacity" value="1"></label>
+                <label>외곽선 두께 (<span data-outline-width-unit>m</span>)<input type="number" min="0.01" step="0.01" name="lineWidth" value="0.3"></label>
+                <label class="wide-field vector-outline-tension" title="0은 각진 연결, 1은 둥근 연결입니다.">코너 둥글기 (0 각지게 · 1 둥글게)<output>1.00</output><input type="range" name="outlineTension" min="0" max="1" step="0.01" value="1"></label>
             </div>
 
             <div class="param vector-form-grid" data-param-target="Circle">
-                <label>지름<input type="number" name="radius" value="10"></label>
+                <label>반지름 (m)<input type="number" min="0" name="radius" value="10"></label>
+                <label>둘레 분할 수<input type="number" min="3" step="1" name="segments" value="32"></label>
                 <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
+                <label class="vector-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+                <label>외곽선 단위<select name="outlineType"><option value="meter">미터 (m)</option><option value="pixel">픽셀 (px)</option></select></label>
+                <label>외곽선 색상<input type="color" name="lineColor" value="#000000"></label>
+                <label>외곽선 투명도<input type="number" min="0" max="1" step="0.01" name="lineOpacity" value="1"></label>
+                <label>외곽선 두께 (<span data-outline-width-unit>m</span>)<input type="number" min="0.01" step="0.01" name="lineWidth" value="0.3"></label>
             </div>
 
             <div class="param vector-form-grid" data-param-target="Sphere">
-                <label>지름<input type="number" name="radius" value="10"></label>
+                <label>반지름 (m)<input type="number" min="0" name="radius" value="10"></label>
+                <label>가로 분할 수<input type="number" min="3" step="1" name="widthSegments" value="24"></label>
+                <label>세로 분할 수<input type="number" min="2" step="1" name="heightSegments" value="24"></label>
                 <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
-                <label class="vector-check"><input type="checkbox" name="outline"><span>외곽선 여부</span></label>
+                <label class="vector-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+                <label>외곽선 단위<select name="outlineType"><option value="meter">미터 (m)</option><option value="pixel">픽셀 (px)</option></select></label>
+                <label>외곽선 색상<input type="color" name="lineColor" value="#000000"></label>
+                <label>외곽선 투명도<input type="number" min="0" max="1" step="0.01" name="lineOpacity" value="1"></label>
+                <label>외곽선 두께 (<span data-outline-width-unit>m</span>)<input type="number" min="0.01" step="0.01" name="lineWidth" value="0.3"></label>
             </div>
 
             <div class="param vector-form-grid" data-param-target="Cylinder">
                 <label>반지름(상)<input type="number" name="radiusTop" value="5"></label>
                 <label>반지름(하)<input type="number" name="radiusBottom" value="5"></label>
                 <label>길이<input type="number" name="height" value="20"></label>
-                <label>radialSegments<input type="number" min="3" step="1" name="radialSegments" value="32"></label>
-                <label>heightSegments<input type="number" min="1" step="1" name="heightSegments"></label>
+                <label>둘레 분할 수<input type="number" min="3" step="1" name="radialSegments" value="32"></label>
+                <label>높이 분할 수<input type="number" min="1" step="1" name="heightSegments" placeholder="기본값 1"></label>
                 <label>thetaStart (×π)<input type="number" step="0.25" name="thetaStart" placeholder="0.5 = π/2"></label>
                 <label>thetaLength (×π)<input type="number" step="0.25" name="thetaLength" placeholder="2 = 한 바퀴"></label>
                 <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
                 <label class="vector-check"><input type="checkbox" name="openEnded"><span>openEnded</span></label>
                 <label class="vector-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+                <label>외곽선 단위<select name="outlineType"><option value="meter">미터 (m)</option><option value="pixel">픽셀 (px)</option></select></label>
+                <label>외곽선 색상<input type="color" name="lineColor" value="#000000"></label>
+                <label>외곽선 투명도<input type="number" min="0" max="1" step="0.01" name="lineOpacity" value="1"></label>
+                <label>외곽선 두께 (<span data-outline-width-unit>m</span>)<input type="number" min="0.01" step="0.01" name="lineWidth" value="0.3"></label>
             </div>
 
             <div class="param vector-form-grid" data-param-target="Pipe">
@@ -113,13 +134,23 @@
                 <label>곡선 정도<input type="number" min="0" step="0.1" max="1" name="tension" value="0.5"></label>
                 <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="1"></label>
                 <label class="vector-check"><input type="checkbox" name="closed"><span>닫기 여부</span></label>
+                <label class="vector-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+                <label>외곽선 단위<select name="outlineType"><option value="meter">미터 (m)</option><option value="pixel">픽셀 (px)</option></select></label>
+                <label>외곽선 색상<input type="color" name="lineColor" value="#000000"></label>
+                <label>외곽선 투명도<input type="number" min="0" max="1" step="0.01" name="lineOpacity" value="1"></label>
+                <label>외곽선 두께 (<span data-outline-width-unit>m</span>)<input type="number" min="0.01" step="0.01" name="lineWidth" value="0.3"></label>
             </div>
 
             <div class="param vector-form-grid" data-param-target="UserGeometry">
                 <label>높이<input type="number" name="height" value="100"></label>
                 <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="0.7"></label>
-                <label class="vector-check"><input type="checkbox" name="outline"><span>외곽선 여부</span></label>
+                <label class="vector-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+                <label>외곽선 단위<select name="outlineType"><option value="meter">미터 (m)</option><option value="pixel">픽셀 (px)</option></select></label>
+                <label>외곽선 색상<input type="color" name="lineColor" value="#000000"></label>
+                <label>외곽선 투명도<input type="number" min="0" max="1" step="0.01" name="lineOpacity" value="1"></label>
+                <label>외곽선 두께 (<span data-outline-width-unit>m</span>)<input type="number" min="0.01" step="0.01" name="lineWidth" value="0.3"></label>
                 <label class="vector-check"><input type="checkbox" name="usecurve"><span>곡선 보간</span></label>
+                <label class="wide-field vector-outline-tension" title="0은 각진 연결, 1은 둥근 연결입니다.">코너 둥글기 (0 각지게 · 1 둥글게)<output>1.00</output><input type="range" name="outlineTension" min="0" max="1" step="0.01" value="1"></label>
             </div>
 
             <div class="param vector-form-grid" data-param-target="PolygonLoftGeometry">
@@ -127,6 +158,11 @@
                 <label>topScale<input type="number" min="0" step="0.1" name="topScale" value="0.7"></label>
                 <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="0.7"></label>
                 <label class="vector-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+                <label>외곽선 단위<select name="outlineType"><option value="meter">미터 (m)</option><option value="pixel">픽셀 (px)</option></select></label>
+                <label>외곽선 색상<input type="color" name="lineColor" value="#000000"></label>
+                <label>외곽선 투명도<input type="number" min="0" max="1" step="0.01" name="lineOpacity" value="1"></label>
+                <label>외곽선 두께 (<span data-outline-width-unit>m</span>)<input type="number" min="0.01" step="0.01" name="lineWidth" value="0.3"></label>
+                <label class="wide-field vector-outline-tension" title="0은 각진 연결, 1은 둥근 연결입니다.">코너 둥글기 (0 각지게 · 1 둥글게)<output>1.00</output><input type="range" name="outlineTension" min="0" max="1" step="0.01" value="1"></label>
             </div>
 
             <div class="param vector-form-grid" data-param-target="PathGeometry">
@@ -136,6 +172,8 @@
                 <label>경로 텐션<input type="number" min="0" step="0.1" max="1" name="tension" value="0.5"></label>
                 <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="0.4"></label>
                 <label class="vector-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+                <label>외곽선 단위<select name="outlineType"><option value="meter">미터 (m)</option><option value="pixel">픽셀 (px)</option></select></label>
+                <label>외곽선 두께 (<span data-outline-width-unit>m</span>)<input type="number" min="0.01" step="0.01" name="lineWidth" value="0.3"></label>
             </div>
 
             <div class="param vector-form-grid" data-param-target="Fault">
@@ -155,7 +193,9 @@
                 <label>단층 상단부 깊이<input type="number" name="dtop" value="0"></label>
                 <label>주향 방향<input type="number" name="strike" value="0"></label>
                 <label>투명도<input type="number" min="0" step="0.1" max="1" name="opacity" value="0.7"></label>
-                <label class="vector-check"><input type="checkbox" name="outline"><span>외곽선 여부</span></label>
+                <label class="vector-check"><input type="checkbox" name="outline" checked><span>외곽선 여부</span></label>
+                <label>외곽선 단위<select name="outlineType"><option value="meter">미터 (m)</option><option value="pixel">픽셀 (px)</option></select></label>
+                <label>외곽선 두께 (<span data-outline-width-unit>m</span>)<input type="number" min="0.01" step="0.01" name="lineWidth" value="0.3"></label>
             </div>
         </template>
         <section class="vector-section vector-actions" aria-label="도형 작업">
@@ -178,23 +218,31 @@
             <button class="panel-close" id="geometry-detail-close" type="button" aria-label="선택 도형 설정 닫기">×</button>
         </header>
 
-        <div class="panel-content vector-side-content">
-            <p class="panel-description">목록에서 선택한 도형의 설정입니다. 값을 바꾸면 선택한 도형에만 즉시 적용되며, [JSON으로 설정]을 켜면 같은 설정을 텍스트로도 바꿀 수 있습니다.</p>
-
+        <div class="vector-detail-summary">
             <dl class="vector-info-list">
                 <div><dt>레이어</dt><dd id="geometry-detail-layer">-</dd></div>
                 <div><dt>종류</dt><dd id="geometry-detail-type">-</dd></div>
             </dl>
-
-            <div class="vector-side-heading-row">
-                <h3 class="vector-side-heading">설정</h3>
-                <button class="vector-json-toggle" id="geometry-json-toggle" type="button" aria-pressed="false" aria-controls="geometry-json-panel">JSON으로 설정</button>
-            </div>
-            <div class="vector-detail-form" id="geometry-detail-form"></div>
-            <!-- TEMP: setWireframe/getWireframe 확인용 -->
-            <label><input type="checkbox" id="geometry-wireframe-toggle"> 와이어프레임 (setWireframe)</label>
-            <button id="delete-selected" class="vector-side-action danger" type="button" data-api-help="geometry.remove">선택 도형 삭제</button>
+            <p class="vector-hint">변경한 값은 선택한 도형에 바로 적용됩니다.</p>
         </div>
+        <div class="vector-detail-toolbar">
+            <div class="vector-detail-tabs" role="tablist" aria-label="도형 설정">
+                <button id="geometry-shape-tab" type="button" role="tab" data-detail-tab="shape" aria-selected="true" aria-controls="geometry-shape-settings">형상</button>
+                <button id="geometry-style-tab" type="button" role="tab" data-detail-tab="style" aria-selected="false" aria-controls="geometry-style-settings" tabindex="-1">스타일</button>
+            </div>
+            <button class="vector-json-toggle" id="geometry-json-toggle" type="button" aria-pressed="false" aria-controls="geometry-json-panel">JSON으로 설정</button>
+        </div>
+        <div class="panel-content vector-side-content vector-detail-content">
+            <div class="vector-detail-form" id="geometry-detail-form">
+                <section id="geometry-shape-settings" role="tabpanel" aria-labelledby="geometry-shape-tab"></section>
+                <section id="geometry-style-settings" role="tabpanel" aria-labelledby="geometry-style-tab" hidden>
+                    <label class="vector-check"><input type="checkbox" id="geometry-wireframe-toggle"><span>와이어프레임</span></label>
+                </section>
+            </div>
+        </div>
+        <footer class="vector-detail-footer">
+            <button id="delete-selected" class="vector-side-action danger" type="button" data-api-help="geometry.remove">선택 도형 삭제</button>
+        </footer>
     </aside>
 
     <aside class="glass-panel vector-side-panel" id="geometry-json-panel" aria-labelledby="geometry-json-heading" aria-hidden="true" hidden>

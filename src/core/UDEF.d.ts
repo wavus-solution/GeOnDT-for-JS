@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -31,7 +31,7 @@ declare class UDEF {
     static copyright: string;
     static INVALID: number;
     /**
-     * GeOnDT 스크립트 경로, webworker 나 리소스를 불러오기 위해 사용
+     * Worker와 리소스를 불러올 제품 루트 경로입니다.
      * @type {string}
      */
     static path: string;
@@ -361,6 +361,10 @@ declare class UDEF {
     static TONEMAPPING_EXPOSURE: number;
     static DRACO_DECODER_PATH: string;
     static TRANS_CODER_PATH: string;
+    /** PBF 형상 WASM의 초기 상대 파일 경로이며 setPath에서 제품 루트를 반영합니다. */
+    static PBF_WASM_PATH: string;
+    /** 지형 데칼 WASM의 초기 상대 파일 경로이며 setPath에서 제품 루트를 반영합니다. */
+    static TERRAIN_DECAL_WASM_PATH: string;
     static MAX_HEIGHT: number;
     static g_TextureEncoding: "srgb";
     static g_ShadowMapType: 3;
@@ -532,7 +536,7 @@ declare class UDEF {
      * @ignore
      */
     static createKey(x: number | string, y: number | string, level: number | string, title?: string): string;
-    static "__#11329@#uuidStorage": any[];
+    static "__#11504@#uuidStorage": any[];
     /**
      * UUID 캐시에서 UUID를 꺼내거나 캐시가 비어 있으면 새 UUID를 생성한다.
      * 주 사용처: U3dObject, U3DTileset, UFileLoader, geometry, select, quadtree 계열 객체의 식별자 생성에 사용한다.
@@ -630,7 +634,7 @@ declare class UDEF {
     static createIDU3F_To_Version1_3(vertex: Array<number>, offsetX: number, offsetY: number, grRect: SimpleRect, grDataRect: SimpleRect): string | undefined;
     /**
      * Google 좌표 x, y를 고정 폭 문자열로 변환해 key를 생성한다.
-     * 주 사용처: U3dModelDxfLayer와 U3dModelShapeLayer에서 모델 userData id 생성에 사용한다.
+     * 좌표 인덱스용 문자열이며 데이터 메시의 puid 생성에는 사용하지 않는다.
      * @param {number | null | undefined} x Google x 좌표.
      * @param {number | null | undefined} y Google y 좌표.
      * @returns {string} 좌표 기반 key 문자열. 좌표가 없으면 undefined.
@@ -647,7 +651,7 @@ declare class UDEF {
      *
      * @ignore
      */
-    static "__#11329@#textDecoder": TextDecoder;
+    static "__#11504@#textDecoder": TextDecoder;
     /**
      * UByteBuffer에서 지정 길이만큼 byte array를 읽어 문자열로 변환한다.
      * 주 사용처: UI3FParser, U3FParser, U3FPackageParser, U3FParser2 계열에서 바이너리 헤더와 문자열 필드 파싱에 사용한다.
@@ -711,19 +715,19 @@ declare class UDEF {
     static FAR_NORMAL_DECREASE_RATIO: number;
     static NEAR_NORMAL_DECREASE_RATIO: number;
     /**
-     * 지형 material에 terrain normal texture와 tile level 기반 normalScale을 설정한다.
-     * 주 사용처: U3dImageLayer에서 지형 mesh material의 normal texture 설정에 사용한다.
-     * @param {import('three').Material & {normalScale?: import('three').Vector2, normalMap?: import('three').Texture | null, normalMapType?: import('three').NormalMapTypes}} material normal texture를 설정할 material.
-     * @param {number} [tileLevel] normalScale 계산에 사용할 tile level.
-     * @returns {void}
+     * 지형 재질에 공유 노멀 텍스처와 타일 레벨별 요철 강도를 설정합니다.
+     * 계산한 강도가 최소값보다 작으면 기존 재질을 유지합니다.
      *
-     * @ignore
+     * @param {import('three').Material & Partial<{normalScale: import('three').Vector2, normalMap: import('three').Texture | null, normalMapType: import('three').NormalMapTypes}>} material 설정할 지형 재질
+     * @param {number} [tileLevel] 강도 계산에 사용할 타일 레벨. 생략하거나 0이면 최대 강도
+     *
+                                                                        
      */
-    static setTerrainNormalTexture(material: three.Material & {
-        normalScale?: three.Vector2;
-        normalMap?: three.Texture | null;
-        normalMapType?: three.NormalMapTypes;
-    }, tileLevel?: number): void;
+    static setTerrainNormalTexture(material: three.Material & Partial<{
+        normalScale: three.Vector2;
+        normalMap: three.Texture | null;
+        normalMapType: three.NormalMapTypes;
+    }>, tileLevel?: number): void;
     /**
      * degree 값을 radian 값으로 변환한다.
      * 주 사용처: UAnalyLandScape, U3dComponentPosition, U3dLodComponentLayer, U3dMultipleComponentLayer, PointerLockDriveControls에서 회전 각도 변환에 사용한다.

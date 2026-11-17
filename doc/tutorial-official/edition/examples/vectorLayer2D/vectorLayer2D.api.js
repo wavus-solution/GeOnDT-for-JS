@@ -62,7 +62,7 @@ export const apiHelp = Object.freeze({
     ),
     'feature.update': createSourceHelp(
         'U2dGeometry.translate() / rotate()',
-        '초기 도형을 지도 좌표에서 이동·회전하면 원본 변경 이벤트로 화면에 자동 반영됩니다. 동적 원은 전용 레이어의 isDynamicRadius로 화면 크기를 유지하며, 상세 패널에서 픽셀 반경을 바꿉니다. 목록에서 스타일을 바꾸거나 삭제할 수 있으며 별도의 시작·커밋 호출은 필요하지 않습니다.',
+        '초기 도형을 지도 좌표에서 이동·회전하면 원본 변경 이벤트로 화면에 자동 반영됩니다. 동적 원은 U2dPoint의 isDynamicRadius로 같은 레이어에서 화면 크기를 유지하며, 상세 패널에서 픽셀 반경을 바꿉니다. 목록에서 스타일을 바꾸거나 삭제할 수 있으며 별도의 시작·커밋 호출은 필요하지 않습니다.',
         'feature.update'
     ),
     'import.data': createHybridHelp(

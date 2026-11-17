@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -15,8 +15,8 @@ import type { USimpleTailShader } from "./material/USimpleTailMaterial.js";
  * 이동 지점을 연결해 화면을 향하는 리본 궤적을 그립니다.
  */
 declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
-    static "__#11381@#normalizeDrawResult"(result: any, previous: any): any;
-    static "__#11381@#interpolateDrawNode"(a: any, b: any, t: any): Pick<USimpleTailNode, "x" | "y" | "z" | "time" | "colorFactor" | "pathDistance">;
+    static "__#11556@#normalizeDrawResult"(result: any, previous: any): any;
+    static "__#11556@#interpolateDrawNode"(a: any, b: any, t: any): Pick<USimpleTailNode, "x" | "y" | "z" | "time" | "colorFactor" | "pathDistance">;
     /**
      * 삼각형 한 면을 구성하는 인덱스 개수를 반환합니다.
      *
@@ -68,7 +68,10 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @type {boolean}
      */
     _disposed: boolean;
-    /** @ignore 콜백 표시 버퍼의 변경을 프레임 요청에 전달합니다. */
+    /**
+     * 콜백 표시 버퍼의 변경을 프레임 요청에 전달합니다.
+     * @ignore
+     */
     _drawStyleVersion: number;
     /** @type {USimpleTailDrawEvaluator | undefined} */
     drawFunc: USimpleTailDrawEvaluator | undefined;
@@ -119,9 +122,17 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @param {boolean} [forAppend=true] 다음 노드를 포함할지 여부.
      */
     getRequiredMemoryCapacity(forAppend?: boolean): any;
-    /** @ignore 자동 축소를 실행할 draw의 소유 app을 반환합니다. */
+    /**
+     * 자동 축소를 실행할 draw의 소유 app을 반환합니다.
+     *
+     * @ignore
+     */
     getMemoryApp(): any;
-    /** @ignore 자동 축소가 현재 경로의 기록·표시를 보존할 수 있는지 확인합니다. */
+    /**
+     * 자동 축소가 현재 경로의 기록·표시를 보존할 수 있는지 확인합니다.
+     *
+     * @ignore
+     */
     canShrinkMemory(): boolean;
     /**
      * 새 버퍼가 완성된 뒤에만 교체합니다. 실패해도 현재 노드·표시·기록 상태는 유지합니다.
@@ -180,6 +191,8 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     _origin: three.Vector3;
     /**
      * 궤적을 그릴 저장 공간과 메시를 준비하고 기존 지점 이력을 비웁니다. <br>
+     * 저장 공간과 메시 준비는 이 호출 안에서 끝나므로 반환 직후 지점을 기록할 수 있습니다. <br>
+     * 반환 Promise의 후속 콜백은 표준 Promise 실행 순서를 따릅니다. <br>
      * 전달한 재질은 이 궤적이 소유하며 dispose 시 함께 해제합니다. <br>
      * 재초기화하면 기존 geometry와 교체되는 재질을 해제합니다. 같은 재질을 다시 전달하면 유지합니다. <br>
      * 초기화에 실패하면 전달한 재질과 부분 생성 자원을 해제하며 이 궤적은 다시 사용할 수 없습니다. <br>
@@ -331,9 +344,17 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @param {boolean} enabled true면 colorFactor를 반영
      */
     setGradation(enabled: boolean): void;
-    /** @ignore time 모드의 마지막 입력 간격을 표시 중인지 반환합니다. */
+    /**
+     * time 모드의 마지막 입력 간격을 표시 중인지 반환합니다.
+     *
+     * @ignore
+     */
     _isTimeFadeAnimating(now?: number): boolean;
-    /** @ignore age 이력이 모두 만료되면 자동 갱신을 종료합니다. */
+    /**
+     * age 이력이 모두 만료되면 자동 갱신을 종료합니다.
+     *
+     * @ignore
+     */
     _isAgeFadeAnimating(now?: number): boolean;
     /**
      * 궤적(trail)의 기본 너비를 변경합니다. <br>

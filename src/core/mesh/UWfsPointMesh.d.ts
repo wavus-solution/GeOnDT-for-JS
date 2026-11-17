@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -15,6 +15,19 @@ declare class UWfsPointMesh extends Points<three.BufferGeometry<three.NormalBuff
      * @param {ModelMaterial | Array<ModelMaterial>} material
      */
     constructor(geometry: ModelBufferGeometry, material: ModelMaterial | Array<ModelMaterial>);
+    /**
+     * WFS 레이어가 원본 피처와 이 점의 사용 위치로 부여하는 식별값입니다.
+     * 미등록·일반 복제본에는 값이 없으며 원본 속성이나 Three.js id로 대체하지 않습니다.
+     *
+     * @type {string | undefined}
+     */
+    puid: string | undefined;
+    /**
+     * 자동 재로딩 대상은 puid, 일반 복제본은 현재 인스턴스의 uuid를 반환합니다.
+     *
+     * @returns {string} puid 또는 현재 객체의 uuid
+     */
+    getUid(): string;
     /** @type {ModelBufferGeometry} */ geometry: ModelBufferGeometry;
     /** @type {ModelMaterial | Array<ModelMaterial>} */ material: ModelMaterial | Array<ModelMaterial>;
     /** @type {string | null | undefined} */ _ulayername: string | null | undefined;

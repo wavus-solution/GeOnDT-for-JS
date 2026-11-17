@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -252,7 +252,7 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      * @param {import('@UMeasureFeature').UMeasureFeature} feature 제거할 측정 feature입니다.
      */
     removeFeature(feature: UMeasureFeature): void;
-    /** 모든 측정 feature와 연결된 렌더링 데이터를 제거합니다. */
+    /** 모든 측정 feature와 연결된 렌더링 데이터를 제거하며 등록된 terrain 타일만 갱신합니다. */
     clearMeasure(): void;
     /**
      * 전달한 위경도 좌표로 만든 다각형과 현재 편집 중인 측정 다각형을 레이어에 함께 추가한 뒤, 두 다각형이 겹치는지 확인합니다. <br>

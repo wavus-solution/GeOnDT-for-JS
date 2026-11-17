@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -18,7 +18,7 @@ import type { UExtrudeGeometry } from "../geometry/UExtrudeGeometry.js";
 import type { UMercator } from "../math/UMercator.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { Double_Array, GeoPosition, KeyValue, Triple_Array, WorldPositionVector3 } from "../types/global.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /**
  * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer <br>
@@ -203,8 +203,8 @@ declare class U3dModelShapeLayer extends U3dModelLayer {
      * 기존 건물은 유지하며 컬렉션과 피처에 Mesh와 연결되는 `uuid`를 기록합니다.
      *
      * @param {U3dModelShapeFeatureCollection} featureCollection 피처 정보 묶음(FeatureCollection)
-     * @returns {Promise<Array<U3dModelShapeMesh> | undefined> | undefined} 처리할 Feature가 즉시 모두 끝나면 내부 전체 건물 목록으로 완료되는 Promise. <br>
-     * 처리 중인 Feature가 남거나 예외가 나면 거부되며, 입력이 없으면 `undefined`
+     * @returns {Promise<Array<U3dModelShapeMesh> | undefined> | undefined} 모든 Feature 처리가 끝나면 내부 전체 건물 목록으로 완료되는 Promise. <br>
+     * 개별 생성 또는 경계 계산에 실패하면 거부되며, 입력이 없으면 `undefined`
      */
     addFeatureCollection(featureCollection: U3dModelShapeFeatureCollection): Promise<Array<U3dModelShapeMesh> | undefined> | undefined;
     /**
@@ -742,10 +742,6 @@ declare class U3dModelShapeLayer extends U3dModelLayer {
          */
         buildHeight?: number;
         /**
-         * Feature `id` 또는 위치 기반 생성 키
-         */
-        id?: string;
-        /**
          * 마지막으로 적용한 스타일의 표시 여부
          */
         styleinfo?: {
@@ -988,7 +984,7 @@ declare class U3dModelShapeLayer extends U3dModelLayer {
         /**
          * 애니메이션 완료를 알리는 대기 객체
          */
-        promise: DeferredObject<void>;
+        promise: DeferredPromise<void>;
     };
 
 /**

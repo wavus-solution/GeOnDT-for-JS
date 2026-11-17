@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -128,9 +128,24 @@ declare class UInstancedMesh<TGeometry extends three.BufferGeometry, TMaterial e
         visible: number;
         meshCount: number;
     };
-    /** @type {number} 전체 인스턴스 개수 합계 */ static ALL_INSTANCES_COUNT: number;
-    /** @type {number} 가시화된 인스턴스 개수 합계 */ static VISIBLE_INSTANCES_COUNT: number;
-    /** @type {Set<UInstancedMesh<any, any, number, UInstancedMeshCO>>} 가시화된 인스턴스 개수 합계 */ static LIVE_INSTANCED_MESHES: Set<UInstancedMesh<any, any, number, UInstancedMeshCO>>;
+    /**
+     * 전체 인스턴스 개수의 합계입니다.
+     *
+     * @type {number}
+     */
+    static ALL_INSTANCES_COUNT: number;
+    /**
+     * 가시화된 인스턴스 개수의 합계입니다.
+     *
+     * @type {number}
+     */
+    static VISIBLE_INSTANCES_COUNT: number;
+    /**
+     * 전역 카운터 검증에 사용하는 인스턴스 메시 집합입니다.
+     *
+     * @type {Set<import('@UInstancedMesh').UInstancedMesh<any, any, number, UInstancedMeshCO>>}
+     */
+    static LIVE_INSTANCED_MESHES: Set<UInstancedMesh<any, any, number, UInstancedMeshCO>>;
     /**
      * @param {TGeometry} geometry 지오메트리
      * @param {TMaterial} material 머티리얼
@@ -138,10 +153,22 @@ declare class UInstancedMesh<TGeometry extends three.BufferGeometry, TMaterial e
      * @param {UInstancedMeshCO} [opt={}] 옵션
      */
     constructor(geometry: TGeometry, material: TMaterial, instanceLength: number, opt?: UInstancedMeshCO);
+    /**
+     * 현재 공유 렌더 메시의 식별값을 반환합니다.
+     * 개별 배치는 메시와 instanceId로 찾아야 하며 이 값은 재로딩 식별자가 아닙니다.
+     *
+     * @returns {string} 현재 렌더 메시의 uuid
+     */
+    getUid(): string;
     /** @type {boolean} */ isUInstancedMesh: boolean;
     /** @type {string|undefined} */ _ulayername: string | undefined;
     /** @type {string} */ _utype: string;
-    /** @type {boolean} 레이어가 실제 표시 중이어서 전역 visible 통계에 포함되는지 여부 */ _visibilityEnabled: boolean;
+    /**
+     * 레이어가 실제 표시 중이어서 전역 visible 통계에 포함되는지 나타냅니다.
+     *
+     * @type {boolean}
+     */
+    _visibilityEnabled: boolean;
     /** @type {Map<number, number>} */ _opacityMap: Map<number, number>;
     /** @type {Map<number, import('three').Color>} */ _colorMap: Map<number, three.Color>;
     /** @type {Map<number, import('three').Color>} */ _oriColorMap: Map<number, three.Color>;
@@ -489,11 +516,6 @@ declare class UInstancedMesh<TGeometry extends three.BufferGeometry, TMaterial e
      * @param {string} type 컴포넌트 타입
      */
     setUType(type: string): void;
-    /**
-     * 컴포넌트 고유 ID 반환
-     * @returns {string|number} ID
-     */
-    getUid(): string | number;
     /**
      * 특정 인스턴스의 가시성 설정 (배리어 동기화 포함)
      * @param {number} instanceIdx 인스턴스 인덱스

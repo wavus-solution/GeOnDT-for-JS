@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,13 +8,14 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
-import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineAliasCO } from "./U3dGeometry.js";
+import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineCO, UGeometryOutlineLine } from "./U3dGeometry.js";
 import type { UMeta } from "../meta/UMeta.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { EventCallBack, GeoPositionVector3, KeyValue, WorldPositionVector3 } from "../types/global.js";
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dUserGeometry {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -22,7 +23,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -52,24 +52,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: any): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -137,8 +153,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -192,6 +208,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
@@ -295,7 +312,7 @@ type U3dUserGeometryCO_Content = {
  *
  * U3dUserGeometry 생성자 옵션 <br>
  */
-type U3dUserGeometryCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dUserGeometryCO_Content, never>;
+type U3dUserGeometryCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dUserGeometryCO_Content, never>;
 
 /**
  * ~extends U3dGeometryStyleParam <br>
@@ -352,7 +369,7 @@ declare const U3dUserGeometry_base: Omit<typeof U3dGeometry, "prototype"> & {
  * @memberof U3dUserGeometry
  * @inner
  *
- * @typedef {Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dUserGeometryCO_Content} U3dUserGeometryCO
+ * @typedef {Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dUserGeometryCO_Content} U3dUserGeometryCO
  */
 /**
  * ~extends U3dGeometryStyleParam <br>
@@ -404,14 +421,6 @@ declare class U3dUserGeometry extends U3dUserGeometry_base {
      */
     height: number;
     /**
-     * 외곽선(테두리 선)을 표시하는지 여부입니다. <br>
-     * 켜면 면과 면이 만나는 모서리를 선으로 덧그리며, 선 색은 `lineColor`로 정하고 기본은 검정입니다. <br>
-     * 생성 옵션과 `setParam`에서는 `outline`(예전 이름 `useline`·`useLine`·`edge`) 이름을 사용하고, `getParam`은 `outline`으로 반환합니다. <br>
-     *
-     * @type {boolean}
-     */
-    useline: boolean;
-    /**
      * 정점 사이를 잘게 나눌지 여부입니다. <br>
      * 켜면 이웃한 두 정점 사이를 5조각으로 쪼개 정점 수를 늘립니다. <br>
      *
@@ -431,11 +440,11 @@ declare class U3dUserGeometry extends U3dUserGeometry_base {
      */
     _needMaterial: boolean;
     /**
-     * @type {import('three').LineSegments | undefined}
+     * @type {UGeometryOutlineLine | undefined}
      *
      * @ignore
      */
-    _outline: three.LineSegments | undefined;
+    _outline: UGeometryOutlineLine | undefined;
     color: any;
     opacity: any;
     /**
@@ -445,37 +454,23 @@ declare class U3dUserGeometry extends U3dUserGeometry_base {
      */
     _init(): void;
     /**
-     * 라인 너비 조회 함수 <br>
-     *
-     * @deprecated 제거될 메서드입니다.
-     *
-     * @returns {number} 라인 너비 <br>
-     *
-     * @ignore
-     */
-    getLineWidth(): number;
-    /**
-     * 라인 너비 설정 함수 <br>
-     *
-     * @deprecated 제거될 메서드입니다.
-     *
-     * @param {number} size 라인 너비 <br>
-     *
-     * @ignore
-     */
-    setLineWidth(size: number): void;
-    /**
      * 현재 정점(vertices)으로 도형 지오메트리를 다시 만듭니다. <br>
      * 정점을 바꾸면 자동으로 호출되며, 높이가 0 이하면 평면으로, 0보다 크면 세운 기둥으로 다시 만듭니다. <br>
      * 정점이 하나도 없으면 지오메트리를 빈 상태로 비우고, 하나뿐이면 지금 지오메트리를 그대로 둡니다.
      *
      * 지오메트리를 새로 만들면서 도형 위치를 형상의 중심으로 옮기고 z를 0.1만큼 올려, 바닥면이 지면과 겹쳐 깜빡이는 것을 줄입니다. <br>
      * 위경도 좌표가 있으면 바닥면을 첫 번째 좌표의 높이(`getPositions()[0].z`, 미터)에 놓습니다. <br>
-     * 외곽선도 이때 지웠다가 `useline`이 켜져 있으면 다시 만듭니다.
+     * 외곽선도 이때 지웠다가 `outline`이 켜져 있으면 다시 만듭니다.
      *
      * @override
      */
     override updateVertex(): void;
+    /**
+     * 본체의 형상·위치를 유지하고 외곽선만 갱신합니다.
+     * @protected
+     * @ignore
+     */
+    protected _updateOutline(): void;
     /**
      * 도형(과 외곽선)의 위치를 지정한 좌표로 이동시킵니다. <br>
      * `offset`에 정의된 축(x/y/z)만 적용되며, 외곽선 자식 객체도 함께 옮깁니다. <br>
@@ -494,7 +489,8 @@ declare class U3dUserGeometry extends U3dUserGeometry_base {
     override setMaterial(): void;
     /**
      * 도형의 속성(색상·투명도·높이·외곽선·곡선 보간)을 갱신합니다. <br>
-     * 전달한 값만 반영되고 나머지는 기존 값이 유지되며, 호출할 때마다 지오메트리와 외곽선이 다시 만들어집니다. <br>
+     * 전달한 값만 반영되고 나머지는 기존 값이 유지됩니다. 높이·곡선 설정이 바뀔 때 형상을 다시 만듭니다. <br>
+     * 스타일만 변경하면 형상과 외곽선을 유지하며, 인자 없는 호출이나 빈 옵션은 형상을 다시 만듭니다. <br>
      *
      * @override
      *

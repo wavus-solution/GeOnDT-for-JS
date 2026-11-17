@@ -105,12 +105,12 @@ U3dQuadTileProcess extends U3dProcess 클래스 정의
     _discard(work: U3dQuadTileTask) -> void
         의존:
             U3dProcess — 그리기 인자; 속성 읽기: {_drawArg}
-            U3dQuadTileTask — 작업 비활성화와 종결; 속성 쓰기: {active}; 함수: {reject()}
+            U3dQuadTileTask — 작업 비활성화와 종결; 속성 쓰기: {active}; 함수: {ready.catch(), ready.reject()}
             U3dApp — 작업 진행 수 반영; 함수: {addNowProcessLoading()}
             __GError__ — 엔진 표준 오류 보고; 함수: {__GError__()}
         동작:
             제외할 작업을 discarded 상태로 관리자에 먼저 통지한다.
-            작업을 비활성으로 만들고 work 자체를 거절값으로 전달한다. 완료 수신자가 예외를 던지면 오류를 기록한다.
+            작업을 비활성으로 만들고 work.ready에 취소 관찰자를 등록한 뒤 work 자체를 거절값으로 전달한다. 아직 완료 수신자가 없는 큐 취소도 미처리 거절로 남지 않으며 원래 ready의 거절 상태는 유지한다.
             종결 알림의 성공 여부와 관계없이 그리기 인자의 앱이 있으면 진행 수를 증가시킨다. 이 반영의 예외도 기록하고 반환한다.
 
     constructor(opt = {})
@@ -201,29 +201,31 @@ U3dQuadTileProcess extends U3dProcess 클래스 정의
             UProcessManager — 동기 실행 구간 측정; 함수: {_measureProcessExecution()}
             U3dProcess — 그리기 인자와 실행 수; 속성 읽기·쓰기: {_dispose, _drawArg, _remainProcess}
             defined — scope 존재 검사; 함수: {defined()}
-            U3dQuadTileTask — 활성 상태·완료·오류 기록; 속성 읽기·쓰기: {active, scope, fnc, force}; 함수: {then(), resolve(), reject(), setMsg(), isActive()}
+            U3dQuadTileTask — 활성 상태·완료·오류 기록; 속성 읽기·쓰기: {active, scope, fnc, force}; 함수: {ready.then(), ready.catch(), ready.resolve(), ready.reject(), ready.isReady(), setMsg(), isActive()}
             obj.scope — 실행과 요청 취소의 소유자; 콜백: {obj.fnc()}; 함수: {cancelTile()}
             U3dQuadTile — 그리기 상태; 속성 읽기: {_drawArg}
             UDEF — 실행 시작 양보; 함수: {createPromise()}
             U3dApp — 관리자와 진행 수; 함수: {getProcessManager(), addNowProcessLoading()}
             UProcessManager — 실행 로그; 함수: {logProcess(), deleteLog()}
-            Web API — 제한 시간 관리; 함수: {setTimeout(), clearTimeout()}
+            Web API — 완료 확인과 제한 시간 관리; 함수: {queueMicrotask(), performance.now(), setTimeout(), clearTimeout()}
             __GError__ — 엔진 표준 오류 보고; 함수: {__GError__()}
         동작:
             측정은 실제 작업 함수를 호출하기 직전에 started를 전달하고 첫 finish에서 슬롯을 감소시킨 직후 외부 완료·취소 콜백보다 먼저 종결 상태를 전달한다.
             정상 완료·실패·명시 취소·30초 제한은 각각 succeeded·failed·cancelled·timeout으로 구분한다. 실행 호출과 완료 연결의 finally에 도달하기 전 종결은 즉시 완료로 표시하며 finally에서 그 표식을 해제한다.
             동기 종료 경로와 이후 완료 콜백 경로 모두 같은 측정 전달 함수를 사용한다.
             처리기 폐기·fnc 비함수·scope 없음이면 대기 제외 경로로 종결하고 반환한다. 그 외에는 점유 수를 증가시킨다.
-            첫 종결만 수락하는 finish와 취소 콜백을 만들고 취소 콜백을 실행 집합에 보관한다. 슬롯 확보 후 TASK_TIMEOUT_MS가 지나면 실패 및 요청 취소로 종결하도록 타이머를 등록한다.
-            finish는 먼저 종결 표식을 설정하고 타이머와 실행 집합 항목을 제거한 뒤 점유 수를 감소시킨다. 오류가 있으면 메시지를 기록하며 오류 기록 자체의 예외는 로그로 남긴다.
+            슬롯 확보 시각에서 TASK_TIMEOUT_MS를 더한 제한 기한을 저장하고, 첫 종결만 수락하는 finish와 취소 콜백을 만들어 취소 콜백을 실행 집합에 보관한다.
+            finish는 먼저 종결 표식을 설정하고 실제 예약한 타이머만 해제하며 ID 0도 포함한다. 타이머 참조와 실행 집합 항목을 제거한 뒤 점유 수를 감소시킨다. 오류가 있으면 메시지를 기록하며 오류 기록 자체의 예외는 로그로 남긴다.
             요청 취소가 필요한 종결에서는 작업을 비활성으로 만들고 scope.cancelTile이 함수이면 현재 tile로 호출한다. 취소 콜백이 원본 결과를 종결해도 재진입한 finish는 무시한다. 취소 반환값이 thenable이면 비동기 거절도 오류로 기록하며 그 완료를 기다리지는 않는다. 동기 취소 예외도 기록한다.
-            성공이면 obj 자체를 resolve 값으로, 실패이면 reject 값으로 전달한다. 수신자 예외와 관계없이 로그 제거와 진행 수 증가를 각각 시도하고 각 예외를 기록한 뒤 다음 시작을 예약한다. 이 완료 처리는 동기 오류와 후속 콜백 양쪽에서 도달한다.
+            성공이면 obj 자체를 obj.ready.resolve 값으로, 실패이면 obj.ready.reject 값으로 전달한다. 로그 제거와 진행 수 증가를 각각 시도하고 각 예외를 기록한 뒤 다음 시작을 예약한다. ready의 수신자는 다음 마이크로태스크에서 실행된다. 이 완료 처리는 동기 오류와 후속 콜백 양쪽에서 도달한다.
             외부에서 obj 자체를 먼저 종결하는 경로도 finish에 연결하며 이미 종결되었으면 반환한다. 실행 로그를 추가한다. 개별 경로에서는 createPromise로 작업 시작을 양보하고 공통 허가 경로에서는 현재 태스크 안에서 시작한다.
             startImmediately가 true이면 현재 공통 태스크에서 콜백 실행 구간을 호출한다. false이면 기존 createPromise의 양보 뒤 호출한다. Manager의 _measureProcessExecution이 있으면 실행 구간을 측정하며 반환된 Promise의 완료까지 기다리지 않는다.
             시작 콜백에서는 이미 종결된 작업을 무시한다. 처리기 폐기·비활성·fnc 제거·타일 폐기이면 취소로 종결하고 반환하며 scope 검사 실패이면 성공으로 종결한다. 공통 허가에서는 직접 호출되고 개별 예약에서는 양보 이후 실행된다.
-            scope를 this로 하여 fnc에 tile과 force·work 옵션을 전달한다. 반환값의 then이 함수이면 성공과 실패를 함께 연결하고 기존 thenable을 위해 catch 또는 fail도 연결한다. then이 없으면 동기 성공으로 종결한다.
+            obj.ready의 성공·실패 관찰로 외부 선종결도 집계한다. 완료 요청이 이미 접수되었으면 본문 실행을 생략한다. 실제 시작 양보 이후와 제한 타이머 등록 직전에도 ready.isReady를 검사하여 늦은 취소 뒤 본문·타이머가 다시 시작되지 않게 한다.
+            scope를 this로 하여 fnc에 tile과 force·work 옵션을 전달한다. 반환값의 then이 함수이면 성공과 실패를 두 콜백으로 한 번씩 연결한다. then이 없으면 동기 성공으로 종결한다.
             결과 성공 시 이미 종결된 작업은 무시하고 타일 폐기 여부로 성공 또는 실패를 결정한다. 결과 실패는 실패로 종결한다. 동기 본문·then 접근·등록·시작 예약 예외는 실패와 요청 취소로 종결한다.
             개별 예약의 시작 콜백은 finally에서 내부 시작 promise를 resolve하며 공통 경로에는 이 추가 promise가 없다. 실제 작업 종결은 두 경로 모두 finish가 별도로 관리한다. 늦은 결과는 슬롯·진행 수·완료 알림을 다시 반영하지 않는다.
+            실행 연결의 finally에서 미종결이면 마이크로태스크를 예약한다. 이미 완료된 Promise나 외부 선종결을 먼저 처리하고, 여전히 미종결이면 원래 제한 기한까지 남은 밀리초를 0 이상으로 보정해 타이머를 등록한다. 예약 전에 취소·폐기됐으면 타이머를 만들지 않는다. 제한 초과와 타이머 등록 예외는 실패 및 요청 취소로 한 번만 종결한다.
 
     override update()
         의존:

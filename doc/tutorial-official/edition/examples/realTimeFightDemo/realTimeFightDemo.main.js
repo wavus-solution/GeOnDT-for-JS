@@ -179,8 +179,7 @@ export async function initialize(context) {
      */
     function hasLoadedModel() {
         try {
-            const loadedModels = componentLayer.getModelInfo(MODEL_INFO.name, MODEL_INFO.baseurl);
-            return Array.isArray(loadedModels) && loadedModels.length > 0;
+            return !!componentLayer.getLoadedModel(MODEL_INFO.name);
         } catch {
             // 모델 정보 조회가 실패하면 적재되지 않은 것으로 보고 다시 요청한다.
             return false;
@@ -199,7 +198,7 @@ export async function initialize(context) {
         });
         try {
             const result = await Promise.race([
-                Promise.resolve(componentLayer.loadModel(MODEL_INFO)).then(() => 'loaded'),
+                componentLayer.loadModel(MODEL_INFO).then(() => 'loaded'),
                 timeout,
                 disposedSignal.then(() => 'disposed')
             ]);

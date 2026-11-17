@@ -1,0 +1,48 @@
+:root {
+    --height-limit-field: #1e4358;
+    --height-limit-field-hover: #254e64;
+    --height-limit-ink: var(--theme-text);
+    --height-limit-muted: #d3e5ed;
+    --height-limit-rule: #89acbc;
+    --height-limit-accent: var(--theme-accent);
+    --height-limit-accent-ink: #173e52;
+    --height-limit-error: #ffd4cc;
+}
+#height-limit-panel {width: min(450px, calc(100% - 100px)); color: var(--height-limit-ink); color-scheme: dark;}
+#height-limit-panel h2 {margin: 0; font-size: 20px; line-height: 1.3;}
+#height-limit-panel h3 {margin: 0; font-size: 16px; line-height: 1.5;}
+#height-limit-panel .panel-content {padding: 16px; font-size: 14px; font-weight: 400; line-height: 1.5;}
+#height-limit-panel .panel-description {margin: 0 0 20px; font-size: 14px; line-height: 1.6;}
+#height-limit-panel .height-limit-actions,
+#height-limit-panel .height-limit-input-row,
+#height-limit-panel .height-limit-section-header {display: flex; align-items: center; gap: 8px;}
+#height-limit-panel .height-limit-actions {flex-wrap: wrap; margin-top: 12px;}
+#height-limit-panel .height-limit-field {display: block; margin: 16px 0 8px; font-size: 14px; font-weight: 500;}
+#height-limit-panel input {width: 100%; min-width: 0; height: 40px; padding: 8px 12px; border: 1px solid var(--height-limit-rule); border-radius: 6px; background: var(--height-limit-field); color: var(--height-limit-ink); font: inherit;}
+#height-limit-panel .height-limit-button {min-height: 40px; padding: 8px 12px; border: 1px solid var(--height-limit-rule); border-radius: 6px; background: var(--height-limit-field); color: var(--height-limit-ink); font: inherit; font-size: 13px; white-space: nowrap; cursor: pointer;}
+#height-limit-panel .height-limit-primary {background: var(--height-limit-accent); border-color: var(--height-limit-accent); color: var(--height-limit-accent-ink);}
+#height-limit-panel .height-limit-quiet {background: transparent; border-color: transparent; text-decoration: underline; text-underline-offset: 3px;}
+#height-limit-panel .height-limit-result-controls {display: inline-flex; gap: 4px;}
+#height-limit-panel .height-limit-result-action {min-height: 32px; padding: 4px 8px; font-size: 12px;}
+#height-limit-panel .height-limit-delete {border-color: var(--height-limit-error); color: var(--height-limit-error);}
+#height-limit-panel .height-limit-button:hover:not(:disabled),
+#height-limit-panel .height-limit-button:active:not(:disabled) {background: var(--height-limit-field-hover); color: var(--height-limit-ink);}
+#height-limit-panel .height-limit-button:disabled {color: var(--height-limit-muted); opacity: .6; cursor: not-allowed;}
+#height-limit-panel :is(input, button):focus-visible {outline: 2px solid var(--height-limit-accent); outline-offset: 2px;}
+#height-limit-panel input[aria-invalid="true"] {border-color: var(--height-limit-error);}
+#height-limit-panel .height-limit-note {margin: 8px 0 0; color: var(--height-limit-muted); font-size: 12px; line-height: 1.6;}
+#height-limit-panel [data-height-limit-status] {min-height: 3em; margin: 16px 0 0; color: var(--height-limit-ink);}
+#height-limit-panel .height-limit-result-section {margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--theme-line);}
+#height-limit-panel .height-limit-section-header {justify-content: space-between; margin-bottom: 8px;}
+#height-limit-panel .height-limit-table-wrap {overflow-x: auto; margin-top: 12px;}
+#height-limit-panel table {width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums;}
+#height-limit-panel th,
+#height-limit-panel td {padding: 8px 4px; border-bottom: 1px solid var(--theme-line); text-align: right; white-space: nowrap; font-weight: 400;}
+#height-limit-panel th {color: var(--height-limit-muted); white-space: normal; word-break: keep-all;}
+#height-limit-panel th:first-child,
+#height-limit-panel td:first-child {text-align: left;}
+#height-limit-panel caption {position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%);}
+@media (max-width: 480px) {
+    #height-limit-panel {width: calc(100% - 92px);}
+    #height-limit-panel .panel-content {padding-bottom: 64px;}
+}

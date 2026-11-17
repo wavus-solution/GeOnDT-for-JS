@@ -13,8 +13,17 @@ terrain tile 하나에 속한 feature 목록을 Worker에서 tile-local 좌표�
 - Worker별 feature base cache 등록·복원과 versioned Terrain Payload(full·delta)의 tile 상태 재사용, 복구 가능한 cache miss 결과 반환.
 - feature를 tile-local 좌표로 정규화하고 clip·단순화한 뒤 종류별로 packing한다. path는 segment 선형 레이아웃, area는 header와 점 목록의 선형 레이아웃, circle은 행 선형 레이아웃이다.
 - 전송할 typed array의 buffer를 transferable 목록으로 모아 결과에 붙인다.
+- 작업자 클래스는 `UTerrainDecalWasmBridge`를 비공개 정적 필드 `#wasm`으로 소유하고, 경로 설정·계산·종료를 이 참조로 처리한다.
+- 두 Bridge의 공통 경로·초기화·종료 무효화는 `union3d/worker/task/model/UWasmBridge.js`의 부모 클래스를 상속해 사용한다. 각 Bridge의 비공개 `#wasm`·Rust 컨텍스트와 데칼의 타일 캐시는 해당 Bridge가 소유하고 정리한다. 공통 동작 계약은 `union3d/worker/task/model/UWasmBridge.spec.md`를 따른다.
+- JS 연결 파일과 타입은 이 Task와 같은 `worker/task/model/vector/`에 둔다. Rust 원본은 `union3d/wasm/rust/terrain-decal/`에 두고 생성 바이너리는 `union3d/wasm/source/terrain-decal/terrain_decal.wasm`에서 관리한다. `npm run 빌드:WASM`은 `gulpfile.js/wasmBuilders.js`에 등록한 모듈을 `gulpfile.js/buildWasm.js`로 일괄 빌드한다. 배포 시 `gulpfile.js/copyResource.js`가 `union3d/wasm/source/`의 내용을 제품의 `wasm/`으로 복사하며 데칼 파일은 `wasm/terrain-decal/terrain_decal.wasm`에 배치한다. 로더는 전달받은 절대 파일 주소에서 지연 로드한다.
+- 원본 점에서 가능한 선분이 64개를 넘을 때 경로 계산용 WASM을 작업자별로 지연 로드한다. 준비 전·로딩 실패·지원 범위 밖 입력은 기존 JS를 사용하고, WASM 출력도 동일한 배열·정밀도·패딩 계약을 유지한다. 종료 시 컨텍스트를 해제하며 늦은 로딩 결과는 적용하지 않는다.
+- 버전 3 Payload의 선·면 좌표는 피처별 소유 `Float32Array`로 유지하고 WASM 입력에 배열 단위로 복사한다. 점 객체와 사전 경계 계산은 생략하며 JS 대체 계산에서만 점 객체를 복원한다. 속성 증분은 같은 좌표 배열을 재사용하고, tile·정규화 cache의 추정 크기에 좌표 배열 바이트를 포함한다. 원은 중심·끝점 두 개만 기존 점 객체로 복원하며 기존 객체 Payload도 계속 지원한다.
+- 면 좌표가 128개 값(64점) 이상이면 Rust의 클리핑·버킷·전체 덮음 판정과 텍스처 배치를 사용한다. 원은 32개 이상이고 최대 32개 균등 표본의 평균 버킷 소속이 4개 이상일 때 Rust 배치를 사용한다. 작은 면·점 마커는 JS가 빠르므로 이 조건을 만족할 때만 지연 로딩한다. 면·원 출력은 기존 형식과 같고 JS 메모리에 독립 복사한다. 이전 모듈의 내보내기 부재·실패 시 JS 계산으로 복귀한다. 면·원은 선의 타일별 Rust 증분 캐시를 사용하지 않는다.
+- 버전 3 Payload는 같은 Worker·tileKey의 Rust 상태에 연결한다. 좌표 배열 참조·점 수·폭·단순화·클리핑 조건이 같은 경로의 계산 결과를 재사용한다. 전체 경계·격자·버킷 사용 경계가 같으면 경로별 희소 버킷 소속도 재사용한다. 순서 변경은 전역 출력 인덱스를 다시 배치하며, 전체 경계·격자 변경은 모든 버킷을 무효화한다. 색·투명도·가시성·합성 batch만 바뀌면 기존 Rust 출력 채널을 부분 갱신한다.
+- 메인이 `UDEF.TERRAIN_DECAL_WASM_PATH`를 문서 기준 절대 파일 주소인 `wasmPath`로 전달하고, `prepareTileBuffers`가 로더의 `setPath`에 반영한다. 작은 입력은 로딩하지 않으며 번들 위치로 WASM 경로를 추정하지 않는다.
+- Rust 타일 상태는 어댑터마다 512개·추정 32MiB LRU로 제한한다. 이는 실제 WASM 힙의 상한이 아니다. 작은 입력·빈 목록·축출·종료에서 해당 컨텍스트와 JS 좌표 참조를 해제한다. 출력은 항상 별도 JS 배열이므로 전송·다음 요청으로 이전 결과가 바뀌지 않는다. 내부 증분 내보내기가 없는 이전 바이너리는 전체 계산을 유지한다.
 
-책임 경계: payload의 생성, tile revision 관리, DataTexture 생성과 GPU 업로드, 합성 순서 결정은 main thread의 관리자와 유틸리티가 담당한다. 이 단위는 입력 배열의 형식만 검증하고 feature의 의미(가시성·순서 값)는 그대로 전달한다.
+책임 경계: payload의 생성, tile revision 관리, DataTexture 생성과 GPU 업로드, 합성 순서 결정은 main thread의 관리자와 유틸리티가 담당한다. 이 단위는 입력 배열을 검증하고 가시성·강조·스타일을 정규화해 packed 채널에 기록한다. 화면의 표시 정책과 합성 순서는 main thread가 결정한다.
 
 ### 1.3 주요 동작 방식
 
@@ -44,7 +53,7 @@ hole area는 fillOpacity를 -1로 표시하여 shader가 채우기 대신 지우
 ### 2.2 성능 및 품질 요구사항
 
 ```spec
-실행 맥락: Worker 안에서 tile 요청마다 동기로 실행되며 결과에 처리 시간과 feature 수를 성능 정보로 붙인다.
+실행 맥락: Worker 안에서 tile 요청마다 동기로 실행하며 packed 세 유형의 count 합을 featureCount로 반환한다. 처리 시간과 _performance는 결과에 붙이지 않는다.
 우선순위: 정규화한 entry는 feature cache key·revision·tile origin으로 재사용하여 같은 feature의 반복 요청에서 좌표 변환과 clip을 다시 하지 않는다.
 제한 조건: entry cache는 항목 1024개와 추정 32MB, feature base cache는 4096개와 추정 64MB, tile 상태 cache는 4096개와 추정 32MB 안으로 유지하며 초과 시 가장 오래된 항목부터 버린다.
 제한 조건: path segment가 64개 이하이면 bucket을 만들지 않고 shader가 segment 목록을 직접 순회하게 한다. 65개부터는 bucket별 후보를 검사해 넓은 합성 범위의 전체 선분 반복을 줄인다.
@@ -122,14 +131,24 @@ TERRAIN_PAYLOAD_TILE_STATE_CACHE: WorkerLRUCache = 항목 4096개·추정 32MB �
 
 TerrainFeature 부분 타입 명세
     이 명세에서 사용하는 필드:
-        featureId: string
-            feature 식별자이며 비어 있으면 entry를 만들지 않는다.
+        featureId?: string | number
+            feature 식별자이며 falsy이면 entry를 만들지 않는다. 숫자 0도 이 경계에 포함된다.
+        scopedFeatureKey?: string
+            feature base를 cache에 등록할 때 필요한 source 범위 식별자다.
+        featureIndex?: number
+            versioned Payload 적용 결과를 원래 입력 순서로 정렬하는 순번이다.
+        byteLength?: number
+            feature base cache 등록 시 사용하는 추정 바이트 크기다.
         featureCacheKey?: string
             geometry·style 조합을 식별하는 cache key. 없으면 featureId를 대신 쓴다.
-        type: 'path' | 'area' | 'circle'
-            도형 종류
-        vectors: Array<{x: number, y: number} | Array<number>>
+        type?: string
+            circle과 area를 명시적으로 구분하고 그 밖의 값은 normalizeFeature에서 path로 다룬다.
+        vectors?: Array<{x: number, y: number} | Array<number>>
             world 좌표 점 목록. 배열 형식의 점은 첫 두 성분을 x, y로 읽는다.
+        _pathCoordinates?: Float32Array
+            버전형 선 좌표의 내부 소유 배열이며 이미 tile-local이다.
+        _areaCoordinates?: Float32Array
+            버전형 면 좌표의 내부 소유 배열이며 이미 tile-local이다.
         style?: object
             strokeColor·strokeOpacity·strokeWidth·fillColor·fillOpacity·visible과 이전 이름 color·opacity를 가질 수 있는 style 입력
         highlight?: boolean
@@ -167,22 +186,28 @@ TerrainBucketState 부분 타입 명세
             데이터 texel 배열(RGBA)
         pointTexelCount?: number
             area 데이터 texture에서 header 뒤에 놓인 점 texel 수
-        segmentMetaWidth, segmentMetaHeight: number
-            path segment 메타 texture 크기
+        segmentMetaWidth?: number
+            path 또는 빈 상태의 segment 메타 texture 너비
+        segmentMetaHeight?: number
+            path 또는 빈 상태의 segment 메타 texture 높이
         segmentMetaArray?: Float32Array
             path segment 메타 texel 배열
         styleWidth, styleHeight: number
             style texture 크기
         styleArray: Float32Array
             style texel 배열
-        boundsWidth, boundsHeight: number
-            area 행 범위 texture 크기
+        boundsWidth?: number
+            area 또는 bounds를 요청한 빈 상태의 범위 texture 너비
+        boundsHeight?: number
+            area 또는 bounds를 요청한 빈 상태의 범위 texture 높이
         boundsArray?: Float32Array
             area 행 범위 배열(행당 4개)
         useBuckets?: number
             path가 bucket index texture를 사용하면 1, 아니면 0
-        bucketIndexWidth, bucketIndexHeight: number
-            path bucket index texture 크기
+        bucketIndexWidth?: number
+            path 또는 빈 상태의 bucket index texture 너비
+        bucketIndexHeight?: number
+            path 또는 빈 상태의 bucket index texture 높이
         bucketIndexArray?: Float32Array
             bucket 메타 texel과 segment 순번 4개씩 묶은 texel을 이어 담은 배열
         fullBounds: Array<number>
@@ -258,6 +283,8 @@ WorkerLRUCache 클래스 정의
 
 UTerrainDecalPrepareTask 클래스 정의
 
+    static #wasm: UTerrainDecalWasmBridge | null
+        Bridge가 정의된 환경에서 하나를 생성하며, 작업자 수명 동안 공유한다.
     static BasicBucketGrid: Array<number> = [16, 16]
         요청이 bucketGrid 를 주지 않을 때 쓰는 가로·세로 bucket 수. shader 의 bucket 메타 uniform 길이 256 과 맞아야 한다.
     static FeatureEntryCache: WorkerLRUCache = 항목 1024개·추정 32MB 한도의 cache
@@ -265,7 +292,7 @@ UTerrainDecalPrepareTask 클래스 정의
     static FeatureBaseCache: WorkerLRUCache = 항목 4096개·추정 64MB 한도의 cache
         main thread 가 등록한 불변 feature base 를 featureCacheKey 로 보관하는 cache
     static USE_PATH_BUCKET_THRESHOLD: number = 64
-        path segment 수가 이 값을 넘을 때만 bucket index texture 를 만든다.
+        초기값은 64이며 packPolylineSegments가 가능한 선분 수와 비교해 분기를 판정하는 가변 상한이다. 이 값 이하이면 타일의 Rust 상태를 해제하며, 실제 선분 수가 이 값을 넘을 때만 bucket index texture를 만든다.
 
     static prepareTileBuffers(data: object = {}) -> object
         역할: tile 요청 하나를 feature 해석부터 packed buffer 결과까지 처리하는 대표 진입점이다.
@@ -274,7 +301,7 @@ UTerrainDecalPrepareTask 클래스 정의
             data.tileKey, data.revision, data.featureSignature: 결과에 그대로 되돌리는 요청 식별 값
             data.formatVersion: 3 이면 versioned Payload 경로, 그 밖이면 feature base 목록·참조 경로로 해석한다.
             data.bucketGrid: 배열이면 그대로 쓰고 아니면 BasicBucketGrid 를 쓴다.
-            반환: `{tileKey, revision, featureSignature, featureCount, threshold, opacity, path, area, circle, _transferables, _performance}` 또는 복구 가능한 실패 `{tileKey, revision, featureSignature, recoverableErrorCode, missingFeatureCacheKey?}`
+            반환: `{tileKey, revision, featureSignature, featureCount, threshold, opacity, path, area, circle, _transferables}` 또는 복구 가능한 실패 `{tileKey, revision, featureSignature, recoverableErrorCode, missingFeatureCacheKey?}`
 
         처리 기준:
             versioned 경로에서 feature base cache miss 와 payload 상태 miss 는 모두 복구 가능한 결과로 돌리고, 좌표는 main thread 가 이미 tile-local 로 바꿨으므로 원점을 0 으로 둔다. threshold·opacity 는 유한 숫자일 때만 요청 값을 쓰고 아니면 1 이다.
@@ -282,17 +309,15 @@ UTerrainDecalPrepareTask 클래스 정의
             cache miss 코드가 아닌 예외는 두 경로 모두 그대로 전달한다.
             정규화할 수 없는 feature 는 건너뛰고, type 이 path·area·circle 이 아닌 entry 는 어느 목록에도 넣지 않는다.
 
-        의존:
-            performance — 처리 시간 측정; 함수: {now()}
-
         동작:
-            시작 시각을 기록하고 요청 식별 값을 읽는다.
+            요청의 tileKey와 featureSignature를 읽고 revision은 Number(data.revision ?? 0)으로 확정한다.
             versioned 경로이면 feature base 를 등록·해석하고 cache miss 이면 복구 결과를 반환한 뒤, payload 상태를 갱신하여 현재 feature 목록을 얻고 상태 miss 이면 복구 결과를 반환한다.
             이전 형식 경로이면 feature base 를 해석하고 허용된 cache miss 만 복구 결과로 바꾼 뒤 threshold 와 opacity 를 feature 목록에서 정한다.
             feature 마다 entry 를 정규화하여 path·area·circle 목록으로 나눈다.
-            세 목록을 각각 packing 한다.
+            버전 3 경로에만 tileKey를 전달해 Rust 상태와 연결한다. 이전 객체 Payload는 기존 전체 계산을 사용한다. 생산 호출부에서 composition run 키가 달라지면 별도 상태로 계산한다.
+            세 목록을 각각 packing 하되, 면·원 목록이 비었으면 count 0과 기존 빈 texture·범위를 유지하고 선택 속성 bucketMeta를 생성하지 않는다. 개별 packing·빈 상태 함수의 기본 반환은 유지한다.
             세 결과의 typed array buffer 를 transferable 목록에 모은다.
-            featureCount 를 세 count 의 합으로 두고 처리 시간을 _performance 에 붙여 결과를 반환한다.
+            featureCount 를 세 count 의 합으로 두고 결과를 반환한다.
 
     static resolveTerrainPayloadState(data: object) -> object
         역할: versioned delta를 tile 상태에 원자적으로 적용하고 현재 feature 목록을 돌려준다.
@@ -339,8 +364,21 @@ UTerrainDecalPrepareTask 클래스 정의
 
         동작:
             배열 형식을 검증한다.
-            feature 마다 key·featureIndex·좌표 범위를 읽어 z 가 0 인 점 목록을 만들고 type 문자열과 property 를 복원한다.
+            feature 마다 key·featureIndex·좌표 범위를 읽고 type 문자열과 property 를 복원한다. 선·면은 피처별 좌표 배열로, 원은 z 가 0 인 점 목록으로 만든다.
             radius, clipBounds, pathSimplifyTolerance, isHole 을 붙인 feature 를 key 로 features 에 저장한다.
+
+    static decodeTerrainPayloadGeometry(coordinates: Float32Array, offset: number, count: number, type: string) -> object
+        역할: 검증한 좌표를 Worker가 소유할 피처별 표현으로 바꾼다.
+
+        동작:
+            선·면이면 지정 점 범위를 slice로 복사하여 각각 `_pathCoordinates`·`_areaCoordinates`에 저장한다. 전체 전송 버퍼를 붙잡는 subarray는 보관하지 않는다.
+            나머지 유형은 지정 점 범위를 기존 점 목록으로 복원한 vectors를 반환한다.
+
+    static unpackPathCoordinates(coordinates: Float32Array) -> Array<TerrainPoint>
+        역할: 면·원과 JS 대체 계산에서만 좌표 배열을 점 객체로 복원한다.
+
+        동작:
+            연속 X·Y 성분을 `{x, y, z: 0}` 점 목록으로 만든다.
 
     static updateTerrainPayloadFeatures(features: Map<string, object>, featureKeys: Array<string>, updated: object, geometryRevision: number) -> boolean
         역할: property만 바뀐 feature를 기존 geometry에 적용한다.
@@ -378,10 +416,10 @@ UTerrainDecalPrepareTask 클래스 정의
         역할: tile 상태 cache 한도에 쓸 추정 byte 크기를 계산한다.
 
         동작:
-            feature 마다 512 와 점 수 × 24 를 더한 합을 반환한다.
+            feature 마다 512 와 객체 점 수 × 24, 내부 선·면 좌표 배열 각각의 byteLength를 더한 합을 반환한다.
 
     static registerFeatureBases(data: object = {}) -> boolean
-        역할: main thread가 보낸 변경 feature base만 Worker cache에 등록한다.
+        역할: main thread가 요청과 함께 보낸 feature base를 Worker cache에 등록한다.
 
         인터페이스:
             data.featureBases: 등록할 feature base 배열
@@ -428,23 +466,25 @@ UTerrainDecalPrepareTask 클래스 정의
             cache 에 같은 key 의 entry 가 있으면 합성 순서 값만 최신으로 바꿔 그 entry 를 반환한다. geometry 와 style 이 같아도 shader layer 순서와 batch 순번은 바뀔 수 있기 때문이다.
             visible 은 feature.visible 과 style.visible 이 모두 false 가 아닐 때 true 다.
             circle 은 점이 2 개 미만이거나 반지름이 0 이하이면 undefined 이고, bounds 는 중심 ± (반지름 + 외곽선 두께) 다.
-            area 는 clip 뒤 점이 3 개 미만이면 undefined 이고, hole 이면 fillOpacity 를 -1 로 바꾼다. bounds 는 점 범위를 외곽선 두께만큼 넓힌 것이다.
+            area는 배열 좌표의 점 수 또는 clip 뒤 점 수가 3개 미만이면 undefined이고, hole이면 fillOpacity를 -1로 바꾼다. 객체 입력의 bounds는 점 범위를 외곽선 두께만큼 넓힌 것이다.
             path 는 점이 2 개 미만이면 undefined 이고, pathSimplifyTolerance 는 0 이상으로 보정한다.
             shaderLayerRenderOrder 가 없으면 3.0e38, compositionBatchIndex·renderOrder·revision 이 없으면 0 이다.
 
         동작:
-            cache key 를 만들어 entry cache 를 조회하고 있으면 합성 순서를 갱신하여 반환한다.
-            점 목록과 clip 범위를 tile-local 로 바꾸고 style 을 정규화한다.
-            circle 이면 중심·반지름·bounds 를 가진 entry 를 만든다.
-            area 이면 clip 한 점 목록과 bounds·clipBounds 를 가진 entry 를 만든다.
-            그 밖이면 path entry 를 만든다.
-            만든 entry 를 추정 byte 크기와 함께 cache 에 저장하고 반환한다.
+            feature.featureId가 falsy이면 undefined를 반환한다.
+            feature.featureId가 truthy인 경우:
+                cache key 를 만들어 entry cache 를 조회하고 있으면 합성 순서를 갱신하여 반환한다.
+                cache에 없으면 path·area의 내부 좌표 배열은 이미 tile-local이므로 점 객체 변환을 생략하고, 배열이 없는 입력만 점 목록을 tile-local로 바꾼다. clip 범위와 style은 정규화한다.
+                circle 이면 중심·반지름·bounds 를 가진 entry 를 만든다.
+                area의 내부 배열이 있으면 _areaCoordinates를 그대로 연결하고 points는 빈 배열, 사전 bounds는 undefined로 둔다. 객체 입력만 clip한 점 목록과 bounds·clipBounds를 가진 entry로 만든다.
+                그 밖이면 path entry 를 만든다. 내부 선 좌표 배열은 그대로 연결하고 points는 빈 배열, 사전 bounds는 undefined로 둔다. 객체 입력은 기존 점 목록과 bounds를 유지한다.
+                만든 entry 를 추정 byte 크기와 함께 cache 에 저장하고 반환한다.
 
     static toLocalPoints(vectors: Array<object> = [], origin: object = {x: 0, y: 0}) -> Array<object>
         역할: world 점 목록을 tile-local 2차원 점 목록으로 바꾼다.
 
         처리 기준:
-            비어 있는 점은 건너뛰고, 객체 x·y 또는 배열 [0]·[1] 을 읽으며 숫자가 아니면 0 이다.
+            falsy인 점은 건너뛰며 point.x 다음 point[0], point.y 다음 point[1]을 우선하고 둘 다 nullish이면 0으로 대체한다. 선택한 값과 origin 성분을 Number로 변환해 빼며, 숫자로 변환할 수 없는 값은 NaN으로 남을 수 있다.
 
         동작:
             점마다 origin 을 뺀 x, y 를 가진 객체를 만들어 배열로 반환한다.
@@ -516,13 +556,13 @@ UTerrainDecalPrepareTask 클래스 정의
         역할: entry cache 한도에 쓸 추정 byte 크기를 계산한다.
 
         동작:
-            점 수(points 가 없으면 1) × 16 + 512 를 반환한다.
+            점 수(points 가 없으면 1) × 16 + 512 에 `_pathCoordinates.byteLength`, `_areaCoordinates.byteLength`, 0 순으로 먼저 정의된 크기를 더해 반환한다.
 
-    static packPolylineEntries(entries: Array<object>, bucketGrid: Array<number>) -> TerrainBucketState
+    static packPolylineEntries(entries: Array<object>, bucketGrid: Array<number>, tileKey?: string) -> TerrainBucketState
         역할: path entry 목록을 segment 기반 packed 상태로 만든다.
 
         처리 기준:
-            polyline 행 기반의 이전 packing 은 주석으로만 남아 있으며 실행되지 않는다.
+            현재 진입점은 이 함수를 호출하며 실제 packing은 packPolylineSegments에 위임한다.
 
         동작:
             segment 선형 packing 결과를 그대로 반환한다.
@@ -531,20 +571,24 @@ UTerrainDecalPrepareTask 클래스 정의
         역할: area entry를 shader가 읽는 선형 레이아웃 texture와 bucket 정보로 packing한다.
 
         처리 기준:
-            entry 가 없으면 bounds texture 를 포함한 빈 상태를 반환한다.
+            entry가 없으면 bounds texture를 포함한 빈 상태를 반환한다. WASM 계산의 count가 0이거나 JS에서 클리핑한 뒤 3점 이상인 면이 없으면 선택적 bucketMeta가 없는 빈 상태를 반환한다. bucket 정렬 결과 sorted.items.length가 0이면 header·점 목록도 없다.
             행은 bucket 정렬 순서이며 같은 entry 가 여러 bucket 에 걸치면 header 행이 반복된다.
             header 는 vec4(pointCount, shaderLayerRenderOrder, compositionBatchIndex, pointStart) 이고 pointStart 는 header 수 뒤에 entry 별로 처음 등장한 순서대로 배정한다.
             style 은 행당 3 texel: fill(rgb, fillOpacity), stroke(rgb, strokeOpacity), option(strokeWidth, visible, renderOrder, coverAll). coverAll 은 polygon 이 clip 사각형 전체를 덮으면 1 이며 shader 의 전체 덮음 fast-path 표시다.
             bounds 는 행당 4 성분이다.
-            style texture 는 `rowCount * 3` texel, bounds texture 는 `rowCount` texel 을 `createLinearTextureLayout()` 의 선형 2차원 배치로 두고 배열은 각 capacity 의 4배 길이로 0 패딩한다(2026-09-22). 즉시 경로 `createTerrainImmediateAreaState()` 와 같은 계약이며, 행 오프셋(`row * 12`, `row * 4`)은 바뀌지 않는다. 이전의 "폭 3 × 행 수" 배치는 폴리곤 수가 GPU `maxTextureSize` 를 넘는 타일에서 업로드가 실패했다.
+            style texture 는 `rowCount * 3` texel, bounds texture 는 `rowCount` texel 을 `createLinearTextureLayout()` 의 선형 2차원 배치로 두고 배열은 각 capacity 의 4배 길이로 0 패딩한다. 즉시 경로 `createTerrainImmediateAreaState()` 와 같은 계약이며, 행 오프셋(`row * 12`, `row * 4`)은 바뀌지 않는다. 이전의 "폭 3 × 행 수" 배치는 폴리곤 수가 GPU `maxTextureSize` 를 넘는 타일에서 업로드가 실패했다.
 
         동작:
             entry 가 없으면 bounds texture 를 포함한 빈 상태를 반환한다.
-            entry 를 bucket 순서로 정렬한다.
-            entry 별 pointStart 를 배정하며 점 texel 총수를 구하고 header 수와 합쳐 데이터 texture 크기를 정한다.
-            행마다 header 를 쓰고, 처음 만나는 entry 의 점 목록을 pointStart 위치부터 vec4(x, y, 0, 0) 으로 한 번 쓴다.
-            행마다 style 3 texel 과 bounds 를 쓴다.
-            count, 데이터 texture 크기, pointTexelCount, style·bounds 크기와 배열, fullBounds, bucketMeta, bucketGrid 를 담은 상태를 반환한다.
+            비어 있지 않은 입력은 Bridge의 packShapes로 계산을 시도하고 결과가 있으면 반환한다.
+            Rust 결과가 없고 entry._areaCoordinates가 있으면 해당 좌표를 점 목록으로 복원해 클리핑하고 bounds를 갱신한다.
+            JS 대체 계산의 입력에서 3점 미만의 면을 제외한다.
+            Rust 결과가 없고 필터를 통과한 entries.length가 truthy이면:
+                남은 entry를 bucket 순서로 정렬한다.
+                entry별 pointStart를 배정하며 점 texel 총수를 구하고 header 수와 합쳐 데이터 texture 크기를 정한다.
+                행마다 header를 쓰고 처음 만나는 entry의 점 목록을 pointStart 위치부터 vec4(x, y, 0, 0)으로 한 번 쓴다.
+                행마다 style 3 texel과 bounds를 쓴다.
+                count, 데이터 texture 크기, pointTexelCount, style·bounds 크기와 배열, fullBounds, bucketMeta, bucketGrid를 담은 상태를 반환한다.
 
     static createLinearTextureLayout(texelCount: number) -> object
         역할: 선형 texel 목록을 한 변이 짧은 2차원 texture 크기로 배치한다.
@@ -559,7 +603,7 @@ UTerrainDecalPrepareTask 클래스 정의
         동작:
             count 를 보정하고 width·height·capacity 를 계산하여 반환한다.
 
-    static packPolylineSegments(entries: Array<object>, bucketGrid: Array<number>) -> TerrainBucketState
+    static packPolylineSegments(entries: Array<object>, bucketGrid: Array<number>, tileKey?: string) -> TerrainBucketState
         역할: path를 선형 segment 목록으로 평탄화하여 데이터·메타·style·bucket texture로 packing한다.
 
         처리 기준:
@@ -570,6 +614,7 @@ UTerrainDecalPrepareTask 클래스 정의
             bucket 을 쓰면 bucket index 배열 앞부분에 bucket 메타 texel(bucket 수만큼 `[startTexel, texelCount, 0, 0]`)을 두고 그 뒤에 segment 순번 4 개씩 묶은 texel 을 이어 붙인다.
 
         동작:
+            가능한 선분이 64개를 넘으면 객체 점 또는 내부 좌표 배열을 WASM에 전달하고 성공한 결과를 반환한다. tileKey가 있는 배열 입력은 Rust의 경로·버킷 상태를 재사용한다. 빈 목록·작은 입력은 해당 Rust 상태를 해제한다. 준비 전·실패는 JS로 진행한다.
             entry 가 없으면 빈 상태를 반환하고, 평탄화 뒤 segment 가 없으면 같은 빈 상태를 반환한다.
             entry 를 segment 와 style 목록으로 평탄화한다.
             segment 수로 데이터·메타 texture 크기를, style 수 × 2 로 style texture 크기를 정한다.
@@ -613,7 +658,7 @@ UTerrainDecalPrepareTask 클래스 정의
             segment 가 하나도 없으면 items·styles 가 비고 fullBounds 는 `[0, 0, 1, 1]` 이다.
 
         동작:
-            entry 마다 점을 단순화하고 style 항목을 추가한다.
+            내부 선 좌표 배열이 있으면 JS 대체 계산에 필요한 점 목록으로 복원하고, entry마다 점을 단순화하여 style 항목을 추가한다.
             인접 점 쌍마다 clip 하여 유효한 segment 와 두께를 포함한 bounds 를 만들고 전체 범위를 넓힌다.
             전체 범위가 유한하지 않으면 빈 결과를, 아니면 segment·style·fullBounds 를 반환한다.
 
@@ -705,8 +750,8 @@ UTerrainDecalPrepareTask 클래스 정의
 
         동작:
             entry 가 없으면 bounds texture 없는 빈 상태를 반환한다.
-            entry 를 bucket 순서로 정렬한다.
-            행 수와 행 수 × 3 으로 데이터·style texture 크기를 정한다.
+            비어 있지 않은 입력은 Bridge의 packShapes로 계산을 시도하고 결과가 있으면 반환한다.
+            Rust 결과가 없으면 entry를 bucket 순서로 정렬하고 행 수와 행 수 × 3으로 데이터·style texture 크기를 정한다.
             행마다 데이터와 style 을 쓰고 count·크기·배열·fullBounds·bucketMeta·bucketGrid 를 담아 반환한다.
 
     static sortPathBySegmentBucketsLegacy(entries: Array<object>, bucketGrid: Array<number>) -> object
@@ -769,6 +814,9 @@ UTerrainDecalPrepareTask 클래스 정의
         동작:
             count 가 0 인 기본 상태를 만들고 옵션에 따라 bucketMeta 와 bounds texture 를 붙여 반환한다.
 
+    static dispose() -> void
+        동작: 작업자가 공유하는 Bridge가 있으면 dispose로 Rust 컨텍스트와 참조를 정리한다.
+
     static collectTransferables(state: TerrainBucketState, transferables: Array<ArrayBuffer>) -> void
         역할: 상태의 typed array buffer를 transferable 목록에 모은다.
 
@@ -801,6 +849,76 @@ UTerrainDecalPrepareTask 클래스 정의
 
         동작:
             opacity 가 유한한 첫 feature 의 값을 반환하고 없으면 1 을 반환한다.
+
+UTerrainDecalWasmBridge extends UWasmBridge 클래스 정의
+    역할: 경로·면·원 계산을 Rust ABI에 연결하고 결과를 독립 JS 배열로 반환한다.
+    의존: UWasmBridge — 경로·초기화 세대·실패 수명 관리; 상속: {UWasmBridge}
+
+    #wasm: TerrainDecalWasmExports | null = null
+        준비된 Rust 모듈의 숫자·메모리 내보내기다.
+    #context: number = 0
+        전체 계산용 Rust 컨텍스트이며 0은 종료 시 해제 목록에 넣지 않는다.
+    #tiles: Map<string, TerrainDecalWasmTileState> = new Map()
+        삽입 순서로 최근 사용 순서를 유지하는 타일별 Rust 컨텍스트다.
+    #tileBytes: number = 0
+        Rust 할당·좌표 참조·경로별 관리 비용의 추정 합계다.
+    #evictions: number = 0
+        한도 초과로 축출한 타일 수다.
+    #lastStatistics: Uint32Array = new Uint32Array(4)
+        마지막 증분 계산의 경로·버킷 재계산 및 재사용 수다.
+
+    override _initializeWasm(wasm: WebAssembly.Exports) -> void
+        동작: 내보내기의 create로 전체 계산용 #context를 만들고 #wasm에 내보내기를 저장한다.
+
+    pack(entries: Array<TerrainPreparedPathEntry & {_pathCoordinates?: Float32Array}>, bucketGrid: Array<number>, threshold: number, tileKey?: string) -> TerrainBucketState | null
+        처리 기준:
+            격자는 각 축 정수 1 이상이고 전체 65536개 이하여야 한다. 점이 없으면 null이다.
+            tileKey가 있고 증분 ABI가 준비됐으며 모든 입력이 좌표 배열과 중복 없는 featureId를 가지면 타일별 컨텍스트를 사용한다.
+            경로 좌표의 참조와 단순화·선 굵기·클리핑 조건이 같으면 Rust에 좌표를 다시 쓰지 않는다.
+        의존: UWasmBridge — 지연 초기화·트랩 뒤 비활성화; 함수: {_initializeIfNeeded(), _disableWasm()}
+        동작:
+            #wasm이 없으면 부모의 지연 초기화를 시작하고 null을 반환한다.
+            유효한 입력에서 tileKey가 있고 증분 조건이 아니면 해당 타일 상태를 해제한다. 증분 조건이면 타일을 확보하고 ID 상한 초과 시 해제 후 다시 확보한다.
+            전체 계산은 16성분, 증분 계산은 18성분 헤더와 필요한 좌표를 Float64 메모리에 쓴다. 속성은 매번 쓰고 증분에서 바뀐 경로만 좌표를 쓴다.
+            입력이 유한하지 않거나 Rust 계산이 실패하면 tileKey가 있을 때 타일 상태를 해제하고 null을 반환한다.
+            계산 후 메모리 뷰를 새로 얻어 데이터·선분 메타·스타일·버킷 배열과 bounds를 독립 JS 배열로 복사한다. 텍셀 배치는 공통 계산을 사용한다.
+            증분 타일이면 좌표 참조·경로 ID·추정 바이트를 갱신하고 512타일 또는 32MB를 넘는 동안 가장 오래된 타일을 해제해 축출 수를 늘린다.
+            선분 수가 0이면 null이며 그 밖에는 count와 texture 배열·크기·버킷 사용 여부·bounds를 반환한다.
+            try 안에서 트랩·복사 예외가 나면 부모의 _disableWasm으로 모듈을 종료하고 null을 반환한다.
+
+    packShapes(entries: Array<TerrainPreparedEntry & {_areaCoordinates?: Float32Array}>, bucketGrid: Array<number>, kind: 'area' | 'circle') -> TerrainBucketState | null
+        처리 기준:
+            격자는 각 축 정수 1 이상이고 전체 65536개 이하여야 하며 입력은 비어 있지 않아야 한다.
+            면은 좌표 성분 합계 128개 이상, 원은 32개 이상이어야 한다. 도형 종류가 섞이면 null이다.
+            원은 최대 32개 균등 표본의 평균 버킷 소속이 4개 이상일 때만 Rust를 사용한다. 표본 bounds가 없으면 null이다.
+        의존: UWasmBridge — 지연 초기화·트랩 뒤 비활성화; 함수: {_initializeIfNeeded(), _disableWasm()}
+        동작:
+            입력 범위와 도형별 적용 조건을 검사하고 지원 범위 밖이면 null을 반환한다.
+            #wasm이 없으면 부모의 지연 초기화를 시작하고 null을 반환한다. 면·원 ABI가 없으면 null이다.
+            24성분 헤더에 좌표 범위·형상·스타일·클리핑·배열 입력 여부를 쓰고 면 좌표를 이어 쓴다. Rust prepare_shapes가 1이 아니면 null이다.
+            성공하면 데이터·스타일·bounds 텍셀 배치를 구하고 결과 메모리를 독립 배열로 복사한다. bucketMeta·fullBounds·bucketGrid를 포함하며 면 결과에만 점 텍셀 수와 bounds 배열을 추가한다.
+            try 안에서 예외가 나면 부모의 _disableWasm으로 모듈을 종료하고 null을 반환한다.
+
+    #takeTile(key: string, wasm: TerrainDecalWasmExports) -> TerrainDecalWasmTileState
+        동작: 기존 타일이 없으면 create 컨텍스트·빈 경로 Map·nextId 1·byteLength 0으로 만들고, Map에서 제거 후 다시 넣어 최근 사용 순서를 갱신하여 반환한다.
+
+    releaseTile(key?: string) -> void
+        동작:
+            key가 undefined이거나 등록된 타일이 없으면 반환한다.
+            해당 추정 바이트를 합계에서 빼고 Map에서 제거한 뒤 준비된 모듈의 destroy로 컨텍스트를 해제한다.
+
+    getStatistics() -> {rebuiltPaths: number, reusedPaths: number, rebuiltBuckets: number, reusedBuckets: number, cachedTiles: number, cachedBytes: number, evictions: number}
+        동작: 마지막 네 계산 수와 현재 타일 Map 크기·추정 바이트·축출 수를 새 객체로 반환한다.
+
+    #layout(count: number) -> {width: number, height: number, capacity: number}
+        동작: width를 ceil(sqrt(count)), height를 ceil(count / width)로 각각 최소 1로 보정하고 capacity는 두 값의 곱으로 반환한다.
+
+    override dispose() -> void
+        의존: UWasmBridge — 진행 중인 초기화 세대 무효화; 함수: {dispose()}
+        동작:
+            부모 dispose를 호출하고 모든 타일 컨텍스트와 truthy인 #context를 해제 대상으로 모은다.
+            타일 Map·바이트 합계·#wasm·#context·통계·축출 수를 먼저 비워 해제 트랩 뒤에도 JS 참조가 남지 않게 한다.
+            각 컨텍스트를 destroy하며 개별 해제 오류는 무시하고 다음 컨텍스트를 정리한다.
 ```
 
 ## 4. 공통 처리 기준과 제약
@@ -810,6 +928,7 @@ UTerrainDecalPrepareTask 클래스 정의
 area 선형 레이아웃과 path segment·circle 레이아웃은 main-thread 즉시 경로, GDecalTerrainShader의 texel 조회, UTerrainDecalCompositeComposer의 batch 범위 조회와 같은 계약을 공유하며 한쪽만 바꾸지 않는다.
 복구 가능한 실패(feature base cache miss, payload 상태 miss)는 예외 대신 recoverableErrorCode를 가진 결과로 돌리고, 그 밖의 형식 오류는 Error로 전달한다.
 결과의 typed array는 transferable로 넘기므로 반환 뒤 Worker 쪽에서 다시 읽지 않는다.
+카메라 거리나 동적 표시 반경 모드는 이 Worker가 계산하지 않는다. circle은 입력의 확정 radius를 packed 채널에 기록하며 카메라에 따른 표시 보정은 이 작업의 책임에 포함하지 않는다.
 shaderLayerRenderOrder가 없는 feature는 3.0e38로 두어 어떤 render order 창에도 들지 않게 한다.
 ```
 

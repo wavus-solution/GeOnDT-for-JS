@@ -4,7 +4,7 @@ import {defined} from "@util/defined";
 import {defaultValue} from "@util/defaultValue";
 import {Coordinates} from "@union3d/3dTiles/Coordinates";
 import {U3dMessage, __GError__, __GInfo__} from "@U3dMessage";
-import {deferred} from "@util/deferred";
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import {UVctrParser} from "@union3d/core/parser/UVctrParser";
 import {U3dModelTilesLayer} from "@union3d/3dLayer/U3dModelTilesLayer";
 import {U3DTilesBoundingVolume} from "@union3d/3dTiles/U3DTilesBoundingVolume";
@@ -121,7 +121,7 @@ class U3dVectorTileLayer extends U3dModelTilesLayer {
      *
      * @override
      *
-     * @param {(item: ModelTileParserQueueItem) => DeferredObject<import('@U3DTileset').U3DTileset>} fnc
+     * @param {(item: ModelTileParserQueueItem) => Promise<import('@U3DTileset').U3DTileset>} fnc 타일 처리 결과를 반환하는 파서 함수
      *        상속 호출 호환용 파서 함수이며 이 구현에서는 전용 파서로 교체하거나 파싱을 생략합니다.
      * @param {ModelTileParserQueueItem} param 파서 파라미터
      * @returns {Promise<import('@U3DTileset').U3DTileset>} 타일의 파싱 결과를 기다릴 Promise
@@ -131,8 +131,8 @@ class U3dVectorTileLayer extends U3dModelTilesLayer {
         if (param.tile.type === VCTR_TYPE) {
             return super.addParserQueue.call(self, _parseVCTR, param);
         } else {
-            /** @type {DeferredObject<import('@U3DTileset').U3DTileset>} */
-            const promise = deferred();
+            /** @type {DeferredPromise<import('@U3DTileset').U3DTileset>} */
+            const promise = deferredPromise();
             promise.resolve(param.tile);
             return promise;
         }
@@ -148,7 +148,8 @@ class U3dVectorTileLayer extends U3dModelTilesLayer {
     update(drawArg, curTime, force = false) {
         const self = this;
         if (
-            self.isStopUpdate()
+            self._disposed
+            || self.isStopUpdate()
             || !self.isInitialized()
             || !self._initializedJson
             || !defined(self._drawArg)
@@ -163,7 +164,11 @@ class U3dVectorTileLayer extends U3dModelTilesLayer {
         const limit = self._geometricError * /** @type {number} */((/** @type {Partial<{_viewSizeOffset: number | Function}>} */(self))._viewSizeOffset) * 2;
         self._curPostion = drawArg.getCameraPosition();
         if (!self._curPostion || !self._drawArg.intersectsBox(self._box3) || self._sphere.distanceToPoint(self._curPostion) > limit) {
-            if (self._dataCache.length() > 0) {
+            // 콜백이 요청을 먼저 정리하여 아래 조건이 false여도 같은 위치 복귀는 재탐색합니다.
+            self._prevPostion = undefined;
+            // 첫 콘텐츠가 캐시에 들어오기 전에도 다운로드·파싱 요청은 진행 중일 수 있습니다.
+            // 부모와 같은 정리 경로로 요청을 취소하고 복귀 시 재탐색 기준도 무효화합니다.
+            if (self._dataCache.length() > 0 || self._activeTileContentRequests.size > 0) {
                 self.removeAllTiles();
             }
             self._checkTime.updateTime(self._updateCycleTime);
@@ -203,8 +208,8 @@ class U3dVectorTileLayer extends U3dModelTilesLayer {
             updateId = parent;
         }
         const self = this;
-        if (self.isCancel(updateId)) return;
         const tileEx = /** @type {VctrTile} */(tile);
+        if (self._disposed || tileEx.disposed || self.isCancel(updateId)) return;
 
         if (tileEx.children) {
             for (let target of tileEx.children) {
@@ -215,12 +220,19 @@ class U3dVectorTileLayer extends U3dModelTilesLayer {
 
                 if (self.checkTile(target)) {
                     self.setPromise(target, updateId);
-                    target.promise?.then((/** @type {unknown} */ val) => { //형제들 기다리지 말고 바로 다음 서치 진행
+                    const request = target.promise;
+                    request?.then((/** @type {unknown} */ val) => { //형제들 기다리지 말고 바로 다음 서치 진행
                         const workedTile = /** @type {VctrTile} */(val);
-                        if (workedTile.disposed) return;
+                        // 같은 세대 안에서 해제 후 다시 요청하면 disposed는 다시 false가 됩니다.
+                        // 이번 탐색이 기다린 요청인지도 확인해 이전 콜백의 표시·재귀 탐색을 막습니다.
+                        if (target.promise !== request || tileEx.disposed || workedTile.disposed
+                            || self._disposed || self.isCancel(updateId)) return;
 
                         self.addGroup(workedTile, updateId);
+                        if (target.promise !== request || workedTile.disposed || self._disposed) return;
                         self.searchTiles(workedTile, tile, updateId);
+                    }).catch(() => {
+                        // 실패 타일의 해제는 기반 setPromise의 실패 처리에 맡깁니다.
                     });
                 } else {
                     self.disposeTile(target);
@@ -239,8 +251,8 @@ class U3dVectorTileLayer extends U3dModelTilesLayer {
      */
     addGroup(tile, updateId) {
         const self = this;
-        if (self.isCancel(updateId)) return;
         const tileEx = /** @type {VctrTile} */(tile);
+        if (self._disposed || tileEx.disposed || self.isCancel(updateId)) return;
 
         if (tileEx.userData && tileEx.userData.meshes && tileEx.userData.meshes.length > 0) {
             const campos = /** @type {import('three').Vector3} */(self._drawArg.getCameraPosition());
@@ -715,15 +727,15 @@ function traverseTransform(parentTile, result) {
  * @param {import('three').Object3D} object 대상 3D 객체
  * @param {VctrTile} tile 소속 타일
  * @param {{tile: VctrTile} & Partial<{tileset: object}>} info 파싱 정보
- * @returns {DeferredObject<void>} 좌표 반영 후 완료된 객체
+ * @returns {Promise<void>} 좌표 반영 후 완료된 객체
  *
  * @ignore
  */
 function _calcPosition(object, tile, info) {
     let self = this;
     //+ 타일에 중심점이 있으면
-    /** @type {DeferredObject<void>} */
-    let promise = deferred();
+    /** @type {DeferredPromise<void>} */
+    let promise = deferredPromise();
     let rtcCenter = undefined;
     let center, gCenter;
     if (defined(object.userData) && defined(object.userData.rtcCenter)) {
@@ -799,7 +811,7 @@ function _calcPosition(object, tile, info) {
  *
  * @this {any}
  * @param {ModelTileParserQueueItem} obj 기본 모델 타일 레이어가 전달하는 공통 파서 입력 객체
- * @return {DeferredObject<import('@U3DTileset').U3DTileset>} 비동기 처리 객체
+ * @return {Promise<import('@U3DTileset').U3DTileset>} 비동기 처리 객체
  *
  * @ignore
  */
@@ -810,8 +822,8 @@ function _parseVCTR(obj) {
     const info = /** @type {Omit<ModelTileContentQueueInfo, 'tile'> & {tile: VctrTile} & Partial<{tileset: object}>} */(obj.info);
     const tile = /** @type {VctrTile} */(obj.info.tile);
     const updateId = obj.updateId;
-    /** @type {DeferredObject<import('@U3DTileset').U3DTileset>} */
-    const promise = deferred();
+    /** @type {DeferredPromise<import('@U3DTileset').U3DTileset>} */
+    const promise = deferredPromise();
 
     if (self.isCancel(updateId)) {
         promise.reject(tile);
@@ -870,7 +882,7 @@ function _parseVCTR(obj) {
             // U3dVectorTileLayer의 updateCancel()은 performance.now() 기반 number를 사용합니다. 공통
             // ModelTileParserQueueItem 계약은 다른 모델 레이어의 초기 식별자까지 포함해 string | number로
             // 선언되어 있으므로, VCTR 전용 함수에 전달할 때 현재 하위 레이어의 number 계약을 명시합니다.
-            /** @type {DeferredObject<void>} */(addVCTR.call(
+            /** @type {DeferredPromise<void>} */(addVCTR.call(
                 self,
                 result,
                 tile,
@@ -916,7 +928,7 @@ function _parseVCTR(obj) {
  */
 function addVCTR(result, tile, updateId) {
     const self = this;
-    const promise = deferred();
+    const promise = deferredPromise();
     if (!defined(result) || !defined(tile)) {
         promise.reject();
         return promise;

@@ -18,7 +18,7 @@
 
 ### 1.3 주요 동작 방식
 
-`setVertexShader()`와 `setFragmentShader()`가 three.js가 만든 셰이더 원문의 `void main() {`을 각각 `replaceVertexShader`·`replaceFragmentShader` 조각으로 교체해 선언과 평가 함수를 앞에 붙이고, `#include <worldpos_vertex>`와 `#include <map_fragment>` 뒤에 varying 기록과 색 합성 호출을 덧붙인다. vertex 조각은 tile 정점 좌표에 `tileScale`을 곱해 decal local 좌표를 varying으로 넘기고, fragment 조각은 그 좌표로 `USE_TERRAIN_DECAL_HYBRID`이면 합성 texture sampling과 직접 평가를 함께 반영하고, `USE_TERRAIN_DECAL_COMPOSITE`이면 완성된 합성 texture 한 번만 sampling하고, 그렇지 않고 `USE_TERRAIN_DECAL`이면 path → area → circle 순으로 직접 평가한 결과를 지형 기본 색 위에 합성한다.
+`setVertexShader()`와 `setFragmentShader()`가 three.js가 만든 셰이더 원문의 `void main() {`을 각각 `replaceVertexShader`·`replaceFragmentShader` 조각으로 교체해 선언과 평가 함수를 앞에 붙이고, `#include <worldpos_vertex>`와 `#include <map_fragment>` 뒤에 varying 기록과 색 합성 호출을 덧붙인다. vertex 조각은 tile 정점 좌표에 `tileScale`을 곱해 decal local 좌표를 varying으로 넘기고, fragment 조각은 그 좌표로 `USE_TERRAIN_DECAL_HYBRID`이면 합성 texture sampling과 직접 평가를 함께 반영하고, `USE_TERRAIN_DECAL_COMPOSITE`이면 완성된 합성 texture 한 번만 sampling하고, 그렇지 않고 `USE_TERRAIN_DECAL`이면 기본 path → area → circle 또는 계획에서 확정한 고유 타입 구간 순서로 직접 평가한 결과를 지형 기본 색 위에 합성한다.
 
 관찰된 실행 특성: area 외곽 판정은 픽셀마다 다각형 점 목록 전체를 순회하므로, 점 texel 좌표를 반복마다 증분으로 진행하는 형태로 작성되어 있다.
 
@@ -37,10 +37,10 @@
 주입은 three.js 원본 셰이더의 `void main() {`, `#include <worldpos_vertex>`, `#include <map_fragment>` 앵커를 전제로 하며, 주입 뒤에도 원본 chunk의 실행 순서를 유지해야 한다.
 현재 재질이 담당하는 render order 구간을 벗어난 피처는 그 재질에서 그려서는 안 된다.
 합성 batch 실행에서는 현재 batch 순번에 속한 피처만 그려야 하며, batch 순번을 쓰지 않는 직접 평가에서는 모든 피처가 대상이어야 한다.
-합성 texture 경로와 직접 평가 경로는 동시에 실행되지 않아야 한다.
+단독 direct와 단독 composite 경로는 배타적으로 선택한다. hybrid는 정적 합성 texture를 먼저 읽고 동적 직접 평가를 그 위에 합성한다.
 packed texture의 정수 index 복원은 packing을 만든 main-thread·worker와 같은 반올림 규칙을 사용해야 한다.
 fill alpha가 -1.0인 area는 색을 더하지 않고 이미 누적된 decal 결과를 지우는 hole로 처리해야 한다.
-같은 픽셀에서 여러 피처가 겹치면 path, area, circle 순으로 뒤에 평가한 결과가 위에 놓여야 한다.
+같은 픽셀에서 여러 피처가 겹치면 기본적으로 path, area, circle 순으로 뒤에 병합한 결과가 위에 놓여야 한다. 일반 직접 평가에서 계획이 고유 타입의 연속 구간을 검증했으면 TERRAIN_DECAL_TYPE_ORDER가 확정한 순서로 병합하되 타입별 평가와 premultiplied alpha 계산은 바꾸지 않는다.
 decal 합성 결과는 지형 기본 색의 알파를 보존한 상태로 그 위에 얹혀야 한다.
 ```
 
@@ -203,6 +203,7 @@ GDecalTerrainShader.replaceFragmentShader: string
             재질 구간 판정은 피처의 shaderLayerRenderOrder가 materialRenderOrder 이상이고 nextRenderOrder 미만일 때만 참이다. 하한은 포함하고 상한은 포함하지 않는다.
             packed 정수 index 복원은 실수 채널값에 0.5를 더한 뒤 내림하며, 이 규칙 덕분에 -1 padding이 -1로 복원되어 무효 index 판정에 쓰인다.
             USE_TERRAIN_DECAL_COMPOSITION_BATCH를 정의하면 batch 판정은 피처의 packed batch 순번과 terrainCompositionBatchIndex를 같은 복원 규칙으로 정수화해 비교하고, 정의하지 않으면 항상 참이다. 합성은 batch 하나씩 그려야 Layer·Feature 총순서를 재현할 수 있다.
+            USE_TERRAIN_DECAL_HYBRID 의 일반 입력은 packed batch 순번이 음수인 동적 대상만 직접 평가한다. USE_TERRAIN_DECAL_HYBRID_RUN 을 함께 정의한 입력은 검증된 동적 구간만 담으므로 원래 batch 순번을 유지한 채 모든 항목을 직접 평가한다. 재질 구간·visible·공간 후보 판정은 두 경로에서 그대로 적용한다.
             USE_TERRAIN_DECAL_COMPOSITE_RASTER를 정의하면 선 굵기는 terrainCompositeRasterTexelSize의 두 성분 중 큰 값의 절반을 하한으로 올려, 상한으로 축소된 합성에서 subpixel 외곽선이 사라지지 않게 한다. texel 크기가 0 이하이면 보정하지 않고, define이 없으면 입력 굵기를 그대로 쓴다.
             선 굵기 기본값 규칙은 style의 stroke width가 0보다 크면 그 값을, 그렇지 않으면 threshold를 쓰는 것이다.
         packed texture 조회 레이아웃 규칙은 다음과 같다.
@@ -258,7 +259,8 @@ GDecalTerrainShader.replaceFragmentShader: string
             fill 커버리지는 fill alpha가 0 이상일 때만 안쪽 마스크이고 음수 alpha이면 0이다. circle 커버리지는 fill 커버리지와 stroke 마스크의 합을 1로 자른 값이다.
             circle 커버리지가 0보다 크면 fill과 stroke를 겹치는 레이어가 아니라 한 픽셀을 나누는 영역으로 보고, 각 색에 자른 알파와 자기 마스크를 곱해 더한 premultiplied RGB와 알파, 그리고 circle 커버리지를 담은 상태 하나를 만들어 결과에 병합한다.
         진입점 규칙은 다음과 같다.
-            병합 상태 조회는 빈 상태에서 시작해 정의된 define에 따라 path, area, circle 순으로 각 평가 결과를 병합하므로 뒤에 병합한 종류가 위에 놓인다.
+            병합 상태 조회는 빈 상태에서 시작해 정의된 타입만 한 번씩 평가하고 병합한다. TERRAIN_DECAL_TYPE_ORDER의 0 또는 미정의는 path→area→circle, 1은 path→circle→area, 2는 area→path→circle, 3은 area→circle→path, 4는 circle→path→area, 5는 circle→area→path 순서다. 범위 밖 값은 기본 순서를 사용한다.
+            USE_TERRAIN_DECAL_COMPOSITION_BATCH·USE_TERRAIN_DECAL_COMPOSITE_RASTER·USE_TERRAIN_DECAL_HYBRID·USE_TERRAIN_DECAL_HYBRID_RUN 중 하나라도 있으면 순서 define을 무시하고 기존 path→area→circle 순서를 쓴다. 종류가 없는 define은 평가와 병합에서 제외하며 각 타입 내부의 후보·구멍·커버리지·재질 구간·batch 판정은 그대로 유지한다.
             병합 색 조회는 병합 상태의 자른 알파가 0 이하이면 완전 투명을, 그렇지 않으면 premultiplied RGB를 알파로 되돌린 straight alpha 색을 반환한다. offscreen 합성기가 batch 하나를 색으로 얻을 때 이 함수를 호출한다.
 
 GDecalTerrainShader.setVertexShader(vertexShader: string) -> string
@@ -291,7 +293,7 @@ GDecalTerrainShader.setFragmentShader(fragmentShader: string) -> string
 
     동작:
         `void main() {`을 replaceFragmentShader 조각으로 교체해 선언과 평가 함수를 본문 앞에 넣고 main을 다시 연다.
-        `#include <map_fragment>` 뒤에 define 분기를 덧붙여, USE_TERRAIN_DECAL_HYBRID가 정의되어 있으면 합성 texture sampling 색을 먼저 합성한 뒤 같은 좌표의 직접 평가 병합 상태를 이어서 합성한다. 두 집합의 범위가 합성 번짐 여유까지 포함해 겹치지 않을 때만 호출부가 이 define을 켜므로 한 픽셀에 두 집합이 함께 기여하지 않고 두 합성의 순서가 결과를 바꾸지 않는다.
+        `#include <map_fragment>` 뒤에 define 분기를 덧붙여, USE_TERRAIN_DECAL_HYBRID가 정의되어 있으면 합성 texture sampling 색을 먼저 합성한 뒤 같은 좌표의 직접 평가 병합 상태를 이어서 합성한다. 호출부는 비교차 집합 또는 정적 구간 뒤에 동적 구간이 오는 순서를 검증한다. 겹치는 구간에서는 정적 texture 위에 동적 색을 source-over 로 합성하는 순서 자체를 보존한다.
         USE_TERRAIN_DECAL_HYBRID가 없고 USE_TERRAIN_DECAL_COMPOSITE가 정의되어 있으면 decal local 좌표로 합성 texture를 sampling한 straight alpha 색을 diffuseColor 위에 합성한다.
         두 define이 모두 없고 USE_TERRAIN_DECAL이 정의되어 있으면 decal local 좌표의 병합 상태를 구해 diffuseColor 위에 합성한다.
 ```
@@ -303,9 +305,11 @@ GDecalTerrainShader.setFragmentShader(fragmentShader: string) -> string
 - 정수 index 복원 계약: 실수 채널의 정수 index는 0.5를 더한 뒤 내림으로 복원하며, 무효 index는 -1로 padding한다. packing 쪽 반올림 규칙이 달라지면 무효 판정과 style 참조가 함께 깨진다.
 - bucket 계약: bucket index는 기준 경계와 격자만으로 계산하므로 bucket meta를 만든 쪽과 같은 경계·격자를 uniform으로 연결해야 한다. area·circle의 bucket meta는 길이 BUCKET_COUNT의 uniform 배열이므로 격자 가로·세로의 곱이 BUCKET_COUNT를 넘지 않아야 하고, path의 bucket meta는 index texture 앞부분에 두어 격자 가로·세로 곱만큼의 texel을 차지한다.
 - 선·면 AA 계약: local 좌표의 화면 미분은 피처별 분기 전에 한 번 계산한다. 두 방향 미분 길이 합의 절반을 AA 반경으로 쓰되 긴 bucket 변의 절반으로 제한한다. 후보 생성은 긴 bucket 변 하나만큼 확장하고 raster의 추가 두께도 AA 반경 이하로 제한해 경계가 후보에서 잘리지 않게 한다. 극단적인 축소에서 더 넓은 AA가 필요하면 후보 여유와 셰이더 상한을 함께 조정해야 한다.
+- 구간 표시 품질: 동적 구간의 직접 평가는 현재 화면의 미분으로 AA 를 계산하고, 정적 RTT 는 합성 시의 해상도·AA 와 sampling 필터를 거친다. 따라서 직접 표시와 RTT 표시의 경계 coverage 는 달라질 수 있다. 두 경로의 색·알파·합성 순서와 polygon 구멍 의미는 유지한다.
 - 알파 표현 계약: 누적 상태의 RGB는 premultiplied, 기본 색과 주고받는 색은 straight alpha다. 합성 texture도 premultiplied로 저장되므로 sampling 경계에서 되돌린다. fill alpha -1.0은 색이 아니라 hole 표식이고, circle의 음수 fill alpha는 fill 없음을 뜻한다.
 - 나눗셈 하한 계약: 알파 되돌림과 선분·교차 계산은 1e-6, 안티에일리어싱 폭은 0.0001, texture 크기와 경계 크기는 각각 1과 1e-6을 하한으로 두어 0 나눗셈으로 결과가 무한이 되는 것을 막는다.
-- define 조합 제약: 직접 평가에는 USE_TERRAIN_DECAL과 종류별 USE_PATH_DECAL·USE_AREA_DECAL·USE_CIRCLE_DECAL이 필요하고, 합성 결과 sampling에는 USE_TERRAIN_DECAL_COMPOSITE가 필요하다. 둘 중 하나만 켜면 두 경로는 상호 배타이므로 전환할 때 이전 define을 남기지 않아야 한다. USE_TERRAIN_DECAL_HYBRID는 두 경로를 함께 쓰는 유일한 조합이며 합성 texture 선언이 필요하므로 USE_TERRAIN_DECAL_COMPOSITE와 직접 평가 define을 함께 켜야 한다. 이때 direct 대상 필터가 packed batch 순번이 음수인 Feature만 직접 평가하므로 정적 대상이 합성 결과와 직접 평가에서 두 번 그려지지 않는다. USE_TERRAIN_DECAL_COMPOSITION_BATCH와 USE_TERRAIN_DECAL_COMPOSITE_RASTER는 offscreen 합성 실행에서만 정의한다.
+- 일반 직접 평가의 타입 구간: TERRAIN_DECAL_TYPE_ORDER는 합성 계획의 directTypeOrder에서 유도한 0~5의 내부 프로그램 정의다. 사용자 설정이나 uniform을 추가하지 않는다. 같은 타입이 떨어진 구간에 다시 나타나거나 polygon hole 의미를 직접 평가로 보존할 수 없는 입력은 호출자가 기존 RTT 합성에 남긴다. 타입별 source-over 병합 순서만 바꾸며 화면 미분을 쓰는 AA는 기존 직접 평가와 같다.
+- define 조합 제약: 직접 평가에는 USE_TERRAIN_DECAL과 종류별 USE_PATH_DECAL·USE_AREA_DECAL·USE_CIRCLE_DECAL이 필요하고, 합성 결과 sampling에는 USE_TERRAIN_DECAL_COMPOSITE가 필요하다. 둘 중 하나만 켜면 두 경로는 상호 배타이므로 전환할 때 이전 define을 남기지 않아야 한다. USE_TERRAIN_DECAL_HYBRID는 두 경로를 함께 쓰는 유일한 조합이며 합성 texture 선언이 필요하므로 USE_TERRAIN_DECAL_COMPOSITE와 직접 평가 define을 함께 켜야 한다. 일반 hybrid 는 direct 대상 필터가 packed batch 순번이 음수인 Feature만 평가한다. 구간 전용 USE_TERRAIN_DECAL_HYBRID_RUN 은 동적 피처만 담은 입력 전체를 평가하며 정적 피처를 같은 packed 입력에 넣지 않는다. 이 define 은 단독으로 쓰지 않고 hybrid·composite·직접 평가 define 과 함께 사용한다. USE_TERRAIN_DECAL_COMPOSITION_BATCH와 USE_TERRAIN_DECAL_COMPOSITE_RASTER는 offscreen 합성 실행에서만 정의한다.
 - 주입 앵커 제약: 두 주입 함수는 `void main() {`, `#include <worldpos_vertex>`, `#include <map_fragment>`가 원본 셰이더에 있다고 전제하며, 조각이 main을 다시 여는 형태이므로 원문의 중괄호 짝을 바꾸지 않는다. replaceFragmentShader를 재질 주입 대신 독립 셰이더의 앞부분으로 재사용하는 쪽은 본문과 닫는 중괄호를 직접 이어 붙여야 한다.
 ```
 

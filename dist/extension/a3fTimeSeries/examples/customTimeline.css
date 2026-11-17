@@ -1,0 +1,40 @@
+/* 세션 API만 사용하는 HTML 타임라인 예제입니다. 호스트 페이지와 스타일을 공유하지 않습니다. */
+.a3f-custom-timeline {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 10px 18px;
+    min-width: 0;
+    padding: 14px 18px;
+    border: 1px solid var(--a3f-timeline-border, #cbd5e1);
+    border-radius: 12px;
+    background: var(--a3f-timeline-background, #f8fafc);
+    color: var(--a3f-timeline-text, #172554);
+    font: var(--a3f-timeline-font-size, 13px)/1.5 "Malgun Gothic", system-ui, sans-serif;
+}
+.a3f-custom-timeline, .a3f-custom-timeline * { box-sizing: border-box; }
+.a3f-custom-timeline .a3f-custom-actions { display: flex; align-items: center; gap: 6px; }
+.a3f-custom-timeline button {
+    min-width: 64px;
+    min-height: 36px;
+    padding: 4px 12px;
+    border: 1px solid var(--a3f-timeline-border, #cbd5e1);
+    border-radius: 7px;
+    background: var(--a3f-timeline-surface, #fff);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+.a3f-custom-timeline [data-action=toggle] { border-color: var(--a3f-timeline-accent, #2563eb); font-weight: 700; }
+.a3f-custom-timeline button:disabled, .a3f-custom-timeline input:disabled { opacity: .5; cursor: default; }
+.a3f-custom-timeline .a3f-custom-track { min-width: 0; }
+.a3f-custom-timeline label { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+.a3f-custom-timeline input[type=range] { width: 100%; min-width: 0; margin: 6px 0; accent-color: var(--a3f-timeline-accent, #2563eb); }
+.a3f-custom-timeline .a3f-custom-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; color: var(--a3f-timeline-muted, #475569); font-variant-numeric: tabular-nums; }
+.a3f-custom-timeline .a3f-custom-error { grid-column: 1 / -1; margin: 0; white-space: pre-wrap; color: #b42318; }
+.a3f-custom-timeline .a3f-custom-error:empty { display: none; }
+.a3f-custom-timeline :is(button, input):focus-visible { outline: 2px solid var(--a3f-timeline-accent, #2563eb); outline-offset: 2px; }
+@media (max-width: 600px) {
+    .a3f-custom-timeline { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+    .a3f-custom-timeline .a3f-custom-actions { justify-content: center; }
+}

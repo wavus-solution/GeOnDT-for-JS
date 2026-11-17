@@ -18,9 +18,17 @@ class UFastTerrainStampMaterial extends MeshLambertMaterial {
     #origin = new Vector3();
     /** @type {number} */
     #pages = 0;
-    /** @type {boolean} 색 보간 코드는 실제 gradient 채움이 있을 때만 컴파일합니다. */
+    /**
+     * 색 보간 코드는 실제 gradient 채움이 있을 때만 컴파일합니다.
+     *
+     * @type {boolean}
+     */
     #gradients = false;
-    /** @type {Array<string>} 타일마다 page uniform 이름을 다시 만들지 않습니다. */
+    /**
+     * 타일마다 page uniform 이름을 다시 만들지 않습니다.
+     *
+     * @type {Array<string>}
+     */
     #pageKeys = [];
     /**
      * 타일마다 같은 문자열을 조합하지 않도록 현재 shader 구성의 키를 보관합니다.

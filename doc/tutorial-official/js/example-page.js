@@ -73,7 +73,7 @@ async function runManifestExample(source) {
     await loadExampleDependencies(Array.isArray(source.dependencies) ? source.dependencies : []);
     await waitForGeOnDT();
     const config = source.runtime || {};
-    const app = new GeOnDT.U3dAPP(createRuntimeAppOptions(config, 'map'));
+    let app = new GeOnDT.U3dAPP(createRuntimeAppOptions(config, 'map'));
     window.app = app;
     applyRuntimeHome(app, config);
     const cleanupRuntimeUi = applyRuntimeUiConfig(config);
@@ -81,7 +81,7 @@ async function runManifestExample(source) {
     // applyRuntimeUiConfig보다 먼저 열면 예제 패널이 곧바로 다시 닫힌다.
     // 데이터 로딩 전이라 이 시점도 초기 화면 기준으로는 충분히 이르다.
     openInitialExamplePanel();
-    const commonUi = mountExampleCommonUi({root: document, config, commonUi: source.commonUi || {}});
+    let commonUi = mountExampleCommonUi({root: document, config, commonUi: source.commonUi || {}});
     // 예제를 열어 본 기록과 즐겨찾기는 예제 목록 화면과 같은 자리를 쓴다.
     const exampleUrl = resolveCurrentExampleUrl();
     rememberExampleVisit(exampleUrl);
@@ -122,6 +122,24 @@ async function runManifestExample(source) {
             }
         });
         const runtime = {
+            /**
+             * 예제가 앱을 재생성하면 공통 자원의 소유권과 도구 연결도 교체합니다.
+             * @param {function(): object} createApp 새 앱 생성 함수
+             * @returns {Promise<object>} 공통 레이어와 도구를 연결한 앱
+             */
+            async recreateApp(createApp) {
+                const container = app.getContainer();
+                commonUi.dispose();
+                app.dispose();
+                container.replaceChildren();
+                app = createApp();
+                window.app = app;
+                await createRuntimeLayers(app, config);
+                if (app.isDisposed()) throw new Error('앱 재생성이 중단되었습니다.');
+                commonUi = mountExampleCommonUi({root: document, config, commonUi: source.commonUi || {}});
+                await commonUi.bind(app);
+                return app;
+            },
             showLoading() { document.getElementById('load').hidden = false; },
             hideLoading() { document.getElementById('load').hidden = true; },
             setLayerVisible(name, visible) { return app.showLayer(name, visible); },
@@ -342,14 +360,13 @@ function showEditorHint() {
 }
 
 /**
- * 예제가 직접 선언한 기능 패널을 초기 화면에서 열어 둡니다.
- *
- * 공통 레일 버튼(도움말·배경지도·지형)은 `#viewer-example-rail` 밖에 있으므로
- * 예제 Rail의 첫 패널 버튼만 대상으로 삼습니다.
+ * 예제가 직접 선언한 기능 패널을 초기 화면에서 열어 둡니다. <br>
+ * 공통 레일 버튼(도움말·배경지도·지형)은 `#viewer-example-rail` 밖에 있으므로 예제 Rail의 첫 패널 버튼만 대상으로 삼습니다.
  */
 function openInitialExamplePanel() {
     if (typeof window.toggleExamplePanel !== 'function') return;
     const button = document.getElementById('viewer-example-rail')?.querySelector('[data-panel-target]');
+    if (button?.dataset.initialOpen === 'false') return;
     const panelId = button?.dataset.panelTarget;
     if (!panelId || !document.getElementById(panelId)) return;
     window.toggleExamplePanel(panelId, true);

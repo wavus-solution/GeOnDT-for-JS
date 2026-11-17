@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -16,7 +16,7 @@ import type { OLFill, OLStroke } from "../types/ol.js";
  * 2D 지도 위의 한 지점을 원형 마커로 표시하는 클래스입니다. <br>
  * 반지름과 채우기·테두리 색을 지정해 지도상의 특정 지점을 나타냅니다. <br>
  *
- * 원의 크기와 선 두께는 픽셀로 다루므로 지도를 확대·축소해도 화면에서 보이는 크기는 그대로입니다. <br>
+ * `U2dVectorShaderLayer`에서는 기본 반경을 지도 거리로 다루며, `isDynamicRadius: true`를 지정한 점은 반경과 선 두께를 화면 픽셀로 유지합니다. <br>
  * 좌표는 지도 좌표계(EPSG:3857)로 보관하며, 만들 때는 좌표가 비어 있으므로 생성한 뒤 `setPosition`으로 좌표를 넣어야 점이 나타납니다. <br>
  *
  * @group geometry
@@ -78,7 +78,7 @@ declare class U2dPoint extends U2dGeometry {
     /** @returns {number} 현재 원형 마커의 반지름입니다. 다중점은 같은 반지름을 공유합니다. */
     getRadius(): number;
     /**
-     * 공통 상태와 현재 마커 반지름을 반환합니다.
+     * 공통 상태와 현재 마커 반지름·개별 화면 반경 사용 여부를 반환합니다.
      *
      * @override
      *
@@ -86,7 +86,7 @@ declare class U2dPoint extends U2dGeometry {
      */
     override getParam(): U2dPointParam;
     /**
-     * 공통 항목과 반지름을 부분 변경합니다. 모든 입력을 검증한 뒤 적용합니다.
+     * 공통 항목과 반지름·개별 화면 반경 사용 여부를 부분 변경합니다. 모든 입력을 검증한 뒤 적용합니다.
      *
      * @override
      *
@@ -94,6 +94,7 @@ declare class U2dPoint extends U2dGeometry {
      * @throws {TypeError|RangeError} 값이 잘못되면 변경 전에 발생합니다.
      */
     override setParam(param?: U2dPointParam): void;
+    #private;
 }
 
 /**
@@ -104,9 +105,13 @@ declare class U2dPoint extends U2dGeometry {
      */
     type U2dPointCO_Content = {
         /**
-         * 점을 그리는 원의 반지름 (픽셀). 지도를 확대·축소해도 화면에서 보이는 크기는 그대로입니다 <br>
+         * 점의 반경입니다. 지형 벡터에서는 기본 지도 거리이며 `isDynamicRadius: true`이면 화면 픽셀입니다. <br>
          */
         radius?: number;
+        /**
+         * 이 점의 반경·테두리를 화면 픽셀로 유지할지 여부입니다. 생략하면 레이어의 동적 반경 설정을 따릅니다. <br>
+         */
+        isDynamicRadius?: boolean;
         /**
          * 도형을 구분하는 이름. 레이어에서 도형을 찾을 때 쓰며, 넣지 않거나 빈 문자열이면 무작위 GUID 문자열이 자동으로 만들어집니다 <br>
          */
@@ -178,6 +183,7 @@ declare class U2dPoint extends U2dGeometry {
      */
     type U2dPointParam = U2dGeometryParam & Partial<{
         radius: number;
+        isDynamicRadius: boolean;
     }>;
 
 export type { OlCircleStyle, U2dPoint, U2dPointCO, U2dPointCO_Content, U2dPointParam };

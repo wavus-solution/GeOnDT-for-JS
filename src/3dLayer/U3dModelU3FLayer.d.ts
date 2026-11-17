@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -17,7 +17,7 @@ import type { ModelMaterial } from "../core/mesh/UModelMesh.js";
 import type { TileInfo, U3fPackagedInfo } from "../meta/U3fPackagedInfo.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { Common_Material, KeyValue, ModelMesh } from "../types/global.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /**
  * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer <br>
@@ -411,7 +411,7 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
      * 원본 레이어 정보를 읽어 표시 범위와 패키지 로딩 설정을 초기화합니다. <br>
      * 정보 요청·해석·부모 초기화에 실패하면 원래 사유로 레이어의 초기화를 거부합니다. <br>
      * 삭제 시 진행 중인 초기화는 AbortError로 거부하며, 늦은 응답은 적용하지 않습니다. <br>
-     * 초기화가 진행 중이면 같은 정보 요청을 반환합니다. 실패 후 reset()하면 재시도할 수 있습니다. <br>
+     * 초기화가 진행 중이면 같은 정보 요청을 반환합니다. 실패 후 내부에서 _resetReady()를 호출하면 재시도할 수 있습니다. <br>
      * needXml이 false이면 부모 초기화와 완료 통지만 수행하며 Promise를 반환하지 않습니다. <br>
      * 패키지 JSON을 요청하는 경우 반환된 Promise와 별도로 초기화가 진행됩니다.
      *
@@ -472,11 +472,11 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
      * @param {number} indexY 타일 Y 인덱스
      * @param {number} level 타일 레벨
      * @param {string} url 타일 정보 요청 URL
-     * @returns {Promise<import('@union3d/meta/U3fPackagedInfo').TileInfo>} 타일 정보 Promise
+     * @returns {Promise<import('@union3d/meta/U3fPackagedInfo').TileInfo | undefined>} 타일 정보 Promise. 유효한 패키지 타일이 없으면 undefined
      *
      * @ignore
      */
-    getTileInfo(tile: U3dQuadTile, indexX: number, indexY: number, level: number, url: string): Promise<TileInfo>;
+    getTileInfo(tile: U3dQuadTile, indexX: number, indexY: number, level: number, url: string): Promise<TileInfo | undefined>;
     /**
      * 모델 정보를 로드/파싱하여 mesh로 변환합니다.
      *
@@ -618,11 +618,11 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
      * @param {number} max
      * @param {import('@U3dQuadTile').U3dQuadTile} tile
      * @param {import('@UDrawArg').UDrawArg} drawArg
-     * @param {DeferredObject<boolean>} endPromise
+     * @param {DeferredPromise<boolean>} endPromise
      *
      * @ignore
      */
-    loadBlockModel(self: U3dModelU3FLayer, baseurl: string, startindex: number, endindex: number, blocksize: number, max: number, tile: U3dQuadTile, drawArg: UDrawArg, endPromise: DeferredObject<boolean>): void;
+    loadBlockModel(self: U3dModelU3FLayer, baseurl: string, startindex: number, endindex: number, blocksize: number, max: number, tile: U3dQuadTile, drawArg: UDrawArg, endPromise: DeferredPromise<boolean>): void;
     /**
      * 메쉬 색상을 설정합니다.
      *
@@ -638,7 +638,7 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
      *
      * @param {ModelMesh} mesh
      * @param {number | function(import('three').Object3D, import('@UDrawArg').UDrawArg): void} [faceIndex] faceIndex 또는 afterFunction
-     * @param {function(import('three').Object3D, import('@UDrawArg').UDrawArg, string): void} [onAfterFunction]
+     * @param {function(import('three').Object3D, import('@UDrawArg').UDrawArg, string): void} [onAfterFunction] 텍스처 처리 후 모델·렌더링 문맥·모델 ID를 받는 콜백
      * @returns {any}
      *
      * @ignore
@@ -672,15 +672,15 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
     /**
      * 메쉬의 바운딩 박스 정보를 구합니다.
      *
-     * @param {ModelMesh} mesh
-     * @returns {Array<{id: string, info: object}> | void}
+     * @param {ModelMesh} mesh 병합 그룹 정보를 조회할 메시
+     * @returns {Array<{id: string, info: object}> | undefined} 병합 그룹 정보 배열. 메시가 없거나 재질이 배열이 아니면 undefined
      *
      * @ignore
      */
     getBoundingBoxInfo(mesh: ModelMesh): Array<{
         id: string;
         info: object;
-    }> | void;
+    }> | undefined;
     /**
      * 결합 그룹에서 지정 모델의 편집 정보를 찾습니다. <br>
      * 반환값은 저장된 정보의 원본 참조입니다.
@@ -835,26 +835,59 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
          * 진행 중 초기화
          */
         initialization: undefined | {
-            request: undefined | DeferredObject<object>;
+            request: undefined | DeferredPromise<object>;
             cancel: (arg0: unknown) => void;
         };
         /**
          * 이 레이어가 소유한 정보·JSON 요청
          */
-        requests: Map<DeferredObject<object>, {
+        requests: Map<DeferredPromise<object>, {
             loader: UFileLoader;
             id: string;
         }>;
+        /**
+         * 타일 키별 정보 로딩·모델 큐 등록 요청. 교체·해제한 요청은 새 타일 상태를 변경하지 않습니다.
+         */
+        tileRequests: Map<string, DeferredPromise<boolean>>;
+        /**
+         * 타일 키·URL별 다운로드부터 메시 반영까지의 요청
+         */
+        modelRequests: Map<string, Map<string, U3FModelRequest>>;
+    };
+
+/**
+     * 다운로드·텍스처·병합을 하나의 타일 그룹에 연결하는 진행 중 요청입니다.
+     */
+    type U3FModelRequest = {
+        /**
+         * 요청을 시작한 타일
+         */
+        tile: U3dQuadTile;
+        /**
+         * 요청을 시작한 그룹. 같은 키의 새 그룹과 구분합니다.
+         */
+        group: three.Object3D | undefined;
+        /**
+         * 이 요청의 호출자에게 전달할 완료 결과
+         */
+        completion: DeferredPromise<unknown>;
+        /**
+         * 자기 대기와 결과 반영 권한을 종결하는 함수
+         */
+        cancel: () => void;
     };
 
 /**
      * U3F 파서가 생성한 불투명한 복원 입력입니다. <br>
      * 입력은 메시 생성 과정에서 소비되므로 완료 뒤 원본 버퍼의 보존을 기대하지 마십시오.
+     * 레이어의 식별 준비 이후 id는 puid이며, 원본 피처 속성은 oid에 남습니다.
+     * rootPuid는 등록 루트, composedPuid는 여러 조각으로 구성된 편집 단위를 가리킵니다.
      */
     type U3FParsedObj = KeyValue;
 
 /**
      * 모델의 개별 편집 대상을 식별하는 결합 구간 정보입니다.
+     * id는 합성 편집 단위의 puid(합성이 없으면 조각 puid), uid는 실제 조각 puid입니다.
      */
     type U3dModelU3FLayerComposedInfo = {
         id: string;
@@ -1031,7 +1064,7 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
 /**
      * restoreModelMeshes에 필요한 레이어 상태와 호출 권한입니다.
      */
-    type U3FRestoreModelMeshesOwner = Omit<Omit<U3FFinishModelOwner, never> & Pick<U3dModelU3FLayer, "_animation" | "_classtype" | "_drawArg" | "_isShareMaterial" | "_modelIds" | "_name" | "_opacity" | "_renderOrder" | "_sharedMaterial" | "_tileModelMap" | "_transparent" | "_useBaseMaterial" | "_useBoxHelper" | "_useEditMode" | "createKeyFromTile" | "createModelMesh" | "setMaterial" | "validationMeshInfo">, never>;
+    type U3FRestoreModelMeshesOwner = Omit<Omit<U3FFinishModelOwner, never> & Pick<U3dModelU3FLayer, "_animation" | "_classtype" | "_drawArg" | "_isShareMaterial" | "_modelIds" | "_name" | "_opacity" | "_renderOrder" | "_sharedMaterial" | "_tileModelMap" | "_transparent" | "_useBaseMaterial" | "_useBoxHelper" | "_useEditMode" | "createKeyFromTile" | "createModelMesh" | "getCache" | "setMaterial" | "validationMeshInfo">, never>;
 
 /**
      * mergeModelMesh24에 필요한 레이어 상태와 호출 권한입니다.
@@ -1079,7 +1112,7 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
 /**
      * 복원된 메시의 삭제·편집·이벤트를 연결하는 레이어 권한입니다.
      */
-    type U3FFinishModelOwner = Pick<U3dModelU3FLayer, "removeFilter" | "editFilter" | "removedList" | "editedList" | "editedEvent" | "setEditEvent" | "setSplitEvent" | "dispatchEvent">;
+    type U3FFinishModelOwner = Pick<U3dModelU3FLayer, "removeFilter" | "editFilter" | "removedList" | "editedList" | "editedEvent" | "_restoreSplitModels" | "dispatchEvent">;
 
 /**
      * 한 타일의 이미지 갱신에서 공유하는 거리와 품질 기준입니다.
@@ -1104,4 +1137,4 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
      */
     type U3FFinishModelCallback = (owner: U3FFinishModelOwner, mesh: ModelMesh, obj: U3FParsedObj) => boolean | undefined;
 
-export type { U3FFinishModelCallback, U3FFinishModelOwner, U3FGetEditedModelIndexOwner, U3FImageSelectionState, U3FLoadState, U3FMergeModelMesh24Owner, U3FMergeModelMesh25Owner, U3FMergeModelOwner, U3FModelHooks, U3FModelRuntime, U3FParseTileInfoOwner, U3FParsedObj, U3FPreviewInput, U3FReadLayerInfoOwner, U3FRestoreModelMeshesOwner, U3FSetGroupsDivisionRefineOwner, U3FValidationMeshInfoOwner, U3dModelU3FLayer, U3dModelU3FLayerCO, U3dModelU3FLayerCO_Content, U3dModelU3FLayerComposedInfo };
+export type { U3FFinishModelCallback, U3FFinishModelOwner, U3FGetEditedModelIndexOwner, U3FImageSelectionState, U3FLoadState, U3FMergeModelMesh24Owner, U3FMergeModelMesh25Owner, U3FMergeModelOwner, U3FModelHooks, U3FModelRequest, U3FModelRuntime, U3FParseTileInfoOwner, U3FParsedObj, U3FPreviewInput, U3FReadLayerInfoOwner, U3FRestoreModelMeshesOwner, U3FSetGroupsDivisionRefineOwner, U3FValidationMeshInfoOwner, U3dModelU3FLayer, U3dModelU3FLayerCO, U3dModelU3FLayerCO_Content, U3dModelU3FLayerComposedInfo };

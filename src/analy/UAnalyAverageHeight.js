@@ -26,10 +26,12 @@ import {INTERNAL} from '@union3d/analy/UAnalyAverageHeight.internal';
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
+ *
  * `평균 높이` 분석 클래스 <br>
- * 사용자가 선택한 모델들의 평균 높이를 계산하는 기능을 제공합니다.
+ * 사용자가 선택한 모델들의 평균 높이를 계산하며 지형 타일은 제외합니다.
+ *
  * @group analysis
- * @extends UAnaly
+ * @extends {UAnaly}
  *
  * @example
  * let analy = app.activeAnalysis('AverageHeight');
@@ -167,16 +169,18 @@ class UAnalyAverageHeight extends UAnaly {
     }
 
     /**
-     * 선택된 객체들의 높이 정보를 반환하는 함수
+     * 선택된 모델의 높이 정보를 반환하며 지형 타일은 제외합니다.
+     * 자동 재로딩 데이터는 puid를, 일반 메시는 현재 객체의 UUID를 반환하며 임의의 영속 식별값을 만들지 않습니다.
+     *
      * @param {string} key 선택된 객체들의 key 값
-     * @return {Array<{id: string, height: number}> | undefined}
+     * @returns {Array<{id: string, height: number}> | undefined} 선택 모델의 높이와 현재 조회 식별값
      */
     getSelectedModelHeight(key) {
         const self = this;
         const selector = self.#selector;
         if(!selector) return;
         const target = selector.getSelectedAsKey(key);
-        if (!target || (!(target instanceof UMesh) && !(target instanceof U3DTilesMesh))) {
+        if (!INTERNAL.isHeightModel(target)) {
             return;
         }
         const mergedTarget = /** @type {UMesh & {_isMerged: (boolean|undefined)}} */ (target);
@@ -185,12 +189,13 @@ class UAnalyAverageHeight extends UAnaly {
         }
         return [{
             height: self.getModelHeight(target),
-            id: target.userData.id ?? target.getUid()
+            id: UMesh._getObjectId(target)
         }];
     }
 
     /**
      * 선택 모델의 높이를 ID 중복 없이 집계한 평균을 반환합니다. <br>
+     * 지형 타일은 내부·외부 선택 목록 모두에서 계산 대상과 개수에서 제외합니다.
      * 내부 선택기가 없으면 외부 선택기를 전달해도 undefined를 반환합니다.
      * 내부 선택기가 있으면 외부 선택 목록을 사용할 수 있으며 빈 목록의 평균은 0입니다.
      * 일반 메시의 높이는 월드 축 정렬 경계의 Z축 길이이며 getModelHeight() 재정의를 호출하지 않습니다.
@@ -230,7 +235,7 @@ class UAnalyAverageHeight extends UAnaly {
     }
 
     /**
-     * 선택된 메시를 레이어별로 묶어 평균 높이와 함께 반환합니다. <br>
+     * 지형 타일을 제외한 선택 메시를 레이어별로 묶어 평균 높이와 함께 반환합니다. <br>
      * 외부 선택기는 레이어별 메시 목록에만 사용하고 각 평균은 내부 전체 선택으로 다시 계산합니다.
      * 내부 선택기가 없으면 평균은 0이며 반환 목록의 메시들은 원본 참조입니다.
      * 선택 조회·집계 오류는 그대로 전파합니다.
@@ -266,7 +271,7 @@ class UAnalyAverageHeight extends UAnaly {
 
         for (let key of keys) {
             let model = selector.getSelectedAsKey(key);
-            if (!defined(model) || !(model instanceof UMesh) && !(model instanceof U3DTilesMesh)) {
+            if (!INTERNAL.isHeightModel(model)) {
                 continue;
             }
             let tmp = key.split('^');
@@ -286,9 +291,11 @@ class UAnalyAverageHeight extends UAnaly {
     }
 
     /**
-     * 선택된 모델을 key 기반으로 반환하는 함수
+     * 지형 타일을 제외한 선택 모델을 선택기의 원래 키로 반환합니다.
+     * 외부 선택기를 전달해도 해당 선택기의 선택 상태는 변경하지 않습니다.
+     *
      * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 입력시 해당 객체의 선택 모델들로 반환
-     * @return {Record<string, import('@UMesh').UMesh | import('@U3DTilesMesh').U3DTilesMesh> | undefined}
+     * @returns {Record<string, import('@UMesh').UMesh | import('@U3DTilesMesh').U3DTilesMesh> | undefined} 분석 대상 모델의 키별 목록
      */
     getSelected(u3dSelect) {
         const self = this;
@@ -311,12 +318,9 @@ class UAnalyAverageHeight extends UAnaly {
         let result = {};
         for (let key of keys) {
             let model = selector.getSelectedAsKey(key);
-            if (!defined(model) || !(model instanceof UMesh) && !(model instanceof U3DTilesMesh)) {
+            if (!INTERNAL.isHeightModel(model)) {
                 continue;
             }
-            let tmp = key.split('^');
-            let layerName = tmp[0];
-            key = layerName + '^' + model.userData.id;
             result[key] = model;
         }
         return result;
@@ -340,7 +344,9 @@ class UAnalyAverageHeight extends UAnaly {
     }
 
     /**
-     * 선택 모드를 설정하고 U3dSelect를 생성하는 함수
+     * 분석 전용 선택기를 생성하고 완료된 선택을 분석 대상으로 제한합니다.
+     * 공통 선택기의 정책은 변경하지 않으며 분석 이벤트 전에 선택·강조를 정리합니다.
+     *
      * @param {string} type 선택 타입
      *
      * @ignore
@@ -355,11 +361,19 @@ class UAnalyAverageHeight extends UAnaly {
         const select = new U3dSelect({
             mode: type
         });
-        select.on('end', (e = {data: undefined}) => {
+        select.on('end', (/** @type {{data: unknown}} */ e = {data: undefined}) => {
+            // 이 분석이 소유한 선택기만 정리하여 지형의 선택 강조도 함께 해제합니다.
+            for (const model of select.getSelected()) {
+                if (!INTERNAL.isHeightModel(model)) select.removeSelected(model);
+            }
+            // 선택기 이벤트는 정리 전 목록의 스냅샷입니다. 제외 대상이 있을 때만
+            // 새 목록을 만들어 원본 이벤트를 바꾸지 않고 분석 결과와 일치시킵니다.
+            const data = Array.isArray(e.data) && e.data.some(model => !INTERNAL.isHeightModel(model))
+                ? e.data.filter(INTERNAL.isHeightModel) : e.data;
             if(self.hasEventType('select'))
-                self.dispatchEvent({type: 'select', data: e.data});
+                self.dispatchEvent({type: 'select', data});
             else if(self.hasEventType('end'))
-                self.dispatchEvent({type: 'end', data: e.data});
+                self.dispatchEvent({type: 'end', data});
 
         });
         select.setApp( (/** @type {import('@U3dApp').U3dApp} */ (this._app)));
@@ -374,7 +388,9 @@ class UAnalyAverageHeight extends UAnaly {
     }
 
     /**
-     * 레이어에서 모델을 찾아 선택 목록에 추가하는 함수
+     * 레이어에서 분석 대상 모델을 찾아 선택 목록에 추가합니다.
+     * 저장 목록에 지형 타일이 있어도 선택하지 않습니다.
+     *
      * @param {string} layerName 레이어명
      * @param {Array<string>} list 모델 ID 리스트
      *
@@ -393,7 +409,7 @@ class UAnalyAverageHeight extends UAnaly {
             let selected = self.#findModel(layerName, id);
             if(selected === undefined) {
                 self.#addLoadedListener(layer, id);
-            }else {
+            }else if (INTERNAL.isHeightModel(selected)) {
                 selector.addSelected(/**@type{import('three').Mesh}*/(selected), undefined);
             }
         });
@@ -416,7 +432,8 @@ class UAnalyAverageHeight extends UAnaly {
     }
 
     /**
-     * 레이어 로드 완료 이벤트 리스너
+     * 복원 대상의 로드가 완료되면 지형을 제외하고 선택합니다.
+     *
      * @param {import('@U3dLayer').U3dLayer} layer 레이어 객체
      * @param {string} id 모델 ID
      * @param {{type: string, data: import('@UMesh').UMesh}} e 이벤트 객체
@@ -427,8 +444,8 @@ class UAnalyAverageHeight extends UAnaly {
         const self = this;
         if(!self.#selector) return;
         let mesh = e.data;
-        if(mesh.userData.id === id) {
-            self.#selector.addSelected(mesh, undefined);
+        if(mesh.puid === id) {
+            if (INTERNAL.isHeightModel(mesh)) self.#selector.addSelected(mesh, undefined);
             self.#removeLoadedListener(layer, id);
         }
     }

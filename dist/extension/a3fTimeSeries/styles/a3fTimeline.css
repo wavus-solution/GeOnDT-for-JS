@@ -1,0 +1,65 @@
+/* 컨테이너에서 --a3f-timeline-background/surface/text/muted/border/accent/font-size를 지정합니다.
+   변수를 생략하면 기본 디자인을 사용하며 View 생성 후에도 색상을 변경할 수 있습니다. */
+/* A3F 선택형 타임라인 전용 스타일입니다. 모든 선택자를 소유 루트 안으로 제한합니다. */
+.a3f-timeline-dock { background: var(--a3f-timeline-background, transparent); color-scheme: dark; color: var(--a3f-timeline-text, #edf3fa); font: var(--a3f-timeline-font-size, 11px)/1.45 "Malgun Gothic", system-ui, sans-serif; }
+.a3f-timeline-dock, .a3f-timeline-dock * { box-sizing: border-box; }
+.a3f-timeline-dock :is(button, input, select) { font: inherit; color: inherit; border: 1px solid var(--a3f-timeline-border, #2c4057); border-radius: 6px; background: var(--a3f-timeline-surface, #162335); min-width: 0; }
+.a3f-timeline-dock button { cursor: pointer; }
+.a3f-timeline-dock button:disabled, .a3f-timeline-dock input:disabled, .a3f-timeline-dock select:disabled { opacity: .5; cursor: default; }
+.a3f-timeline-dock { height: 100%; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.a3f-timeline-dock .a3f-toolbar { display: flex; align-items: center; flex-wrap: nowrap; gap: 8px; min-height: 30px; flex-shrink: 0; padding-bottom: 2px; overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--a3f-timeline-border, #405975) transparent; font-size: calc(var(--a3f-timeline-font-size, 11px) - 1px); }
+.a3f-timeline-dock .a3f-toolbar > .a3f-settings { display: contents; }
+.a3f-timeline-dock .a3f-toolbar label { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; white-space: nowrap; color: var(--a3f-timeline-muted, #b4cce1); }
+.a3f-timeline-dock .a3f-toolbar button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 80px; width: 80px; height: 30px; padding: 0 8px; border-color: var(--a3f-timeline-border, #436483); background: var(--a3f-timeline-surface, #1d344c); font-size: var(--a3f-timeline-font-size, 11px); font-weight: 500; white-space: nowrap; }
+.a3f-timeline-dock .a3f-toolbar [data-action=configure] { background: var(--a3f-timeline-accent, #087fbe); border-color: var(--a3f-timeline-border, #3ab2ec); color: var(--a3f-timeline-text, #fff); }
+.a3f-timeline-dock .a3f-toolbar [data-action=configure]:hover:enabled { background: var(--a3f-timeline-accent, #169ddc); }
+.a3f-timeline-dock .a3f-toolbar [data-action=retry]:disabled { display: none; }
+.a3f-timeline-dock .a3f-toolbar input[type=number], .a3f-timeline-dock .a3f-toolbar select { height: 30px; padding: 0 7px; border-color: var(--a3f-timeline-border, #3e5b76); background: var(--a3f-timeline-surface, #14283d); font-size: var(--a3f-timeline-font-size, 11px); font-variant-numeric: tabular-nums; }
+.a3f-timeline-dock .a3f-toolbar input[type=number] { width: 60px; }
+.a3f-timeline-dock .a3f-toolbar input[type=checkbox] { width: 14px; height: 14px; margin: 0; accent-color: var(--a3f-timeline-accent, #29a9e9); }
+.a3f-timeline-dock .a3f-toolbar select { width: 123px; }
+.a3f-timeline-dock .a3f-note { color: var(--a3f-timeline-muted, #9bb3ca); font-size: calc(var(--a3f-timeline-font-size, 11px) - 1px); white-space: nowrap; margin: 0; flex-shrink: 0; border-left: 1px solid var(--a3f-timeline-border, #4a6580); padding-left: 12px; }
+.a3f-timeline-dock .a3f-series-widgets { display: flex; align-items: center; gap: 8px; flex: 1; min-height: 90px; min-width: 0; }
+.a3f-timeline-dock .a3f-playback-controls { width: 116px; height: 88px; flex: 0 0 116px; position: relative; overflow: hidden; }
+.a3f-timeline-dock .a3f-series-time { flex: 1; min-width: 0; border: 1px solid var(--a3f-timeline-border, #314c65); border-radius: 7px; padding: 4px 8px 0; background: var(--a3f-timeline-background, #0d1c2b); }
+.a3f-timeline-dock .a3f-readout-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 20px; margin-bottom: 4px; }
+.a3f-timeline-dock .a3f-readout { margin: 0; font-size: var(--a3f-timeline-font-size, 11px); font-weight: 500; color: var(--a3f-timeline-text, #e2edf8); font-variant-numeric: tabular-nums; }
+.a3f-timeline-dock .a3f-frame-readout { font-size: calc(var(--a3f-timeline-font-size, 11px) - 1px); color: var(--a3f-timeline-muted, #a6c0d7); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.a3f-timeline-dock .a3f-time-axis { width: 100%; height: 60px; position: relative; }
+.a3f-timeline-dock .a3f-status-row { display: flex; align-items: center; gap: 12px; flex-shrink: 0; min-height: 24px; border-top: 1px solid var(--a3f-timeline-border, #304860); padding-top: 5px; font-size: calc(var(--a3f-timeline-font-size, 11px) - 1px); color: var(--a3f-timeline-muted, #a9c0d6); }
+.a3f-timeline-dock .a3f-status-row [data-role=cache-status] { white-space: nowrap; order: 3; }
+.a3f-timeline-dock .a3f-error { color: #ffb7b2; }
+.a3f-timeline-dock .a3f-error:empty { display: none; }
+.a3f-timeline-dock .a3f-error { font-size: var(--a3f-timeline-font-size, 11px); white-space: pre-wrap; flex-shrink: 0; }
+
+@media (max-width: 1100px) {
+    .a3f-timeline-dock .a3f-status-row { gap: 8px; }
+    .a3f-timeline-dock .a3f-status-row [data-role=cache-status] { display: none; }
+}
+
+@media (max-width: 700px) {
+    .a3f-timeline-dock .a3f-toolbar { gap: 8px; }
+    .a3f-timeline-dock .a3f-series-widgets { gap: 6px; min-height: 90px; }
+    .a3f-timeline-dock .a3f-playback-controls { flex-basis: 88px; width: 88px; height: 84px; }
+    .a3f-timeline-dock .a3f-series-time { padding: 5px 6px 0; }
+    .a3f-timeline-dock .a3f-readout-bar { align-items: flex-start; flex-direction: column; gap: 1px; margin-bottom: 4px; }
+    .a3f-timeline-dock .a3f-readout, .a3f-timeline-dock .a3f-frame-readout { font-size: calc(var(--a3f-timeline-font-size, 11px) - 1px); }
+    .a3f-timeline-dock .a3f-time-axis { height: 60px; }
+    .a3f-timeline-dock .a3f-status-row { flex-wrap: wrap; gap: 3px 10px; }
+    .a3f-timeline-dock .a3f-status-row [data-role=cache-status] { display: block; font-size: calc(var(--a3f-timeline-font-size, 11px) - 2px); }
+}
+
+/* 공통 HTML 조작 요소는 소유 클래스 안에서만 꾸며 외부 폼의 스타일을 바꾸지 않습니다. */
+.u-timeline-controls { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; color: inherit; }
+.u-timeline-controls input { width: 5rem; }
+.u-timeline-controls button { min-width: 2rem; }
+.u-timeline-range input { width: 100%; }
+.u-timeline-range [data-timeline-labels] { display: flex; justify-content: space-between; gap: .25rem; font-variant-numeric: tabular-nums; }
+.u-timeline-range output { display: block; font-size: .8em; }
+.a3f-timeline-dock .a3f-playback-controls { min-width: 0; width: auto; height: auto; flex: 1 1 300px; }
+.a3f-timeline-dock .u-timeline-range { height: 60px; background: var(--a3f-timeline-background, #112438); }
+.a3f-timeline-dock [data-timeline-seek] { accent-color: var(--a3f-timeline-accent, #29a9e9); }
+@media (max-width: 700px) {
+    .a3f-timeline-dock .a3f-series-widgets { align-items: stretch; flex-direction: column; }
+    .a3f-timeline-dock .a3f-playback-controls { flex: 0 0 auto; }
+}

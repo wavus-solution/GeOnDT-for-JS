@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -66,7 +66,7 @@ declare class UGLTFLoader extends UGLTFLoader_base {
     } | {
         ready: Promise<void>;
         supported: boolean;
-        useWorkers: (count: any) => void;
+        useWorkers: (count?: number) => void;
         decodeVertexBuffer: (target: any, count: any, size: any, source: any, filter: any) => void;
         decodeIndexBuffer: (target: any, count: any, size: any, source: any) => void;
         decodeIndexSequence: (target: any, count: any, size: any, source: any) => void;
@@ -75,6 +75,8 @@ declare class UGLTFLoader extends UGLTFLoader_base {
     };
     load(url: any, onLoad: any, onProgress: any, onError: any): void;
     /**
+     * 원본 데이터 준비부터 장면 후처리까지의 실패를 같은 오류 콜백으로 전달합니다.
+     *
      * @param {string|ArrayBuffer|object} data glTF/GLB 원본 데이터. b3dm 내부 GLB는 원본 b3dm 버퍼가 그대로 들어올 수 있다.
      * @param {string} path 외부 리소스 기준 경로
      * @param {Function} onLoad 파싱 완료 콜백
@@ -82,12 +84,13 @@ declare class UGLTFLoader extends UGLTFLoader_base {
      * @param {object | null} layer 기존 호출 호환용 레이어 인자. 레이어 없이 파싱하면 null을 전달합니다.
      * @param {number} [byteOffset=0] data가 ArrayBuffer일 때 GLB/glTF가 시작되는 위치
      * @param {number} [byteLength] data 안에서 파싱할 GLB/glTF 길이
-     * @param {{skipAnimations?: boolean, skipCameras?: boolean}} [parseOptions] 3D Tiles처럼 animation/camera 결과를 쓰지 않는 경로의 선택 최적화 옵션
+     * @param {Partial<{skipAnimations: boolean, skipCameras: boolean}>} [parseOptions] 3D Tiles처럼 animation/camera 결과를 쓰지 않는 경로의 선택 최적화 옵션
+     * @returns {Promise<void>} 완료 콜백 또는 오류 콜백 처리까지 기다리는 Promise. 오류 콜백이 없으면 원래 오류로 거부됩니다.
      */
-    parse(data: string | ArrayBuffer | object, path: string, onLoad: Function, onError: Function, layer: object | null, byteOffset?: number, byteLength?: number, parseOptions?: {
-        skipAnimations?: boolean;
-        skipCameras?: boolean;
-    }): Promise<void>;
+    parse(data: string | ArrayBuffer | object, path: string, onLoad: Function, onError: Function, layer: object | null, byteOffset?: number, byteLength?: number, parseOptions?: Partial<{
+        skipAnimations: boolean;
+        skipCameras: boolean;
+    }>): Promise<void>;
     setDracoDecodePath(path: any): void;
     setWorkerLimit(limit: any): void;
     dispose(): void;

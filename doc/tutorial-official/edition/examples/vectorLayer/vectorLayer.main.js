@@ -1,6 +1,9 @@
 /** 좌표 변환에 사용하는 지구 반지름(m)입니다. */
 const EARTH_RADIUS = 6378137;
 
+/** 여러 클릭으로 점을 누적하고 더블클릭으로 입력을 마치는 도형입니다. */
+const MULTI_CLICK_GEOMETRY_TYPES = new Set(['Line', 'Polygon', 'Pipe', 'UserGeometry', 'PolygonLoftGeometry', 'Fault']);
+
 /**
  * 3D 객체 그리기 예제의 지도 기능을 초기화합니다.
  *
@@ -174,6 +177,11 @@ export async function initialize(context) {
      * @param {MouseEvent} event 지도 클릭 이벤트
      */
     function clickFunction(event) {
+        //+ 더블클릭은 click(detail=1) → click(detail=2) → dblclick 순서입니다.
+        //+ 첫 클릭의 끝점만 반영하고, 두 번째 클릭은 좌표 조회·추가 없이 종료 이벤트에 맡깁니다.
+        const origin = event.origin ?? event;
+        if (MULTI_CLICK_GEOMETRY_TYPES.has(state.geometryType) && origin.detail > 1) return;
+
         const world = app.closestPointAtPixel(event); //+ 화면상 클릭한 지점의 3D vector 좌표
         const lonlat = app.vector3ToGeoGraphic(world); //+ vector를 위경도 좌표로 변환
         drawGeom(state.geometryType, lonlat);
@@ -389,12 +397,12 @@ export async function initialize(context) {
         initialCircle.setPositions(createCircleCoordinates(homePosition.lon, homePosition.lat, orbitRadius, orbitHeight, 64));
 
         //+ 홈 주변 궤도 위에 초기 도형을 서로 다른 각도로 배치합니다.
-        const initialBox = new GeOnDT.geom.U3dBox({color: '#2ecc71', width: 10, height: 10, depth: 10, outline: true});
+        const initialBox = new GeOnDT.geom.U3dBox({color: '#2ecc71', width: 10, height: 10, depth: 10, outline: true, lineWidth: 0.3});
         initialBox.name = 'box1';
         subVectorLayer.addGeometry(initialBox);
         initialBox.setPosition(createOrbitCoordinate(Math.PI * 2 / 5, orbitRadius, orbitHeight));
 
-        const initialPipe = new GeOnDT.geom.U3dPipe({color: '#f39c12', piperadius: 2, pathsegments: 64, radiussegments: 12, closed: true});
+        const initialPipe = new GeOnDT.geom.U3dPipe({color: '#f39c12', piperadius: 2, pathsegments: 64, radiussegments: 12, closed: true, outline: true, lineWidth: 0.3});
         initialPipe.name = 'pipe1';
         subVectorLayer.addGeometry(initialPipe);
         const initialPipeCenter = createOrbitCoordinate(Math.PI * 4 / 5, orbitRadius, orbitHeight);
@@ -402,12 +410,12 @@ export async function initialize(context) {
         initialPipeCoordinates.pop(); // closed 옵션이 마지막 점과 첫 점을 연결하므로 중복 좌표는 제거합니다.
         initialPipe.setPositions(initialPipeCoordinates);
 
-        const initialSphere = new GeOnDT.geom.U3dSphere({color: '#9b59b6', radius: 6, widthSegments: 24, heightSegments: 16});
+        const initialSphere = new GeOnDT.geom.U3dSphere({color: '#9b59b6', radius: 6, widthSegments: 24, heightSegments: 16, outline: true, lineWidth: 0.3});
         initialSphere.name = 'sphere1';
         subVectorLayer.addGeometry(initialSphere);
         initialSphere.setPosition(createOrbitCoordinate(Math.PI * 6 / 5, orbitRadius, orbitHeight));
 
-        const initialU3dCircle = new GeOnDT.geom.U3dCircle({color: '#3498db', radius: 7, segments: 32, opacity: 0.8});
+        const initialU3dCircle = new GeOnDT.geom.U3dCircle({color: '#3498db', radius: 7, segments: 32, opacity: 0.8, outline: true, lineWidth: 0.3});
         initialU3dCircle.name = 'circle1';
         subVectorLayer.addGeometry(initialU3dCircle);
         initialU3dCircle.setPosition(createOrbitCoordinate(Math.PI * 8 / 5, orbitRadius, orbitHeight));
@@ -669,6 +677,9 @@ export async function initialize(context) {
      */
     function validateStyle(input) {
         const errors = [];
+        if (input.outlineType !== undefined && !['meter', 'pixel'].includes(input.outlineType)) {
+            errors.push('outlineType: meter 또는 pixel이어야 합니다');
+        }
         if (input.color !== undefined && !/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(input.color))) {
             errors.push('color: 올바른 hex 색상값이 아닙니다 (예: "#2b448b")');
         }

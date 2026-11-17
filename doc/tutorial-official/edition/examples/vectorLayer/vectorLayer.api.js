@@ -38,7 +38,7 @@ export const apiHelp = {
         source: {sourceId: 'main', token: 'geometry.path'},
         getCode(context, example) {
             const param = example.state.param;
-            return `path.draw(true, {\n    color: '${param.color ?? '#2b448b'}',\n    opacity: ${param.opacity ?? 0.4},\n    width: ${param.width ?? 20},\n    maxheight: ${param.pathheight ?? 10},\n    minheight: ${param.height ?? 100},\n    tension: ${param.tension ?? 0.5},\n    segments: 200,\n    isDraw: true\n});`;
+            return `path.draw(true, {\n    color: '${param.color ?? '#2b448b'}',\n    opacity: ${param.opacity ?? 0.4},\n    width: ${param.width ?? 20},\n    maxheight: ${param.pathheight ?? 10},\n    minheight: ${param.height ?? 100},\n    tension: ${param.tension ?? 0.5},\n    segments: 200,\n    outline: ${param.outline ?? true},\n    outlineType: '${param.outlineType ?? 'meter'}',\n    lineWidth: ${param.lineWidth ?? 0.3},\n    isDraw: true\n});`;
         }
     },
     'geometry.gizmo': {

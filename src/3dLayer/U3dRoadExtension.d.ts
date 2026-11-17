@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -10,7 +10,7 @@ import type { UCssBilboard } from "../annotation/UCssBilboard.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { WorldPositionVector3 } from "../types/global.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 declare class U3dRoadExtension {
     constructor(options: any);
@@ -43,7 +43,7 @@ declare class U3dRoadExtension {
     mesh: UMesh;
     _show: boolean;
     _editPoints: UGroup;
-    createAbsorption(road1: any, road2: any, type: any): DeferredObject<unknown>;
+    createAbsorption(road1: any, road2: any, type: any): DeferredPromise<void>;
     /**
      * 도로 생성을 위한 point 좌표를 추가하는 함수입니다.
      * @param {WorldPositionVector3} point 도로를 생성할 좌표 (월드 좌표, EPSG:3857)
@@ -55,7 +55,7 @@ declare class U3dRoadExtension {
      * 도로 컴포넌트에 이미지를 지정하는 함수
      * @param {String} imageUrl 이미지 소스 URL
      */
-    setRoadImage(imageUrl: string): DeferredObject<unknown>;
+    setRoadImage(imageUrl: string): DeferredPromise<void>;
     _roadImageUrl: string;
     /**
      * 도로 너비를 지정하는 함수
@@ -180,7 +180,7 @@ declare class U3dRoadExtension {
     checkDistance(point: WorldPositionVector3, target?: WorldPositionVector3): number;
     sortLineAndMesh(): void;
     createEditPoint(): void;
-    drawIntersection(line: any, points: any): DeferredObject<unknown>;
+    drawIntersection(line: any, points: any): DeferredPromise<void>;
     removeAllLine(): void;
 }
 

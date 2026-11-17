@@ -17,6 +17,7 @@
 - ADD와 REPLACE refine 방식에 맞춰 부모·자식 타일의 표시 상태와 그룹 연결을 전환한다.
 - 로드된 메시를 LRU 캐시에 보관하고 취소·숨김·초기화·처분 시 작업과 렌더 자원을 정리한다.
 - 회전, 높이, 평면 오프셋, 투명도, 자동 지형 높이와 디버그 바운딩 박스를 레이어에 적용한다.
+- 원본 재질의 불투명도·투명·깊이 쓰기 상태를 보존하며 호버용 복제 재질과 복원할 원본에 같은 레이어 배율을 적용한다.
 - 배치 메타데이터와 BIM 레벨 그룹 조회·구성을 제공한다.
 - 책임 경계: VCTR 본문 해석은 기본 구현에서 수행하지 않으며 `U3dVectorTileLayer`가 파서 작업을 교체한다. 하위 VCTR 파서의 updateId 기반 결과 판정은 후속 범위다. [확인 Q-011]
 
@@ -35,6 +36,14 @@
 ## 3. 정규 자연어 수도코드
 
 ```spec
+UModelTileMaterialState 타입 정의
+    sourceOpacity: number
+        레이어 배율을 곱하기 전의 원본 불투명도
+    sourceTransparent: boolean
+        원본 투명 렌더링 여부
+    sourceDepthWrite: boolean
+        원본 깊이 기록 여부
+
 U3dModelTilesLayer extends U3dModelLayer 클래스 정의
     의존: U3dModelLayer — 모델 레이어 공통 상태와 수명주기 제공; 상속: {U3dModelLayer}
 
@@ -44,6 +53,9 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
     _contentOffsetBoundsDirty: boolean = false
         경계 설정 변경 뒤 다음 유효한 update()의 주기·카메라 정지 검사를 우회할 상태
 
+    _materialStateMap: WeakMap<THREE.Material, UModelTileMaterialState> = 빈 WeakMap
+        최초 보정 전 원본 상태를 보관하는 내부 저장소이며 외부 교체용 공개 접근자를 제공하지 않는다.
+
     #stopUpdate: boolean = false
         update()의 타일 탐색 실행을 중지하는 상태
 
@@ -52,6 +64,9 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
 
     maximumScreenSpaceError: number = 32
         타일 세분화 여부를 결정하는 화면 공간 오차 한도
+
+    #contentRevisions: WeakMap<object, number> = 빈 WeakMap
+        타일 해제 횟수다. 카메라 갱신과 구분하여 해제 전 캐시·이벤트 callback의 반영 권한을 확인한다. WeakMap은 타일의 수명을 연장하지 않는다.
 
     _rootTileSet: U3DTileset | undefined
         초기화한 루트 3D Tiles 계층
@@ -163,10 +178,15 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
         역할: 로드된 모델의 표현과 타일 탐색 실행 여부를 제어한다.
 
         override setOpacity(val: number) -> void
-            처리 기준: 루트 tileset이 없으면 캐시 메시에도 불투명도를 적용하지 않고 종료한다.
-            의존: U3dLayer — 기본 불투명도 저장; 함수: {prototype.setOpacity.call()}
+            처리 기준:
+                null·undefined는 무시하며 다른 비숫자·NaN·무한수는 상태 변경 전에 TypeError로 거부한다.
+                루트 tileset이 없으면 기본 설정만 저장하고 타일·캐시 재질 갱신은 생략한다.
+            의존:
+                U3dLayer — 기본 불투명도 저장; 함수: {prototype.setOpacity.call()}; 속성 읽기·쓰기: {_oriOpacity, _opacity}
+                defined — 입력과 기존 복원 기준 존재 여부; 함수: {defined()}
             동작:
-                U3dLayer.setOpacity를 현재 레이어로 직접 호출하여 기본 설정을 먼저 저장한다.
+                기존 _oriOpacity를 보관한 뒤 기반 설정을 호출하여 입력을 0~1로 제한하고 _opacity에 저장한다.
+                기존 _oriOpacity가 정의되어 있으면 0도 포함하여 다시 보관하므로 resetOpacity의 복원 기준을 유지한다.
         setStopUpdate(stop: boolean = false) -> void
             동작: #stopUpdate에 입력값을 저장한다.
 
@@ -202,12 +222,12 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
             인터페이스: drawArg과 curTime은 현재 구현에서 사용하지 않고 연결된 _drawArg를 조회한다. viewSizeOffset이 함수이면 현재 레이어를 this로 하고 루트 tileset을 인수로 호출한다.
 
             처리 기준:
-                갱신 중지, 미초기화, 루트 JSON 미완료, draw argument 누락 또는 바운딩 박스 누락 상태에서는 실행하지 않는다.
-                명시적 force 또는 _contentOffsetBoundsDirty가 truthy이면 주기와 카메라 정지 검사를 우회한다. 둘 다 falsy이고 갱신 주기를 통과하지 못하면 다음 검사 시각을 갱신하고 종료한다.
+                레이어 해제, 갱신 중지, 미초기화, 루트 JSON 미완료, draw argument 누락 또는 바운딩 박스 누락 상태에서는 실행하지 않는다.
+                명시적 force 또는 _contentOffsetBoundsDirty가 truthy이면 주기를 우회하고 카메라 변경 판정에 force를 전달한다. 카메라 비교 자체를 생략하지 않으며, INTERNAL.isStateChange()가 이전 위치를 원점으로 바꾼 뒤 내린 결과를 따른다. 둘 다 falsy이고 갱신 주기를 통과하지 못하면 다음 검사 시각을 갱신하고 종료한다.
                 이동 범위를 포함한 판정 박스가 프러스텀 밖이거나 카메라와 판정 구의 거리가 geometricError × viewSizeOffset × 2를 넘으면, 캐시 길이 또는 활성 요청 수가 0보다 클 때만 표시 타일을 제거하고 다음 검사 시각을 갱신해 종료한다.
 
             의존:
-                U3dLayer — 상속받은 초기화와 draw argument 상태 사용; 함수: {isInitialized()}; 속성 읽기: {_drawArg}
+                U3dLayer — 상속받은 초기화·수명과 draw argument 상태 사용; 함수: {isInitialized()}; 속성 읽기: {_drawArg, _disposed}
                 defined — draw argument 존재 여부 판정; 함수: {defined()}
                 UDrawArg — 카메라 위치와 레이어 박스 교차 여부 조회; 함수: {getCameraPosition(), intersectsBox()}
                 UCheckTime — 갱신 주기 판정과 다음 검사 시각 갱신; 함수: {isUpdate(), updateTime()}
@@ -218,10 +238,11 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
                 갱신 중지와 초기화 선행조건을 검사한다.
                 동적 viewSizeOffset과 카메라 위치를 조회한다.
                 경계 생성을 마친 뒤 _contentOffsetBoundsDirty를 false로 바꾼다.
-                판정 공간 범위를 벗어나면 위 캐시·활성 요청 조건에 따라 타일을 제거한다.
+                판정 공간 범위를 벗어나면 _prevPostion을 undefined로 정하고 위 캐시·활성 요청 조건에 따라 타일을 제거한다. 비동기 콜백이 먼저 자료를 정리한 경우에도 위치 기준은 무효화하여 같은 위치 복귀 때 재탐색한다.
                 카메라 상태가 바뀌지 않았으면 다음 갱신 시각만 갱신하고 종료한다.
                 이전 탐색 callback을 논리적으로 무효화할 새 updateId와 같은 이동 경계 문맥을 포함한 공유 검사 문맥을 만든다. 진행 중인 타일 콘텐츠 작업은 타일별 승계·dispose 정책으로 별도 관리한다.
-                각 루트 자식의 로드 목록을 초기화하고 하위 타일 탐색을 시작한다.
+                콘텐츠가 있는 루트 자식은 최상위 타일셋을 부모로 하여 직접 요청·탐색한다.
+                콘텐츠 없는 루트 자식은 현재 탐색의 부모로 재사용하도록 disposed=false로 복원한 뒤 로드 목록을 초기화하고 하위 타일을 탐색한다. 자손 전체를 미리 복원하거나 취소된 요청·해제 세대를 되돌리지 않는다.
                 다음 갱신 시각을 갱신한다.
 
     바운딩 볼륨 책임 그룹
@@ -258,7 +279,8 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
                 U3dModelLayer — 기반 레이어 자원 처분; 함수: {prototype.dispose.call()}
                 defined — 루트 tileset 존재 여부 판정; 함수: {defined()}
             동작:
-                이전 탐색을 무효화하고 모든 활성 타일 콘텐츠 요청을 취소한 뒤 캐시와 루트 타일 계층을 정리하고 루트 참조를 제거한다.
+                이전 탐색을 무효화하고 모든 활성 타일 콘텐츠 요청을 취소한 뒤 캐시를 정리한다.
+                _rootTileSet이 정의되었으면 타일 계층을 정리한다. 이후 존재 여부와 무관하게 루트 참조를 제거한다.
                 U3dModelLayer.dispose()를 호출하고 같은 Promise를 반환한다.
 
         isInitializedJson() -> boolean
@@ -293,13 +315,14 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
                 baseUrl이 정의되지 않았으면 undefined를, draw argument가 정의되지 않았으면 false를 동기 반환한다.
                 루트 자식의 boundingVolume에 region, sphere 또는 box가 없으면 초기화 Promise와 레이어 생성 결과를 거부한다.
                 배치 그룹 요청은 루트 JSON 초기화와 병렬로 시작하며 완료를 기다리지 않는다.
+                배치 그룹은 부가 정보다. 요청 실패는 살아 있는 레이어에서 로그만 남기며, 루트 응답과의 도착 순서로 ready의 성공·실패가 바뀌지 않는다.
 
             의존:
                 U3dModelLayer — 공통 초기화; 함수: {prototype.initialize.call()}
-                U3dLayer — 상속받은 draw argument와 네이티브 ready Promise의 완료 처리; 함수: {_resolveReady(), _rejectReady()}; 속성 읽기: {_drawArg}
+                U3dLayer — 상속받은 수명·draw argument와 ready 완료 처리; 함수: {_resolveReady(), _rejectReady(), isReady()}; 속성 읽기: {_drawArg, _disposed}
                 defined — 필수 설정·응답·바운딩 데이터 존재 여부 판정; 함수: {defined()}
                 UFileLoader — 루트 JSON 요청; 생성자: {new UFileLoader()}; 함수: {setResponseType(), load()}; 속성 쓰기: {crossOrigin}
-                deferred — 초기화 결과 Promise 생성; 함수: {deferred()}
+                deferredPromise — 초기화 결과 Promise 생성; 함수: {deferredPromise()}
                 U3DTileset — 루트 타일 계층 생성; 생성자: {new U3DTileset()}
                 THREE — 지리 중심과 바운딩 구 계산; 생성자: {new Vector3()}; 함수: {Box3.getCenter(), getBoundingSphere()}
                 UMathEngine — 높이의 렌더 좌표 스케일 환산; 정적 함수: {getRealScaleAtGeographic(), getRealScaleAtGoogle()}
@@ -309,10 +332,10 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
                 기반 레이어를 초기화하고 baseUrl과 draw argument를 확인한 뒤 배치 그룹 경로가 정의되었으면 그룹 JSON 요청을 시작한다. 성공 callback은 반환 객체를 자체 _batchGroup에 저장한다.
                 루트 JSON을 요청하고, 응답 callback에서 복제한 JSON으로 U3DTileset을 생성한다.
                 이미 완료한 레이어의 응답 후처리 예외는 로그에 남기고 완료 상태를 유지한다.
-                응답 callback의 처리 예외는 레이어 _rejectReady에 전달한다. 레이어의 공통 완료 인터페이스는 Error를 전달하며, 별도 초기화 결과 Promise의 기존 거부값은 변경하지 않는다.
+                응답 callback 진입 시 해제된 레이어이면 AbortError로 중단한다. 처리 예외는 반환한 초기화 Promise를 거부한 뒤 레이어 _rejectReady에도 전달한다. 레이어의 공통 완료 인터페이스는 Error를 전달하며, 별도 초기화 결과 Promise의 기존 거부값은 변경하지 않는다.
 
                 응답 callback은 첫 루트 자식의 바운딩 종류로 지리 범위를 정하고 루트 geometricError를 저장한다. 각 루트 자식의 지리 경계로 레이어 높이 범위와 타일 박스·구를 구성하며 _heightOffset이 truthy일 때만 렌더 배율을 환산하여 레이어 박스 Z에 더한다. 이 높이 보정과 레이어 구 계산은 자식별 반복 안에서 수행한다.
-                초기화 완료 상태를 설정하고 강제 갱신한 뒤 반환 Promise를 루트 타일로 resolve한다. self.resolve가 정의되어 있을 때만 레이어 자신을 전달하여 레이어 생성 결과도 resolve한다.
+                초기화 완료 상태를 설정하고 강제 갱신한 뒤 반환 Promise를 루트 타일로 resolve한다. 정의된 _resolveReady를 인수 없이 호출하여 공통 ready 완료 상태를 알린다.
                 요청 오류와 중단은 초기화 Promise와 레이어 생성 결과를 reject한다.
 
         getTile(uri: string, object?: U3DTileset) -> U3DTileset | undefined
@@ -394,16 +417,19 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
 
         removeAllTiles() -> void
             의존: U3DTileset — 루트 자식 계층 조회; 속성 읽기: {children}
-            동작: 이전 탐색을 무효화하고 모든 활성 콘텐츠 요청과 캐시를 정리한 뒤 루트 자식 타일을 재귀 정리한다.
+            동작:
+                _prevPostion을 undefined로 비워 콘텐츠 정리 후 같은 위치로 복귀해도 다음 정상 갱신에서 한 번 다시 탐색하도록 한다. 이후 정지 프레임의 위치 비교 생략은 유지한다.
+                이전 탐색을 무효화하고 모든 활성 콘텐츠 요청과 캐시를 정리한 뒤 루트 자식 타일을 재귀 정리한다.
 
         override clear() -> Promise<void>
             의존:
                 defined — 그룹과 루트 tileset 존재 여부 판정; 함수: {defined()}
                 U3dLayer — 상속받은 레이어 그룹 사용; 속성 읽기·쓰기: {_group.children}
                 U3dModelLayer — 상속받은 모델 캐시 사용; 속성 읽기·쓰기: {_cacheModelInTile, _cacheModeles}
-                deferred — 비동기 정리 결과 생성; 함수: {deferred()}
+                deferredPromise — 비동기 정리 결과 생성; 함수: {deferredPromise()}
             동작:
-                이전 탐색을 무효화하고 모든 활성 콘텐츠 요청, 그룹 자식, 콘텐츠 캐시, 루트 계층과 모델 캐시를 정리한다.
+                이전 탐색을 무효화하고 모든 활성 콘텐츠 요청을 취소한다. 그룹이 정의되었으면 children 배열을 비우고 콘텐츠 캐시를 정리한다.
+                _rootTileSet이 정의되었으면 계층을 정리한다. 이후 루트 참조를 비우고 두 모델 캐시를 clear한다.
                 성공하면 resolve하고 동기 예외는 reject한다.
 
         clearCache() -> void
@@ -411,17 +437,19 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
             동작: 캐시의 각 메시를 완전히 삭제한 뒤 모든 항목을 제거한다.
 
         override refresh() -> void
+            의존: U3dLayer — 비동기 초기화 실패 전달; 함수: {_rejectReady()}
             동작:
                 usebox가 켜져 있으면 도우미를 제거한다.
-                clear() 완료 callback에서 initialize()를 다시 시작한다.
+                clear() 완료 callback에서 initialize()를 다시 시작하고 그 반환값을 연결하여 비동기 실패도 기존 실패 처리기로 전달한다. refresh 자체는 Promise를 반환하지 않는다.
                 동기 예외는 refresh 실패 오류로 다시 던진다.
 
     타일 선택과 작업 예약
         searchTiles(tile: U3DTileset, parent: U3DTileset, updateId: string | number, isFirst: boolean = true, checkContext: TileCheckContext = this.#createCheckContext(undefined, updateId)) -> Promise<U3DTileset> | undefined
             처리 기준:
-                취소된 갱신이면 탐색을 중단한다.
+                취소된 갱신이거나 레이어·부모 타일이 해제되었으면 탐색을 중단한다.
                 ADD 계열은 완료된 타일부터 즉시 표시하고, REPLACE 계열은 같은 부모의 대상 타일이 모두 끝난 뒤 교체한다.
             의존:
+                U3dLayer — 레이어 수명 판정; 속성 읽기: {_disposed}
                 defined — viewBox와 자식 존재 여부 판정; 함수: {defined()}
                 UDEF — refine와 타일 완료 상태 판정; 상수: {TILE_REFINE.ADD, TILES_STATE._END}
                 TILES_TYPE — 부모 경계 타일 판정; 상수: {BOUND}
@@ -430,22 +458,24 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
             동작:
                 checkContext를 생략하면 updateId를 포함한 기본 판정 문맥을 만들고 취소된 세대이면 종료하며 필요한 viewBox를 준비한다.
                 isFirst가 truthy이면 checkContext.contentOffsetContext를 반영한 월드 구의 프러스텀 교차를 검사하고 교차하지 않을 때 타일을 정리한 뒤 부모 완료 수만 증가시키고 반환한다.
-                이후 부모 refine 경로별로 타일 요청 Promise를 준비한다.
+                이후 타일 요청 Promise를 준비하고 해당 참조를 보관하여 부모 refine 경로에 연결한다. 각 성공·실패 callback은 같은 요청이 여전히 tile.promise인지, 레이어·부모·대상 타일이 살아 있는지와 갱신 세대를 확인한다. 해제 뒤 동일 세대로 재요청한 경우에도 이전 callback은 장면·부모 완료 수를 변경하지 않는다.
                 타일 Promise 완료 callback은 이전 세대이면 종료한다. 부모가 BOUND 또는 ADD이면 깊이 1로 판정하여 통과한 타일의 완료 상태가 _END일 때 표시하고 결과 목록을 같은 isFirst로 재귀 탐색한다. 미통과이면 loadList를 undefined로 하고 해당 타일을 표시한 뒤 자식을 정리한다. 두 경우 모두 부모 loadCount를 늘린다.
                 REPLACE 경로는 isFirst=false로 바꾸고 깊이 3의 결과를 재귀 탐색한다. 깊이 판정 실패 시 loadList를 undefined로, complete를 _END로 만든다. 부모 loadCount가 loadList 길이와 같아지면 각 최종 대체 타일 중 _END인 타일을 표시하고, loadList가 undefined인 타일의 자식을 정리하며 parent.parent까지 조상 그룹을 회수한다.
                 REPLACE 실패 callback은 이전 세대이면 종료한다. 각 형제의 최종 대체 타일 중 현재 updateId에 속하고 phase가 queued 또는 parser-queued인 work만 비활성화한다. 진행 중인 다운로드·파서는 이 조건으로 중단하지 않는다. 각 조상 그룹은 parent까지 _END로 회수하고 부모를 다시 표시한다.
-                예약된 tile.promise를 반환한다.
+                REPLACE 실패 처리는 원래 요청의 거부 분기에 직접 등록하여 기반 setPromise의 후속 정리가 요청 참조를 지우기 전에 현재 요청의 부모 복원을 수행한다. callback 자체의 예외는 별도 catch에서 기록한다.
+                이번에 보관한 요청 Promise를 반환한다.
 
         setPromise(tile: U3DTileset, updateId: string | number | undefined) -> void
             의존:
+                U3dLayer — 비동기 완료의 레이어 수명 판정; 속성 읽기: {_disposed}
                 UDEF — 완료와 캐시 상태 구분; 상수: {TILES_STATE._END, TILES_STATE._CACHED}
                 U3DTileset — 작업 Promise와 실패·완료 상태 변경; 속성 읽기·쓰기: {promise, failMsg, complete}
             동작:
                 다운로드 요청 Promise를 타일에 저장한다.
-                성공 callback은 failMsg를 빈 문자열로 바꾸고 _CACHED 상태가 아닐 때만 _END로 설정한다.
-                실패 callback은 workedTile.disposed가 falsy일 때만 해당 타일을 정리한다.
+                성공 callback은 tile.promise가 보관한 요청과 같고 원래 타일·레이어가 해제되지 않았을 때만 결과 타일의 failMsg를 비우고 _CACHED 상태가 아니면 _END로 설정한다.
+                실패 callback도 요청 참조와 레이어 수명을 확인한 뒤 원래 tile이 해제되지 않았을 때만 정리한다. 거부 사유를 타일로 사용하지 않는다.
 
-        checkTile(tile: U3DTileset, campos?: THREE.Vector3, checkContext?: TileCheckContext) -> boolean
+        checkTile(tile: U3DTileset | undefined, campos?: THREE.Vector3, checkContext?: TileCheckContext) -> boolean
             의존:
                 defined — 타일·카메라·바운딩 정보 존재 여부 판정; 함수: {defined()}
                 U3DTileset — 뷰 박스와 갱신별 판정 캐시 사용; 속성 읽기·쓰기: {viewBox, _checkUpdateId, _checkResult}
@@ -455,7 +485,7 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
         _createTileContentRequestUrl(sourceUrl: string) -> string
             동작: 원본 콘텐츠 URL에 현재 프록시 URL과 API 키를 결합하여 UFileLoader 요청·취소에 공통으로 사용할 최종 URL을 반환한다.
 
-        _isTileContentRequestCancelled(item: ModelTileParserQueueItem | ModelTileContentQueueInfo | undefined) -> boolean
+        _isTileContentRequestCancelled(item: Partial<ModelTileParserQueueItem & ModelTileContentQueueInfo> | undefined) -> boolean
             처리 기준:
                 requestState가 있으면 updateId 변경만으로 취소하지 않는다.
                 requestState가 없는 기존 호환 경로에서는 타일 dispose 또는 오래된 updateId를 취소로 판정한다.
@@ -467,7 +497,7 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
 
         _finishTileContentRequest(state: ModelTileContentRequestState, settle: "resolve" | "reject", tile: U3DTileset) -> void
             처리 기준: Map과 tile.work는 현재 상태·work의 객체 identity가 일치할 때만 제거한다.
-            동작: 상태가 없거나 이미 settled이면 종료한다. 먼저 settled=true로 표시하고 identity가 같은 Map 항목과 tile.work를 제거한다. 그 뒤 settle이 resolve이면 공유 Promise를 resolve하고 아니면 reject한다. 동기 완료 callback은 이미 소유권이 정리된 상태에서 실행된다.
+            동작: 상태가 없거나 이미 settled이면 종료한다. 먼저 settled=true로 표시하고 identity가 같은 Map 항목과 tile.work를 제거한다. 그 뒤 settle이 resolve이면 공유 Promise를 resolve하고 아니면 reject한다. 후속 Promise callback은 마이크로태스크에서 실행되며 그 전에 요청 소유권 정리는 끝난다.
 
         _cancelTileContentRequest(tile: U3DTileset) -> boolean
             처리 기준:
@@ -488,29 +518,33 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
 
         addRequestQueue(tile: U3DTileset, updateId: string | number) -> Promise<U3DTileset>
             처리 기준:
-                호출 세대가 오래되면 먼저 실패한다. complete가 _END 이상이면 disposed=false로 하고 URL 검사 없이 완료한다. 미완료 타일은 사용자 URL·URI, 콘텐츠 URI·URL 순으로 주소를 찾고, 주소 없는 BOUND는 성공하며 그 외에는 실패한다.
+                레이어가 해제되었거나 호출 세대가 오래되면 타일의 재사용 상태를 변경하지 않고 먼저 실패한다.
+                complete가 _END 이상이면 disposed=false로 하고 URL 검사 없이 완료한다.
+                미완료 타일은 사용자 URL·URI, 콘텐츠 URI·URL 순으로 주소를 찾는다. 주소 없는 BOUND는 현재 탐색이 다시 선택한 타일이므로 disposed=false로 복원하여 성공하며, 주소 없는 다른 종류는 실패한다.
                 같은 타일 ID와 sourceUrl의 활성 상태가 있으면 기존 작업의 updateId를 최신 세대로 바꾸고 같은 Promise를 반환한다.
                 같은 타일 ID의 sourceUrl이 바뀌면 이전 콘텐츠 상태를 폐기하고 새 파이프라인을 만든다.
                 캐시가 있으면 메시 참조를 타일로 되돌리고 다운로드 없이 완료한다.
                 JSON 타일이 실제 콘텐츠 타일로 교체되면 새 타일에 대해 다운로드 경로를 다시 예약한다.
+                JSON 처리 완료 후에도 요청 취소·레이어 해제·결과 타일 해제를 다시 확인한다. 폐기된 요청은 실패로 종결하며 후속 콘텐츠 다운로드를 큐에 넣지 않는다.
             의존:
                 U3dModelLayer — 상속받은 다운로드 작업 프로세스; 속성 읽기: {_workProcess}
-                deferred — 외부에 반환할 작업 Promise와 슬롯 반납 Deferred 생성; 함수: {deferred()}
+                deferredPromise — 외부에 반환할 작업 Promise와 슬롯 반납 Deferred 생성; 함수: {deferredPromise()}
                 UDEF — 작업 메시지와 타일 상태 판정·변경; 상수: {_MSG_WORK._UPDATE_MESH_BUILDING, TILES_STATE._END, TILES_STATE._DOWNLOADING, TILES_STATE._PARSING}
                 U3DTileset — 콘텐츠 URL, 메시, 작업과 상태 변경; 속성 읽기·쓰기: {content, baseURL, type, userData, complete, disposed, work, failMsg}
                 U3dQuadTileWork — 다운로드 작업 생성과 큐 대기 작업 비활성화; 생성자: {new U3dQuadTileWork()}; 함수: {setActive()}
                 WorkProcess — 우선순위 callback과 함께 다운로드 작업 등록; 함수: {_workProcess.add()}
                 LRUCache — URL별 메시 캐시 조회·등록; 함수: {_dataCache.has(), get(), put()}
                 U3dEvent — 단위 메시 로드 이벤트 종류; 상수: {MESH.LOADED}
-                U3dLayer — 메시 로드 이벤트 발행; 함수: {dispatchEvent()}
+                U3dLayer — 메시 로드 이벤트와 레이어 수명; 함수: {dispatchEvent()}; 속성 읽기: {_disposed}
                 U3dMessage — 취소 파라미터 오류 기록; 정적 함수: {error()}; 상수: {CNT.TILES.NOT_CANCEL_WORK}
                 TILES_TYPE — 경계·JSON 타일 종류 판정; 상수: {BOUND, JSON}
             동작:
                 요청 시점에 취소 여부·완료 상태·URL·활성 상태·메시 캐시 순으로 검사한다.
-                캐시 적중이면 메시 배열을 복제하지 않고 같은 참조를 타일에 연결하며 각 메시의 texture 재할당과 _tileset 연결을 갱신한다. 캐시 unitMeshes가 truthy일 때만 그 참조와 각 단위 메시도 연결한다. complete=_END로 만든 뒤 다운로드 없이 완료한다.
+                캐시 적중이면 메시 배열을 복제하지 않고 같은 참조를 타일에 연결하며 각 메시의 texture 재할당과 _tileset 연결을 갱신한다. 캐시 unitMeshes가 truthy일 때만 그 참조와 각 단위 메시도 연결한다. puid와 배치 좌표는 재계산하지 않는다. complete=_END로 만든 뒤 다운로드 없이 완료한다. [확인 Q-013]
                 같은 활성 상태를 이어받지 않는 경우 성공 callback을 캐시 조회 전에 등록한다. workedTile.userData.meshes가 truthy일 때만 unitMeshes의 각 항목에 로드 이벤트를 발행하고, 그 뒤 workedTile.userData.url이 캐시에 없을 때 메시·바이트 크기와 존재하는 unitMeshes 참조를 캐시에 넣는다. 캐시 적중 완료도 이 callback을 실행한다.
+                등록 당시의 contentRevisions 값을 보관한다. callback 시작·각 이벤트 전·캐시 반영 전에 레이어·타일 수명과 해당 값을 확인한다. 이벤트 수신자가 해제 후 같은 타일을 즉시 재요청하더라도 이전 순회와 캐시 반영은 중단한다. 해제 없이 완료 요청을 다시 조회하는 경우 원래의 단일 완료 통지는 유지한다.
                 캐시가 없으면 기존 다운로드·파싱 상태의 work를 비활성화하고 최종 requestUrl과 공유 Promise를 가진 ModelTileContentRequestState를 Map에 등록하며 complete=_DOWNLOADING으로 바꾼다.
-                WorkProcess가 실행하는 callback은 다운로드·형식 분기를 시작하고 네트워크 완료 시점에 settle되는 슬롯 반납 Deferred를 WorkProcess에 반환하며, JSON 교체 타일은 재귀 요청한다. 타일 파이프라인의 성공·실패는 공유 Promise를 정확히 한 번 완료하는 경로로 전달한다.
+                WorkProcess가 실행하는 callback은 다운로드·형식 분기를 시작하고 네트워크 완료 시점에 settle되는 슬롯 반납 Deferred를 WorkProcess에 반환하며, JSON 교체 타일은 취소 여부를 다시 확인한 뒤 재귀 요청한다. 타일 파이프라인의 성공·실패는 공유 Promise를 정확히 한 번 완료하는 경로로 전달한다.
                 작업 filter callback은 아직 큐에 있는 상태의 최신 세대·dispose·타일 상태를 검사한다.
                 타일 완료 여부를 결정하는 Promise를 반환한다.
 
@@ -522,15 +556,16 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
                 THREE — 점과 구·박스 사이 거리 계산; 함수: {Sphere.distanceToPoint(), Box3.distanceToPoint()}
             동작: position이 정의되지 않았으면 카메라 위치를 조회하고 여전히 없으면 0을 반환한다. useSphere가 truthy이고 worldSphere가 정의되어 있으면 구까지의 거리를 반환한다. 아니면 worldBox가 정의되어 있을 때 박스까지의 거리를 반환하고 둘 다 사용할 수 없으면 0이다. 구 내부의 음수 거리를 0으로 제한하지 않는다.
 
-        addParserQueue(fnc: (item: ModelTileParserQueueItem) -> DeferredObject<U3DTileset>, item: ModelTileParserQueueItem) -> Promise<U3DTileset>
+        addParserQueue(fnc: (item: ModelTileParserQueueItem) -> Promise<U3DTileset>, item: ModelTileParserQueueItem) -> Promise<U3DTileset>
             인터페이스: fnc는 현재 레이어를 this로 하고 item을 전달하여 호출한다. 파서가 resolve한 값 대신 item.tile로 외부 Promise를 완료한다.
             처리 기준:
                 파서나 항목이 없으면 undefined 대신 실패 완료한 Promise를 반환하여 호출 인터페이스를 유지한다.
                 파서의 동기 예외 또는 then/catch가 없는 반환값은 외부 Promise가 대기 상태로 남지 않도록 실패 처리한다.
                 dispose 이후 늦게 완료된 파서 결과는 성공으로 적용하지 않는다.
+                호출자와 WorkProcess는 같은 타일 완료 Promise를 기다린다. 파서 실패는 큐에도 실패로 전달하여 작업 비활성화와 취소 callback을 실행하며 슬롯은 한 번만 반환한다.
             의존:
                 U3dModelLayer — 상속받은 파서 작업 프로세스; 속성 읽기: {_workProcess2}
-                deferred — 파서 완료 Promise 생성; 함수: {deferred()}
+                deferredPromise — 파서 완료 Promise 생성; 함수: {deferredPromise()}
                 UDEF — 파싱 작업 메시지와 상태 판정; 상수: {_MSG_WORK._UPDATE_MESH_BUILDING, TILES_STATE._PARSING}
                 U3dQuadTileWork — 파서 작업과 취소 callback 구성; 생성자: {new U3dQuadTileWork()}
                 WorkProcess — 파서 작업 등록; 함수: {_workProcess2.add()}
@@ -538,7 +573,7 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
                 WorkProcess callback이 입력으로 전달된 파서를 현재 레이어 문맥으로 안전하게 실행하도록 위임한다.
                 requestState가 있을 때만 phase=parser-queued와 parserItem을 저장하며 work도 연결한다. callback 시작 시 상태가 있으면 phase=parsing으로 바꾼 뒤 fnc를 호출한다. 취소 callback은 상태가 있으면 cancelled=true로 하고 item.tile로 외부 Promise를 reject한다.
                 filter callback은 item·tile·requestState가 없으면 false다. 아직 큐에 있는 상태의 최신 세대·명시적 취소·settled·Map identity·타일 처분·_PARSING 상태를 검사한다.
-                파서 완료 시 dispose 이후 늦게 끝난 결과인지 재검사한 뒤 파서 결과를 타일 단위 Promise로 변환해 반환한다.
+                파서 완료 시 dispose 이후 늦게 끝난 결과인지 재검사하고 성공이면 item.tile로 완료하며 실패·취소이면 item.tile로 거부한다. WorkProcess callback은 오류를 처리한 별도 체인이 아니라 이 타일 완료 Promise를 반환한다.
 
         override show(show: boolean, refresh?: boolean) -> void
             의존:
@@ -561,12 +596,12 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
                 UDEF — 초기 타일 상태 복원; 상수: {TILES_STATE._NONE}
                 U3DTileset — 원본 JSON 타일과 자식 계층·자원 상태 변경; 속성 읽기·쓰기: {originalTile, parent, children, userData, complete, disposed, promise, work, boundInfo}
             동작:
-                타일이 없거나 isU3dQuadTile 플래그가 truthy이거나 userData가 없으면 종료한다. updateId가 truthy이고 현재 세대와 다를 때만 종료하므로 생략·0·빈 문자열은 세대 검사를 우회한다. 먼저 disposed=true로 표시한 뒤 활성 요청을 취소한다. 취소 결과가 false이면 원본 URL로 최종 요청 URL을 재구성해 로딩 중일 때 호환 abort를 시도한다. 이후 타일 updateId에 입력값을 저장한다.
+                타일이 없거나 isU3dQuadTile 플래그가 truthy이거나 userData가 없으면 종료한다. updateId가 truthy이고 현재 세대와 다를 때만 종료하므로 생략·0·빈 문자열은 세대 검사를 우회한다. 먼저 disposed=true로 표시하고 contentRevisions의 해제 횟수를 1 증가시킨 뒤 활성 요청을 취소한다. 취소 결과가 false이면 원본 URL로 최종 요청 URL을 재구성해 로딩 중일 때 호환 abort를 시도한다. 이후 타일 updateId에 입력값을 저장한다.
                 boxHelper가 정의되었으면 도우미 그룹과 상속받은 _scene에서 제거하되 userData의 참조는 지우지 않는다.
                 타일 그룹은 조건 없이 제거한다.
                 meshes가 정의되었을 때 URL 캐시가 있으면 각 메시를 deallocate하고 없으면 delete한 뒤 meshes를 undefined로 바꾼다.
                 같은 meshes 존재 분기 안에서 unitMeshes가 truthy일 때만 unitMeshes를 undefined로 바꾼다.
-                남은 work가 truthy이면 비활성화한 뒤 참조를 비운다. JSON 교체 타일은 부모 children의 일치 ID를 원본으로 되돌리고 원본을 재초기화하며 replaceTile·originalTile 연결을 지운다. boundInfo와 promise를 비우고 complete=_NONE으로 만든 뒤 자식을 같은 updateId로 재귀 정리한다. 선행 disposed는 setPromise 실패 callback의 동기 재진입을 차단한다.
+                남은 work가 truthy이면 비활성화한 뒤 참조를 비운다. JSON 교체 타일은 부모 children의 일치 ID를 원본으로 되돌리고 원본을 재초기화하며 replaceTile·originalTile 연결을 지운다. boundInfo와 promise를 비우고 complete=_NONE으로 만든 뒤 자식을 같은 updateId로 재귀 정리한다. 이후 setPromise 실패 callback은 disposed와 요청 참조 검사를 통해 처분한 타일에 다시 적용되지 않는다.
 
     계층·메타데이터와 BIM 설정
         getParent(object?: U3DTileset) -> U3DTileset | undefined
@@ -581,17 +616,17 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
                 이미 메타데이터가 있으면 즉시 해당 JSON으로 완료한다.
                 URL이 없고 batchGroupPath도 없으면 undefined를 반환한다.
             의존:
-                deferred — 로드 결과 Promise 생성; 함수: {deferred()}
+                deferredPromise — 로드 결과 Promise 생성; 함수: {deferredPromise()}
                 defined — URL·경로·JSON 존재 여부 판정; 함수: {defined()}
                 UFileLoader — JSON 요청과 성공·오류·중단 callback 등록; 생성자: {new UFileLoader()}; 함수: {setResponseType(), load()}
                 Console API — 실패·오류·중단 기록; 함수: {console.error()}
-            동작: 명시 URL 또는 batchGroup 파일 인접 batch.json을 로드해 _metaDataJson에 저장하고 JSON으로 완료한다.
+            동작: 명시 URL 또는 batchGroup 파일 인접 batch.json을 로드해 정의된 응답을 _metaDataJson에 저장하고 JSON으로 완료한다. 응답 부재·로드 오류·취소는 로그를 남기고 false로 거부한다. 현재 로더는 취소도 오류 콜백으로 전달한다.
 
         getBatchMetaData() -> object | undefined
             의존: defined — 메타데이터 존재 여부 판정; 함수: {defined()}
             동작: 로드된 _metaDataJson을 반환한다.
 
-        getMetaDataByName(name: string) -> UMetaData | undefined
+        getMetaDataByName(name?: string) -> UMetaData | undefined
             의존:
                 defined — 이름·메타데이터·일치 항목 존재 여부 판정; 함수: {defined()}
                 UMetaData — 일치 JSON을 메타데이터 객체로 변환; 생성자: {new UMetaData()}
@@ -651,10 +686,10 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
 
         addGroup(tile: U3DTileset) -> void
             의존:
-                U3dLayer — 상속받은 렌더 그룹; 속성 읽기: {_group}
+                U3dLayer — 상속받은 렌더 그룹과 수명; 속성 읽기: {_group, _disposed}
                 UGroup — 타일 메시를 레이어 그룹에 추가; 함수: {_group.add()}
                 U3DTileset — 표시 상태와 메시 목록 변경; 속성 읽기·쓰기: {visible, userData.meshes}
-            동작: 아직 표시되지 않은 타일을 visible로 바꾸고 보유 메시를 레이어 그룹에 추가한다.
+            동작: 레이어·타일이 해제되었거나 이미 표시 중이면 종료한다. 그 외 타일을 visible로 바꾸고 보유 메시를 레이어 그룹에 추가한다.
 
         removeGroup(tile: U3DTileset) -> void
             의존:
@@ -739,14 +774,14 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
             동작: _boundingBox의 각 축 최소·최대 순서를 정규화하고 geographic rectangle과 같은 참조의 rectangle3d를 만든 뒤 렌더 좌표 _box3를 갱신한다.
 
     내부 다운로드와 형식 분기
-        #processQueue(info: ModelTileContentQueueInfo, slotDone: DeferredObject<U3DTileset>) -> DeferredObject<U3DTileset>
+        #processQueue(info: ModelTileContentQueueInfo, slotDone: DeferredPromise<U3DTileset>) -> Promise<U3DTileset>
             인터페이스: slotDone은 다운로드 WorkProcess의 슬롯 반납 시점을 알리는 Deferred이며 반환 Promise보다 먼저 완료될 수 있다.
             처리 기준:
                 JSON과 알려진 binary magic만 처리하며 인식하지 못한 magic은 즉시 실패시킨다.
                 JSON 해석·tileset 확장·형식 판별 중 예외는 현재 타일 실패로 변환해 Promise를 완료한다.
                 slotDone은 파서 완료를 기다리지 않는다. 네트워크 완료·실패와 사전 폐기 경로에서는 반환 Promise와 같은 방식으로 settle하고, 파서 경로에서는 파서 작업 등록 직후 resolve한다.
             의존:
-                deferred — 다운로드·파싱 연결 Promise 생성; 함수: {deferred()}
+                deferredPromise — 다운로드·파싱 연결 Promise 생성; 함수: {deferredPromise()}
                 UFileLoader — 저장된 최종 requestUrl의 ArrayBuffer 요청; 함수: {_loader.load()}
                 Web API — UTF-8 magic·JSON 텍스트 해석; 생성자: {new TextDecoder()}
                 U3DTileset — 외부 tileset JSON을 현재 계층에 확장; 함수: {_rootTileSet.extendTileset()}; 속성 읽기·쓰기: {complete, failMsg}
@@ -765,16 +800,18 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
         #defineBatchGroup() -> Promise<object> | undefined
             의존:
                 defined — 배치 그룹 경로 존재 여부 판정; 함수: {defined()}
-                deferred — JSON 로드 결과 Promise 생성; 함수: {deferred()}
+                deferredPromise — JSON 로드 결과 Promise 생성; 함수: {deferredPromise()}
                 UFileLoader — batchGroup JSON 로드; 생성자: {new UFileLoader()}; 함수: {setResponseType(), load()}
-            동작: batchGroupPath가 없으면 undefined를 반환한다. 경로에 http: 또는 https:가 포함되면 그대로 사용하고, 아니면 base URL·proxy URL에 결합하여 JSON을 비동기로 읽는 Promise를 반환한다.
+            동작: batchGroupPath가 없으면 undefined를 반환한다. 경로에 http: 또는 https:가 포함되면 그대로 사용하고, 아니면 base URL·proxy URL에 결합하여 JSON을 비동기로 읽는 Promise를 반환한다. 응답이 정의되지 않았으면 먼저 false로 거부하고 이어진 resolve는 이미 종결되어 반영되지 않는다. 로드 오류·취소도 false로 거부한다.
 
     내부 좌표 변환과 배치 후처리
-        #calcPosition(object: THREE.Object3D, tile: U3DTileset, info: ParserInfo, callback?: function) -> Promise<void>
+        #calcPosition(object: THREE.Object3D, tile: U3DTileset, info: ParserInfo, callback?: function, contentIndex: number = 0) -> Promise<void>
+            인터페이스: contentIndex는 CMPT 내부 원본 콘텐츠 순번이며 단일 콘텐츠는 0이다. info.url은 실제 콘텐츠 파일 주소다.
             처리 기준: rtcCenter, 타일 transform 또는 worldBox 중심 중 어느 경로로도 중심을 얻지 못하면 실패한다.
             의존:
-                U3dLayer — 상속받은 렌더 문맥; 속성 읽기: {_drawArg}
-                deferred — 좌표 반영 완료 Promise 생성; 함수: {deferred()}
+                UMesh — 데이터 사용자·파일·배치·노드 경로의 식별자 생성; 정적 함수: {_createPuid()}
+                U3dLayer — 데이터 사용자 이름과 렌더 문맥; 속성 읽기: {_name, _drawArg}
+                deferredPromise — 좌표 반영 완료 Promise 생성; 함수: {deferredPromise()}
                 defined — 중심·변환·월드 박스·도우미 존재 여부 판정; 함수: {defined()}
                 Coordinates — EPSG:4326·4978 좌표 변환; 정적 함수: {transformPoint()}
                 UDrawArg — 월드·지리·월드 좌표 변환; 함수: {_drawArg.getWorldToGeographic(), getGeographicToGoogle()}
@@ -783,10 +820,12 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
                 TILES_TYPE — 형식별 위치 보정 분기; 상수: {B3DM, I3DM, CMPT, PNTS, GLB}
             동작:
                 rtcCenter가 없으면 타일 계층의 transform 보유 여부를 먼저 판정한다.
-                transform이 있으면 결합 행렬의 translation 성분을 중심으로 사용한다. transform도 없으면 worldBox 중심을 EPSG:4978로 변환한다.
+                transform이 있으면 결합 행렬의 translation 성분을 중심으로 사용한다. transform도 없으면 존재하는 worldBox의 중심을 EPSG:4978로 변환한다. 여전히 rtcCenter가 없으면 값 없는 거부 Promise를 반환하며 puid·위치 계산으로 진행하지 않는다.
+                중심을 얻은 뒤 현재 타일부터 부모의 children 순번을 모아 타일 배치 경로를 만든다. 부모 목록에서 현재 노드를 찾지 못하면 Error를 던지며 임시 tile.id로 대신하지 않는다.
+                원본 콘텐츠의 루트부터 자식 순번으로 노드 경로를 순회한다. 레이어 종류·이름, 콘텐츠 URL과 타일 배치·contentIndex·노드 경로로 각 노드의 puid를 부여한다. BIM 그룹 재편성과 좌표 보정 전에 기록하며 URL 캐시 복원에서는 이 계산을 다시 실행하지 않는다. [확인 Q-013]
                 얻은 중심을 위경도 좌표로 변환한다.
                 콘텐츠 중심을 지리·월드·EPSG:4978 좌표로 저장하고 메시 계층의 로컬 박스와 회전을 계산한다.
-                콘텐츠 종류에 맞는 위치 보정을 수행하고 완료 Promise를 반환한다.
+                현재 tile.type이 B3DM 또는 PNTS이면 처음 결정한 editCenter와 순회 결과 localBox·useTranslation을 info에 저장한 뒤 해당 위치 보정을 수행한다. I3DM과 CMPT도 각 경로로 전달하며 GLB 분기에는 추가 위치 보정이 없다. 완료 Promise를 반환한다.
 
         #computeTransform(info: ModelTileTransformInfo) -> Matrix4
         #calcTraverse(object: ModelMesh, result: ModelTileCalculationInfo, quaternion: Quaternion) -> void
@@ -833,44 +872,47 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
             처리 기준: 취소 뒤 적용하지 않은 복합 파서 결과의 즉시 자원 해제 소유권은 정의되어 있지 않다. [확인 Q-012]
             의존:
                 U3dLayer — 상속받은 렌더 문맥; 속성 읽기: {_drawArg}
-                deferred — 파싱 완료 Promise 생성; 함수: {deferred()}
+                deferredPromise — 파싱 완료 Promise 생성; 함수: {deferredPromise()}
                 defined — draw argument, parser와 결과 타일 존재 여부 판정; 함수: {defined()}
                 UCmptParser — 합성 타일 파싱; 생성자: {new UCmptParser()}; 함수: {parse()}
                 TILES_TYPE — 내부 콘텐츠와 완료 타일 종류 분기; 상수: {B3DM, I3DM, PNTS, CMPT}
             동작:
                 실행 전 요청 상태·draw argument·타일 처분을 검사한다.
-                parser 완료 callback에서 요청 상태를 다시 검사한 뒤 내부 타일별 후처리를 실행하고 CMPT 타일로 완료한다.
+                parser 완료 callback에서 요청 상태를 다시 검사한 뒤 내부 타일별 후처리에 원본 콘텐츠 순번도 전달하고 CMPT 타일로 완료한다.
+                파서 Promise의 거부와 성공 후처리 예외는 tile 사유의 거부로 연결한다. parse 호출 자체의 동기 예외는 이 연결 이전에 발생하므로 호출자에게 전파한다.
 
         #parseI3DM(obj: ModelTileParserQueueItem) -> Promise<U3DTileset>
             처리 기준: 취소 뒤 적용하지 않은 인스턴스 파서 결과의 즉시 자원 해제 소유권은 정의되어 있지 않다. [확인 Q-012]
             의존:
                 U3dLayer — 상속받은 렌더 문맥; 속성 읽기: {_drawArg}
-                deferred — 파싱 완료 Promise 생성; 함수: {deferred()}
+                deferredPromise — 파싱 완료 Promise 생성; 함수: {deferredPromise()}
                 defined — draw argument와 parser 존재 여부 판정; 함수: {defined()}
                 UI3dmParser — 인스턴스 타일 파싱; 생성자: {new UI3dmParser()}; 함수: {parse()}
             동작:
                 실행 전 요청 상태·draw argument·타일 처분을 검사한다.
-                parser 완료 callback에서 요청 상태를 다시 검사한 뒤 I3DM 결과를 후처리한다.
+                parser 완료 callback에서 요청 상태를 다시 검사한 뒤 I3DM 결과를 후처리하고 타일로 완료한다.
+                파서 Promise의 거부와 성공 후처리 예외는 tile 사유의 거부로 연결한다. parse 호출 자체의 동기 예외는 이 연결 이전에 발생하므로 호출자에게 전파한다.
 
         #parsePNTS(obj: ModelTileParserQueueItem) -> Promise<U3DTileset>
             처리 기준: 취소 뒤 적용하지 않은 포인트 파서 결과의 즉시 자원 해제 소유권은 정의되어 있지 않다. [확인 Q-012]
             의존:
                 U3dLayer — 상속받은 렌더 문맥; 속성 읽기: {_drawArg}
-                deferred — 파싱 완료 Promise 생성; 함수: {deferred()}
+                deferredPromise — 파싱 완료 Promise 생성; 함수: {deferredPromise()}
                 defined — draw argument와 parser 존재 여부 판정; 함수: {defined()}
                 UPntsParser — 점군 타일 파싱; 생성자: {new UPntsParser()}; 함수: {parse()}
                 THREE — 로컬·월드 변환 행렬 분해와 region 회전 보정; 생성자: {new Vector3(), new Quaternion()}; 함수: {Matrix4.premultiply(), decompose()}
             동작:
                 실행 전 요청 상태·draw argument·타일 처분을 검사한다.
                 parser 완료 callback에서 처분·요청 상태를 재검사하고 유효하지 않으면 실패한다.
-                tile._worldFromLocalTransform이 truthy이면 point 행렬에 선행 곱한 뒤 분해한다.
+                tile._worldFromLocalTransform이 truthy이면 point 행렬에 선행 곱한 뒤 분해한다. 분해한 위치·회전은 임시 변수에, scale만 point.scale에 기록한다.
                 tile._worldFromLocalTransform이 falsy이고 boundingVolume.region이 있으면 region의 EPSG:4978 중심을 지리 좌표로 바꿔 회전을 보정한다.
                 위 변환 유무와 관계없이 유효한 결과를 후처리하고 타일로 완료한다.
+                파서 Promise의 거부와 성공 후처리 예외는 tile 사유의 거부로 연결한다. parse 호출 자체의 동기 예외는 이 연결 이전에 발생하므로 호출자에게 전파한다.
 
         #parseVCTR(obj: ModelTileParserQueueItem) -> Promise<U3DTileset>
             의존:
                 U3dLayer — 상속받은 렌더 문맥; 속성 읽기: {_drawArg}
-                deferred — 기본 VCTR 처리 완료 Promise 생성; 함수: {deferred()}
+                deferredPromise — 기본 VCTR 처리 완료 Promise 생성; 함수: {deferredPromise()}
                 defined — draw argument 존재 여부 판정; 함수: {defined()}
             동작: 타일별 요청 상태와 draw argument만 검사하고 콘텐츠 해석 없이 타일로 완료한다.
 
@@ -878,34 +920,36 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
             처리 기준: 취소 뒤 적용하지 않은 배치 모델 파서 결과의 즉시 자원 해제 소유권은 정의되어 있지 않다. [확인 Q-012]
             의존:
                 U3dLayer — 상속받은 렌더 문맥; 속성 읽기: {_drawArg}
-                deferred — 파싱 완료 Promise 생성; 함수: {deferred()}
+                deferredPromise — 파싱 완료 Promise 생성; 함수: {deferredPromise()}
                 defined — draw argument와 parser 존재 여부 판정; 함수: {defined()}
                 UB3dmParser — Batched 3D Model 파싱; 생성자: {new UB3dmParser()}; 함수: {setDracoDecodePath(), setWorkerLimit(), parse()}
                 UDEF — Draco decoder 경로 제공; 상수: {DRACO_DECODER_PATH}
             동작:
                 실행 전 요청 상태·draw argument·타일 처분을 검사한다.
                 parser 완료 callback에서 처분·요청 상태를 다시 검사하고 B3DM 결과를 후처리한다.
+                파서 Promise의 거부와 성공 후처리 예외는 tile 사유의 거부로 연결한다. parse 호출 자체의 동기 예외는 이 연결 이전에 발생하므로 호출자에게 전파한다.
 
         #parseGLB(obj: ModelTileParserQueueItem) -> Promise<U3DTileset>
             처리 기준: 취소 뒤 적용하지 않은 GLB 로더 결과의 즉시 자원 해제 소유권은 정의되어 있지 않다. [확인 Q-012]
             의존:
                 U3dLayer — 상속받은 앱·렌더 문맥; 속성 읽기: {_app, _drawArg}
-                deferred — 파싱 완료 Promise 생성; 함수: {deferred()}
+                deferredPromise — 파싱 완료 Promise 생성; 함수: {deferredPromise()}
                 defined — draw argument·앱·loader 존재 여부 판정; 함수: {defined()}
                 UGLTFLoader — GLB 파싱과 Draco·KTX2 decoder 설정; 생성자: {new UGLTFLoader()}; 함수: {setDracoDecodePath(), setWorkerLimit(), parse()}
                 KTX2Loader — transcoder 경로와 renderer 지원 설정; 함수: {isSetPath(), setTranscoderPath(), isSupported(), detectSupport()}
                 UDEF — decoder·transcoder 경로 제공; 상수: {DRACO_DECODER_PATH, TRANS_CODER_PATH}
                 U3dApp — KTX2 지원 판정용 renderer 조회; 함수: {_app.getRenderer()}
-                THREE — 기존 GLB 재질 해제와 렌더 속성 조정; 함수: {Object3D.traverse(), Material.dispose()}
+                UB3dmParser — B3DM과 같은 단일·배열 재질 준비; 함수: {prepareTileMeshMaterials()}
                 TILES_TYPE — 결과 형식 지정; 상수: {GLB}
             동작:
                 실행 전 요청 상태·draw argument·타일 처분을 검사한다.
                 loader는 최초 호출 시에만 만들고 Draco 경로·작업자 수 4와 KTX2 경로를 설정한다. KTX2 미지원 상태이며 앱이 정의된 경우에만 renderer로 지원 여부를 판정한다. parse에는 애니메이션·카메라 건너뛰기를 지정한다.
-                완료 callback은 재질이 truthy인 노드만 처리한다. 현재 고정 옵션 overrideMaterials=true이므로 기존 단일 또는 배열 원소 재질을 dispose한 뒤 mesh.material.depthWrite=true와 opacity<1에 따른 transparent를 설정한다. 재질 객체를 새로 만들거나 배열 원소별로 이 속성을 설정하지는 않는다.
+                완료 callback은 모든 방문 노드의 frustumCulled를 켜고 공통 prepareTileMeshMaterials로 단일·배열 재질을 준비한다. 현재 overrideMaterials=true만 지정하므로 원본 재질·텍스처를 해제하거나 교체하지 않고 opacity·transparent·depthWrite·alphaTest·side·색상을 그대로 유지한다.
                 그 뒤 처분·요청 상태를 재검사하고 유효할 때만 결과 type=GLB와 buf.byteLength를 지정하여 후처리한다. 실패 경로는 타일로 reject한다.
 
     내부 파싱 결과 연결
-        #afterParseB3DM(result: B3DMParseResult, info: ParserInfo) -> void
+        #afterParseB3DM(result: B3DMParseResult, info: ParserInfo, contentIndex: number = 0) -> void
+            인터페이스: contentIndex는 위치 계산에 전달할 원본 복합 콘텐츠 순번이며 단일 콘텐츠는 0이다.
             의존:
                 U3dLayer — 상속받고 모델 레이어에서 보정한 렌더 순서; 속성 읽기: {_renderOrder}
                 defined — scene·배치 정보·refine·그룹 설정 존재 여부 판정; 함수: {defined()}
@@ -918,14 +962,16 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
                 위치 계산의 순회 callback은 THREE.Mesh에서만 렌더 순서와 URL을 연결한다. _batchGroup이 정의되었으면 해당 이름의 항목이 있을 때만 그룹·레벨 정보를 적용하되 _isBIM은 항목 유무와 무관하게 true로 만든다. 배치 그룹이 없을 때는 등록 형식이 BIM인 경우만 _isBIM=true다. 재질 보정 결과를 unitMeshes에 추가하고 _tileset을 연결한다.
                 타일 type은 B3DM으로 지정하고 refine이 정의되지 않은 경우에만 REPLACE로 설정한다. object.byteLength에 결과 크기를 저장하고 meshes에 object를 추가한 뒤 목록 byteLength가 truthy이면 더하고 아니면 이번 크기로 대입한다. _setLevelGroup이 정의되어 있고 truthy일 때만 그룹 구성을 수행한다. batchGroupPath가 정의되었으면 레벨 수-1부터 0까지 구성하고 false 결과에서 중단하며, 경로가 없으면 그룹을 해제한다.
 
-        #afterParseI3DM(result: I3DMParseResult, info: ParserInfo) -> void
+        #afterParseI3DM(result: I3DMParseResult, info: ParserInfo, contentIndex: number = 0) -> void
+            인터페이스: contentIndex는 위치 계산에 전달할 원본 복합 콘텐츠 순번이며 단일 콘텐츠는 0이다.
             의존:
                 U3dLayer — 상속받고 모델 레이어에서 보정한 렌더 순서; 속성 읽기: {_renderOrder}
                 defined — 배치 정보·형식·refine 존재 여부 판정; 함수: {defined()}
                 TILES_TYPE — 타일 형식 지정; 상수: {I3DM}
             동작: 정의된 batchTable·type만 scene 사용자 데이터에 연결하고 렌더 순서를 지정한 뒤 위치 계산을 호출하되 반환 Promise를 기다리지 않는다. meshes와 unitMeshes가 falsy이면 빈 배열로 준비한다. type은 I3DM으로 지정하고 refine이 정의되지 않았을 때만 REPLACE로 설정한다. object.byteLength를 결과 크기로 지정하고 meshes에 추가한 뒤 목록 byteLength가 truthy이면 더하고 아니면 이번 크기로 대입한다. scene 자신을 unitMeshes에도 추가한다.
 
-        #afterParsePNTS(result: PNTSParseResult, info: ParserInfo) -> void
+        #afterParsePNTS(result: PNTSParseResult, info: ParserInfo, contentIndex: number = 0) -> void
+            인터페이스: contentIndex는 위치 계산에 전달할 원본 복합 콘텐츠 순번이며 단일 콘텐츠는 0이다.
             의존:
                 U3dLayer — 상속받고 모델 레이어에서 보정한 렌더 순서; 속성 읽기: {_renderOrder}
                 defined — point·배치 정보·형식·refine 존재 여부 판정; 함수: {defined()}
@@ -953,24 +999,6 @@ U3dModelTilesLayer extends U3dModelLayer 클래스 정의
         #setUnGroup(group: UGroup) -> void
         #getReplaceTile(tile: U3DTileset) -> U3DTileset
     내부 진단
-        __$testTileContentRequestLifecycle() -> boolean
-            처리 기준: 실제 레이어의 타일·캐시·로더 상태를 변경하지 않고 격리된 가짜 상태를 사용한다.
-            의존: deferred — 공유 요청 완료·실패를 관찰할 격리 Deferred 생성; 함수: {deferred()}
-            동작: 격리 객체에서 _adoptTileContentRequest와 _cancelTileContentRequest를 실행하여 같은 요청 상태의 새 updateId 승계, 공유 Promise 유지, 다운로드·파서 파라미터 갱신, 최종 requestUrl abort, work 비활성화, Promise 실패와 Map identity 정리를 검사한다.
-
-        __$testTileContentSlotRelease() -> boolean
-            처리 기준:
-                #processQueue() 접근을 위해 실제 생성된 인스턴스에 bind되어 실행되어야 한다.
-                레이어의 로더와 addParserQueue를 가짜 구현으로 잠시 교체한 뒤 종료 전에 복원하며 실제 네트워크 요청과 WorkProcess 큐 작업을 만들지 않는다.
-            의존:
-                deferred — 관찰용 슬롯·파서 Deferred 생성; 함수: {deferred()}
-                UDEF — 가짜 타일의 다운로드·파싱 상태 구성; 상수: {TILES_STATE._DOWNLOADING, TILES_STATE._PARSING}
-                TILES_TYPE — 파서 경로 유도용 magic 버퍼 구성; 상수: {B3DM}
-                Web API — magic 버퍼 인코딩; 생성자: {new TextEncoder()}
-            동작:
-                파서 등록 관찰을 위해 addParserQueue를 관찰용 Deferred를 반환하는 가짜 구현으로 잠시 바꾸었다가 종료 시 복원한다.
-                사전 폐기와 네트워크 실패 경로에서 반환 Promise와 슬롯 반납 Deferred가 함께 실패하고, 파서 경로에서는 파서 등록 직후 슬롯만 먼저 반납되며 반환 Promise가 파서 완료를 기다리는지 검사한다.
-
         __$testGroupCheck(showLog: boolean = false) -> boolean
             인터페이스: showLog는 현재 구현에서 사용하지 않는다.
             처리 기준: UTestManager.execTestLayer()가 직접 클래스의 __$test 메서드를 수집하여 실제 인스턴스에 바인딩해 실행한다.
@@ -995,7 +1023,7 @@ ModelTileContentRequestState 타입 정의
     requestUrl: string
     updateId: string | number
     callbackId: string
-    promise: DeferredObject<U3DTileset>
+    promise: DeferredPromise<U3DTileset>
     phase: ModelTileContentRequestPhase
     cancelled: boolean
     settled: boolean
@@ -1069,7 +1097,7 @@ ModelTileTraversalOwner 타입 정의
     비공개 계산에 전달하는 레이어의 상태·조작 범위다.
 
 ModelTileMeshOwner 타입 정의
-    기반 타입: Pick<U3dModelTilesLayer, '_app' | '_opacity' | 'getName'>
+    기반 타입: Pick<U3dModelTilesLayer, '_app' | '_opacity' | '_materialStateMap' | 'getName'>
     비공개 계산에 전달하는 레이어의 상태·조작 범위다.
 
 ModelTileBatchOwner 타입 정의
@@ -1077,12 +1105,16 @@ ModelTileBatchOwner 타입 정의
     비공개 계산에 전달하는 레이어의 상태·조작 범위다.
 
 ModelTileOpacityOwner 타입 정의
-    기반 타입: Pick<U3dModelTilesLayer, '_rootTileSet' | '_dataCache'>
+    기반 타입: Pick<U3dModelTilesLayer, '_rootTileSet' | '_dataCache' | '_materialStateMap'>
     비공개 계산에 전달하는 레이어의 상태·조작 범위다.
 
 ModelTilePriorityOwner 타입 정의
     기반 타입: Pick<U3dModelTilesLayer, 'distanceToCameraPosition'>
     비공개 계산에 전달하는 레이어의 상태·조작 범위다.
+
+ModelTileMaterialOwner 타입 정의
+    기반 타입: Pick<U3dModelTilesLayer, '_materialStateMap'>
+    최초 재질 상태의 내부 저장소에만 접근하는 보정 문맥이다.
 
 ModelTileTransformInfo 타입 정의
     tile: U3DTileset

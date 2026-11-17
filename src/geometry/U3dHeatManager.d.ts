@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -22,7 +22,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#11492@#_TMP": three.Vector3;
+    static "__#11677@#_TMP": three.Vector3;
     /**
      * 임시 Quaternion (행렬 분해용) <br>
      *
@@ -30,7 +30,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#11492@#_TMP_Q": three.Quaternion;
+    static "__#11677@#_TMP_Q": three.Quaternion;
     /**
      * 임시 Vector3 (스케일 추출용) <br>
      *
@@ -38,7 +38,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#11492@#_TMP_S": three.Vector3;
+    static "__#11677@#_TMP_S": three.Vector3;
     /**
      * 온도 기반 팔레트를 설정하는 함수 <br>
      *
@@ -195,9 +195,9 @@ declare class U3dHeatManager {
          */
         buffer: Float32Array | null;
         /**
-         * 원본 머터리얼 백업 <br>
+         * 선택 강조의 복원 대상을 포함한 원본 재질 백업 <br>
          */
-        originM: Map<three.Mesh, three.Material>;
+        originM: Map<three.Mesh, three.Material | Array<three.Material>>;
         /**
          * 머터리얼 패치 여부 <br>
          */

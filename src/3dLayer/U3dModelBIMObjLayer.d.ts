@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -202,7 +202,7 @@ declare class U3dModelBIMObjLayer extends U3dModelLayer {
      */
     createControlCase(caseName?: string): ControlCase | undefined;
     /**
-     * 제어 케이스를 서버에 POST하고 같은 URL을 다시 읽어 사전에 반영합니다. XHR의 status가 200이 아니면 readyState와 무관하게 거부합니다.
+     * 제어 케이스를 서버에 POST하고 같은 URL을 다시 읽어 사전에 반영합니다. XHR 응답 완료 후 상태를 검사하고 재조회·반영까지 기다립니다.
      *
      * @param {string} [caseName] 제어 케이스 이름
      * @param {boolean} [useProxy] 저장 요청에 프록시를 사용할지 여부

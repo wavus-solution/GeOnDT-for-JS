@@ -3,7 +3,7 @@ import * as THREE from "three";
 import {defined} from '@util/defined';
 import {defaultValue} from '@util/defaultValue';
 import {ol} from '@union3d/lib/ol/ol-debug.js';
-import {U3dVectorLayer} from '@union3d/3dLayer/U3dVectorLayer.js';
+import {U3dVectorLayer} from '@union3d/3dLayer/U3dVectorLayer';
 import {U3dPoint} from '@union3d/geometry/U3dPoint.js';
 import {U3dLine} from '@union3d/geometry/U3dLine.js';
 import {U3dPolygonLoftGeometry} from '@union3d/geometry/U3dPolygonLoftGeometry.js';
@@ -25,6 +25,8 @@ export const U3dModelKmlLayerEMD = {
  * ~extends import('@union3d/3dLayer/U3dVectorLayer').U3dVectorLayer <br>
  *
  * KML 또는 KMZ 파일의 지리 형상을 3D 객체로 변환해 표시하는 레이어 클래스입니다.
+ * `ready`는 파일 읽기·파싱·형상 등록과 경계 갱신이 끝나면 이 레이어로 완료됩니다.
+ * 로딩 실패는 `ready`의 거부로 전달하며 이미지 로딩이나 실제 렌더 프레임 완료는 기다리지 않습니다.
  *
  * @group 3dLayer
  * @extends {U3dVectorLayer}
@@ -65,11 +67,18 @@ class U3dModelKmlLayer extends U3dVectorLayer {
     static GeometryType = ['Point', 'LineString', 'Polygon'];
 
     /**
-     * 현재 KML 또는 KMZ 파일을 불러와 변환하는 작업입니다.
+     * 현재 로딩 회차의 ready와 같은 Promise입니다. 외부에서는 ready를 사용하십시오.
      *
-     * @type {Promise<U3dModelKmlLayer> | null}
+     * @type {Promise<this> | null}
      */
     _loadingPromise;
+
+    /**
+     * 현재 로딩의 수명과 네트워크 취소를 관리합니다.
+     *
+     * @type {AbortController | null}
+     */
+    #loadController = null;
     /**
      * 생성한 3D 형상을 고유 ID로 찾기 위한 목록입니다.
      *
@@ -112,6 +121,7 @@ class U3dModelKmlLayer extends U3dVectorLayer {
      * U3dModelKmlLayer 클래스 생성자입니다.<br>
      * KML 텍스트·바이너리 데이터 또는 파일 경로 중 제공된 입력으로 3D 형상 변환을 시작합니다.<br>
      * kmlText, kmlData, baseUrl 순서로 먼저 제공된 입력을 사용합니다.
+     * 입력이 없으면 빈 레이어로 준비되며, 로딩 결과는 `await layer.ready`로 받으십시오.
      *
      * @param {U3dModelKmlLayerCO} opt 레이어 생성 설정
      */
@@ -131,55 +141,112 @@ class U3dModelKmlLayer extends U3dVectorLayer {
         this.setRenderOrder(this.getRenderOrder());
 
         if (defined(opt.kmlText) && opt.kmlText !== '') {
-            this._loadingPromise = this.#loadFromText(opt.kmlText);
+            const text = opt.kmlText;
+            this.#startLoad(signal => this.#loadFromText(text, signal));
         } else if (defined(opt.kmlData)) {
-            this._loadingPromise = this.#loadFromData(opt.kmlData);
+            const data = opt.kmlData;
+            this.#startLoad(signal => this.#loadFromData(data, signal));
         } else {
             const baseUrl = this._baseUrl;
-            if (defined(baseUrl) && baseUrl !== '') {
-                this._loadingPromise = this.#load(baseUrl);
-            }
+            this.#startLoad(signal => defined(baseUrl) && baseUrl !== ''
+                ? this.#load(baseUrl, signal) : Promise.resolve(this));
         }
-        this._loadingPromise?.catch((err) => {
+        this.ready.catch((err) => {
+            if (err.name === 'AbortError') return;
             __GError__(this, `kml load failed. ${err}`, '4644376');
         });
     }
 
     /**
+     * 로딩을 시작하기 전에 해당 회차의 공개 완료 Promise를 준비합니다.
+     *
+     * @param {(signal: AbortSignal) => Promise<this>} load 실행할 로딩 처리
+     * @returns {Promise<this>} 이번 회차의 ready
+     */
+    #startLoad(load) {
+        // 부모 생성자의 완료를 이어받지 않고 실제 KML 로딩을 새 회차로 기다립니다.
+        this._resetReady();
+        const controller = new AbortController();
+        this.#loadController = controller;
+        const ready = this.ready;
+        this._loadingPromise = ready;
+        try {
+            this.#assertLoadActive(controller.signal);
+            load(controller.signal).then(() => {
+                if (this.#loadController !== controller) return;
+                try {
+                    this.#assertLoadActive(controller.signal);
+                    if (this._app) this._initialized = true;
+                    this._resolveReady();
+                } catch (error) {
+                    this._rejectReady(error);
+                }
+                this.#loadController = null;
+            }, error => {
+                if (this.#loadController !== controller) return;
+                this.#loadController = null;
+                this._rejectReady(error);
+            });
+        } catch (error) {
+            this.#loadController = null;
+            this._rejectReady(error);
+        }
+        return ready;
+    }
+
+    /**
+     * 해제되거나 현재 로딩이 아닌 작업의 결과 적용을 차단합니다.
+     *
+     * @param {AbortSignal} [signal] 검사할 요청 표식. 생략하면 현재 요청 사용
+     * @throws {Error} 사용할 수 없는 요청이면 AbortError
+     */
+    #assertLoadActive(signal = this.#loadController?.signal) {
+        if (!signal || signal.aborted || this.#loadController?.signal !== signal
+            || this.isReady() || this._disposed || this._taskProcessorDisposing || this._app?.isDisposed?.()) {
+            throw Object.assign(new Error('[U3dModelKmlLayer] KML loading was cancelled.'), {name: 'AbortError'});
+        }
+    }
+
+    /**
      * 입력된 경로의 KML 또는 KMZ 파일을 파싱하여 피처를 추가하는 메서드입니다.
      *
-     * @param {string} [path] KML/KMZ 파일 경로. 미입력 시 레이어 생성 옵션으로 전달한 baseUrl 값을 참조합니다.
-     * @returns {Promise<U3dModelKmlLayer>}
+     * @param {string | undefined} path KML/KMZ 파일 경로
+     * @param {AbortSignal} signal 요청 수명과 취소 표식
+     * @returns {Promise<this>} 형상 변환을 마친 레이어
      */
-    async #load(path = this._baseUrl) {
+    async #load(path, signal) {
         if (!defined(path) || path === '') {
             throw new Error('[U3dModelKmlLayer] KML path is undefined.');
         }
 
         this._baseUrl = path;
-        const response = await fetch(path);
+        const response = await fetch(path, {signal});
+        this.#assertLoadActive(signal);
         if (!response.ok) {
             throw new Error(`[U3dModelKmlLayer] KML load failed: ${response.status} ${response.statusText}`);
         }
 
         const buffer = await response.arrayBuffer();
+        this.#assertLoadActive(signal);
         const text = this.#normalizeToKmlText(buffer, {
             contentType: response.headers.get('content-type'),
             path
         });
-        return this.#loadFromText(text);
+        return this.#loadFromText(text, signal);
     }
 
     /**
      * 바이너리(KMZ 또는 KML) 데이터를 KML 텍스트로 정규화한 뒤 피처를 추가하는 메서드입니다.
      *
      * @param {ArrayBuffer | Uint8Array | Blob} data KML/KMZ 데이터
-     * @returns {Promise<U3dModelKmlLayer>}
+     * @param {AbortSignal} signal 요청 수명과 취소 표식
+     * @returns {Promise<this>} 형상 변환을 마친 레이어
      */
-    async #loadFromData(data) {
+    async #loadFromData(data, signal) {
         const buffer = data instanceof Blob ? await data.arrayBuffer() : data;
+        this.#assertLoadActive(signal);
         const text = this.#normalizeToKmlText(buffer, {});
-        return this.#loadFromText(text);
+        return this.#loadFromText(text, signal);
     }
 
     /**
@@ -239,12 +306,15 @@ class U3dModelKmlLayer extends U3dVectorLayer {
      * 텍스트 형식의 KML 데이터를 파싱하여 피처를 추가하는 메서드입니다.
      *
      * @param {string} text KML text
+     * @param {AbortSignal} signal 요청 수명과 취소 표식
      * @returns {Promise<this>}
      *
      * @ignore
      */
-    async #loadFromText(text) {
+    async #loadFromText(text, signal) {
+        this.#assertLoadActive(signal);
         this.clear();
+        this.#assertLoadActive(signal);
 
         if (!defined(text) || text.trim() === '') {
             return this;
@@ -257,23 +327,31 @@ class U3dModelKmlLayer extends U3dVectorLayer {
         const features = format.readFeatures(text);
 
         for (const feature of features) {
+            this.#assertLoadActive(signal);
             this.#appendFeature(feature);
         }
 
+        this.#assertLoadActive(signal);
         this.#updateLayerBounds();
         this.update();
+        this.#assertLoadActive(signal);
         this.dispatchEvent({ type: U3dModelKmlLayerEMD.COMPLETED, data: this });
+        this.#assertLoadActive(signal);
         return this;
     }
 
     /**
      * 현재 파일 경로의 KML 또는 KMZ를 다시 불러와 레이어 형상을 교체합니다.<br>
      * 파일 경로 없이 텍스트 또는 바이너리 데이터로 생성한 레이어에서는 사용할 수 없습니다.
+     * 로딩 중에는 현재 `ready`를 공유하며 추가 파일 요청을 시작하지 않습니다.
+     * 종결 후에는 새 `ready`를 만들고 같은 Promise를 반환합니다. 이전 Promise의 결과는 유지됩니다.
+     * 경로 누락과 로딩 실패는 반환 Promise로 거부됩니다.
      *
-     * @returns {Promise<U3dModelKmlLayer>} 변환이 끝난 현재 레이어
+     * @returns {Promise<this>} 현재 로딩 회차의 ready
      */
     reload() {
-        return this.#load(this._baseUrl);
+        if (this.#loadController) return this.ready;
+        return this.#startLoad(signal => this.#load(this._baseUrl, signal));
     }
 
     /**
@@ -294,11 +372,10 @@ class U3dModelKmlLayer extends U3dVectorLayer {
     }
 
     /**
-     * 레이어에 추가한 형상과 KML에서 만든 리소스를 제거하고 경계 정보를 초기화합니다.
+     * 앱의 레이어 문맥을 연결하고 현재 형상의 경계를 갱신합니다.
+     * KML 로딩의 완료·실패 통지는 해당 로딩 회차가 담당합니다.
      *
      * @override
-     *
-     * @ignore
      */
     initialize() {
         const initialized = super.initialize();
@@ -325,12 +402,20 @@ class U3dModelKmlLayer extends U3dVectorLayer {
      * 레이어를 처분(dispose)합니다. <br>
      * KMZ 내부 이미지로 만든 object URL을 모두 해제하고 압축을 풀어 둔 KMZ 엔트리 자료를 버린 뒤 부모 레이어의 처분을 수행합니다. <br>
      * 처분한 레이어는 다시 사용할 수 없습니다.
+     * 진행 중인 ready는 AbortError로 거부하며 이후 도착하는 응답은 적용하지 않습니다.
      *
      * @override
      *
      * @returns {Promise<boolean>} 해제가 끝나면 true로 완료되는 Promise
      */
     dispose() {
+        this._taskProcessorDisposing = true;
+        const controller = this.#loadController;
+        this.#loadController = null;
+        if (controller) {
+            this._rejectReady(Object.assign(new Error('[U3dModelKmlLayer] Layer was disposed.'), {name: 'AbortError'}));
+            controller.abort();
+        }
         this.#revokeKmzObjectUrls();
         this._kmzAssets = null;
         return super.dispose();
@@ -395,6 +480,7 @@ class U3dModelKmlLayer extends U3dVectorLayer {
                 const geometryInfo = this.#createGeometryInfo(properties, name, type, sourceGeometryType, sourceFeatureId);
                 const geom = this.#createPointGeometry(geometryInfo.properties, style, name);
                 this.addGeometry(geom);
+                this.#assertLoadActive();
                 this._geometryIdMap.set(geometryInfo.id, geom);
                 const coordinate = /** @type {Array<number>} */ (geometry.getCoordinates());
                 geom.setPosition(toGeoVector(coordinate));
@@ -404,6 +490,7 @@ class U3dModelKmlLayer extends U3dVectorLayer {
                 const geometryInfo = this.#createGeometryInfo(properties, name, type, sourceGeometryType, sourceFeatureId);
                 const geom = this.#createLineGeometry(geometryInfo.properties, style, name);
                 this.addGeometry(geom);
+                this.#assertLoadActive();
                 this._geometryIdMap.set(geometryInfo.id, geom);
                 const coordinates = /** @type {Double_Array<number>} */ (geometry.getCoordinates());
                 geom.setPositions(coordinates.map((coordinate) => toGeoVector(coordinate)));
@@ -413,6 +500,7 @@ class U3dModelKmlLayer extends U3dVectorLayer {
                 const geometryInfo = this.#createGeometryInfo(properties, name, type, sourceGeometryType, sourceFeatureId);
                 const geom = this.#createPolygonGeometry(geometryInfo.properties, style, name);
                 this.addGeometry(geom);
+                this.#assertLoadActive();
                 this._geometryIdMap.set(geometryInfo.id, geom);
                 const coordinates = /** @type {Triple_Array<number>} */ (geometry.getCoordinates());
                 geom.setPositions(normalizeRing(coordinates[0] || []).map((coordinate) => toGeoVector(coordinate)));
@@ -424,6 +512,7 @@ class U3dModelKmlLayer extends U3dVectorLayer {
                     const geometryInfo = this.#createGeometryInfo(properties, name, 'Point', sourceGeometryType, sourceFeatureId);
                     const geom = this.#createPointGeometry(geometryInfo.properties, style, name);
                     this.addGeometry(geom);
+                    this.#assertLoadActive();
                     this._geometryIdMap.set(geometryInfo.id, geom);
                     geom.setPosition(toGeoVector(coordinate));
                 }
@@ -433,6 +522,7 @@ class U3dModelKmlLayer extends U3dVectorLayer {
                     const geometryInfo = this.#createGeometryInfo(properties, name, 'LineString', sourceGeometryType, sourceFeatureId);
                     const geom = this.#createLineGeometry(geometryInfo.properties, style, name);
                     this.addGeometry(geom);
+                    this.#assertLoadActive();
                     this._geometryIdMap.set(geometryInfo.id, geom);
                     geom.setPositions(coordinates.map((coordinate) => toGeoVector(coordinate)));
                 }
@@ -443,6 +533,7 @@ class U3dModelKmlLayer extends U3dVectorLayer {
                     const geometryInfo = this.#createGeometryInfo(properties, name, 'Polygon', sourceGeometryType, sourceFeatureId);
                     const geom = this.#createPolygonGeometry(geometryInfo.properties, style, name);
                     this.addGeometry(geom);
+                    this.#assertLoadActive();
                     this._geometryIdMap.set(geometryInfo.id, geom);
                     geom.setPositions(normalizeRing(coordinates[0] || []).map((coordinate) => toGeoVector(coordinate)));
                     applyDepthStyle(geom, getDepthOption(geom), true);
@@ -537,14 +628,14 @@ class U3dModelKmlLayer extends U3dVectorLayer {
         const fillColor = customStyle.color ?? (fill?.getColor?.() || stroke?.getColor?.() || U3dModelKmlLayer.DefaultStyle.polygonColor);
         const opacity = Number(customStyle.opacity ?? toOpacity(fillColor, U3dModelKmlLayer.DefaultStyle.polygonOpacity));
         const height = this.#getUserPolygonHeight(properties, customStyle.height);
-        const useLine = customStyle.useLine ?? defined(stroke);
+        const outline = customStyle.outline ?? customStyle.useLine ?? defined(stroke);
         const lineColor  = customStyle.lineColor;
         const polygon = new U3dPolygonLoftGeometry({
             name: name,
             color: toColorValue(fillColor, U3dModelKmlLayer.DefaultStyle.polygonColor),
             opacity: Number.isFinite(opacity) ? opacity : U3dModelKmlLayer.DefaultStyle.polygonOpacity,
             height: height,
-            useLine: useLine,
+            outline: outline,
             lineColor: lineColor,
             properties: cloneProperties(properties)
         });
@@ -587,7 +678,9 @@ class U3dModelKmlLayer extends U3dVectorLayer {
      * @returns {KmlRenderStyle}
      */
     #getUserStyle(properties, type, name) {
-        return this._styleFunction?.(properties, {type, name}) || {};
+        const style = this._styleFunction?.(properties, {type, name});
+        this.#assertLoadActive();
+        return style || {};
     }
 
     /**
@@ -599,6 +692,7 @@ class U3dModelKmlLayer extends U3dVectorLayer {
     #getFeatureStyle(feature) {
         const styleFunction = feature?.getStyleFunction?.();
         const raw = styleFunction ? styleFunction(feature, 1) : feature?.getStyle?.();
+        this.#assertLoadActive();
         const styles = Array.isArray(raw) ? raw : (raw ? [raw] : []);
 
         if (styles.length === 0) return null;

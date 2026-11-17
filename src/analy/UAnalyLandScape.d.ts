@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -14,6 +14,7 @@ import type { UGroup } from "../core/UGroup.js";
 import type { UScene } from "../core/UScene.js";
 import type { UTween } from "../core/UTween.js";
 import type { U3dMouseEvent } from "../event/U3dMouseEvent.js";
+import type { U3dSelect, USelect } from "../select/U3dSelect.js";
 import type { Double_Array, WorldPositionVector3 } from "../types/global.js";
 import type { DeferredPromise } from "../util/deferredPromise.js";
 
@@ -161,20 +162,47 @@ declare class UAnalyLandScape extends UAnaly {
     /** @type {import('@union3d/core/UTween').UTween | undefined} */ _tween: UTween | undefined;
     /** @type {import('@U3dApp').U3dAppTweenHandle | undefined} */ _currentTween: U3dAppTweenHandle | undefined;
     /** @type {DeferredPromise<void> | undefined}  */ _currentTweenPromise: DeferredPromise<void> | undefined;
-    /** @type {import('three').Material | Array<import('three').Material> | undefined} */ _originMaterial: three.Material | Array<three.Material> | undefined;
+    /** @type {import('@union3d/select/U3dSelect').U3dSelect | undefined} */ _selector: U3dSelect | undefined;
     /** @type {import('three').Object3D | undefined} */ _building: three.Object3D | undefined;
     /** @type {string | null | undefined} */ _clickId: string | null | undefined;
     name: any;
     /**
-     * 클릭으로 건물을 선택하는 모드를 설정합니다. <br>
-     * 활성화하면 기존 클릭 동작을 교체하며 비활성화하면 선택 표시도 해제합니다.
+     * 사용자가 구성한 공통 선택기를 경관 분석에 연결합니다. <br>
+     * 선택기의 옵션과 사용자 이벤트는 유지하며 선택 중 교체하면 새 선택기로 입력을 이어갑니다.
+     * 주입된 선택기의 최종 제거는 호출자가 담당합니다.
+     *
+     * @param {import('@union3d/select/U3dSelect').U3dSelect} selector 사용할 공통 선택기
+     * @throws {TypeError} U3dSelect 인스턴스가 아닌 경우
+     *
+     * @example
+     * const selector = new U3dSelect({mode: 'point', selectType: 'outline'});
+     * selector.on('end', event => console.log(event.data));
+     * analy.setSelector(selector);
+     * analy.select(true);
+     */
+    setSelector(selector: U3dSelect): void;
+    /**
+     * 선택 설정을 변경할 수 있는 공통 선택기 원본을 반환합니다. <br>
+     * setSelector()나 첫 선택 활성화 전에는 undefined이며 clear() 후에도 같은 선택기를 반환합니다.
+     * deactive()는 내부 기본 선택기만 제거합니다.
+     *
+     * @returns {import('@union3d/select/U3dSelect').U3dSelect | undefined} 현재 선택기 또는 미설정 시 undefined
+     *
+     * @example
+     * analy.getSelector()?.setSelectType('outline');
+     */
+    getSelector(): U3dSelect | undefined;
+    /**
+     * 연결된 선택기의 입력을 활성화하거나 해제합니다. <br>
+     * 선택기가 없으면 앱이 연결된 활성화 시 기본 선택기를 생성합니다.
+     * 선택 결과의 첫 건물을 층별 분석 대상으로 사용하며 비활성화하면 선택 표시도 해제합니다.
      *
      * @param {boolean} active 건물 선택 모드 활성 여부
      */
     select(active: boolean): void;
     /**
      * 건물의 선택 표시와 선택 지점의 임시 POI를 해제합니다. <br>
-     * 선택 전의 재질 참조를 복원하고 선택 표시용 복제 재질만 해제합니다.
+     * 선택 표시·복원과 자원 정리는 공통 선택기에 위임합니다.
      */
     clearSelect(): void;
     /**
@@ -489,6 +517,16 @@ declare class UAnalyLandScape extends UAnaly {
 }
 
 /**
+     * 공통 선택기에서 경관 분석으로 전달하는 내부 선택 결과입니다.
+     */
+    type UAnalyLandScapeSelectEvent = {
+        /**
+         * 선택 객체 또는 교차 결과 목록
+         */
+        data?: Array<USelect | three.Intersection>;
+    };
+
+/**
      * ~extends UAnalyCO <br>
      *
      * 경관 분석의 이름과 층별 생성·가시영역 기본 설정입니다.
@@ -801,4 +839,4 @@ declare class UAnalyLandScape extends UAnaly {
         stop: () => UTween;
     };
 
-export type { UAnalyLandScape, UAnalyLandScapeAnimateCO, UAnalyLandScapeAnimationCallback, UAnalyLandScapeBuilding, UAnalyLandScapeCO, UAnalyLandScapeCO_Content, UAnalyLandScapeCollision, UAnalyLandScapeCollision_Content, UAnalyLandScapeLineOptions, UAnalyLandScapeLineOptions_Content, UAnalyLandScapeUpdateCallback, UComputeFloorCO, UTweenChain, UViewPointCO, UViewTargetByViewPointCO, UViewTargetByViewPointCO_Content };
+export type { UAnalyLandScape, UAnalyLandScapeAnimateCO, UAnalyLandScapeAnimationCallback, UAnalyLandScapeBuilding, UAnalyLandScapeCO, UAnalyLandScapeCO_Content, UAnalyLandScapeCollision, UAnalyLandScapeCollision_Content, UAnalyLandScapeLineOptions, UAnalyLandScapeLineOptions_Content, UAnalyLandScapeSelectEvent, UAnalyLandScapeUpdateCallback, UComputeFloorCO, UTweenChain, UViewPointCO, UViewTargetByViewPointCO, UViewTargetByViewPointCO_Content };

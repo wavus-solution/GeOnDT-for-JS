@@ -332,7 +332,7 @@ ULandNormalDirectionHelper extends LineSegments2 클래스 정의
         처리 기준: opacity는 0 이상 1 이하여야 한다.
         동작:
             입력 투명도를 검증한다.
-            현재 전체 material 상태에서 투명도만 교체하고 새 material의 transparent 상태는 투명도에 따라 결정한다.
+            현재 전체 material 상태에서 투명도만 교체하고 새 material에 투명도별 요청 transparent를 전달하되 색상 AA용 유효 transparent는 true로 유지한다.
             현재 helper를 반환한다.
 
     getLineVisible() -> boolean

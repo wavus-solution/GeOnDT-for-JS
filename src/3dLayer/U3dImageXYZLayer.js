@@ -8,7 +8,7 @@ import {defaultValue} from '@util/defaultValue';
 import {UMathEngine} from '@union3d/math/UMathEngine';
 import {UDEF} from '@union3d/core/UDEF';
 import {Guid} from '@util/Guid';
-import {deferred} from "@util/deferred";
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import {__GError__} from "@U3dMessage";
 import {intersectsBoxXY} from "@util/intersectsBoxXY";
 import {normalizeOptionKeys} from "@util/normalizeOptionKeys.js";
@@ -239,8 +239,8 @@ class U3dImageXYZLayer extends U3dImageLayer {
             return undefined;
         }
 
-        /** @type {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} */
+        const promise = deferredPromise();
 
         if (/** @type {unknown} */(super.processTexture(tile, drawArg, url, promise))) {
             return promise;

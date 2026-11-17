@@ -6,7 +6,7 @@ import {defaultValue} from '@util/defaultValue';
 import {UMercator} from '@union3d/math/UMercator';
 import {UMathEngine} from '@union3d/math/UMathEngine';
 import {UDEF} from '@union3d/core/UDEF';
-import {deferred} from "@util/deferred";
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import {normalizeOptionKeys} from "@util/normalizeOptionKeys";
 import { MultiplyBlending, NormalBlending, AdditiveBlending, SubtractiveBlending, NoBlending } from "three";
 
@@ -251,21 +251,21 @@ class U3dImageWMSLayer extends U3dImageLayer {
             this.setStateTile(tile, UDEF.TILE_STATE._end);
             return undefined;
         }
-        /** @type {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} */
+        const promise = deferredPromise();
 
         super.processTexture(tile, drawArg, url, promise);
 
-        promise.then((tile) => {
+        return promise.then((tile) => {
+            if (this._disposed || tile._disposed) return tile;
             const mesh = this.getCache(tile);
 
             if (mesh) {
                 // 요청 완료·캐시 조회는 공개 흐름에 두고, 완료된 메시의 렌더링 블렌딩 상태만 반영합니다.
                 INTERNAL.applyBlending(mesh, this);
             }
+            return tile;
         });
-
-        return promise;
     }
 }
 

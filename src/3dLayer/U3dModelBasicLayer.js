@@ -21,7 +21,7 @@ import { UDRACOLoader } from '@union3d/core/loader/UDRACOLoader';
 import { URaycaster } from '@union3d/core/URaycaster';
 import { U3dMessage } from '@union3d/message/U3dMessage';
 import { U3dGeometryUtil } from '@union3d/geometry/U3dGeometryUtil';
-import { deferred } from "@union3d/util/deferred";
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import { UMeshParser } from "@union3d/core/parser/UMeshParser";
 import { UGLTFLoader } from "@union3d/core/loader/UGLTFLoader";
 import { USkinnedMesh } from "@union3d/core/mesh/USkinnedMesh";
@@ -43,6 +43,20 @@ const DEBUG = /** @type {boolean} */ (( /** @type {KeyValue} */( /** @type {unkn
  * @extends {U3dModelLayer}
  */
 class U3dModelBasicLayer extends U3dModelLayer {
+    /**
+     * 이 레이어가 시작한 모델 로딩의 완료 제어 객체입니다.
+     * 공개 모델 정보에는 ready만 두고, 동기 완료 조회는 소유자가 보관한 요청으로 한정합니다.
+     * 로딩을 시작할 때만 만들며, 제거된 모델 정보를 붙잡지 않도록 약한 참조를 사용합니다.
+     *
+     * @type {WeakMap<ModelInfo, DeferredPromise<ModelObject3D>> | undefined}
+     */
+    #modelLoads;
+    /**
+     * 생성 옵션에 위경도 위치가 명시되었는지 나타냅니다. 생략 시 적용하는 기본 좌표와 구분합니다.
+     *
+     * @type {boolean}
+     */
+    _hasGeoLocation;
     /**
      * @override
      *
@@ -134,6 +148,8 @@ class U3dModelBasicLayer extends U3dModelLayer {
                 maxy: 0
             });
         }
+        self._hasGeoLocation = defined(opt.geoLocation);
+
         self._title = defaultValue(opt.title, '');
         self._height = defaultValue(opt.height, 0);
         self._useU3f = defaultValue(opt.useU3f, false);
@@ -193,24 +209,10 @@ class U3dModelBasicLayer extends U3dModelLayer {
         try {
             U3dLayer.prototype.initialize.call(this);
             if (self._needXml === true) {
-                initWithXML.call(self).then(() => {
-                    // 커스텀 Deferred는 성공 콜백의 예외를 다음 catch로 전파하지 않습니다.
-                    try {
-                        loadModel.call(self).then(() => {
-                            self._resolveReady();
-                        }).catch((error) => {
-                            self._rejectReady(error);
-                        });
-                    } catch (error) {
-                        if (self.isReady()) {
-                            console.error('완료된 레이어의 초기화 후처리에서 오류가 발생했습니다.', error);
-                            return;
-                        }
-                        self._rejectReady(error);
-                    }
-                }).catch((error) => {
-                    self._rejectReady(error);
-                });
+                initWithXML.call(self)
+                    .then(() => loadModel.call(self))
+                    .then(() => self._resolveReady())
+                    .catch(error => { self._rejectReady(error); });
             } else {
                 if (!defined(self._location) && defined(self._geoLocation)) {
                     const world = self._drawArg.getGeographicToWorld(self._geoLocation.x, self._geoLocation.y, self._geoLocation.z);
@@ -240,21 +242,12 @@ class U3dModelBasicLayer extends U3dModelLayer {
 
     /**
      * 현재 모델 목록을 다시 로드하고 완료 객체를 반환합니다.
-     * 기존 공개 선언은 문자열 결과이지만 현재 성공 경로는 값을 전달하지 않습니다.
+     * 성공 시 별도 결과값 없이 완료하며 실패 원인은 그대로 전달합니다.
      *
-     * @returns {Promise<string>}
+     * @returns {Promise<void>} 모델 목록의 재로딩 완료
      */
     reLoad() {
-        /** @type {DeferredObject<string>} */
-        const promise = deferred();
-        loadModel.call(this).then(() => {
-            promise.resolve();
-        }).catch((e) => {
-            const err = /** @type {ErrorEvent | null | undefined} */ (e);
-            // 로더가 실패 이유를 생략해도 재로딩 완료 객체가 대기 상태로 남지 않게 합니다.
-            promise.reject(err?.message);
-        });
-        return promise;
+        return loadModel.call(this);
     }
 
     /**
@@ -264,50 +257,8 @@ class U3dModelBasicLayer extends U3dModelLayer {
      * @returns {Promise<boolean>}
      */
     initializeU3f() {
-        const self = this;
-        /** @type {DeferredObject<boolean>} */
-        const promise = deferred();
-        if (!defined(self._baseUrl)) {
-            return promise.reject();
-        }
-        const u3fPromise = self.getU3FInfo(self._u3fUrl, self._baseUrl);
-        u3fPromise.catch(function () {
-            console.info('getU3FInfo cancel');
-        });
-        u3fPromise.then(function (/** @type {Array<KeyValue>} */ objects) {
-            const meshpromise = convertObj2Mesh(self, objects, self._drawArg);
-            if (!defined(meshpromise)) {
-                console.info('convertObj2Mesh cancel');
-                return;
-            }
-            meshpromise.catch(function () {
-                console.info('convertObj2Mesh cancel');
-            });
-            meshpromise.then(function () {
-                self._object.position.copy(parseVector3(/** @type {import('three').Vector3} */ (self._location)));
-                self._object.scale.copy(parseVector3(/** @type {import('three').Vector3} */ (self._scale)));
-                self._object.rotation.setFromVector3(parseVector3(/** @type {import('three').Vector3} */ (self._rotation)).clone().multiplyScalar(Math.PI / 180));
-                self._object.af = true;
-                self._object.updateMatrix();
-                self._object.updateMatrixWorld();
-                self._drawArg.setUpdateDate();
-                self._object.traverse(/** @param {import('three').Object3D} child */ function (child) {
-                    if (child instanceof THREE.Mesh) {
-                        const mesh = /** @type {ModelMesh} */ (child);
-                        if (defined(mesh._uImageUrls)) {
-                            if (mesh._uImageUrls.length > 0)
-                                self.getTexture(mesh._uImageUrls[0]).then(/** @param {import('three').Texture} texture */ function (texture) {
-                                    /** @type {Common_Material} */ (mesh.material).map = texture;
-                                    /** @type {Common_Material} */ (mesh.material).needsUpdate = true;
-                                });
-                        }
-                    }
-                });
-                self._drawArg._app.endloadingBar();
-                promise.resolve(true);
-            });
-        });
-        return promise;
+        // 초기 배치는 기존처럼 첫 번째 이미지를 사용하며 텍스처 완료까지 기다리지는 않습니다.
+        return loadU3FLoader.call(this, this._u3fUrl, true);
     }
     //+ 사용하지 않는다.(부모클래스 사용X)
     /**
@@ -522,10 +473,22 @@ class U3dModelBasicLayer extends U3dModelLayer {
     }
 
     /**
+     * 이 레이어가 기록한 현재 모델 요청에 완료 통지가 접수되었는지 확인합니다.
+     * 성공 여부는 ready를 기다려 판정합니다. 외부에서 교체한 Promise의 상태는 추측하지 않습니다.
+     *
+     * @param {ModelInfo} model 조회한 모델 정보
+     * @returns {boolean} 현재 요청의 resolve 또는 reject가 호출되었으면 true
+     */
+    _isModelLoadReady(model) {
+        const request = this.#modelLoads?.get(model);
+        return request !== undefined && request === model.ready && request.isReady();
+    }
+
+    /**
      * 파일 확장자로 로더를 선택하고 형식별 후처리 결과를 전달합니다.
-     * 입력 항목을 목록과 공유하고 파일 이름·완료 인터페이스를 보완할 수 있습니다.
-     * 성공 결과와 실패 전달은 형식별 기존 계약을 따릅니다. 모든 오류가 반환 객체의 거부로 전달되지는 않습니다.
-     * GLB의 로더 실패와 장면 후처리 예외는 반환 객체 및 모델의 실패 콜백에 전달합니다.
+     * 입력 항목을 목록과 공유하고 파일 이름을 보완합니다. 모델 정보의 ready에는 이 호출과 같은 Promise를 기록합니다.
+     * 로딩 성공 값은 반환 Promise와 모델의 성공 콜백에, 로더·후처리 실패는 반환 Promise와 모델의 실패 콜백에 전달합니다.
+     * 선택 완료 콜백의 예외와 비동기 실패는 오류로 보고하며 이미 정해진 로딩 결과는 바꾸지 않습니다.
      *
      * @param {ModelInfo} model 모델 데이터
      * @param {string} [textureUrl=undefined] 텍스처 URL
@@ -533,25 +496,47 @@ class U3dModelBasicLayer extends U3dModelLayer {
      */
     load(model, textureUrl) {
         const self = this;
-        if (!model.resolve)
-            deferred(/** @type {any} */ (model));
+        // 모델 정보는 데이터로 유지하고 완료는 반환 Promise로 전달합니다.
+        // 사용자가 명시한 resolve/reject 콜백만 아래 완료 경로에서 호출합니다.
         if (!self.checkIsExistModel(model.name, model.baseurl))
             self._listModel.push(model);
-        return UDEF.createPromise(function (resolve, reject) {
+        // createPromise가 생성한 완료 제어 객체는 로더 내부에만 보관합니다.
+        // 외부 반환과 ModelInfo.ready의 계약은 일반 Promise로 유지합니다.
+        const loading = /** @type {DeferredPromise<ModelObject3D>} */ (UDEF.createPromise(function (resolve, reject) {
             let completed = false;
             const promiseObj = {
                 resolve: (/** @type {ModelMesh} */ object) => {
                     if (completed) return;
                     completed = true;
                     resolve(object);
-                    model.resolve?.(object);
+                    try {
+                        // 사용자 알림은 로딩 결과와 독립적입니다. 비동기 콜백도 실패만 관찰하고
+                        // 기다리지는 않으며, 콜백이 없으면 별도의 Promise를 만들지 않습니다.
+                        if (model.resolve != null) {
+                            Promise.resolve(model.resolve(object)).catch(error => {
+                                __GError__(self, '모델 성공 콜백 실행 중 오류가 발생했습니다. ' + error, '306012');
+                            });
+                        }
+                    } catch (error) {
+                        __GError__(self, '모델 성공 콜백 실행 중 오류가 발생했습니다. ' + error, '306012');
+                    }
                 },
                 reject: (/** @type {any} */ e) => {
                     // 완료 콜백 자체가 예외를 던져도 이미 성공한 모델에 실패를 중복 통지하지 않습니다.
                     if (completed) return;
                     completed = true;
                     reject(e);
-                    model.reject?.(e);
+                    try {
+                        // 실패 알림의 예외를 내부 로더 체인 밖으로 흘리지 않습니다.
+                        // 호출자는 위에서 종결한 loading을 통해 원래 실패 사유를 받습니다.
+                        if (model.reject != null) {
+                            Promise.resolve(model.reject(e)).catch(error => {
+                                __GError__(self, '모델 실패 콜백 실행 중 오류가 발생했습니다. ' + error, '306013');
+                            });
+                        }
+                    } catch (error) {
+                        __GError__(self, '모델 실패 콜백 실행 중 오류가 발생했습니다. ' + error, '306013');
+                    }
                 }
             };
             let ext;
@@ -559,7 +544,7 @@ class U3dModelBasicLayer extends U3dModelLayer {
             if (!defined(model.fileName)) {
                 const errStr = model.name + " fileName is undefined";
                 console.error(errStr);
-                reject(errStr);
+                promiseObj.reject(errStr);
                 return;
             }
             else {
@@ -573,7 +558,7 @@ class U3dModelBasicLayer extends U3dModelLayer {
                 else if (fileExt !== ext) {
                     const errStr = model.name + " The input ext is different from the ext in the file name";
                     console.error(errStr);
-                    reject(errStr);
+                    promiseObj.reject(errStr);
                     return;
                 }
                 else {
@@ -584,7 +569,7 @@ class U3dModelBasicLayer extends U3dModelLayer {
                 if (model.fileName.lastIndexOf(".") < 0 || !fileExt || fileExt === "") {
                     const errStr = model.name + " ext is undefined";
                     console.error(errStr);
-                    reject(errStr);
+                    promiseObj.reject(errStr);
                     return;
                 }
                 ext = fileExt;
@@ -601,7 +586,7 @@ class U3dModelBasicLayer extends U3dModelLayer {
             if (notSupport) {
                 const errStr = model.name + " " + ext + " is not support";
                 console.error(errStr);
-                reject(errStr);
+                promiseObj.reject(errStr);
                 return;
             }
             switch (String(ext).toLowerCase()) {
@@ -613,113 +598,92 @@ class U3dModelBasicLayer extends U3dModelLayer {
                     Promise.resolve(load3DS.call(self, model, textureUrl)).then(afterLoad3DS.bind(self, promiseObj, model)).catch(promiseObj.reject);
                     break;
                 case self.modelType.DAE:
-                    /** @type {any} */ (loadDae).call(self, model).then(afterLoadDAE.bind(self, promiseObj, model));
+                    Promise.resolve(loadDae.call(self, model)).then(object => afterLoadDAE.call(self, promiseObj, model, /** @type {ModelMesh} */ (object))).catch(promiseObj.reject);
                     break;
-                case 'u3f': {
-                    const loadU3FPromise = deferred();
-                    /** @type {DeferredObject<any>} */ (loadU3FLoader.call(self, model)).then(function () {
-                        loadU3FPromise.resolve();
-                    });
-                    if (loadU3FPromise) {
-                        /** @type {any} */ (loadU3FPromise).then(afterLoadU3F.bind(self, promiseObj));
-                    }
+                case 'u3f':
+                    loadU3FLoader.call(self, model).then(afterLoadU3F.bind(self, promiseObj)).catch(promiseObj.reject);
                     break;
-                }
                 case self.modelType.FBX:
-                    /** @type {any} */ (loadFBX.call(self, model)).then(afterLoadFBX.bind(self, promiseObj, model)).catch(function (/** @type {Error} */ e) {
-                        console.error(e.message);
-                        reject(e);
-                    });
+                    loadFBX.call(self, model).then(afterLoadFBX.bind(self, promiseObj, model)).catch(promiseObj.reject);
                     break;
                 case self.modelType.JPG:
-                    loadJPG.call(self, model).then(afterLoadJPG.bind(self, promiseObj));
+                    loadJPG.call(self, model).then(afterLoadJPG.bind(self, promiseObj)).catch(promiseObj.reject);
                     break;
                 case self.modelType.PNG:
-                    loadPNG.call(self, model).then(afterLoadPNG.bind(self, promiseObj));
+                    loadPNG.call(self, model).then(afterLoadPNG.bind(self, promiseObj)).catch(promiseObj.reject);
                     break;
                 case self.modelType.GLB:
                 case self.modelType.GLTF:
-                    // .glb(바이너리)와 .gltf(JSON + 외부 .bin/텍스처)는 같은 UGLTFLoader 로 읽습니다.
-                    try {
-                        /** @type {any} */ (loadGLB.call(self, model)).then((/** @type {KeyValue} */ object) => {
-                            // deferred는 성공 콜백의 예외를 거부로 바꾸지 않으므로 후처리도 직접 보호합니다.
-                            try {
-                                afterLoadGLB.call(self, promiseObj, object);
-                            }
-                            catch (error) {
-                                promiseObj.reject(error);
-                            }
-                        }, promiseObj.reject);
-                    }
-                    catch (error) {
-                        promiseObj.reject(error);
-                    }
+                    // 로더 결과와 장면 후처리의 실패를 같은 완료 경로로 전달합니다.
+                    loadGLB.call(self, model).then(object => {
+                        afterLoadGLB.call(self, promiseObj, object);
+                    }).catch(promiseObj.reject);
                     break;
                 case self.modelType.UMESH:
-                    /** @type {any} */ (loadUMESH.call(self, model)).then(afterLoadUMESH.bind(self, promiseObj));
+                    loadUMESH.call(self, model).then(objects => afterLoadUMESH.call(self, promiseObj, objects)).catch(promiseObj.reject);
                     break;
             }
-        });
+        }));
+        const modelLoads = this.#modelLoads ??= new WeakMap();
+        modelLoads.set(model, loading);
+        // 조회한 모델 정보에서도 동일한 작업을 기다립니다. 저장용 옵션에는 Promise가 섞이지 않게 합니다.
+        Object.defineProperty(model, 'ready', {value: loading, writable: true, configurable: true, enumerable: false});
+        const registered = self.getModelInfo(model.name, model.baseurl);
+        if (registered && registered !== model) {
+            modelLoads.set(registered, loading);
+            Object.defineProperty(registered, 'ready', {value: loading, writable: true, configurable: true, enumerable: false});
+        }
+        return loading;
     }
 
     /**
-     * 모델 자료를 요청하고 파서와 공유하는 완료 객체를 반환합니다.
-     * 기존 초기화 경로가 반환 객체의 resolve/reject도 사용하므로 완료 제어 인터페이스를 유지합니다.
-     * 입력 타입과 달리 요청 구현은 model.baseurl을 직접 읽습니다.
+     * 모델 자료를 요청하고 파싱 결과를 Promise로 반환합니다.
+     * 문자열 주소 또는 모델 정보의 baseurl을 사용하며 요청·파싱 실패는 호출자에게 전달합니다.
      *
      * @param {ModelInfo | KeyValue | string | undefined} model U3F 모델 파라미터
      * @param {string} baseurl U3F 모델 URL
-     * @returns {DeferredObject<any>} promise 함수. 작업 성공 시 Load한 U3F 3D Object 배열을 반환한다.
+     * @returns {Promise<Array<U3FParsedObj>>} 로딩·파싱한 U3F 객체 배열
      */
     getU3FInfo(model, baseurl) {
-        /** @type {DeferredObject<any>} */
-        const promise = deferred();
-        const url = /** @type {ModelInfo & KeyValue} */ (model).baseurl;
-        const loader = new UFileLoader();
-        loader.crossOrigin = 'anonymous';
-        loader.setResponseType('arraybuffer');
-        loader.load(url,
-        //+ onLoad
-        function (/** @type {ArrayBuffer} */ data) {
-            const opt = {
-                promise: promise,
-                baseurl: baseurl,
-                model: model
-            };
-            const u3fParser = new U3FParser(opt);
-            const objs = u3fParser.parse(data);
-            if (objs === undefined)
-                promise.reject(false);
-            promise.resolve(objs);
-        },
-        //+ onProgress
-        function () {
-        }, function () {
-            promise.reject(false);
+        return new Promise((resolve, reject) => {
+            const url = typeof model === 'string' ? model : model?.baseurl;
+            if (!url) { reject(new Error('U3F 모델 주소가 없습니다.')); return; }
+            const loader = new UFileLoader();
+            loader.crossOrigin = 'anonymous';
+            loader.setResponseType('arraybuffer');
+            loader.load(url, data => {
+                try {
+                    if (this._disposed) throw new DOMException('U3F 로딩 중 레이어가 해제되었습니다.', 'AbortError');
+                    const parser = new U3FParser({baseurl, model});
+                    const objects = parser.parse(data);
+                    if (objects === undefined) { reject(false); return; }
+                    resolve(objects);
+                } catch (error) { reject(error); }
+            }, null, reject, reject);
         });
-        return promise;
     }
 
     /**
      * 텍스처를 요청하여 완료 결과를 반환합니다.
-     * 기존 동작상 로드 오류뿐 아니라 진행 콜백이 호출되어도 거부합니다.
+     * 실제 로딩·후처리 실패를 거부하며 진행률 통지는 실패로 처리하지 않습니다.
      *
      * @param {string} url 텍스처 URL
      * @returns {Promise<import('three').Texture>} promise 함수. 작업 성공 시 Load한 텍스처를 반환.
      */
     getTexture(url) {
-        /** @type {DeferredObject<import('three').Texture>} */
-        const promise = deferred();
-        const loader = new UTextureLoader();
-        loader.load(url, /** @param {import('three').Texture} texture */ function (texture) {
-            texture.updateMatrix();
-            promise.resolve(texture);
-        }, function () {
-            promise.reject();
-        }, function () {
-            promise.reject();
+        return new Promise((resolve, reject) => {
+            const loader = new UTextureLoader();
+            loader.load(url, texture => {
+                try {
+                    if (this._disposed) {
+                        texture.dispose();
+                        throw new DOMException('텍스처 로딩 중 레이어가 해제되었습니다.', 'AbortError');
+                    }
+                    texture.updateMatrix();
+                    resolve(texture);
+                } catch (error) { reject(error); }
+            }, null, reject);
         });
-        return promise;
     }
 
     /**
@@ -1062,32 +1026,15 @@ class U3dModelBasicLayer extends U3dModelLayer {
  */
 function loadModel() {
     const self = this;
-    /** @type {DeferredObject<void>} */
-    const promise = deferred();
-    try {
-        if (defined(self._useU3f) && self._useU3f) {
-            self.initializeU3f().then(function () {
-                self._isLoaded = true;
-                self._drawArg.setUpdateDate();
-                promise.resolve();
-            });
-        }
-        else {
-            loadListModel.call(self).then(function () {
-                self._isLoaded = true;
-                self._drawArg.setUpdateDate();
-                promise.resolve();
-            }).catch(function (e) {
-                const err = /** @type {ErrorEvent} */ (e);
-                promise.reject(err);
-            });
-        }
-    }
-    catch (e) {
-        const err = /** @type {ErrorEvent} */ (e);
-        promise.reject(err);
-    }
-    return promise;
+    // XML 완료 콜백을 기다리는 동안 해제되었으면 후속 모델 다운로드도 시작하지 않습니다.
+    if (self._disposed) return Promise.reject(new DOMException('모델 로딩 전에 레이어가 해제되었습니다.', 'AbortError'));
+    // 작업 시작은 기존처럼 즉시 요청하되, 후처리의 예외도 같은 체인으로 전파합니다.
+    const loading = self._useU3f ? self.initializeU3f() : loadListModel.call(self);
+    return loading.then(() => {
+        if (self._disposed) throw new DOMException('해제된 레이어에는 모델을 반영할 수 없습니다.', 'AbortError');
+        self._isLoaded = true;
+        self._drawArg.setUpdateDate();
+    });
 }
 
 /**
@@ -1097,24 +1044,26 @@ function loadModel() {
  * @this {U3dModelBasicLayer}
  */
 function initWithXML() {
-    const promise = deferred();
     const self = this;
-    const req = new XMLHttpRequest();
-    const xmlUrl = self._xmlUrl;
-    if (defined(xmlUrl)) {
+    return new Promise((resolve, reject) => {
+        const xmlUrl = self._xmlUrl;
+        if (!xmlUrl) { reject(new Error('모델 정보 XML 주소가 없습니다.')); return; }
+        const req = new XMLHttpRequest();
         req.overrideMimeType('text/xml');
-        req.onload = function () {
-            if (this.status === 200) {
-                self.parseXML(/** @type {XMLHttpRequest} */ (req));
-                promise.resolve(self);
-            }
-            else if (this.status === 404)
-                console.error(xmlUrl + ' 파일이 존재하지 않습니다.');
+        req.onload = () => {
+            try {
+                if (self._disposed) throw new DOMException('XML 로딩 중 레이어가 해제되었습니다.', 'AbortError');
+                if (req.status < 200 || req.status >= 300) throw new Error('모델 정보 XML 요청 실패: ' + req.status);
+                self.parseXML(req);
+                resolve(self);
+            } catch (error) { reject(error); }
         };
-        req.open("GET", xmlUrl, true);
+        req.onerror = () => reject(new Error('모델 정보 XML을 불러오지 못했습니다.'));
+        req.onabort = () => reject(new DOMException('모델 정보 XML 요청이 취소되었습니다.', 'AbortError'));
+        req.ontimeout = () => reject(new Error('모델 정보 XML 요청 시간이 초과되었습니다.'));
+        req.open('GET', xmlUrl, true);
         req.send();
-    }
-    return promise;
+    });
 }
 
 /**
@@ -1126,16 +1075,10 @@ function initWithXML() {
  * @param {import('@UDrawArg').UDrawArg} drawArg
  */
 function convertObj2Mesh(self, objs, drawArg) {
-    if (!defined(objs) || !defined(drawArg))
-        return null;
-    const scene = drawArg._scene;
-    if (!defined(scene))
-        return null;
-    const promise = deferred();
-    // 파서 결과를 레이어 메시로 추가하며 재질 설정 확장 지점은 그대로 사용합니다.
+    if (!defined(objs) || !defined(drawArg) || !defined(drawArg._scene)) return null;
+    // 파서 결과를 장면에 반영하는 동기 작업과 그 완료값을 분리합니다.
     INTERNAL.appendU3fMeshes(self, objs);
-    promise.resolve(true);
-    return promise;
+    return Promise.resolve(true);
 }
 
 /**
@@ -1158,59 +1101,46 @@ function loadListModel() {
  * U3F 자료의 메시 구성과 배치를 연결하고 설정된 이미지 레벨의 텍스처를 요청합니다.
  *
  * @this {U3dModelBasicLayer}
- * @param {ModelInfo & KeyValue} model
+ * @param {ModelInfo | KeyValue | string | undefined} model 모델 정보 또는 자료 주소
+ * @param {boolean} [firstImage=false] 초기화 경로의 첫 이미지 선택 여부
+ * @returns {Promise<boolean>} 메시 배치 완료
  */
-function loadU3FLoader(model) {
+function loadU3FLoader(model, firstImage = false) {
     const self = this;
-    if (!defined(self._baseUrl))
-        return;
-    const promise = self.getU3FInfo(model, self._baseUrl);
-    promise.catch(function () {
-        console.info('getU3FInfo cancel');
-    });
-    promise.then(function (/** @type {Array<KeyValue>} */ objects) {
-        const meshpromise = convertObj2Mesh(self, objects, self._drawArg);
-        if (!meshpromise) {
-            promise.reject(false);
-            return;
-        }
-        meshpromise.catch(function () {
-            console.info('convertObj2Mesh cancel');
-        });
-        meshpromise.then(function () {
-            self._object.position.copy(parseVector3(/** @type {import('three').Vector3} */ (self._location)));
-            self._object.scale.copy(parseVector3(/** @type {import('three').Vector3} */ (self._scale)));
-            self._object.rotation.setFromVector3(parseVector3(/** @type {import('three').Vector3} */ (self._rotation)).clone().multiplyScalar(Math.PI / 180));
-            self._object.matrixWorldNeedsUpdate = true;
-            self._object.updateMatrix();
-            self._object.updateMatrixWorld();
-            self._drawArg.setUpdateDate();
-            self._object.traverse(/** @param {import('three').Object3D} child */ function (child) {
-                if (child instanceof THREE.Mesh) {
-                    const mesh = /** @type {ModelMesh} */ (child);
-                    if (defined(mesh._uImageUrls)) {
-                        if (mesh._uImageUrls.length > 0) {
-                            if (self._useLOD) {
-                                self.getTexture(mesh._uImageUrls[0]).then(/** @param {import('three').Texture} texture */ function (texture) {
-                                    /** @type {Common_Material} */ (mesh.material).map = texture;
-                                    /** @type {Common_Material} */ (mesh.material).needsUpdate = true;
-                                });
-                            }
-                            else {
-                                self.getTexture(mesh._uImageUrls[mesh._uImageUrls.length - 1]).then(/** @param {import('three').Texture} texture */ function (texture) {
-                                    /** @type {Common_Material} */ (mesh.material).map = texture;
-                                    /** @type {Common_Material} */ (mesh.material).needsUpdate = true;
-                                });
-                            }
-                        }
-                    }
-                }
+    if (!defined(self._baseUrl)) return Promise.reject(new Error('U3F 기준 주소가 없습니다.'));
+    return self.getU3FInfo(model, self._baseUrl).then(objects => {
+        if (self._disposed) throw new DOMException('U3F 로딩 중 레이어가 해제되었습니다.', 'AbortError');
+        const meshes = convertObj2Mesh(self, objects, self._drawArg);
+        if (!meshes) throw new Error('U3F 메시를 배치할 장면이 없습니다.');
+        return meshes;
+    }).then(() => {
+        if (self._disposed) throw new DOMException('U3F 배치 중 레이어가 해제되었습니다.', 'AbortError');
+        self._object.position.copy(parseVector3(/** @type {import('three').Vector3} */ (self._location)));
+        self._object.scale.copy(parseVector3(/** @type {import('three').Vector3} */ (self._scale)));
+        self._object.rotation.setFromVector3(parseVector3(/** @type {import('three').Vector3} */ (self._rotation)).clone().multiplyScalar(Math.PI / 180));
+        if (firstImage) self._object.af = true;
+        else self._object.matrixWorldNeedsUpdate = true;
+        self._object.updateMatrix();
+        self._object.updateMatrixWorld();
+        self._drawArg.setUpdateDate();
+        self._object.traverse(child => {
+            if (!(child instanceof THREE.Mesh)) return;
+            const mesh = /** @type {ModelMesh} */ (child);
+            const urls = mesh._uImageUrls;
+            if (!urls?.length) return;
+            const url = urls[firstImage || self._useLOD ? 0 : urls.length - 1];
+            // 텍스처는 기존 계약처럼 별도로 갱신합니다. 해제된 대상에는 늦은 결과를 적용하지 않습니다.
+            self.getTexture(url).then(texture => {
+                if (self._disposed || mesh._disposed) { texture.dispose(); return; }
+                /** @type {Common_Material} */ (mesh.material).map = texture;
+                /** @type {Common_Material} */ (mesh.material).needsUpdate = true;
+            }).catch(error => {
+                if (!self._disposed) __GError__(self, 'U3F 텍스처 로딩에 실패했습니다. ' + error, '306001');
             });
-            self._drawArg._app.endloadingBar();
-            promise.resolve(true);
         });
+        self._drawArg._app.endloadingBar();
+        return true;
     });
-    return promise;
 }
 
 /**
@@ -1225,15 +1155,17 @@ function loadMTLLoader(model) {
         const mtlLoader = /** @type {any} */ (new UMTLLoader());
         if (defined(model.localmtldata)) {
             setTimeout(function () {
-                const materials = mtlLoader.parse(model.localmtldata);
-                if (defined(materials)) {
-                    materials.preload();
-                    resolve(materials);
-                }
-                else {
-                    console.error('MTLLoader 로드 중 오류가 발생하였습니다.');
-                    reject();
-                }
+                try {
+                    const materials = mtlLoader.parse(model.localmtldata);
+                    if (defined(materials)) {
+                        materials.preload();
+                        resolve(materials);
+                    }
+                    else {
+                        console.error('MTLLoader 로드 중 오류가 발생하였습니다.');
+                        reject();
+                    }
+                } catch (error) { reject(error); }
             });
         }
         else {
@@ -1254,10 +1186,12 @@ function loadMTLLoader(model) {
             // 로드할 Material 파일 명을 입력합니다.
             const fileNameNotExt = model.fileName.substring(0, model.fileName.lastIndexOf("."));
             mtlLoader.load(fileNameNotExt + '.mtl', function (/** @type {any} */ materials) {
-                // 로드 완료되었을때 호출하는 함수
-                __GInfo__(self, 'MTL 로드가 완료되었습니다.', '7043096');
-                materials.preload();
-                resolve(materials);
+                try {
+                    // 로드 완료되었을때 호출하는 함수
+                    __GInfo__(self, 'MTL 로드가 완료되었습니다.', '7043096');
+                    materials.preload();
+                    resolve(materials);
+                } catch (error) { reject(error); }
             }, function (/** @type {ProgressEvent} */ xhr) {
                 // 로드되는 동안 호출되는 함수
                 // 로딩 퍼센트
@@ -1285,15 +1219,17 @@ function loadOBJLoader(promise, model, materials) {
     const loader = /** @type {any} */ (new UOBJLoader());
     if (defined(model.localobjdata)) {
         setTimeout(function () {
-            const object = loader.parse(model.localobjdata);
-            if (defined(object)) {
-                __GInfo__(self, 'OBJ 로드가 완료 되었습니다.', '7043982');
-                promise.resolve(object);
-            }
-            else {
-                __GError__(self, '모델을 로드 중 오류가 발생하였습니다.', '7044116');
-                promise.reject();
-            }
+            try {
+                const object = loader.parse(model.localobjdata);
+                if (defined(object)) {
+                    __GInfo__(self, 'OBJ 로드가 완료 되었습니다.', '7043982');
+                    promise.resolve(object);
+                }
+                else {
+                    __GError__(self, '모델을 로드 중 오류가 발생하였습니다.', '7044116');
+                    promise.reject();
+                }
+            } catch (error) { promise.reject(error); }
         });
     }
     else {
@@ -1333,14 +1269,7 @@ function loadOBJLoader(promise, model, materials) {
  * @param {ModelInfo & KeyValue} model
  */
 function loadFBX(model) {
-    const self = this;
-    const promise = deferred();
-    loadFBXLoader.call(self, model).then(function (object) {
-        promise.resolve(object);
-    }).catch(function (e) {
-        promise.reject(e);
-    });
-    return promise;
+    return loadFBXLoader.call(this, model);
 }
 
 /**
@@ -1350,15 +1279,10 @@ function loadFBX(model) {
  * @param {ModelInfo & KeyValue} model
  */
 function loadGLB(model) {
-    const self = this;
-    const promise = deferred();
-    loadGLBLoader.call(self, model).then((/** @type {any} */ object) => {
+    return loadGLBLoader.call(this, model).then(object => {
         object.userData.inputNmae = model.name;
-        promise.resolve(object);
-    }).catch(function (e) {
-        promise.reject(e);
+        return object;
     });
-    return promise;
 }
 
 /**
@@ -1368,14 +1292,7 @@ function loadGLB(model) {
  * @param {ModelInfo & KeyValue} model
  */
 function loadUMESH(model) {
-    const self = this;
-    const promise = deferred();
-    loadUMESHLoader.call(self, model).then(function (object) {
-        promise.resolve(object);
-    }).catch(function (e) {
-        promise.reject(e);
-    });
-    return promise;
+    return loadUMESHLoader.call(this, model);
 }
 
 /**
@@ -1385,12 +1302,7 @@ function loadUMESH(model) {
  * @param {ModelInfo & KeyValue} model
  */
 function loadJPG(model) {
-    const self = this;
-    const promise = deferred();
-    loadJPGLoader.call(self, model).then(function (object) {
-        promise.resolve(object);
-    });
-    return promise;
+    return loadJPGLoader.call(this, model);
 }
 
 /**
@@ -1402,7 +1314,8 @@ function loadJPG(model) {
  */
 function loadJPGLoader(model) {
     const self = this;
-    const promise = deferred();
+    /** @type {DeferredPromise<import('three').Object3D>} */
+    const promise = deferredPromise();
     const textureLoader = new THREE.TextureLoader();
     let url;
     if (defined(model.baseurl))
@@ -1410,21 +1323,27 @@ function loadJPGLoader(model) {
     else
         url = self._baseUrl + "/";
     textureLoader.load(url + model.fileName, function (texture) {
-        const useSprite = false;
-        if (useSprite) {
-            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, color: 0xffffff });
-            const sprite = new THREE.Sprite(spriteMaterial);
-            self._object.add(sprite);
-            promise.resolve(sprite);
-        }
-        else {
-            // 이미지의 표시용 평면과 텍스처 설정을 준비한 뒤 이 로더가 장면 연결을 담당합니다.
-            const mesh = INTERNAL.createImagePlane(texture, DEBUG);
-            mesh.renderOrder = self._renderOrder;
-            self._object.add(mesh);
-            promise.resolve(mesh);
-        }
-    });
+        try {
+            if (self._disposed) {
+                texture.dispose();
+                throw new DOMException('이미지 로딩 중 레이어가 해제되었습니다.', 'AbortError');
+            }
+            const useSprite = false;
+            if (useSprite) {
+                const spriteMaterial = new THREE.SpriteMaterial({ map: texture, color: 0xffffff });
+                const sprite = new THREE.Sprite(spriteMaterial);
+                self._object.add(sprite);
+                promise.resolve(sprite);
+            }
+            else {
+                // 이미지의 표시용 평면과 텍스처 설정을 준비한 뒤 이 로더가 장면 연결을 담당합니다.
+                const mesh = INTERNAL.createImagePlane(texture, DEBUG);
+                mesh.renderOrder = self._renderOrder;
+                self._object.add(mesh);
+                promise.resolve(mesh);
+            }
+        } catch (error) { promise.reject(error); }
+    }, undefined, promise.reject);
     return promise;
 }
 
@@ -1452,12 +1371,7 @@ function afterLoadJPG(promise) {
  * @param {ModelInfo & KeyValue} model
  */
 function loadPNG(model) {
-    const self = this;
-    const promise = deferred();
-    loadPNGLoader.call(self, model).then(function (object) {
-        promise.resolve(object);
-    });
-    return promise;
+    return loadPNGLoader.call(this, model);
 }
 
 /**
@@ -1469,7 +1383,8 @@ function loadPNG(model) {
  */
 function loadPNGLoader(model) {
     const self = this;
-    const promise = deferred();
+    /** @type {DeferredPromise<import('three').Object3D>} */
+    const promise = deferredPromise();
     const textureLoader = new THREE.TextureLoader();
     let url;
     if (defined(model.baseurl))
@@ -1477,24 +1392,30 @@ function loadPNGLoader(model) {
     else
         url = /** @type {string} */ (self._baseUrl);
     textureLoader.load(url + model.fileName, function (texture) {
-        let isSprite = false;
-        if (defined(self._printSprite)) {
-            isSprite = self._printSprite;
-        }
-        if (isSprite) {
-            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, color: 0xffffff });
-            const sprite = new THREE.Sprite(spriteMaterial);
-            self._object.add(sprite);
-            promise.resolve(sprite);
-        }
-        else {
-            // 이미지의 표시용 평면과 텍스처 설정을 준비한 뒤 이 로더가 장면 연결을 담당합니다.
-            const mesh = INTERNAL.createImagePlane(texture, DEBUG);
-            mesh.renderOrder = self._renderOrder;
-            self._object.add(mesh);
-            promise.resolve(mesh);
-        }
-    });
+        try {
+            if (self._disposed) {
+                texture.dispose();
+                throw new DOMException('이미지 로딩 중 레이어가 해제되었습니다.', 'AbortError');
+            }
+            let isSprite = false;
+            if (defined(self._printSprite)) {
+                isSprite = self._printSprite;
+            }
+            if (isSprite) {
+                const spriteMaterial = new THREE.SpriteMaterial({ map: texture, color: 0xffffff });
+                const sprite = new THREE.Sprite(spriteMaterial);
+                self._object.add(sprite);
+                promise.resolve(sprite);
+            }
+            else {
+                // 이미지의 표시용 평면과 텍스처 설정을 준비한 뒤 이 로더가 장면 연결을 담당합니다.
+                const mesh = INTERNAL.createImagePlane(texture, DEBUG);
+                mesh.renderOrder = self._renderOrder;
+                self._object.add(mesh);
+                promise.resolve(mesh);
+            }
+        } catch (error) { promise.reject(error); }
+    }, undefined, promise.reject);
     return promise;
 }
 
@@ -1521,7 +1442,8 @@ function afterLoadPNG(promise) {
  * @param {ModelInfo & KeyValue} model
  */
 function loadFBXLoader(model) {
-    const promise = deferred();
+    /** @type {DeferredPromise<ModelMesh>} */
+    const promise = deferredPromise();
     const fbxLoader = new UFBXLoader();
     fbxLoader.load(model.baseurl + model.fileName, function (/** @type {ModelMesh} */ object) {
         try {
@@ -1536,7 +1458,7 @@ function loadFBXLoader(model) {
         catch (e) {
             promise.reject(e);
         }
-    });
+    }, undefined, promise.reject);
     return promise;
 }
 
@@ -1548,7 +1470,8 @@ function loadFBXLoader(model) {
  */
 function loadGLBLoader(model) {
     const self = this;
-    const promise = deferred();
+    /** @type {DeferredPromise<KeyValue>} */
+    const promise = deferredPromise();
     const dracoLoader = new UDRACOLoader();
     dracoLoader.setPath(UDEF.DRACO_DECODER_PATH);
     const loader = /** @type {any} */ (new UGLTFLoader()); // setDRACOLoader 등 타입 미노출 멤버 사용
@@ -1586,6 +1509,7 @@ function loadGLBLoader(model) {
  */
 function afterLoadGLB(promise, model) {
     const self = this;
+    ensureModelLoadActive(self, model);
     let glbModel = model.scene;
     glbModel = self.skClone(glbModel);
     setObjectPosition.call(self, glbModel);
@@ -1650,7 +1574,8 @@ function afterLoadGLB(promise, model) {
  */
 function loadUMESHLoader(model) {
     const self = this;
-    const promise = deferred();
+    /** @type {DeferredPromise<Array<ModelMesh>>} */
+    const promise = deferredPromise();
     const loader = /** @type {any} */ (new UMeshParser());
     let url;
     if (defined(model.baseurl)) {
@@ -1663,7 +1588,7 @@ function loadUMESHLoader(model) {
     if (lastIndex === url.length - 1) {
         url = url.substring(0, lastIndex);
     }
-    loader.load(url + "/" + model.fileName, function (/** @type {ModelMesh} */ umesh) {
+    loader.load(url + "/" + model.fileName, function (/** @type {Array<ModelMesh>} */ umesh) {
         promise.resolve(umesh);
         return promise;
     }, function (/** @type {unknown} */ e) {
@@ -1684,6 +1609,7 @@ function loadUMESHLoader(model) {
  */
 function afterLoadUMESH(promise, model) {
     const self = this;
+    ensureModelLoadActive(self, model);
     model.forEach((/** @type {ModelMesh} */ umeshModel) => {
         umeshModel._ext = "umesh";
         self._object.add(umeshModel);
@@ -1706,6 +1632,7 @@ function afterLoadUMESH(promise, model) {
  */
 function afterLoadFBX(promise, model, object) {
     const self = this;
+    ensureModelLoadActive(self, object);
     setObjectPosition.call(self, object);
     object.traverse(function (/** @type {ModelMesh} */ child) {
         if (child instanceof THREE.Mesh) {
@@ -1769,6 +1696,7 @@ function loadOBJ(model) {
  */
 function afterLoadOBJ(promise, model, object) {
     const self = this;
+    ensureModelLoadActive(self, object);
     // 모델 로드가 완료되었을때 호출되는 함수
     const afterMaterial = (/** @type {import('three').Material & KeyValue} */ material) => {
         material.shininess = 30;
@@ -1849,7 +1777,8 @@ function loadDae(model) {
     if (!defined(model))
         return;
     const self = this;
-    const promise = deferred();
+    /** @type {DeferredPromise<KeyValue>} */
+    const promise = deferredPromise();
     let ext;
     if (defined(model.ext)) {
         ext = model.ext;
@@ -1893,6 +1822,7 @@ function loadDae(model) {
  */
 function afterLoadDAE(promise, model, object) {
     const self = this;
+    ensureModelLoadActive(self, object);
     object = object.scene;
     const afterMaterial = (/** @type {import('three').Material & KeyValue} */ material, /** @type {boolean} */ isLineSegment) => {
         if (defined(self._color)) {
@@ -1983,6 +1913,7 @@ function afterLoadDAE(promise, model, object) {
 
 /**
  * 3DS 모델을 요청하고 선택적으로 메타데이터를 병행 요청합니다.
+ * XML을 사용하거나 생성 옵션에 geoLocation을 명시하면 첫 메시의 청크 위치를 공통 기준으로 빼고 메시 사이의 상대 위치·회전·크기는 유지합니다.
  * 메타데이터의 완료를 기다리지 않으며 첫 파일의 기준 위치를 별도로 보관할 수 있습니다.
  *
  * @this {U3dModelBasicLayer}
@@ -2034,8 +1965,20 @@ function load3DS(model, textureUrl) {
                 }
             });
         }
-        loader.load(model.fileName, function (/** @type {ModelMesh} */ object) {
+        loader.loadAsync(model.fileName).then(function (/** @type {ModelMesh} */ object) {
             loader.dispose();
+            if (self._needXml || self._hasGeoLocation) {
+                /** @type {import('three').Vector3 | undefined} */
+                let chunkOrigin;
+                // 모든 메시에서 같은 기준점만 빼야 외부 좌표로 옮겨도 부품의 상대 배치가 유지됩니다.
+                object.traverse(child => {
+                    if (child instanceof THREE.Mesh && defined(child.userData.tds)) {
+                        if (!defined(chunkOrigin)) chunkOrigin = child.position.clone();
+                        child.position.sub(chunkOrigin);
+                        child.updateMatrix();
+                    }
+                });
+            }
             if (!defined(self._averagePos) && self._setAveragePosition && self._listModel.length > 1) {
                 const fileName = model.fileName.split('.')[0];
                 if (defined(fileName) && defined(self._object._xml?.['_firstFileName'])
@@ -2047,9 +1990,7 @@ function load3DS(model, textureUrl) {
                 }
             }
             resolve(object);
-        }, undefined, function (/** @type {unknown} */ error) {
-            reject(error);
-        });
+        }).catch(reject);
     });
 }
 
@@ -2064,7 +2005,11 @@ function load3DS(model, textureUrl) {
  */
 function afterLoad3DS(promise, model, object) {
     const self = this;
+    ensureModelLoadActive(self, object);
     return UDEF.createPromise(function (resolve, reject) {
+        // createPromise는 Yield 뒤에 본문을 실행합니다. 대기 중 해제되었다면
+        // 새로 받은 모델을 정리하고 반환 체인으로 취소를 전달해야 합니다.
+        ensureModelLoadActive(self, object);
         try {
             const afterMaterial = (/** @type {import('three').Material & KeyValue} */ material, /** @type {boolean} */ isLineSegment) => {
                 if (defined(self._color)) {
@@ -2281,4 +2226,21 @@ function keepMaterialTransparent(material) {
     if (material.transparent)
         material.userData._keepTransparent = material.transparent; //원본 데이터의 transparent를 유지하기 위한 플래그 속성값
 }
+/**
+ * 로딩 완료를 기다리는 동안 레이어가 해제되었으면 늦게 도착한 원본을 정리합니다.
+ * 형식별 장면 반영보다 먼저 검사하여 삭제된 레이어가 다시 모델을 소유하지 않게 합니다.
+ *
+ * @param {U3dModelBasicLayer} layer 로드를 시작한 레이어
+ * @param {unknown} result 로더가 반환한 객체·GLTF 결과·메시 배열
+ */
+function ensureModelLoadActive(layer, result) {
+    if (!layer._disposed) return;
+    const objects = Array.isArray(result) ? result : [result];
+    for (const object of objects) {
+        const scene = object instanceof THREE.Object3D ? object : /** @type {KeyValue} */ (object)?.scene;
+        if (scene instanceof THREE.Object3D) UDEF.disposeObject3D(scene);
+    }
+    throw new DOMException('모델 로딩 중 레이어가 해제되었습니다.', 'AbortError');
+}
+
 export { U3dModelBasicLayer };

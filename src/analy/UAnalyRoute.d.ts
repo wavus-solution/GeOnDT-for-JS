@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -14,43 +14,9 @@ import type { ULineGeometry } from "../geometry/ULineGeometry.js";
 import type { WorldPositionVector3 } from "../types/global.js";
 
 /**
- * ~extends import('@UAnaly').UAnalyCO <br>
- * UAnalyRoute 생성자 옵션
- */
-type UAnalyRouteCO_Content = {
-    /**
-     * 분석모드 명
-     */
-    name?: string;
-    /**
-     * 경로 선 너비(m)
-     */
-    lineWidth?: number;
-};
-
-/**
- * ~extends import('@UAnaly').UAnalyCO <br>
- * UAnalyRoute 생성자 옵션
- */
-type UAnalyRouteCO = Omit<Omit<UAnalyCO, never> & UAnalyRouteCO_Content, never>;
-
-/**
- * ~extends import('@UAnaly').UAnalyCO <br>
- * UAnalyRoute 생성자 옵션
- * @memberof UAnalyRoute
- * @inner
- *
- * @typedef {object} UAnalyRouteCO_Content
- * @property {string} [name='Route'] 분석모드 명
- * @property {number} [lineWidth=5] 경로 선 너비(m)
- *
- *
- * @typedef {Omit<UAnalyCO, never> & UAnalyRouteCO_Content} UAnalyRouteCO
- */
-/**
  * ~extends import('@UAnaly').UAnaly <br>
- * `모의주행` 분석 클래스 <br>
- * 경로 생성/삭제, 주행 높이 및 시점 설정, 주행속도 설정 등 모의주행 시뮬레이션 기능을 제공한다.
+ *
+ * 경로를 구성하고 카메라·모델을 이동시키는 모의주행 분석 클래스입니다.
  *
  * @group analysis
  * @extends {UAnaly}
@@ -63,9 +29,9 @@ type UAnalyRouteCO = Omit<Omit<UAnalyCO, never> & UAnalyRouteCO_Content, never>;
  */
 declare class UAnalyRoute extends UAnaly {
     /**
-     * @type {{UPDATE: string, COMPLETE: string, START: string, STOP: string, PROGRESS: string}}
+     * 주행 시작·갱신·진행·완료·중지 이벤트의 이름입니다.
      *
-     * @ignore
+     * @type {{UPDATE: string, COMPLETE: string, START: string, STOP: string, PROGRESS: string}}
      */
     static Event: {
         UPDATE: string;
@@ -75,288 +41,463 @@ declare class UAnalyRoute extends UAnaly {
         PROGRESS: string;
     };
     /**
-     * @param {import('three').Vector3} direction
-     * @return {{right: import('three').Vector3, up: import('three').Vector3}}
+     * UAnalyRoute 클래스 생성자입니다. <br>
+     * 경로는 앱에 연결한 뒤 지점을 추가해 구성하십시오. <br>
+     * 부모 분석 옵션은 부모 생성자에 전달하지 않습니다.
      *
-     * @ignore
-     */
-    static "__#11476@#getRightUpAxis"(direction: three.Vector3): {
-        right: three.Vector3;
-        up: three.Vector3;
-    };
-    /**
-     * @param {import('three').Vector3} axis
-     * @param {number} angle
-     * @param {import('three').Vector3} direction
-     * @return {import('three').Vector3}
-     *
-     * @ignore
-     */
-    static "__#11476@#rotateDirection"(axis: three.Vector3, angle: number, direction: three.Vector3): three.Vector3;
-    /**
-     * @param {UAnalyRouteCO} [options={}]
+     * @param {UAnalyRouteCO} [options={}] 분석 이름과 경로 띠 너비
      */
     constructor(options?: UAnalyRouteCO);
-    /** @type {Array<import('three').Vector3>} */ _positions: Array<three.Vector3>;
-    /** @type {Array<import('three').Vector3>} */ _geoPositions: Array<three.Vector3>;
-    /** @type {number} */ _curIdx: number;
-    /** @type {string} */ _lineColor: string;
-    /** @type {number} */ _lineOpacity: number;
-    /** @type {import('@union3d/geometry/ULineGeometry.js').ULineGeometry | undefined} */ _lineGeom: ULineGeometry | undefined;
-    /** @type {import('three').MeshLambertMaterial | undefined} */ _lineMaterial: three.MeshLambertMaterial | undefined;
-    /** @type {import('three').MeshLambertMaterial | undefined} */ _textureMaterial: three.MeshLambertMaterial | undefined;
-    /** @type {import('three').Mesh | undefined} */ _lineMesh: three.Mesh | undefined;
-    /** @type {Array<import('three').Vector3>} */ _vertices: Array<three.Vector3>;
-    /** @type {number} */ _speed: number;
-    /** @type {number} */ _currentPos: number;
-    /** @type {boolean} */ _isTween: boolean;
-    /** @type {number} */ _cameraHeight: number;
-    /** @type {number} */ _cameraPolar: number;
-    /** @type {number} */ _cameraAzimuth: number;
-    /** @type {import('three').Object3D | undefined} */ _startPoi: three.Object3D | undefined;
-    /** @type {import('three').Object3D | undefined} */ _endPoi: three.Object3D | undefined;
-    /** @type {string | undefined} */ _lineImageUrl: string | undefined;
-    /** @type {number} */ _tension: number;
-    /** @type {number} */ _segment: number;
-    /** @type {number} */ _lineWidth: number;
-    /** @type {import('@union3d/core/UTween.js').UTween | undefined} */ _tween: UTween | undefined;
+    /**
+     * 초기화 후 이 클래스에서 사용하지 않는 위치 보관 배열입니다.
+     *
+     * @type {Array<import('three').Vector3>}
+     */
+    _positions: Array<three.Vector3>;
+    /**
+     * 지리 경로의 원본 목록입니다.
+     *
+     * @type {Array<import('three').Vector3>}
+     */
+    _geoPositions: Array<three.Vector3>;
+    /**
+     * 초기화 후 사용하지 않는 지점 인덱스입니다.
+     *
+     * @type {number}
+     */
+    _curIdx: number;
+    /**
+     * 경로 기본 색상입니다.
+     *
+     * @type {string}
+     */
+    _lineColor: string;
+    /**
+     * 경로 불투명도입니다.
+     *
+     * @type {number}
+     */
+    _lineOpacity: number;
+    /**
+     * 경로의 원본 형상입니다.
+     *
+     * @type {import('@union3d/geometry/ULineGeometry').ULineGeometry | undefined}
+     */
+    _lineGeom: ULineGeometry | undefined;
+    /**
+     * 경로 기본 머터리얼입니다.
+     *
+     * @type {import('three').MeshLambertMaterial | undefined}
+     */
+    _lineMaterial: three.MeshLambertMaterial | undefined;
+    /**
+     * 경로 이미지 머터리얼입니다.
+     *
+     * @type {import('three').MeshLambertMaterial | undefined}
+     */
+    _textureMaterial: three.MeshLambertMaterial | undefined;
+    /**
+     * 경로 형상을 표시하는 메시입니다.
+     *
+     * @type {import('three').Mesh | undefined}
+     */
+    _lineMesh: three.Mesh | undefined;
+    /**
+     * 초기화 후 사용하지 않는 정점 보관 배열입니다.
+     *
+     * @type {Array<import('three').Vector3>}
+     */
+    _vertices: Array<three.Vector3>;
+    /**
+     * 저장한 주행 속도입니다.
+     *
+     * @type {number}
+     */
+    _speed: number;
+    /**
+     * 현재 주행 진행률입니다.
+     *
+     * @type {number}
+     */
+    _currentPos: number;
+    /**
+     * 주행 갱신 콜백이 설정하는 재생 상태입니다.
+     *
+     * @type {boolean}
+     */
+    _isTween: boolean;
+    /**
+     * 경로 높이에 더할 값입니다.
+     *
+     * @type {number}
+     */
+    _cameraHeight: number;
+    /**
+     * 카메라 주행의 상하 각도입니다.
+     *
+     * @type {number}
+     */
+    _cameraPolar: number;
+    /**
+     * 카메라·모델 주행의 방위각입니다.
+     *
+     * @type {number}
+     */
+    _cameraAzimuth: number;
+    /**
+     * 현재 시작 라벨 참조입니다.
+     *
+     * @type {import('three').Object3D | undefined}
+     */
+    _startPoi: three.Object3D | undefined;
+    /**
+     * 현재 끝 라벨 참조입니다.
+     *
+     * @type {import('three').Object3D | undefined}
+     */
+    _endPoi: three.Object3D | undefined;
+    /**
+     * 마지막으로 요청한 경로 이미지 URL입니다.
+     *
+     * @type {string | undefined}
+     */
+    _lineImageUrl: string | undefined;
+    /**
+     * 경로 곡선의 tension 설정입니다.
+     *
+     * @type {number}
+     */
+    _tension: number;
+    /**
+     * 추가 지점 사이의 분할 간격입니다.
+     *
+     * @type {number}
+     */
+    _segment: number;
+    /**
+     * 경로 띠의 너비입니다.
+     *
+     * @type {number}
+     */
+    _lineWidth: number;
+    /**
+     * 분석이 마지막으로 저장한 재생 객체입니다.
+     *
+     * @type {import('@union3d/core/UTween').UTween | undefined}
+     */
+    _tween: UTween | undefined;
     name: any;
     /**
+     * 분석을 앱에 연결하고 경로를 표시할 형상과 머터리얼을 준비합니다. <br>
+     * 다시 연결하면 새 표시 자원을 만들며 이전 자원을 직접 해제하지 않습니다.
+     *
      * @override
      *
-     * @param {import('@U3dApp').U3dApp} app
-     * @return {this}
+     * @param {import('@U3dApp').U3dApp} app 경로를 표시하고 지형·카메라를 제공할 앱
+     * @returns {this} 이 분석 객체
      */
     override setApp(app: U3dApp): this;
     /**
+     * 경로와 양 끝 라벨을 장면에 연결하고 분석을 활성화합니다. <br>
+     * 모의주행 재생은 start() 또는 modelStart()로 별도 요청하십시오.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     override active(): this;
     /**
+     * 분석을 비활성화하고 즉시 이미지 갱신 설정을 해제합니다. <br>
+     * 비활성 상태이면 그대로 반환하며, 활성 상태에서 지리 지점이 둘 미만이면 경로도 비웁니다.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     override deactive(): this;
     /**
+     * 경로를 장면에서 분리하고 경로 지점과 시작·끝 라벨 참조를 비웁니다. <br>
+     * 앱에 비행 중지를 요청하지만 모델 주행을 직접 취소하거나 표시 자원을 해제하지 않습니다. <br>
+     * 모델 주행을 종료한 뒤 경로를 비우십시오.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     override clear(): this;
     /**
-     * 모의주행 경로 지점을 추가하는 함수 (원본)
+     * 주행 경로에 지점 하나를 추가하고 양 끝 라벨을 갱신합니다. <br>
+     * 중간 지점의 지형 높이를 추가로 샘플링하지 않습니다.
      *
-     * @param {import('@U3dMouseEvent').U3dMouseEvent | import('three').Vector3 | {x: number, y:number, z:number}} point 마우스이벤트 | 3D좌표 | 위경도 좌표
-     * @return {this}
+     * @param {import('@U3dMouseEvent').U3dMouseEvent | import('three').Vector3 | import('three').Vector3Like} point 앱 마우스 이벤트, 월드 좌표(EPSG:3857)의 Vector3 또는 위경도 좌표계(EPSG:4326)의 일반 객체
+     * @returns {this} 이 분석 객체
      */
-    addPointOrg(point: U3dMouseEvent | three.Vector3 | {
-        x: number;
-        y: number;
-        z: number;
-    }): this;
+    addPointOrg(point: U3dMouseEvent | three.Vector3 | three.Vector3Like): this;
     /**
-     * 주행경로 Line Geometry의 Point들을 반환하는 함수
+     * 형상에 보관한 주행 경로의 월드 좌표(EPSG:3857) 배열 원본을 반환합니다. <br>
+     * 반환 배열을 수정하면 경로 데이터도 바뀌며 형상 갱신은 별도로 필요합니다.
      *
-     * @return {Array<import('three').Vector3>} point 목록
+     * @returns {Array<import('three').Vector3>} 경로의 월드 좌표(EPSG:3857) 배열 원본
      */
     getPoints(): Array<three.Vector3>;
     /**
-     * 주행경로에 새로운 point를 추가하는 함수
+     * 주행 경로에 지점을 추가하고 이전 지점과의 사이에 지형 높이를 반영한 중간점을 만듭니다. <br>
+     * 첫 입력은 그대로 추가하며, 이후 입력은 현재 분할 간격으로 나눈 뒤 형상을 갱신합니다.
      *
-     * @param {import('@U3dMouseEvent').U3dMouseEvent | import('three').Vector3 | {x: number, y:number, z:number}} point 추가할 point
-     * @return {this}
+     * @param {import('@U3dMouseEvent').U3dMouseEvent | import('three').Vector3 | import('three').Vector3Like} point 앱 마우스 이벤트, 월드 좌표(EPSG:3857)의 Vector3 또는 위경도 좌표계(EPSG:4326)의 일반 객체
+     * @returns {this} 이 분석 객체
      */
-    addPoint(point: U3dMouseEvent | three.Vector3 | {
-        x: number;
-        y: number;
-        z: number;
-    }): this;
+    addPoint(point: U3dMouseEvent | three.Vector3 | three.Vector3Like): this;
     /**
-     * 설정된 경로에서 모의주행을 시작시키는 함수
+     * 설정된 경로에서 현재 진행률부터 카메라 주행을 시작합니다. <br>
+     * 빈 경로이면 시작하지 않으며, 속도를 생략하면 저장한 속도를 사용합니다. <br>
+     * 시작·진행·갱신·완료 이벤트를 통지하며 무한 반복도 설정할 수 있습니다. <br>
+     * 기존 카메라 재생이 있으면 중지한 뒤 새 재생을 등록합니다.
      *
-     * @param {number} [speed=50] 모의주행 속도(km/h)
-     * @param {boolean} [repeat=false] 모의주행 반복 여부
-     * @return {this}
+     * @param {number} [speed] 주행 속도(km/h). 생략하면 저장한 속도이며 최초 설정은 50
+     * @param {boolean} [repeat=false] true이면 경로를 무한 반복
+     * @returns {this} 이 분석 객체
      */
     start(speed?: number, repeat?: boolean): this;
     /**
-     * 3D 모델을 활용하여 모의주행을 시작하는 함수
+     * 설정된 경로에서 현재 진행률부터 모델 주행을 시작합니다. <br>
+     * 기존 재생은 별도로 중지하지 않으며, 모델을 생략해도 재생 상태와 이벤트는 진행합니다. <br>
+     * 카메라 주행과 달리 진행 이벤트를 보내지 않고 시작·갱신·완료를 통지합니다.
      *
-     * @param {number} [speed=50] 모의주행 속도(km/h)
-     * @param {import('three').Object3D} [model] 주행에 사용할 3D 모델
-     * @param {boolean} [repeat=false] 모의주행 반복 여부
-     * @return {this}
+     * @param {number} [speed] 주행 속도(km/h). 생략하면 저장한 속도
+     * @param {import('three').Object3D} [model] 위치와 방향을 변경할 모델 원본
+     * @param {boolean} [repeat=false] true이면 경로를 무한 반복
+     * @returns {this} 이 분석 객체
      */
     modelStart(speed?: number, model?: three.Object3D, repeat?: boolean): this;
     /**
-     * 모의주행을 재시작하는 함수
+     * 진행률을 처음으로 되돌리고 저장한 속도로 카메라 주행을 시작합니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     restart(): this;
     /**
-     * 모의주행을 일시정지 시키는 함수
+     * 갱신 중인 주행에 중지 요청을 보내고 재생 상태를 false로 바꿉니다. <br>
+     * 첫 갱신 콜백이 실행되기 전에는 중지 요청을 보내지 않습니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     stop(): this;
     /**
-     * 모의주행 최근 위치를 설정하는 함수
+     * 다음 주행을 시작할 경로 진행률을 저장합니다. <br>
+     * 즉시 위치를 옮기거나 범위를 제한하지 않으며 falsy 입력은 0으로 저장합니다.
      *
-     * @param {number} [v=0] 위치값 (0~1)
-     * @return {this}
+     * @param {number} [v=0] 다음 시작 진행률. 0은 시작, 1은 끝이며 생략하면 0
+     * @returns {this} 이 분석 객체
      */
     setCurrentPos(v?: number): this;
     /**
-     * GLTF 모델을 로드하여 경로 위에 모의주행시키는 함수입니다.
+     * GLTF 파일의 첫 자식을 불러와 전달한 경로에서 반복 주행시킵니다. <br>
+     * 로딩 성공 시 기존 경로 지점을 바꾸고 경로 선을 숨깁니다. <br>
+     * 호출은 로딩 완료 전에 반환하며 완료 Promise와 오류 콜백을 제공하지 않습니다.
      *
-     * @param {string} loadFile 로드할 GLTF 파일 경로
-     * @param {Array<WorldPositionVector3>} positionList 경로 위치 목록 (월드 좌표, EPSG:3857)
-     * @param {string} name 모델 이름
-     * @param {number} speed 모의주행 속도(km/h)
-     * @return {this}
+     * @param {string} loadFile GLTF 파일 URL
+     * @param {Array<WorldPositionVector3>} positionList 월드 좌표(EPSG:3857)의 경로 목록. Vector3 입력으로 전달하십시오
+     * @param {string} name 로드한 모델 루트에 설정할 이름
+     * @param {number} speed 모델 주행 속도(km/h)
+     * @returns {this} 이 분석 객체
      */
     loadModel(loadFile: string, positionList: Array<WorldPositionVector3>, name: string, speed: number): this;
     /**
-     * 모의주행 상하 각도를 반환하는 함수
+     * 카메라 주행의 상하 각도 설정을 반환합니다.
      *
-     * @return {number} 모의주행 상하 각도
+     * @returns {number} 카메라 상하 각도(도)
      */
     getAngle(): number;
     /**
-     * 모의주행 상하 각도를 설정하는 함수
+     * 이후 카메라 주행에 적용할 상하 각도를 저장합니다. <br>
+     * 모델 주행의 고정 기울기는 바꾸지 않습니다.
      *
-     * @param {number} angle 모의주행 상하 각도 (0 ~ 90)
-     * @return {this}
+     * @param {number} angle 카메라 상하 각도(도). 값의 범위는 검사하지 않습니다
+     * @returns {this} 이 분석 객체
      */
     setAngle(angle: number): this;
     /**
-     * 모의주행 좌우 각도를 설정하는 함수
+     * 이후 카메라·모델 주행에 적용할 방위각(azimuth)을 저장합니다.
      *
-     * @param {number} angle 모의주행 좌우 각도 (0 ~ 360)
-     * @return {this}
+     * @param {number} angle 방위각(azimuth, 도). 값의 범위는 검사하지 않습니다
+     * @returns {this} 이 분석 객체
      */
     setAzimuth(angle: number): this;
     /**
-     * 모의주행 좌우 각도를 반환하는 함수
+     * 카메라·모델 주행의 방위각(azimuth) 설정을 반환합니다.
      *
-     * @return {number} 모의주행 좌우 각도
+     * @returns {number} 방위각(azimuth, 도)
      */
     getAzimuth(): number;
     /**
-     * 모의주행 높이를 반환하는 함수
+     * 경로 위치에 더하는 주행 높이 설정을 반환합니다.
      *
-     * @return {number} 모의주행 높이
+     * @returns {number} 경로 높이에 더할 값(월드 좌표(EPSG:3857) 단위)
      */
     getHeight(): number;
     /**
-     * 모의주행 높이를 설정하는 함수
+     * 이후 카메라·모델 주행의 경로 높이에 더할 값을 저장합니다. <br>
+     * 월드 좌표(EPSG:3857)의 z에 직접 더하며 지형 아래이면 별도 충돌 높이를 적용합니다.
      *
-     * @param {number} value 모의주행 높이
-     * @return {this}
+     * @param {number} value 경로의 월드 좌표(EPSG:3857) z에 더할 높이
+     * @returns {this} 이 분석 객체
      */
     setHeight(value: number): this;
     /**
-     * 모의주행 속도를 반환하는 함수
+     * 저장한 주행 속도를 반환합니다.
      *
-     * @return {number} 모의주행 속도(km/h)
+     * @returns {number} 저장한 주행 속도(km/h)
      */
     getSpeed(): number;
     /**
-     * 모의주행 속도를 설정하는 함수
+     * 주행 속도를 저장하고 재생 중이면 카메라 주행을 다시 시작합니다. <br>
+     * 모델 주행 중에도 start()를 호출하므로 카메라 주행으로 시작합니다.
      *
-     * @param {number} speed 모의주행 속도(km/h)
-     * @return {this}
+     * @param {number} speed 설정할 주행 속도(km/h). 정상 주행에는 유한한 양수를 사용하십시오
+     * @returns {this} 이 분석 객체
      */
     setSpeed(speed: number): this;
     /**
-     * 주행경로를 가시화하는 함수
+     * 경로 선을 분석 장면에 연결하고 양 끝 라벨을 표시합니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     showLine(): this;
     /**
-     * 주행경로를 비가시화하는 함수
+     * 경로 선을 분석 장면에서 분리하고 양 끝 라벨을 숨깁니다. <br>
+     * 주행을 중지하거나 경로 지점을 제거하지 않습니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     hideLine(): this;
     /**
-     * 시작, 끝점의 라벨을 가시화하는 함수
+     * 존재하는 시작·끝 지점 라벨을 표시합니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     showLineLabel(): this;
     /**
-     * 시작, 끝점의 라벨을 비가시화하는 함수
+     * 존재하는 시작·끝 지점 라벨을 숨깁니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     hideLineLabel(): this;
     /**
-     * 모의주행 경로 색상을 반환하는 함수
+     * 저장한 경로 선 색상을 반환합니다.
      *
-     * @return {string} Hex 또는 RGB string
+     * @returns {string} 저장한 색상 문자열
      */
     getLineColor(): string;
     /**
-     * 모의주행 경로 색상을 설정하는 함수
+     * 경로 선의 기본 색상을 저장하고 현재 기본 머터리얼에 적용합니다.
      *
-     * @param {string} color Hex 또는 RGB string
-     * @return {this}
+     * @param {string} color Three.js가 해석할 16진수 또는 RGB 색상 문자열
+     * @returns {this} 이 분석 객체
      */
     setLineColor(color: string): this;
     /**
-     * 모의주행 경로 너비를 반환하는 함수
+     * 저장한 경로 띠의 너비를 반환합니다.
      *
-     * @return {number} 경로 너비
+     * @returns {number} 경로 띠 너비(월드 좌표(EPSG:3857) 단위)
      */
     getLineWidth(): number;
     /**
-     * 모의주행 경로 너비를 설정하는 함수
+     * 경로 띠의 너비를 저장하고 현재 형상을 다시 계산합니다.
      *
-     * @param {number} width 경로 너비(m)
-     * @return {this}
+     * @param {number} width 경로 띠의 너비(월드 좌표(EPSG:3857) 단위)
+     * @returns {this} 이 분석 객체
      */
     setLineWidth(width: number): this;
     /**
-     * 모의주행 경로 투명도를 반환하는 함수
+     * 저장한 경로 불투명도(opacity)를 반환합니다.
      *
-     * @return {number} 투명도
+     * @returns {number} 불투명도(opacity). 0은 완전 투명, 1은 완전 불투명
      */
     getLineOpacity(): number;
     /**
-     * 모의주행 경로 투명도를 설정하는 함수
+     * 경로 불투명도(opacity)를 저장하고 선·이미지 머터리얼 모두에 적용합니다.
      *
-     * @param {number} opacity 투명도(0 ~ 1)
-     * @return {this}
+     * @param {number} opacity 불투명도(opacity). 0은 완전 투명, 1은 완전 불투명이며 범위 검사는 하지 않습니다
+     * @returns {this} 이 분석 객체
      */
     setLineOpacity(opacity: number): this;
     /**
-     * 설정된 모의주행 경로 vertex(위경도 좌표)와 속도를 반환하는 함수
+     * 보관한 지리 경로와 주행 속도를 저장용 객체로 반환합니다. <br>
+     * 지리 경로 배열은 원본이므로 반환값을 통해 수정할 수 있습니다.
      *
-     * @return {{positions: Array<import('three').Vector3>, speed: number}}
+     * @returns {{positions: Array<import('three').Vector3>, speed: number}} 위경도 좌표계(EPSG:4326) 배열 원본과 속도(km/h)를 담은 새 객체
      */
     getParameter(): {
         positions: Array<three.Vector3>;
         speed: number;
     };
     /**
-     * 모의주행 경로에 이미지를 삽입하는 함수
+     * 경로에 표시할 이미지를 요청하고 로딩되면 현재 이미지 머터리얼에 적용합니다. <br>
+     * 호출은 로딩 완료 전에 반환하며 이미지는 불투명도 1로 적용합니다. <br>
+     * 요청 순서와 다른 완료나 실패를 별도로 통제하지 않습니다.
      *
-     * @param {string} url 이미지 url
-     * @param {number} [rotation=0] 이미지 회전값(radian)
-     * @return {this}
-     *
-     * @example
-     * const route = app.getAnalysis('Route');
-     * route.setLineImage("/image/arrow.png", Math.PI);
+     * @param {string} url 경로 이미지 URL
+     * @param {number} [rotation=0] 이미지 회전각(라디안). 생략하면 0
+     * @returns {this} 이 분석 객체
      */
     setLineImage(url: string, rotation?: number): this;
     #private;
 }
 
-export type { UAnalyRoute, UAnalyRouteCO, UAnalyRouteCO_Content };
+/**
+     * ~extends UAnalyCO <br>
+     *
+     * 모의주행 경로 분석의 생성 옵션입니다.
+     */
+    type UAnalyRouteCO_Content = {
+        /**
+         * 앱에서 구분할 분석 이름
+         */
+        name?: string;
+        /**
+         * 경로 띠의 너비(월드 좌표(EPSG:3857) 단위)
+         */
+        lineWidth?: number;
+    };
+
+/**
+     * ~extends UAnalyCO <br>
+     *
+     * 모의주행 경로 분석의 생성 옵션입니다.
+     */
+    type UAnalyRouteCO = Omit<Omit<UAnalyCO, never> & UAnalyRouteCO_Content, never>;
+
+/**
+     * 주행 경로의 지형 조회에 필요한 현재 상태입니다.
+     */
+    type UAnalyRouteGroundContext = {
+        /**
+         * 지형 조회 앱
+         */
+        _app: U3dApp | undefined;
+    };
+
+/**
+     * 주행 시선 계산에 필요한 현재 상태입니다.
+     */
+    type UAnalyRouteViewContext = {
+        /**
+         * 지형 조회 앱
+         */
+        _app: U3dApp | undefined;
+        /**
+         * 경로 높이에 더할 값
+         */
+        _cameraHeight: number;
+        /**
+         * 방위각(도)
+         */
+        _cameraAzimuth: number;
+        /**
+         * 상하 각도(도)
+         */
+        _cameraPolar: number;
+    };
+
+export type { UAnalyRoute, UAnalyRouteCO, UAnalyRouteCO_Content, UAnalyRouteGroundContext, UAnalyRouteViewContext };

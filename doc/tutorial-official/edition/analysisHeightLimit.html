@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="../">
+    <script>
+// 공통 예제의 실제 기준 URL로 배포 모듈 주소를 해석하고 모듈을 읽기 전에 Import Map을 등록합니다.
+function installExampleImportMap() {
+    const entries = {"/extension/GESpreadObject/GESpreadObject.js":"../dist/extension/GESpreadObject/GESpreadObject.min.js","/extension/sequence/sequence.js":"../dist/extension/sequence/sequence.min.js","/extension/a3fTimeSeries/a3fTimeSeries.js":"../dist/extension/a3fTimeSeries/a3fTimeSeries.min.js","./edition/examples/analysisHeightLimit/analysisHeightLimit.main.js":"./edition/examples/analysisHeightLimit/analysisHeightLimit.main.js?v=eec8d005ac37","./edition/examples/analysisHeightLimit/analysisHeightLimit.ui.js":"./edition/examples/analysisHeightLimit/analysisHeightLimit.ui.js?v=c0be9fe5ccad"}, imports = {};
+    for (const [specifier, target] of Object.entries(entries)) imports[new URL(specifier, document.baseURI).href] = new URL(target, document.baseURI).href;
+    const map = document.createElement('script'); map.type = 'importmap'; map.textContent = JSON.stringify({imports});
+    document.currentScript.after(map);
+}
+installExampleImportMap();
+</script>
+    <title>고도제한 분석</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <link rel="stylesheet" href="css/pastel-glass-map-theme.css" type="text/css">
+    <link rel="stylesheet" href="css/example-editor.css" type="text/css">
+    <link rel="stylesheet" href="edition/assets/monaco/monaco-editor.css?v=ebbbdcf5172a" type="text/css">
+    <style id="example-viewer-style">
+
+    </style>
+</head>
+<body>
+<!-- 자동 생성 파일입니다. 원본 tutorial-official/examples\analysisHeightLimit\analysisHeightLimit.md을(를) 수정하세요. -->
+<main id="example-viewer" class="example-app">
+    <div id="map-wrapper"><div id="map"></div></div>
+
+    <!-- 지도 화면에서 예제 목록으로 돌아가는 유일한 통로입니다.
+         브라우저 뒤로가기만 두면 새 탭이나 공유받은 주소로 들어온 사람은 목록을 찾을 수 없습니다. -->
+    <a class="example-brand" href="edition/index.html" title="예제 목록" aria-label="예제 목록으로 이동"><img src="image/geondt-loading-color-logo.png" alt=""></a>
+    <h1 class="example-title">고도제한 분석</h1>
+
+    <nav class="example-rail" aria-label="예제 도구">
+        <button class="rail-button" type="button" data-panel-target="example-explanation" aria-expanded="false">
+            <span class="rail-icon">?</span><span>도움말</span>
+        </button>
+        <div data-common-ui-rail></div>
+        <div id="viewer-example-rail" class="viewer-example-rail">
+
+        </div>
+    </nav>
+
+    <button class="editor-mode-toggle" type="button" data-open-editor aria-pressed="false">
+        <span class="code-toggle-icon">&lt;/&gt;</span><span data-editor-toggle-label>코드 편집</span>
+    </button>
+
+    <aside class="glass-panel explanation-panel" id="example-explanation" aria-hidden="true">
+        <header class="panel-header">
+            <div><span class="eyebrow">EXAMPLE GUIDE</span><h2>고도제한 분석</h2></div>
+            <button class="panel-close" type="button" data-panel-close="example-explanation" aria-label="도움말 닫기">×</button>
+        </header>
+        <div class="panel-content markdown-document">
+<h1>고도제한 분석</h1>
+<p>지도에 다각형 영역을 그리고 제한 고도를 지정해 초과하는 건물을 찾습니다. 건물별 POI에 초과 구간과 높이를 표시하고, 패널에서 영역별 초과 객체 수와 최대 초과 높이를 확인합니다.</p>
+<h2>다루는 기능</h2>
+<ul>
+<li><code>UAnalyArea</code>로 분석 영역을 그립니다.</li>
+<li><code>UAnalyHeightLimit.addFilter()</code>에 다각형과 제한 고도를 전달합니다.</li>
+<li>필터의 <code>result</code>와 <code>change</code> 이벤트로 이미 있는 건물과 나중에 로드되는 건물의 결과를 갱신합니다.</li>
+<li>생성한 영역의 제한 고도를 수정하고 초과 건물과 POI를 다시 계산합니다.</li>
+<li>결과 표에서 선택한 영역의 필터와 POI만 개별 삭제합니다.</li>
+<li>초기화 시 이 예제가 만든 필터·영역·POI만 제거합니다.</li>
+</ul>
+<h2>사전 조건</h2>
+<p>GeOnDT 라이선스와 WebGL 지원 브라우저가 필요합니다. 배경지도와 한반도 지형은 공통 런타임이 준비하며, 건물은 외부 WFS 서버의 데이터를 사용합니다. 서버 접근이 제한되거나 건물이 로드되지 않았으면 결과가 0건일 수 있으므로 실제 지도에 건물이 표시되는지도 확인하세요.</p>
+<h2>조작 및 예상 결과</h2>
+<table>
+<thead>
+<tr>
+<th>조작</th>
+<th>예상 결과</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>‘영역 그리기’를 누르고 지도에서 세 지점 이상을 클릭합니다.</td>
+<td>다각형을 그립니다. 더블클릭하면 영역이 확정됩니다.</td>
+</tr>
+<tr>
+<td>제한 고도를 입력하고 ‘분석 적용’을 누릅니다.</td>
+<td>영역별 결과가 추가되고 초과 건물에 POI가 표시됩니다.</td>
+</tr>
+<tr>
+<td>결과 표 맨 오른쪽 ‘관리’ 열의 ‘수정’ 버튼을 누르고 새 고도를 입력한 뒤 ‘수정 적용’을 누릅니다.</td>
+<td>선택한 영역을 유지하며 제한 고도·초과 건물 수·최대 초과 높이·POI를 갱신합니다.</td>
+</tr>
+<tr>
+<td>고도 수정 중 ‘수정 취소’를 누릅니다.</td>
+<td>적용 전 입력을 취소하고 기존 분석을 유지합니다.</td>
+</tr>
+<tr>
+<td>결과 표 맨 오른쪽 ‘관리’ 열의 ‘삭제’ 버튼을 누릅니다.</td>
+<td>해당 영역의 분석과 POI만 지우고 다른 영역은 유지합니다. 수정 중인 영역을 삭제하면 수정도 종료합니다.</td>
+</tr>
+<tr>
+<td>영역을 그린 뒤 다른 고도로 다시 분석합니다.</td>
+<td>기존 분석을 유지하면서 새 영역의 결과를 추가합니다.</td>
+</tr>
+<tr>
+<td>‘그리기 취소’를 누릅니다.</td>
+<td>아직 적용하지 않은 영역만 지우며 기존 분석은 유지합니다.</td>
+</tr>
+<tr>
+<td>‘초기화’를 누릅니다.</td>
+<td>모든 예제 분석 영역과 POI를 지우고 입력 고도를 100으로 되돌립니다.</td>
+</tr>
+</tbody></table>
+<p>고도 입력은 0 이상의 유한한 숫자입니다. 건물 자체 높이와 구분되는 지도상의 고도 기준이며, 초과 높이는 분석 결과의 지면 고도·건물 높이·제한 고도로 계산합니다. 단위는 미터입니다. 초과 객체 수는 필터가 반환한 모델 객체 수이며, 서로 겹친 영역의 같은 객체는 각 영역에서 따로 집계합니다.</p>
+<p>결과는 영역마다 한 행을 유지해 모델 로드 통지가 반복되어도 행을 덧붙이지 않습니다. POI도 영역과 객체 식별자를 함께 사용해 같은 건물의 중복 표시와 다른 기능의 POI 삭제를 피합니다.</p>
+<p>분석 필터는 두께가 없는 기준 평면으로 만듭니다. 표시용 두께의 아랫면이 제한 고도보다 낮아져 초과 높이 계산에 섞이는 것을 피하며, 필터 생성 후에는 공통 분석 객체의 기존 표시 설정을 복원합니다.</p>
+<h2>관련 API</h2>
+<p><code>UAnalyArea</code>의 <code>measureend</code> 이벤트에서 위경도 좌표를 읽어 다각형을 만듭니다. 기존 지도 오버레이의 높이 입력은 오른쪽 패널로 옮겨 입력·적용·결과를 같은 곳에서 확인할 수 있습니다.</p>
+<pre><code class="language-javascript" data-example-code-token="heightLimit.draw" data-example-code-source="main"></code></pre><p><code>addFilter()</code>가 처음 찾은 결과를 먼저 표시하고 이후의 <code>change</code>도 같은 화면에 반영합니다. 필터 생성 중 예외가 발생해 부분 등록이 남으면 해당 ID만 회수합니다.</p>
+<pre><code class="language-javascript" data-example-code-token="heightLimit.filter" data-example-code-source="main"></code></pre><p>기존 영역은 <code>UHeightFilter.setHeight()</code>로 고도를 바꾸고 <code>find()</code>로 재검색합니다. 검색 전에 표시 메시의 월드 행렬을 갱신해 새 고도를 교차 계산에 반영하고, 기존 POI를 지워 초과 대상에서 빠진 건물의 표시도 제거합니다. 재검색이 실패하면 이전 고도로 복원을 시도하고 결과를 안내합니다.</p>
+<pre><code class="language-javascript" data-example-code-token="heightLimit.edit" data-example-code-source="main"></code></pre><p>WFS 건물 레이어는 예제에서 소유합니다. 종료 시 분석의 모델 감시를 해제한 뒤 그리기·필터·POI·건물 레이어를 정리하며 공통 앱·배경지도·지형은 유지합니다.</p>
+<pre><code class="language-javascript" data-example-code-token="heightLimit.model" data-example-code-source="main"></code></pre>
+        </div>
+    </aside>
+
+
+
+    <div data-common-ui-panels></div>
+    <div data-common-ui-tools></div>
+    <div data-common-ui-status></div>
+
+    <div id="load" class="loading-indicator" hidden><img src="image/loading.svg" alt="불러오는 중"></div>
+
+    <aside id="example-api-help" class="example-api-help" role="tooltip" hidden>
+        <header class="example-api-help-header">
+            <strong data-api-help-title></strong>
+            <button type="button" data-api-help-close aria-label="API 도움말 닫기">×</button>
+        </header>
+        <p data-api-help-description></p>
+        <section data-api-help-dynamic-section>
+            <b>현재 설정</b>
+            <pre><code data-api-help-code></code></pre>
+        </section>
+        <section data-api-help-source-section hidden>
+            <b>실제 구현</b>
+            <small data-api-help-source-location></small>
+            <pre><code data-api-help-source-code></code></pre>
+            <button type="button" data-api-help-open-source>코드에서 보기</button>
+        </section>
+        <p data-api-help-source-error hidden></p>
+    </aside>
+</main>
+
+<section id="example-editor" class="editor-workspace" hidden aria-label="예제 코드 편집기">
+    <header class="editor-toolbar">
+        <strong class="editor-title">고도제한 분석</strong>
+        <div class="editor-toolbar-actions">
+            <button class="editor-search-toggle" type="button" data-editor-action="search" aria-expanded="false" aria-controls="editor-search" title="모든 탭에서 검색 (Ctrl+Shift+F)" aria-label="모든 탭에서 검색">
+                <img src="image/search_white_24dp.svg" alt=""><span>검색</span>
+            </button>
+            <button type="button" data-editor-action="reset">초기화</button>
+            <button type="button" data-editor-action="console" aria-expanded="false">Console</button>
+            <button class="editor-close-button" type="button" data-editor-action="viewer" title="코드 편집 닫기" aria-label="코드 편집 닫기">
+                <span class="editor-close-icon" aria-hidden="true">×</span><span>닫기</span>
+            </button>
+        </div>
+    </header>
+    <div class="editor-layout" id="editor-layout">
+        <section class="editor-pane" id="editor-pane" aria-label="코드 편집">
+            <div class="editor-tabs" role="tablist" aria-label="코드 종류">
+                <button type="button" role="tab" data-code-tab="javascript" aria-selected="true">JavaScript</button>
+                <button type="button" role="tab" data-code-tab="html" aria-selected="false">HTML</button>
+                <button type="button" role="tab" data-code-tab="css" aria-selected="false">CSS</button>
+                <button class="editor-run-button" type="button" data-editor-action="run"><span>▶</span> 실행</button>
+            </div>
+            <div id="monaco-editor" class="monaco-host"></div>
+            <div class="editor-search" id="editor-search" hidden>
+                <div class="editor-search-bar">
+                    <img class="editor-search-bar-icon" src="image/search_white_24dp.svg" alt="">
+                    <input class="editor-search-input" id="editor-search-input" type="search" placeholder="모든 탭에서 검색" autocomplete="off" spellcheck="false" aria-label="모든 탭에서 검색">
+                    <button class="editor-search-option" type="button" data-search-option="matchCase" aria-pressed="false" title="대소문자 구분">Aa</button>
+                    <button class="editor-search-option" type="button" data-search-option="regex" aria-pressed="false" title="정규식 사용">.*</button>
+                    <button class="editor-search-close" type="button" data-search-close aria-label="검색 닫기">×</button>
+                </div>
+                <p class="editor-search-summary" id="editor-search-summary" aria-live="polite">검색어를 입력하세요.</p>
+                <div class="editor-search-results" id="editor-search-results" role="listbox" aria-label="검색 결과"></div>
+            </div>
+            <!--+ 실행 콘솔은 편집 패널 안에 둔다. 미리보기 안에 두면 실행 뒤 `position: fixed`인 미리보기가
+                 쌓임 맥락을 만들어 편집 패널에 가려지고, 실행 전과 위치도 달라진다. -->
+            <section id="preview-console" class="preview-console" aria-label="실행 콘솔" aria-hidden="true">
+                <header><strong>Console</strong><span class="console-count" id="preview-console-count">0</span><button class="console-clear" type="button" data-console-clear>Clear</button><button type="button" data-console-close aria-label="콘솔 닫기">×</button></header>
+                <div id="preview-console-output" class="preview-console-output" aria-live="polite"><p class="console-empty">실행 로그가 여기에 표시됩니다.</p></div>
+            </section>
+        </section>
+        <div class="editor-splitter" id="editor-splitter" role="separator" aria-label="편집기와 미리보기 너비 조절" aria-orientation="vertical" tabindex="0"></div>
+        <section class="preview-pane" aria-label="실행 미리보기">
+            <div id="preview-frame-container" class="preview-frame-container"></div>
+        </section>
+    </div>
+    <div class="editor-mobile-notice" id="editor-mobile-notice" hidden>
+        <strong>코드 편집은 데스크톱 환경에서 지원합니다.</strong>
+        <p>더 넓은 화면에서 Editor를 열거나 지도 Viewer로 돌아가세요.</p>
+        <button type="button" data-editor-action="viewer">지도로 보기</button>
+    </div>
+    <div class="editor-hint-stack">
+        <div class="editor-hint" id="editor-hint" role="status" hidden>
+            <p>실행 전에는 <b>× 닫기</b>와 가장자리 <b>◀</b> 버튼으로 지도로 돌아갑니다.<br>실행한 뒤에는 같은 버튼이 편집 패널만 접고, 실행한 화면은 그대로 남습니다. 접으면 왼쪽 가장자리 <b>▶</b>로 다시 펼칩니다.</p>
+        </div>
+        <div class="editor-hint editor-shortcut-hint" id="editor-shortcut-hint" role="status" hidden>
+            <dl>
+                <dt><kbd>Ctrl</kbd><kbd>F</kbd></dt>
+                <dd>현재 파일에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd></dt>
+                <dd>열린 파일 전체에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Space</kbd></dt>
+                <dd>자동완성 보기</dd>
+                <dt><kbd>Esc</kbd></dt>
+                <dd>찾기 닫기</dd>
+            </dl>
+            <p class="editor-shortcut-note">macOS에서는 <kbd>Ctrl</kbd> 대신 <kbd>Cmd</kbd>를 사용합니다.</p>
+        </div>
+    </div>
+    <div class="editor-panel-resizer" id="editor-panel-resizer" role="separator" aria-label="코드 편집 패널 너비 조절" aria-orientation="vertical" tabindex="0" title="드래그하거나 방향키로 너비 조절"></div>
+</section>
+
+<button class="editor-edge-toggle" type="button" data-editor-edge-toggle aria-pressed="false" title="코드 편집 열기" aria-label="코드 편집 열기">
+    <span class="editor-edge-icon" data-editor-edge-icon aria-hidden="true">▶</span>
+</button>
+
+<script id="example-source" type="application/json">{"format":"manifest","helpHtml":"\u003ch1\u003e고도제한 분석\u003c/h1\u003e\n\u003cp\u003e지도에 다각형 영역을 그리고 제한 고도를 지정해 초과하는 건물을 찾습니다. 건물별 POI에 초과 구간과 높이를 표시하고, 패널에서 영역별 초과 객체 수와 최대 초과 높이를 확인합니다.\u003c/p\u003e\n\u003ch2\u003e다루는 기능\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e\u003ccode\u003eUAnalyArea\u003c/code\u003e로 분석 영역을 그립니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003eUAnalyHeightLimit.addFilter()\u003c/code\u003e에 다각형과 제한 고도를 전달합니다.\u003c/li\u003e\n\u003cli\u003e필터의 \u003ccode\u003eresult\u003c/code\u003e와 \u003ccode\u003echange\u003c/code\u003e 이벤트로 이미 있는 건물과 나중에 로드되는 건물의 결과를 갱신합니다.\u003c/li\u003e\n\u003cli\u003e생성한 영역의 제한 고도를 수정하고 초과 건물과 POI를 다시 계산합니다.\u003c/li\u003e\n\u003cli\u003e결과 표에서 선택한 영역의 필터와 POI만 개별 삭제합니다.\u003c/li\u003e\n\u003cli\u003e초기화 시 이 예제가 만든 필터·영역·POI만 제거합니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e사전 조건\u003c/h2\u003e\n\u003cp\u003eGeOnDT 라이선스와 WebGL 지원 브라우저가 필요합니다. 배경지도와 한반도 지형은 공통 런타임이 준비하며, 건물은 외부 WFS 서버의 데이터를 사용합니다. 서버 접근이 제한되거나 건물이 로드되지 않았으면 결과가 0건일 수 있으므로 실제 지도에 건물이 표시되는지도 확인하세요.\u003c/p\u003e\n\u003ch2\u003e조작 및 예상 결과\u003c/h2\u003e\n\u003ctable\u003e\n\u003cthead\u003e\n\u003ctr\u003e\n\u003cth\u003e조작\u003c/th\u003e\n\u003cth\u003e예상 결과\u003c/th\u003e\n\u003c/tr\u003e\n\u003c/thead\u003e\n\u003ctbody\u003e\u003ctr\u003e\n\u003ctd\u003e‘영역 그리기’를 누르고 지도에서 세 지점 이상을 클릭합니다.\u003c/td\u003e\n\u003ctd\u003e다각형을 그립니다. 더블클릭하면 영역이 확정됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e제한 고도를 입력하고 ‘분석 적용’을 누릅니다.\u003c/td\u003e\n\u003ctd\u003e영역별 결과가 추가되고 초과 건물에 POI가 표시됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e결과 표 맨 오른쪽 ‘관리’ 열의 ‘수정’ 버튼을 누르고 새 고도를 입력한 뒤 ‘수정 적용’을 누릅니다.\u003c/td\u003e\n\u003ctd\u003e선택한 영역을 유지하며 제한 고도·초과 건물 수·최대 초과 높이·POI를 갱신합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e고도 수정 중 ‘수정 취소’를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e적용 전 입력을 취소하고 기존 분석을 유지합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e결과 표 맨 오른쪽 ‘관리’ 열의 ‘삭제’ 버튼을 누릅니다.\u003c/td\u003e\n\u003ctd\u003e해당 영역의 분석과 POI만 지우고 다른 영역은 유지합니다. 수정 중인 영역을 삭제하면 수정도 종료합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e영역을 그린 뒤 다른 고도로 다시 분석합니다.\u003c/td\u003e\n\u003ctd\u003e기존 분석을 유지하면서 새 영역의 결과를 추가합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e‘그리기 취소’를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e아직 적용하지 않은 영역만 지우며 기존 분석은 유지합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e‘초기화’를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e모든 예제 분석 영역과 POI를 지우고 입력 고도를 100으로 되돌립니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003c/tbody\u003e\u003c/table\u003e\n\u003cp\u003e고도 입력은 0 이상의 유한한 숫자입니다. 건물 자체 높이와 구분되는 지도상의 고도 기준이며, 초과 높이는 분석 결과의 지면 고도·건물 높이·제한 고도로 계산합니다. 단위는 미터입니다. 초과 객체 수는 필터가 반환한 모델 객체 수이며, 서로 겹친 영역의 같은 객체는 각 영역에서 따로 집계합니다.\u003c/p\u003e\n\u003cp\u003e결과는 영역마다 한 행을 유지해 모델 로드 통지가 반복되어도 행을 덧붙이지 않습니다. POI도 영역과 객체 식별자를 함께 사용해 같은 건물의 중복 표시와 다른 기능의 POI 삭제를 피합니다.\u003c/p\u003e\n\u003cp\u003e분석 필터는 두께가 없는 기준 평면으로 만듭니다. 표시용 두께의 아랫면이 제한 고도보다 낮아져 초과 높이 계산에 섞이는 것을 피하며, 필터 생성 후에는 공통 분석 객체의 기존 표시 설정을 복원합니다.\u003c/p\u003e\n\u003ch2\u003e관련 API\u003c/h2\u003e\n\u003cp\u003e\u003ccode\u003eUAnalyArea\u003c/code\u003e의 \u003ccode\u003emeasureend\u003c/code\u003e 이벤트에서 위경도 좌표를 읽어 다각형을 만듭니다. 기존 지도 오버레이의 높이 입력은 오른쪽 패널로 옮겨 입력·적용·결과를 같은 곳에서 확인할 수 있습니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\" data-example-code-token=\"heightLimit.draw\" data-example-code-source=\"main\"\u003e\u003c/code\u003e\u003c/pre\u003e\u003cp\u003e\u003ccode\u003eaddFilter()\u003c/code\u003e가 처음 찾은 결과를 먼저 표시하고 이후의 \u003ccode\u003echange\u003c/code\u003e도 같은 화면에 반영합니다. 필터 생성 중 예외가 발생해 부분 등록이 남으면 해당 ID만 회수합니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\" data-example-code-token=\"heightLimit.filter\" data-example-code-source=\"main\"\u003e\u003c/code\u003e\u003c/pre\u003e\u003cp\u003e기존 영역은 \u003ccode\u003eUHeightFilter.setHeight()\u003c/code\u003e로 고도를 바꾸고 \u003ccode\u003efind()\u003c/code\u003e로 재검색합니다. 검색 전에 표시 메시의 월드 행렬을 갱신해 새 고도를 교차 계산에 반영하고, 기존 POI를 지워 초과 대상에서 빠진 건물의 표시도 제거합니다. 재검색이 실패하면 이전 고도로 복원을 시도하고 결과를 안내합니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\" data-example-code-token=\"heightLimit.edit\" data-example-code-source=\"main\"\u003e\u003c/code\u003e\u003c/pre\u003e\u003cp\u003eWFS 건물 레이어는 예제에서 소유합니다. 종료 시 분석의 모델 감시를 해제한 뒤 그리기·필터·POI·건물 레이어를 정리하며 공통 앱·배경지도·지형은 유지합니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\" data-example-code-token=\"heightLimit.model\" data-example-code-source=\"main\"\u003e\u003c/code\u003e\u003c/pre\u003e","assetBaseUrl":"edition/examples/analysisHeightLimit/","runtime":{"home":{"longitude":126.9395,"latitude":37.52,"height":450,"duration":2,"pitch":60},"baseLayers":["satellite"],"terrain":{"enabled":true,"preset":"korea"},"mapTools":["home","north","zoom-in","zoom-out"],"cameraStatus":true,"help":true,"loading":true},"imports":[],"dependencies":[],"commonUi":{"imageLayerPanel":true,"terrainLayerPanel":true},"sourceTokens":{"heightLimit.edit":{"id":"heightLimit.edit","sourceId":"main","file":"./analysisHeightLimit.main.js","label":"main.js","startLine":82,"endLine":87,"code":"// setHeight()는 위치만 바꾸므로 검색 전에 갱신된 높이를 교차 계산에도 반영합니다.\nrecord.filter.setHeight(height);\nrecord.filter.getMesh().updateMatrixWorld(true);\nrecord.pois.forEach(poi =\u003e app.removePOI(poi));\nrecord.pois.clear();\nrecord.filter.find();"},"heightLimit.filter":{"id":"heightLimit.filter","sourceId":"main","file":"./analysisHeightLimit.main.js","label":"main.js","startLine":174,"endLine":192,"code":"let filter;\nconst extrudeOption = analysis.extrudeOption;\ntry {\n    // 표시 두께의 아랫면이 제한 고도보다 낮아지지 않도록 기준 평면을 만들고 공통 설정은 복원합니다.\n    analysis.extrudeOption = {...extrudeOption, depth: 0};\n    filter = analysis.addFilter({id, geometry, height: Number(value), layers: [MODEL_LAYER_NAME]});\n} finally {\n    analysis.extrudeOption = extrudeOption;\n}\nif (!filter) throw new Error('분석 필터를 만들지 못했습니다.');\nconst record = {filter, pois: new Map(), number: sequence + 1};\nrecords.set(id, record);\nfilter.on('change', event =\u003e {\n    if (disposed || !records.has(id)) return;\n    try {updatePoi(record, event.data);}\n    catch (error) {state.message = error instanceof Error ? error.message : String(error);}\n    notify();\n});\nfilter.result.forEach(result =\u003e updatePoi(record, result));"},"heightLimit.model":{"id":"heightLimit.model","sourceId":"main","file":"./analysisHeightLimit.main.js","label":"main.js","startLine":224,"endLine":234,"code":"model = new GeOnDT.model.U3dModelWFSLayer({\n    name: MODEL_LAYER_NAME,\n    layerName: 'z_kais_tl_spbd_buld_202007',\n    baseUrl: 'https://3d.geon.kr/geoserver/digitaltwin/ows',\n    fieldFloor: 'gro_flo_co', floorHeight: 3, fieldLabel: 'buld_nm',\n    minLevel: 17, transparent: true, opacity: 1, drawLine: false,\n    textureUrl: context.runtime.resolveAsset('../../image/buld/buld_texture_3.jpg'),\n    useTexture: true, useProxy: false\n});\napp.addLayer(model);\nanalysis.active();"},"heightLimit.draw":{"id":"heightLimit.draw","sourceId":"main","file":"./analysisHeightLimit.main.js","label":"main.js","startLine":308,"endLine":309,"code":"state.mode = 'drawing';\ndraw.active();"}},"sources":[{"id":"main","label":"main.js","path":"./analysisHeightLimit.main.js","language":"javascript","editable":true,"url":"edition/examples/analysisHeightLimit/analysisHeightLimit.main.js?v=eec8d005ac37","content":"const MODEL_LAYER_NAME = 'height-limit-buildings';\r\n\r\n/**\r\n * 다각형 영역의 고도제한 분석과 결과 POI를 준비합니다.\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @returns {Promise\u003cobject\u003e} 그리기·분석·초기화 동작\r\n * @throws {Error} 분석 객체 또는 그리기·모델 초기화에 실패한 경우\r\n */\r\nexport async function initialize(context) {\r\n    const app = context.app;\r\n    const analysis = app.getAnalysis('HeightLimit');\r\n    if (!analysis) throw new Error('고도제한 분석을 사용할 수 없습니다.');\r\n    const wasActive = analysis.isActive();\r\n    const records = new Map();\r\n    const subscribers = new Set();\r\n    const state = {mode: 'idle', message: '영역을 그린 뒤 제한 고도를 입력하고 분석을 적용하세요.', model: 'loading'};\r\n    let draw, model, drawEndKey;\r\n    let geometry = null;\r\n    let editingId = null;\r\n    let disposed = false;\r\n    let sequence = 0;\r\n\r\n    /** 영역·POI 변경을 지도에 반영하고 현재 분석 상태를 화면에 알립니다. */\r\n    function notify() {app.setUpdateDate(); subscribers.forEach(listener =\u003e listener());}\r\n\r\n    /**\r\n     * 분석 결과 한 건의 POI를 추가하거나 같은 객체의 표시를 갱신합니다.\r\n     * @param {object} record 예제가 소유한 필터 기록\r\n     * @param {object} result 건물별 분석 결과\r\n     */\r\n    function updatePoi(record, result) {\r\n        if (disposed || !records.has(record.filter.id)) return;\r\n        const key = String(result.id ?? result.mesh.uuid);\r\n        const excess = result.groundHeight + result.meshHeight - result.filterHeight;\r\n        const poi = new GeOnDT.geom.U3dPOI({\r\n            name: record.filter.id + ':' + key,\r\n            position: app.geographicToVector3({\r\n                x: result.center.x, y: result.center.y, z: result.groundHeight + result.meshHeight\r\n            }),\r\n            label: (result.meshHeight - excess).toFixed(1) + 'm 부터\\n' + excess.toFixed(1) + 'm 초과'\r\n        });\r\n        const previous = record.pois.get(key);\r\n        if (previous) app.removePOI(previous);\r\n        app.addPOI(poi);\r\n        record.pois.set(key, poi);\r\n    }\r\n\r\n    /**\r\n     * 필터 등록과 이 예제가 만든 표시 자원을 함께 정리합니다.\r\n     * @param {object} record 예제가 소유한 필터 기록\r\n     */\r\n    function removeRecord(record) {\r\n        const filter = record.filter;\r\n        filter.off();\r\n        record.pois.forEach(poi =\u003e app.removePOI(poi));\r\n        record.pois.clear();\r\n        analysis.removeFilter(filter.id);\r\n        filter.clear();\r\n        GeOnDT.UDEF.disposeObject3D(filter.getMesh());\r\n        records.delete(filter.id);\r\n        app.setUpdateDate();\r\n    }\r\n\r\n    /** 미완성 그리기와 고도 수정을 취소하며 이미 적용한 분석은 유지합니다. */\r\n    function cancelDrawing() {\r\n        state.mode = 'idle';\r\n        editingId = null;\r\n        draw.deactive();\r\n        draw.clear();\r\n        app.setPanMode();\r\n        geometry = null;\r\n    }\r\n\r\n    /**\r\n     * 같은 영역의 고도와 월드 행렬을 갱신하고 결과·POI를 다시 검색합니다.\r\n     * @param {object} record 수정할 필터 기록\r\n     * @param {number} height 새 제한 고도(m)\r\n     * @throws {Error} 고도 갱신 또는 재검색에 실패한 경우\r\n     */\r\n    function recalculate(record, height) {\r\n        // @example-code:start heightLimit.edit\r\n        // setHeight()는 위치만 바꾸므로 검색 전에 갱신된 높이를 교차 계산에도 반영합니다.\r\n        record.filter.setHeight(height);\r\n        record.filter.getMesh().updateMatrixWorld(true);\r\n        record.pois.forEach(poi =\u003e app.removePOI(poi));\r\n        record.pois.clear();\r\n        record.filter.find();\r\n        // @example-code:end heightLimit.edit\r\n    }\r\n\r\n    /** 이 예제의 영역·필터·POI만 제거합니다. */\r\n    function reset() {\r\n        cancelDrawing();\r\n        [...records.values()].forEach(removeRecord);\r\n        sequence = 0;\r\n        state.message = '그리기와 분석 결과를 초기화했습니다.';\r\n        notify();\r\n    }\r\n\r\n    /**\r\n     * 완료한 다각형을 보관하고 제한 고도 입력을 기다립니다.\r\n     * @param {{feature?: object}} event 면적 그리기 완료 이벤트\r\n     */\r\n    function handleDrawEnd(event) {\r\n        if (disposed || state.mode !== 'drawing') return;\r\n        const result = event.feature \u0026\u0026 draw.getFeatureResult(event.feature);\r\n        if (!result) {\r\n            cancelDrawing();\r\n            state.message = '서로 다른 세 지점 이상으로 영역을 다시 그리세요.';\r\n            notify();\r\n            return;\r\n        }\r\n        const coordinates = result.coordinates.map(point =\u003e [point.x, point.y]);\r\n        if (coordinates.length \u0026\u0026 (coordinates[0][0] !== coordinates.at(-1)[0] || coordinates[0][1] !== coordinates.at(-1)[1])) {\r\n            coordinates.push([...coordinates[0]]);\r\n        }\r\n        const shape = new GeOnDT.geom.U2dPolygon();\r\n        shape.setPosition(coordinates, 'EPSG:4326');\r\n        const areaGeometry = shape.getGeometry();\r\n        const polygon = (areaGeometry.getType() === 'MultiPolygon' ? areaGeometry.getPolygon(0) : areaGeometry)\r\n            .clone().transform('EPSG:3857', 'EPSG:4326');\r\n        shape.dispose();\r\n        const ring = polygon.getCoordinates()[0];\r\n        if (polygon.getType() !== 'Polygon' || ring.length \u003c 4 || !(Math.abs(polygon.getArea()) \u003e 0)\r\n            || ring.some(point =\u003e !Number.isFinite(point[0]) || !Number.isFinite(point[1]))) {\r\n            cancelDrawing();\r\n            state.message = '서로 다른 세 지점 이상으로 영역을 다시 그리세요.';\r\n        } else {\r\n            geometry = polygon.clone();\r\n            state.mode = 'ready';\r\n            draw.deactive();\r\n            app.setPanMode();\r\n            state.message = '영역을 그렸습니다. 제한 고도를 입력하고 분석 적용을 누르세요.';\r\n        }\r\n        notify();\r\n    }\r\n\r\n    /**\r\n     * 입력값을 검증한 뒤 새 영역을 분석하거나 선택한 영역의 고도를 수정합니다.\r\n     * @param {string | number} value 제한 고도(m)\r\n     * @throws {Error} 영역·입력이 잘못되었거나 분석 생성·수정에 실패한 경우\r\n     */\r\n    function apply(value) {\r\n        if (disposed) throw new Error('종료된 예제입니다.');\r\n        if (state.mode !== 'editing' \u0026\u0026 (!geometry || state.mode !== 'ready')) throw new Error('분석할 영역을 먼저 그리세요.');\r\n        if ((typeof value !== 'string' \u0026\u0026 typeof value !== 'number') || String(value).trim() === ''\r\n            || !Number.isFinite(Number(value)) || Number(value) \u003c 0) {\r\n            throw new Error('제한 고도는 0 이상의 유한한 숫자로 입력하세요.');\r\n        }\r\n        if (state.mode === 'editing') {\r\n            const record = records.get(editingId);\r\n            const previousHeight = record.filter.height;\r\n            try {\r\n                recalculate(record, Number(value));\r\n            } catch (error) {\r\n                try {\r\n                    recalculate(record, previousHeight);\r\n                    state.message = '재분석에 실패해 이전 고도로 복원했습니다.';\r\n                } catch {\r\n                    state.message = '재분석에 실패했습니다. 현재 결과를 확인하고 다시 적용하세요.';\r\n                }\r\n                notify();\r\n                throw new Error(state.message, {cause: error});\r\n            }\r\n            cancelDrawing();\r\n            state.mode = 'complete';\r\n            state.message = '영역 ' + record.number + '의 제한 고도를 수정했습니다.';\r\n            notify();\r\n            return;\r\n        }\r\n        const id = 'height-limit-' + crypto.randomUUID();\r\n        try {\r\n            // @example-code:start heightLimit.filter\r\n            let filter;\r\n            const extrudeOption = analysis.extrudeOption;\r\n            try {\r\n                // 표시 두께의 아랫면이 제한 고도보다 낮아지지 않도록 기준 평면을 만들고 공통 설정은 복원합니다.\r\n                analysis.extrudeOption = {...extrudeOption, depth: 0};\r\n                filter = analysis.addFilter({id, geometry, height: Number(value), layers: [MODEL_LAYER_NAME]});\r\n            } finally {\r\n                analysis.extrudeOption = extrudeOption;\r\n            }\r\n            if (!filter) throw new Error('분석 필터를 만들지 못했습니다.');\r\n            const record = {filter, pois: new Map(), number: sequence + 1};\r\n            records.set(id, record);\r\n            filter.on('change', event =\u003e {\r\n                if (disposed || !records.has(id)) return;\r\n                try {updatePoi(record, event.data);}\r\n                catch (error) {state.message = error instanceof Error ? error.message : String(error);}\r\n                notify();\r\n            });\r\n            filter.result.forEach(result =\u003e updatePoi(record, result));\r\n            // @example-code:end heightLimit.filter\r\n            sequence++;\r\n            cancelDrawing();\r\n            state.mode = 'complete';\r\n            state.message = '분석을 적용했습니다. 모델이 추가로 로드되면 결과를 갱신합니다.';\r\n            notify();\r\n        } catch (error) {\r\n            // addFilter()는 검색 도중 예외가 나도 필터를 남길 수 있으므로 같은 ID의 부분 등록도 회수합니다.\r\n            const filter = analysis.getFiltersById(id);\r\n            if (filter) removeRecord(records.get(id) || {filter, pois: new Map()});\r\n            throw error;\r\n        }\r\n    }\r\n\r\n    /** 앱을 빌린 상태로 되돌리고 예제가 만든 자원만 정리합니다. */\r\n    function cleanup() {\r\n        if (disposed) return;\r\n        disposed = true;\r\n        subscribers.clear();\r\n        if (drawEndKey !== null \u0026\u0026 drawEndKey !== undefined) draw.off('measureend', drawEndKey);\r\n        if (draw) cancelDrawing();\r\n        [...records.values()].forEach(removeRecord);\r\n        if (!wasActive) analysis.deactive();\r\n        if (model) app.removeLayer(model);\r\n    }\r\n\r\n    try {\r\n        draw = new GeOnDT.analysis.UAnalyArea({name: 'height-limit-drawing'});\r\n        draw.setApp(app);\r\n        drawEndKey = draw.on('measureend', handleDrawEnd);\r\n        // @example-code:start heightLimit.model\r\n        model = new GeOnDT.model.U3dModelWFSLayer({\r\n            name: MODEL_LAYER_NAME,\r\n            layerName: 'z_kais_tl_spbd_buld_202007',\r\n            baseUrl: 'https://3d.geon.kr/geoserver/digitaltwin/ows',\r\n            fieldFloor: 'gro_flo_co', floorHeight: 3, fieldLabel: 'buld_nm',\r\n            minLevel: 17, transparent: true, opacity: 1, drawLine: false,\r\n            textureUrl: context.runtime.resolveAsset('../../image/buld/buld_texture_3.jpg'),\r\n            useTexture: true, useProxy: false\r\n        });\r\n        app.addLayer(model);\r\n        analysis.active();\r\n        // @example-code:end heightLimit.model\r\n        void model.ready.then(async () =\u003e {\r\n            if (disposed) return;\r\n            await app.showLayer(MODEL_LAYER_NAME, true);\r\n            if (disposed) return;\r\n            state.model = 'visible';\r\n            notify();\r\n        }).catch(error =\u003e {\r\n            if (disposed) return;\r\n            state.model = 'error';\r\n            state.modelError = error instanceof Error ? error.message : String(error);\r\n            notify();\r\n        });\r\n    } catch (error) {\r\n        cleanup();\r\n        throw error;\r\n    }\r\n\r\n    return {\r\n        /**\r\n         * 현재 진행 상태와 영역별 결과를 조회합니다.\r\n         * @returns {object} 화면에 표시할 상태\r\n         */\r\n        readState() {\r\n            const editing = records.get(editingId);\r\n            return {...state, editing: editing ? {number: editing.number, height: editing.filter.height} : null,\r\n                results: [...records.values()].map(record =\u003e ({\r\n                number: record.number, height: record.filter.height, count: record.filter.result.length,\r\n                maxExcess: record.filter.result.reduce((max, item) =\u003e\r\n                    Math.max(max, item.groundHeight + item.meshHeight - item.filterHeight), 0)\r\n            }))};\r\n        },\r\n        /**\r\n         * 결과 변경을 구독합니다.\r\n         * @param {function(): void} listener 상태 갱신 함수\r\n         * @returns {function(): void} 구독 해제 함수\r\n         */\r\n        subscribe(listener) {subscribers.add(listener); return () =\u003e subscribers.delete(listener);},\r\n        /**\r\n         * 이미 생성한 영역의 제한 고도 수정을 시작합니다.\r\n         * @param {number} number 화면에 표시한 영역 번호\r\n         * @throws {Error} 종료된 예제이거나 영역을 찾지 못한 경우\r\n         */\r\n        edit(number) {\r\n            if (disposed) throw new Error('종료된 예제입니다.');\r\n            const record = [...records.values()].find(item =\u003e item.number === number);\r\n            if (!record) throw new Error('수정할 분석 영역이 없습니다.');\r\n            cancelDrawing();\r\n            editingId = record.filter.id;\r\n            state.mode = 'editing';\r\n            state.message = '영역 ' + number + '의 제한 고도를 입력하고 수정 적용을 누르세요.';\r\n            notify();\r\n        },\r\n        /**\r\n         * 지정한 영역의 분석 필터와 POI만 제거합니다.\r\n         *\r\n         * @param {number} number 화면에 표시한 영역 번호\r\n         */\r\n        remove(number) {\r\n            if (disposed) return;\r\n            const record = [...records.values()].find(item =\u003e item.number === number);\r\n            if (!record) return;\r\n            if (editingId === record.filter.id) cancelDrawing();\r\n            removeRecord(record);\r\n            if (state.mode === 'complete' \u0026\u0026 records.size === 0) state.mode = 'idle';\r\n            state.message = '영역 ' + number + '의 분석을 삭제했습니다.';\r\n            notify();\r\n        },\r\n        /** 새 다각형의 입력을 시작합니다. 기존 분석 결과는 유지합니다. */\r\n        startDrawing() {\r\n            if (disposed) throw new Error('종료된 예제입니다.');\r\n            cancelDrawing();\r\n            // @example-code:start heightLimit.draw\r\n            state.mode = 'drawing';\r\n            draw.active();\r\n            // @example-code:end heightLimit.draw\r\n            state.message = '지도에 세 지점 이상을 클릭하고 더블클릭으로 그리기를 마치세요.';\r\n            notify();\r\n        },\r\n        /** 미완성 영역의 입력 또는 제한 고도 수정을 취소합니다. */\r\n        cancelDrawing() {\r\n            if (disposed) return;\r\n            const editing = state.mode === 'editing';\r\n            cancelDrawing();\r\n            state.message = editing ? '제한 고도 수정을 취소했습니다.' : '영역 그리기를 취소했습니다.';\r\n            notify();\r\n        },\r\n        apply,\r\n        /** 이 예제의 모든 분석 영역과 표시를 초기화합니다. */\r\n        reset() {if (!disposed) reset();},\r\n        dispose: cleanup\r\n    };\r\n}\r\n\r\n/**\r\n * 고도제한 예제가 소유한 자원과 이벤트를 정리합니다.\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @param {{dispose: function(): void}} example 예제 동작\r\n */\r\nexport function dispose(context, example) {example.dispose();}\r\n"},{"id":"ui","label":"ui.js","path":"./analysisHeightLimit.ui.js","language":"javascript","editable":true,"url":"edition/examples/analysisHeightLimit/analysisHeightLimit.ui.js?v=c0be9fe5ccad","content":"/**\r\n * 영역 그리기·제한 고도 입력·영역별 분석 결과를 연결합니다.\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @param {object} example 예제 동작\r\n * @returns {function(): void} UI 정리 함수\r\n */\r\nexport function initializeUI(context, example) {\r\n    const root = context.elements.root;\r\n    const controller = new AbortController();\r\n    const {signal} = controller;\r\n    const form = root.querySelector('[data-height-limit-form]');\r\n    const height = root.querySelector('[data-height-limit-height]');\r\n    const status = root.querySelector('[data-height-limit-status]');\r\n    const modelStatus = root.querySelector('[data-height-limit-model]');\r\n    const start = root.querySelector('[data-height-limit-draw]');\r\n    const cancel = root.querySelector('[data-height-limit-cancel]');\r\n    const apply = root.querySelector('[data-height-limit-apply]');\r\n    const results = root.querySelector('[data-height-limit-results]');\r\n    const empty = root.querySelector('[data-height-limit-empty]');\r\n    let frame;\r\n    let previousMode;\r\n    let previousEditing;\r\n\r\n    /** 영역별 한 행만 표시해 결과 통지 때 같은 행이 중복되지 않도록 합니다. */\r\n    function render() {\r\n        const state = example.readState();\r\n        status.textContent = state.message;\r\n        status.dataset.state = state.mode;\r\n        start.textContent = state.mode === 'drawing' ? '영역 다시 그리기' : '영역 그리기';\r\n        cancel.disabled = !['drawing', 'ready', 'editing'].includes(state.mode);\r\n        cancel.textContent = state.mode === 'editing' ? '수정 취소' : '그리기 취소';\r\n        apply.disabled = !['ready', 'editing'].includes(state.mode);\r\n        apply.textContent = state.mode === 'editing' ? '수정 적용' : '분석 적용';\r\n        modelStatus.textContent = state.model === 'error'\r\n            ? '건물 모델을 준비하지 못했습니다: ' + state.modelError\r\n            : state.model === 'loading' ? '건물 모델 레이어를 준비하고 있습니다.'\r\n            : '건물 모델은 화면 범위에 따라 불러옵니다. 보이지 않으면 데이터 서버 연결과 확대 수준을 확인하세요.';\r\n        const rows = state.results.map(result =\u003e {\r\n            const row = document.createElement('tr');\r\n            for (const value of [result.number, result.height.toFixed(1) + ' m', result.count,\r\n                result.count ? result.maxExcess.toFixed(1) + ' m' : '—']) {\r\n                const cell = document.createElement('td');\r\n                cell.textContent = String(value);\r\n                row.append(cell);\r\n            }\r\n            const edit = document.createElement('button');\r\n            edit.type = 'button';\r\n            edit.className = 'height-limit-button height-limit-primary height-limit-result-action';\r\n            edit.dataset.heightLimitEdit = String(result.number);\r\n            edit.setAttribute('aria-label', '영역 ' + result.number + ' 제한 고도 수정');\r\n            edit.setAttribute('aria-pressed', String(state.editing?.number === result.number));\r\n            edit.textContent = '수정';\r\n            const remove = document.createElement('button');\r\n            remove.type = 'button';\r\n            remove.className = 'height-limit-button height-limit-delete height-limit-result-action';\r\n            remove.dataset.heightLimitRemove = String(result.number);\r\n            remove.setAttribute('aria-label', '영역 ' + result.number + ' 삭제');\r\n            remove.textContent = '삭제';\r\n            const value = document.createElement('span');\r\n            value.dataset.heightLimitValue = '';\r\n            value.textContent = result.height.toFixed(1) + ' m';\r\n            const controls = document.createElement('span');\r\n            controls.className = 'height-limit-result-controls';\r\n            controls.append(edit, remove);\r\n            const actions = document.createElement('td');\r\n            actions.append(controls);\r\n            row.children[1].replaceChildren(value);\r\n            row.append(actions);\r\n            return row;\r\n        });\r\n        results.replaceChildren(...rows);\r\n        empty.hidden = rows.length \u003e 0;\r\n        if (state.editing \u0026\u0026 state.editing.number !== previousEditing) {\r\n            height.value = String(state.editing.height);\r\n            height.removeAttribute('aria-invalid');\r\n            height.focus({preventScroll: true});\r\n        } else if (state.mode === 'ready' \u0026\u0026 previousMode !== 'ready') height.focus({preventScroll: true});\r\n        previousEditing = state.editing?.number;\r\n        previousMode = state.mode;\r\n    }\r\n\r\n    /** 연속된 모델 로드 통지의 UI 갱신을 한 프레임으로 모읍니다. */\r\n    function scheduleRender() {\r\n        if (frame !== undefined) return;\r\n        frame = requestAnimationFrame(() =\u003e {frame = undefined; render();});\r\n    }\r\n\r\n    start.addEventListener('click', () =\u003e example.startDrawing(), {signal});\r\n    cancel.addEventListener('click', () =\u003e example.cancelDrawing(), {signal});\r\n    results.addEventListener('click', event =\u003e {\r\n        const edit = event.target.closest('[data-height-limit-edit]');\r\n        if (edit) example.edit(Number(edit.dataset.heightLimitEdit));\r\n        const remove = event.target.closest('[data-height-limit-remove]');\r\n        if (remove) example.remove(Number(remove.dataset.heightLimitRemove));\r\n    }, {signal});\r\n    root.querySelector('[data-height-limit-reset]').addEventListener('click', () =\u003e {\r\n        example.reset();\r\n        height.value = '100';\r\n        height.removeAttribute('aria-invalid');\r\n    }, {signal});\r\n    form.addEventListener('submit', event =\u003e {\r\n        event.preventDefault();\r\n        try {\r\n            example.apply(height.value);\r\n            height.removeAttribute('aria-invalid');\r\n        } catch (error) {\r\n            if (!height.checkValidity()) height.setAttribute('aria-invalid', 'true');\r\n            else height.removeAttribute('aria-invalid');\r\n            status.textContent = error instanceof Error ? error.message : String(error);\r\n        }\r\n    }, {signal});\r\n    const unsubscribe = example.subscribe(scheduleRender);\r\n    render();\r\n    return () =\u003e {controller.abort(); unsubscribe(); if (frame !== undefined) cancelAnimationFrame(frame);};\r\n}\r\n"},{"id":"html","label":"HTML","path":"./analysisHeightLimit.html","language":"html","editable":true,"url":"edition/examples/analysisHeightLimit/analysisHeightLimit.html?v=8e0407149d14","content":"\u003ctemplate data-example-rail\u003e\r\n    \u003cbutton class=\"rail-button\" type=\"button\" data-panel-target=\"height-limit-panel\" aria-expanded=\"false\"\u003e\r\n        \u003cspan class=\"rail-icon\" aria-hidden=\"true\"\u003e▦\u003c/span\u003e\u003cspan\u003e고도제한\u003c/span\u003e\r\n    \u003c/button\u003e\r\n\u003c/template\u003e\r\n\u003caside class=\"glass-panel example-panel example-option-panel\" id=\"height-limit-panel\" aria-hidden=\"true\"\u003e\r\n    \u003cheader class=\"panel-header\"\u003e\r\n        \u003ch2\u003e고도제한 분석\u003c/h2\u003e\r\n        \u003cbutton class=\"panel-close\" type=\"button\" data-panel-close=\"height-limit-panel\" aria-label=\"고도제한 패널 닫기\"\u003e×\u003c/button\u003e\r\n    \u003c/header\u003e\r\n    \u003cdiv class=\"panel-content\"\u003e\r\n        \u003cp class=\"panel-description\"\u003e다각형 영역과 제한 고도를 지정해 초과한 건물과 높이를 확인합니다.\u003c/p\u003e\r\n        \u003csection aria-labelledby=\"height-limit-area-heading\"\u003e\r\n            \u003ch3 id=\"height-limit-area-heading\"\u003e분석 영역\u003c/h3\u003e\r\n            \u003cdiv class=\"height-limit-actions\"\u003e\r\n                \u003cbutton class=\"height-limit-button height-limit-primary\" type=\"button\" data-height-limit-draw\u003e영역 그리기\u003c/button\u003e\r\n                \u003cbutton class=\"height-limit-button\" type=\"button\" data-height-limit-cancel disabled\u003e그리기 취소\u003c/button\u003e\r\n            \u003c/div\u003e\r\n            \u003cp class=\"height-limit-note\"\u003e지도에 세 지점 이상을 클릭하고 더블클릭으로 마칩니다.\u003c/p\u003e\r\n            \u003cform data-height-limit-form novalidate\u003e\r\n                \u003clabel class=\"height-limit-field\" for=\"height-limit-height\"\u003e제한 고도 (m)\u003c/label\u003e\r\n                \u003cdiv class=\"height-limit-input-row\"\u003e\r\n                    \u003cinput id=\"height-limit-height\" data-height-limit-height type=\"number\" min=\"0\" step=\"any\" value=\"100\" required aria-describedby=\"height-limit-height-note\"\u003e\r\n                    \u003cbutton class=\"height-limit-button\" type=\"submit\" data-height-limit-apply disabled\u003e분석 적용\u003c/button\u003e\r\n                \u003c/div\u003e\r\n                \u003cp class=\"height-limit-note\" id=\"height-limit-height-note\"\u003e건물 자체의 높이가 아닌 지도상의 고도 기준입니다. 생성한 영역은 결과 표의 고도 수정 버튼으로 다시 변경할 수 있습니다.\u003c/p\u003e\r\n            \u003c/form\u003e\r\n            \u003cp data-height-limit-status role=\"status\" aria-live=\"polite\"\u003e\u003c/p\u003e\r\n        \u003c/section\u003e\r\n        \u003csection class=\"height-limit-result-section\" aria-labelledby=\"height-limit-result-heading\"\u003e\r\n            \u003cdiv class=\"height-limit-section-header\"\u003e\r\n                \u003ch3 id=\"height-limit-result-heading\"\u003e영역별 분석 결과\u003c/h3\u003e\r\n                \u003cbutton class=\"height-limit-button height-limit-quiet\" type=\"button\" data-height-limit-reset\u003e초기화\u003c/button\u003e\r\n            \u003c/div\u003e\r\n            \u003cp class=\"height-limit-note\" data-height-limit-empty\u003e적용한 분석 영역이 없습니다.\u003c/p\u003e\r\n            \u003cdiv class=\"height-limit-table-wrap\"\u003e\r\n                \u003ctable\u003e\r\n                    \u003ccaption\u003e분석 영역별 제한 고도와 초과 객체 수\u003c/caption\u003e\r\n                    \u003cthead\u003e\u003ctr\u003e\u003cth scope=\"col\"\u003e영역\u003c/th\u003e\u003cth scope=\"col\"\u003e제한 고도\u003c/th\u003e\u003cth scope=\"col\"\u003e초과 객체\u003c/th\u003e\u003cth scope=\"col\"\u003e최대 초과\u003c/th\u003e\u003cth scope=\"col\"\u003e관리\u003c/th\u003e\u003c/tr\u003e\u003c/thead\u003e\r\n                    \u003ctbody data-height-limit-results\u003e\u003c/tbody\u003e\r\n                \u003c/table\u003e\r\n            \u003c/div\u003e\r\n            \u003cp class=\"height-limit-note\" data-height-limit-model role=\"status\"\u003e\u003c/p\u003e\r\n        \u003c/section\u003e\r\n    \u003c/div\u003e\r\n\u003c/aside\u003e\r\n"},{"id":"css","label":"CSS","path":"./analysisHeightLimit.css","language":"css","editable":true,"url":"edition/examples/analysisHeightLimit/analysisHeightLimit.css?v=685c62427e26","content":":root {\r\n    --height-limit-field: #1e4358;\r\n    --height-limit-field-hover: #254e64;\r\n    --height-limit-ink: var(--theme-text);\r\n    --height-limit-muted: #d3e5ed;\r\n    --height-limit-rule: #89acbc;\r\n    --height-limit-accent: var(--theme-accent);\r\n    --height-limit-accent-ink: #173e52;\r\n    --height-limit-error: #ffd4cc;\r\n}\r\n#height-limit-panel {width: min(450px, calc(100% - 100px)); color: var(--height-limit-ink); color-scheme: dark;}\r\n#height-limit-panel h2 {margin: 0; font-size: 20px; line-height: 1.3;}\r\n#height-limit-panel h3 {margin: 0; font-size: 16px; line-height: 1.5;}\r\n#height-limit-panel .panel-content {padding: 16px; font-size: 14px; font-weight: 400; line-height: 1.5;}\r\n#height-limit-panel .panel-description {margin: 0 0 20px; font-size: 14px; line-height: 1.6;}\r\n#height-limit-panel .height-limit-actions,\r\n#height-limit-panel .height-limit-input-row,\r\n#height-limit-panel .height-limit-section-header {display: flex; align-items: center; gap: 8px;}\r\n#height-limit-panel .height-limit-actions {flex-wrap: wrap; margin-top: 12px;}\r\n#height-limit-panel .height-limit-field {display: block; margin: 16px 0 8px; font-size: 14px; font-weight: 500;}\r\n#height-limit-panel input {width: 100%; min-width: 0; height: 40px; padding: 8px 12px; border: 1px solid var(--height-limit-rule); border-radius: 6px; background: var(--height-limit-field); color: var(--height-limit-ink); font: inherit;}\r\n#height-limit-panel .height-limit-button {min-height: 40px; padding: 8px 12px; border: 1px solid var(--height-limit-rule); border-radius: 6px; background: var(--height-limit-field); color: var(--height-limit-ink); font: inherit; font-size: 13px; white-space: nowrap; cursor: pointer;}\r\n#height-limit-panel .height-limit-primary {background: var(--height-limit-accent); border-color: var(--height-limit-accent); color: var(--height-limit-accent-ink);}\r\n#height-limit-panel .height-limit-quiet {background: transparent; border-color: transparent; text-decoration: underline; text-underline-offset: 3px;}\r\n#height-limit-panel .height-limit-result-controls {display: inline-flex; gap: 4px;}\r\n#height-limit-panel .height-limit-result-action {min-height: 32px; padding: 4px 8px; font-size: 12px;}\r\n#height-limit-panel .height-limit-delete {border-color: var(--height-limit-error); color: var(--height-limit-error);}\r\n#height-limit-panel .height-limit-button:hover:not(:disabled),\r\n#height-limit-panel .height-limit-button:active:not(:disabled) {background: var(--height-limit-field-hover); color: var(--height-limit-ink);}\r\n#height-limit-panel .height-limit-button:disabled {color: var(--height-limit-muted); opacity: .6; cursor: not-allowed;}\r\n#height-limit-panel :is(input, button):focus-visible {outline: 2px solid var(--height-limit-accent); outline-offset: 2px;}\r\n#height-limit-panel input[aria-invalid=\"true\"] {border-color: var(--height-limit-error);}\r\n#height-limit-panel .height-limit-note {margin: 8px 0 0; color: var(--height-limit-muted); font-size: 12px; line-height: 1.6;}\r\n#height-limit-panel [data-height-limit-status] {min-height: 3em; margin: 16px 0 0; color: var(--height-limit-ink);}\r\n#height-limit-panel .height-limit-result-section {margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--theme-line);}\r\n#height-limit-panel .height-limit-section-header {justify-content: space-between; margin-bottom: 8px;}\r\n#height-limit-panel .height-limit-table-wrap {overflow-x: auto; margin-top: 12px;}\r\n#height-limit-panel table {width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums;}\r\n#height-limit-panel th,\r\n#height-limit-panel td {padding: 8px 4px; border-bottom: 1px solid var(--theme-line); text-align: right; white-space: nowrap; font-weight: 400;}\r\n#height-limit-panel th {color: var(--height-limit-muted); white-space: normal; word-break: keep-all;}\r\n#height-limit-panel th:first-child,\r\n#height-limit-panel td:first-child {text-align: left;}\r\n#height-limit-panel caption {position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%);}\r\n@media (max-width: 480px) {\r\n    #height-limit-panel {width: calc(100% - 92px);}\r\n    #height-limit-panel .panel-content {padding-bottom: 64px;}\r\n}\r\n"}]}</script>
+<script id="example-metadata" type="application/json">{"title":"고도제한 분석","url":"analysisHeightLimit.html","category":"analysis","categoryLabel":"분석","summary":"다각형 영역의 제한 고도를 지정하고 초과 건물 수와 초과 높이를 확인합니다.","tags":["고도제한","다각형","건물","WFS","POI"],"apis":["UAnalyArea","U2dPolygon","UAnalyHeightLimit.addFilter","UAnalyHeightLimit.removeFilter","UHeightFilter","U3dModelWFSLayer","U3dPOI"],"editor":true,"rootAlias":false,"apiHelp":false,"imageLayerPanel":true,"terrainLayerPanel":true,"featured":true,"thumbnail":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/analysisHeightLimit.png","thumbnailMotion":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/analysisHeightLimit.webm","legacy":false,"manifest":true,"sourceFile":"examples\\analysisHeightLimit\\analysisHeightLimit.md"}</script>
+<script>
+window.__EXAMPLE_BUILD_CONFIG__ = {
+    targetPrefix: 'edition/',
+    runnerUrl: 'edition/runner.html',
+    monacoModuleUrl: 'edition/assets/monaco/monaco-editor.js?v=ebbbdcf5172a',
+    // GeOnDT 타입 선언 번들입니다. 값이 없으면 코드 편집기는 자동완성 없이 동작합니다.
+    monacoTypesUrl: 'edition/assets/monaco/geondt-types.json?v=c951a9e362f9'
+};
+// 예제는 코드 편집 패널을 연 상태로 시작하며, 닫으면 editor=0이 남아 선택이 유지됩니다.
+// 패널 너비는 지도 Engine 생성 전에 확정되므로 초기 화면이 다시 배치되지 않습니다.
+// 좁은 화면에서는 편집기가 화면 전체를 덮으므로 기본 열기를 적용하지 않습니다.
+(function () {
+    var editorParameter = new URLSearchParams(window.location.search).get('editor');
+    window.__EXAMPLE_EDITOR_MODE__ = editorParameter === '1'
+        || (editorParameter !== '0' && window.innerWidth > 760);
+})();
+</script>
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/filesaver/FileSaver.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../dist/GeOnDT.min.js"></script>
+<script src="js/example-theme.js"></script>
+<script type="module">
+import(/* @vite-ignore */ new URL('js/example-page.js', document.baseURI).href);
+</script>
+</body>
+</html>
+

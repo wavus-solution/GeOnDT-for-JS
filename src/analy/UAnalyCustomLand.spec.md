@@ -48,6 +48,8 @@ DataOPT_Input 부분 타입 명세
             외곽선 위경도 입력. 계산 성공 시 새 Vector3 배열로 교체된다.
         height: number
             목표 지형 높이. 0도 유효하며 입력 전체를 Number로 정규화하지 않는다.
+        heightEditOrder?: number
+            저장·복원용 앱 내 적용 순번. 제공하면 0 이상 Number.MAX_SAFE_INTEGER 미만 안전한 정수여야 한다. 생략·활성 순번 충돌은 신규 순번을 받고 수정 시 기존 순번을 승계한다.
         inclineEdit?: boolean
             truthy이면 경사 계산 경로를 사용한다.
         insideIncline?: boolean
@@ -64,6 +66,8 @@ DataOPT 부분 타입 명세
         id?: string
         geoVertex?: Array<GeoPosition>
         height?, inclineRate?, insidePrecision?, dataLevel?: number
+        heightEditOrder?: number
+            입력·저장 순번이며 DataOPT_Input과 같은 범위다.
         inclineEdit?, insideIncline?: boolean
             위 입력 필드의 의미는 DataOPT_Input과 같다. 입력과 중간 결과를 같은 옵션 객체에 기록하며 단계별로 미설정일 수 있다.
         insideError?: boolean
@@ -180,8 +184,9 @@ UAnalyCustomLand extends UAnaly 클래스 정의
                 null·undefined가 아닌 각 ID에 대해 이벤트 종류와 ID로 해제하고 해당 ID를 undefined로 바꾼다.
                 이후 입력 상태를 정리한다.
 
-    setCustomLandToApp(customLand: CustomLand) -> void
+    setCustomLandToApp(customLand: CustomLand, sequence?: number) -> void
         의존:
+            UHeightEditOrderManager — 편집 순서 등록; 정적 함수: {forApp()}; 함수: {register()}
             UAnaly — draw 인자; 속성 읽기: {_drawArg}
             UDrawArg — 앱; 속성 읽기: {_app}
             U3dApp — 분석별 편집 Set과 인덱스; 속성 읽기: {_editHeightBoxList}; 함수: {getIndexManager()}
@@ -189,6 +194,7 @@ UAnalyCustomLand extends UAnaly 클래스 정의
             UIndexManager — 공간 등록; 함수: {insert()}
             defined — 경계 존재 판정; 함수: {defined()}
         동작:
+            앱별 순서 관리자에 분석 이름·객체·선택적 순번을 먼저 등록한다. 같은 객체는 순번을 유지하며 같은 분석의 다른 객체가 같은 문자열 ID를 쓰면 오류다. 제공 순번이 활성 순번과 충돌하면 신규 순번을 받는다.
             현재 name의 앱 편집 Set을 만들거나 재사용하여 객체를 추가한다.
             경사 편집이면 경사 박스, 아니면 기본 박스를 얻는다. 박스가 null·undefined이면 Set 등록은 남긴 채 종료한다.
             박스의 XY 범위와 객체, 새 metadata Map을 'CustomLand' 인덱스에 등록한다.
@@ -235,18 +241,22 @@ UAnalyCustomLand extends UAnaly 클래스 정의
             표시값이 정확히 false인 레이어는 건너뛴다. 나머지 실제 경계와 복제본이 교차하면 즉시 true, 끝까지 없으면 false를 반환한다.
             레이어 박스의 Z는 바꾸지 않으므로 단순 XY 교차만으로 판정하지 않는다.
 
-    getParam() -> Array<CustomLandCO>
-        의존: CustomLand — 재생성 파라미터; 함수: {getParameter()}
-        동작: 각 객체의 getParameter 반환값을 순서대로 새 배열에 담는다. 반환된 항목은 추가 복제하지 않는다.
-
-    setParam(param: Array<CustomLandCO>) -> void
+    getParam() -> Array<CustomLandCO & {heightEditOrder?: number}>
         의존:
+            CustomLand — 재생성 파라미터; 함수: {getParameter()}
+            UHeightEditOrderManager — 등록 순번 조회; 정적 함수: {forApp()}; 함수: {getSequence()}
+        동작: 앱이 있으면 순서 관리자를 조회하고 각 객체의 getParameter 반환 항목에 등록 순번이 있을 때 heightEditOrder를 기록한 뒤 원래 순서대로 새 배열에 담는다. 항목은 복제하지 않으며 앱·등록이 없으면 해당 필드를 추가하지 않는다.
+
+    setParam(param: Array<CustomLandCO & {heightEditOrder?: number}>) -> void
+        의존:
+            UHeightEditOrderManager — 저장 순번 사전 검증; 정적 함수: {validateSequence()}
             UAnaly — draw 인자; 속성 읽기: {_drawArg}
             UDrawArg — 앱; 속성 읽기: {_app}
             CustomLand — 복원 객체; 생성자: {new CustomLand()}
             U3dApp — 지형 갱신; 함수: {updateHeightLayers()}
         동작:
-            항목마다 CustomLand를 생성하고 기존 목록 뒤에 추가한 뒤 앱에 등록한다.
+            모든 항목의 선택적 순번을 상태 변경 전에 검증한다. 타입 오류는 TypeError, 정수·허용 범위 오류는 RangeError를 그대로 전달한다.
+            항목마다 CustomLand를 생성하고 기존 목록 뒤에 추가한 뒤 해당 heightEditOrder로 앱에 등록한다. 순번이 없으면 신규 순번을 발급한다.
             항목의 inclineBox가 truthy이면 그것을, 아니면 box를 사용하여 지형을 갱신한다. 입력 재계산·중복 ID 검사·기존 목록 초기화는 하지 않으며 예외를 그대로 전달한다.
 
     setSelectType(type: string) -> void
@@ -280,6 +290,7 @@ UAnalyCustomLand extends UAnaly 클래스 정의
 
     editCustomLand(id: string, option: DataOPT_Input) -> Promise<void> | undefined
         의존:
+            UHeightEditOrderManager — 저장 순번 검증과 수정 전 순번 조회; 정적 함수: {validateSequence(), forApp()}; 함수: {getSequence()}
             defined — 인수·단계 결과 검사; 함수: {defined()}
             UAnaly — 연결 앱; 속성 읽기: {_app}
             CustomLand — 이전 중심 조회; 함수: {getCenter()}
@@ -288,13 +299,14 @@ UAnalyCustomLand extends UAnaly 클래스 정의
             __GInfo__ — 레이어 선택 실패 안내; 함수: {__GInfo__()}
             Web API — 필수 인수 누락 안내; 함수: {console.error()}
         동작:
-            id 또는 option이 null·undefined이면 로그 후 undefined를 반환한다. 해당 객체가 없을 때도 undefined다.
+            id 또는 option이 null·undefined이면 로그 후 undefined를 반환한다. 제공한 heightEditOrder를 기존 객체 삭제 전에 검증하며 잘못된 값의 동기 오류는 그대로 전달한다. 해당 객체가 없을 때는 undefined다.
+            연결 앱이 있으면 기존 객체의 순번을 보관하고 앱·등록이 없으면 undefined를 사용한다. 기존 등록은 단일 제거 경로에서 해제한다.
             기존 중심 참조를 보관하고 deferredPromise를 만든 뒤 기존 객체를 먼저 제거한다. 실패 시 기존 객체를 자동 복원하지 않는다. [확인 Q-004]
             draw가 없고 앱이 있으면 생성·연결한다. 전달받은 option을 기존 파라미터와 병합하지 않고 기본 편집 옵션으로 계산하며 결과가 없으면 reject한다.
             새 중심이 존재하고 X·Y 각각의 floor 값 차이의 절댓값이 모두 4 미만이면 새 중심의 Z만 기존 Z로 덮는다.
             inclineEdit가 truthy이면 경사 옵션을 계산하고 결과가 없으면 reject한다.
             현재 고도 목록으로 데이터 옵션을 선택한다. 실패하면 안내 후 reject한다.
-            새 객체 생성 결과와 무관하게 입력 상태를 정리하고 resolve한다. 새 ID는 option.id 또는 새 GUID다. [확인 Q-002]
+            보관한 순번을 새 객체 생성에 전달한다. ID·높이·도형 변경은 순번을 승계하고 입력에 있는 다른 순번보다 기존 순번이 우선한다. 생성 결과와 무관하게 입력 상태를 정리하고 resolve한다. 새 ID는 option.id 또는 새 GUID다. [확인 Q-002]
             별도 바깥 catch가 없으므로 보호되지 않은 단계의 예외는 그대로 호출자에게 전달된다.
 
     getCustomLandList() -> Array<CustomLand>
@@ -318,6 +330,7 @@ UAnalyCustomLand extends UAnaly 클래스 정의
 
     removeEditLandAll() -> void
         의존:
+            UHeightEditOrderManager — 분석의 활성 편집 순번 해제; 정적 함수: {forApp()}; 함수: {remove()}
             UAnaly — draw 인자; 속성 읽기: {_drawArg}
             UDrawArg — 앱; 속성 읽기: {_app}
             U3dApp — 앱 편집 목록·갱신; 속성 읽기: {_editHeightBoxList}; 함수: {getIndexManager(), updateHeightLayers()}
@@ -326,7 +339,7 @@ UAnalyCustomLand extends UAnaly 클래스 정의
             defined — 박스 존재 판정; 함수: {defined()}
         동작:
             현재 name의 앱 편집 Set을 먼저 삭제한다.
-            각 객체에서 경사 여부에 맞는 박스를 고른다. 박스가 null·undefined이면 그 객체의 인덱스 제거·지형 갱신·dispose를 건너뛴다.
+            각 객체의 순번 등록을 먼저 해제하고 경사 여부에 맞는 박스를 고른다. 박스가 null·undefined이면 그 객체의 인덱스 제거·지형 갱신·dispose를 건너뛴다.
             박스가 있으면 인덱스에서 제거하고 지형을 갱신한 뒤 객체를 dispose한다.
             순회 후 목록을 새 빈 배열로 바꾸고 측정 피처와 내부 draw를 정리한다. _pickList·_endPoint를 초기화하는 경로는 호출하지 않는다.
 
@@ -400,6 +413,7 @@ UAnalyCustomLand extends UAnaly 클래스 정의
 
     #removeAppEditListById(findIndex: CustomLand) -> void
         의존:
+            UHeightEditOrderManager — 단일 편집 순번·참조 해제; 정적 함수: {forApp()}; 함수: {remove()}
             UAnaly — draw 인자; 속성 읽기: {_drawArg}
             UDrawArg — 앱; 속성 읽기: {_app}
             defined — draw·피처 존재 판정; 함수: {defined()}
@@ -410,7 +424,7 @@ UAnalyCustomLand extends UAnaly 클래스 정의
             UDraw — 편집 피처 제거; 함수: {removeFeature()}
         동작:
             drawArg가 null·undefined이면 '1427723' 오류 후 종료한다. 객체가 현재 목록에 없어도 종료한다.
-            앱의 현재 name Set에서 객체를 빼고 Set이 비면 키를 삭제한다.
+            앱별 관리자의 객체 순번 등록을 해제하고 앱의 현재 name Set에서 객체를 빼고 Set이 비면 키를 삭제한다.
             경사 여부에 맞는 박스를 골라 해당 XY 인덱스를 제거한다.
             draw와 ID의 top feature가 존재하면 피처를 제거하고 키를 삭제한 뒤 같은 키에 undefined를 다시 대입한다.
             해당 박스로 지형 갱신을 요청한다. 객체 dispose와 로컬 목록 제거는 호출자가 담당한다.
@@ -448,7 +462,7 @@ UAnalyCustomLand extends UAnaly 클래스 정의
             opts가 null·undefined이면 종료한다. insideError가 truthy이거나 draw가 null·undefined여도 종료한다.
             try 내부 예외는 '2638663' 오류로 기록하고 undefined를 반환하며 부분 변경은 되돌리지 않는다.
 
-    #createCustomLand(options: DataOPT) -> CustomLand | undefined
+    #createCustomLand(options: DataOPT, sequence?: number) -> CustomLand | undefined
         의존:
             defined — 옵션 존재 판정; 함수: {defined()}
             UAnaly — draw 인자; 속성 읽기: {_drawArg}
@@ -458,12 +472,13 @@ UAnalyCustomLand extends UAnaly 클래스 정의
             U3dMessage — 생성·등록 오류; 정적 함수: {error()}
         동작:
             옵션이 null·undefined이면 종료한다.
-            CustomLand를 생성하여 로컬 목록에 추가한 뒤 앱에 등록한다.
+            CustomLand를 생성하여 로컬 목록에 추가한 뒤 sequence가 undefined이면 options.heightEditOrder를, 아니면 sequence를 전달하여 앱에 등록한다.
             inclineBox가 truthy이면 그것을, 아니면 box를 사용해 지형을 갱신한다.
             try 내부 예외는 '2639384' 오류만 기록한다. 생성 전 실패이면 undefined, 객체 생성 후 실패이면 만들어진 객체를 반환하며 이미 한 등록은 되돌리지 않는다. [확인 Q-002]
 
     #addCustomLand_(options: DataOPT) -> Promise<void>
         의존:
+            UHeightEditOrderManager — 저장 순번 검증; 정적 함수: {validateSequence()}
             UAnaly — draw 인자; 속성 읽기: {_drawArg}
             UDrawArg — 앱; 속성 읽기: {_app}
             U3dApp — 고도 레이어; 함수: {getHeightLayers()}
@@ -471,7 +486,7 @@ UAnalyCustomLand extends UAnaly 클래스 정의
             deferredPromise — 완료 객체; 함수: {deferredPromise(), resolve(), reject()}
             __GInfo__ — 레이어 부재 안내; 함수: {__GInfo__()}
         동작:
-            deferredPromise를 만들고 연결 앱의 고도 목록을 한 번 얻는다. 없거나 비었으면 '5123164' 안내 후 reject한다.
+            deferredPromise를 만들고 선택적 저장 순번을 검증한다. 잘못된 타입·범위는 기존 catch에서 reject하며 객체 등록을 시작하지 않는다. 이후 연결 앱의 고도 목록을 한 번 얻는다. 없거나 비었으면 '5123164' 안내 후 reject한다.
             기본 편집 옵션을 계산하고 falsy이면 reject한다.
             계산된 inclineEdit가 truthy이면 경사 옵션을 계산하고 falsy이면 reject한다.
             처음 전달한 옵션과 앞서 얻은 레이어 목록으로 데이터 옵션을 완성한다. 앞 단계는 같은 옵션을 변경하므로 그 결과가 이어진다. falsy이면 '5136956' 안내 후 reject한다.

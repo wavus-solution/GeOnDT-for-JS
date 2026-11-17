@@ -78,8 +78,8 @@ export class UTerrainDecalCompositeComposer {
     /**
      * batch draw 하나를 정수 격자 조각으로 나눠 여러 step에 이어 그릴 때의 조각 한 변 상한(target texel)입니다.
      *
-     * `TERRAIN_COMPOSITE_BATCH_SPLIT_DISABLED`이면 분할하지 않고 기존 경로를 그대로 씁니다. 개발용 옵션이며
-     * 제품 기본값은 비활성입니다.
+     * `TERRAIN_COMPOSITE_BATCH_SPLIT_DISABLED`이면 분할하지 않고 기존 경로를 그대로 씁니다.
+     * 직접 생성할 때의 기본값은 비활성이며, 엔진 스케줄러는 큰 타일의 draw를 나누도록 설정합니다.
      *
      * @type {number}
      */
@@ -107,7 +107,7 @@ export class UTerrainDecalCompositeComposer {
             1,
             Math.floor(Number(opt.maxResolutionScale) || TERRAIN_COMPOSITE_MAX_RESOLUTION_SCALE),
         );
-        // 개발 옵션. 유효한 양수만 분할을 켜고, 그 밖의 값은 전부 비활성으로 떨어뜨립니다.
+        // 유효한 양수만 분할을 켜고, 그 밖의 값은 비활성으로 두어 직접 생성 시의 기존 계약을 유지합니다.
         const requestedSplitEdge = Math.floor(Number(opt.batchSplitMaxEdgeTexels));
         this._batchSplitMaxEdgeTexels = Number.isFinite(requestedSplitEdge) && requestedSplitEdge > 0
             ? requestedSplitEdge
@@ -765,6 +765,7 @@ function terrainCompositeBatchWeightedMp(job, variant, batchIndex) {
  * @ignore
  */
 function terrainCompositeDrawUnitWeightedMp(job, variant, batchIndex) {
+    // 연속 편집은 기존 표시 완료 대기에서 병합하므로 동적 입력도 같은 조각 크기로 계상합니다.
     const splitMaxEdge = job.composer?._batchSplitMaxEdgeTexels ?? TERRAIN_COMPOSITE_BATCH_SPLIT_DISABLED;
     if (splitMaxEdge <= TERRAIN_COMPOSITE_BATCH_SPLIT_DISABLED) {
         return terrainCompositeBatchWeightedMp(job, variant, batchIndex);
@@ -1051,7 +1052,7 @@ function advanceTerrainCompositeRasterJob(job, renderer, camera, opt) {
 }
 
 /**
- * 현재 batch 하나를 scissor와 batch index를 적용해 그리고 다음 batch·variant로 진행합니다.
+ * 현재 batch의 타입·scissor·순번을 적용해 그리고 다음 batch·variant로 진행합니다.
  *
  * 예산 판단과 발행을 분리하기 위해 발행 부분만 떼어낸 것이며, 진행 규칙은 기존과 같습니다.
  *
@@ -1067,6 +1068,7 @@ function drawTerrainCompositeBatch(job, renderer, camera, variant, batchCount) {
     // 실행 목록의 순번은 계획 batch 순번이며 uniform·scissor 모두 이 값을 씁니다.
     const planBatchIndex = job.batchExecutionList[job.batchIndex];
     const batchBounds = job.batchBoundsValid ? job.batchBounds.get(planBatchIndex) ?? null : null;
+    const plan = job.input.compositionPlan;
     const splitMaxEdge = job.composer?._batchSplitMaxEdgeTexels ?? TERRAIN_COMPOSITE_BATCH_SPLIT_DISABLED;
     // 분할이 꺼져 있으면 기존 경로를 그대로 타고 격자 계산을 아예 하지 않습니다.
     let isLastSlice = true;
@@ -1098,7 +1100,17 @@ function drawTerrainCompositeBatch(job, renderer, camera, variant, batchCount) {
             job.targetHeight,
         );
     }
-    job.material.uniforms.terrainCompositionBatchIndex.value = planBatchIndex;
+    const batchType = plan?.batches[planBatchIndex]?.type;
+    const uniforms = job.material.uniforms;
+    const sourceUniforms = job.input.sourceState.uniforms;
+    // 다른 타입은 기존 batch 필터에서 모두 제외되므로 후보 순회 전에 빈 결과로 만듭니다.
+    uniforms.pathSegmentCount.value = batchType === 'area' || batchType === 'circle'
+        ? 0 : sourceUniforms?.pathSegmentCount?.value ?? 0;
+    uniforms.areaCount.value = batchType === 'path' || batchType === 'circle'
+        ? 0 : sourceUniforms?.areaCount?.value ?? 0;
+    uniforms.circleCount.value = batchType === 'path' || batchType === 'area'
+        ? 0 : sourceUniforms?.circleCount?.value ?? 0;
+    uniforms.terrainCompositionBatchIndex.value = planBatchIndex;
     job.material.uniformsNeedUpdate = true;
     // Three.js는 render 종료 시 밉맵을 생성합니다. 마지막 batch의 마지막 조각에서만 켜야
     // 여러 프레임에 나눠 합성할 때 미완성 텍스처의 밉 체인을 매 draw마다 다시 만들지 않습니다.
@@ -1694,6 +1706,10 @@ function createTerrainCompositeRasterMaterial(sourceState, bounds) {
         },
         uniforms: {
             ...sourceState.uniforms,
+            // batch 선택이 원본 표시와 다른 job에 전파되지 않도록 count wrapper만 분리합니다.
+            pathSegmentCount: {value: sourceState.uniforms?.pathSegmentCount?.value ?? 0},
+            areaCount: {value: sourceState.uniforms?.areaCount?.value ?? 0},
+            circleCount: {value: sourceState.uniforms?.circleCount?.value ?? 0},
             materialRenderOrder: {value: 0},
             nextRenderOrder: {value: 0},
             terrainCompositionBatchIndex: {value: 0},
@@ -1836,10 +1852,10 @@ export function captureTerrainCompositeRendererState(renderer) {
         renderTarget: renderer.getRenderTarget(),
         activeCubeFace: renderer.getActiveCubeFace(),
         activeMipmapLevel: renderer.getActiveMipmapLevel(),
-        viewport: renderer.getViewport(new THREE.Vector4()).clone(),
-        scissor: renderer.getScissor(new THREE.Vector4()).clone(),
+        viewport: renderer.getViewport(new THREE.Vector4()),
+        scissor: renderer.getScissor(new THREE.Vector4()),
         scissorTest: renderer.getScissorTest(),
-        clearColor: renderer.getClearColor(new THREE.Color()).clone(),
+        clearColor: renderer.getClearColor(new THREE.Color()),
         clearAlpha: renderer.getClearAlpha(),
         autoClear: renderer.autoClear,
     };

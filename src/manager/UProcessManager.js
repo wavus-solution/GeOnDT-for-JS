@@ -45,7 +45,11 @@ class UProcessManager {
     /** 공통 시작 제한이 실제 적용된 RAF 관찰 구간입니다. */
     #admissionLimitedInWindow = false;
 
-    /** @type {boolean} @ignore */
+    /**
+     * @type {boolean}
+     *
+     * @ignore
+     */
     _disposed = false;
 
     // TEMP_PROCESS_DEBUG BEGIN: 임시 측정 연결입니다. 같은 표식의 블록을 모두 제거하면 원래 제어로 돌아갑니다.
@@ -172,11 +176,23 @@ class UProcessManager {
     /** @type {boolean} */
     #frameMonitoringDisposed = false;
 
-    /** @type {boolean} 표시·수동 요청과 진단 중 중지 유예를 합친 관측 사용 상태입니다. */
+    /**
+     * 표시·수동 요청과 진단 중 중지 유예를 합친 관측 사용 상태입니다.
+     *
+     * @type {boolean}
+     */
     #visualizationLatencyEnabled = false;
-    /** @type {boolean} UI 없이 측정하는 호출자의 명시적 요청입니다. */
+    /**
+     * UI 없이 측정하는 호출자의 명시적 요청입니다.
+     *
+     * @type {boolean}
+     */
     #visualizationLatencyRequested = false;
-    /** @type {Set<object>} 표시 중인 창만 보관하여 한 창의 숨김이 다른 창의 관측을 끄지 않게 합니다. */
+    /**
+     * 표시 중인 창만 보관하여 한 창의 숨김이 다른 창의 관측을 끄지 않게 합니다.
+     *
+     * @type {Set<object>}
+     */
     #visualizationLatencyViews = new Set();
     /** @type {import('@union3d/manager/UVisualizationLatencyMonitor').UVisualizationLatencyMonitor | undefined} */
     #visualizationMonitor;

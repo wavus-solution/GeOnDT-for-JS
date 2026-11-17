@@ -1,6 +1,10 @@
 import {INTERNAL} from '@union3d/manager/terrain/UFastTerrainStampManager.internal';
 
-/** @type {WeakMap<object, UFastTerrainStampManager>} 앱을 붙잡지 않는 내부 등록부입니다. */
+/**
+ * 앱을 붙잡지 않는 내부 등록부입니다.
+ *
+ * @type {WeakMap<object, UFastTerrainStampManager>}
+ */
 const MANAGERS = new WeakMap();
 
 /**

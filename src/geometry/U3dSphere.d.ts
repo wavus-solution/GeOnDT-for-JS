@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,13 +8,14 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
-import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineAliasCO } from "./U3dGeometry.js";
+import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineCO } from "./U3dGeometry.js";
 import type { UMeta } from "../meta/UMeta.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { EventCallBack, GeoPositionVector3, KeyValue, WorldPositionVector3 } from "../types/global.js";
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dSphere {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -22,7 +23,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -52,24 +52,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: number): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -136,8 +152,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -191,6 +207,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
 "_sphere": three.Sphere | undefined;
@@ -229,100 +246,11 @@ readonly "normalMatrix": three.Matrix3;
 "occlusionTest"?: boolean | undefined;
 }
 
-/**
- * ~extends U3dGeometryCO <br>
- *
- * U3dSphere(구체) 생성자에 넘기는 옵션입니다. <br>
- * 외곽선 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`가, 색상·투명도 같은 도형 공통 옵션은 `U3dGeometryCO`가 정의합니다. <br>
- */
-type U3dSphereCO_Content = {
-    /**
-     * 구체의 반지름 (미터). 화면에 그릴 때는 좌표가 지정된 위도의 보정 배율이 곱해집니다 <br>
-     */
-    radius?: number;
-    /**
-     * 가로(둘레) 방향 분할 수. 클수록 옆에서 본 윤곽이 원에 가까워지고 정점 수가 늘어납니다. <br>
-     * 최소 3 <br>
-     */
-    widthSegments?: number;
-    /**
-     * 세로(위아래) 방향 분할 수. 클수록 표면이 매끄러워지고 정점 수가 늘어납니다. <br>
-     * 최소 2 <br>
-     */
-    heightSegments?: number;
-    /**
-     * 가로 방향으로 그리기 시작할 각도 (라디안) <br>
-     */
-    phiStart?: number;
-    /**
-     * 가로 방향으로 그릴 각도 범위 (라디안). 기본값은 `Math.PI * 2`(360도)로 둘레 전체를 그리며, 줄이면 수박 조각처럼 일부만 남습니다 <br>
-     */
-    phiLength?: number;
-    /**
-     * 세로 방향으로 그리기 시작할 각도 (라디안) <br>
-     */
-    thetaStart?: number;
-    /**
-     * 세로 방향으로 그릴 각도 범위 (라디안). 기본값은 `Math.PI`(180도)로 위아래 전체를 그리며, `Math.PI / 2`를 넣으면 반구가 됩니다 <br>
-     */
-    thetaLength?: number;
-    /**
-     * 불투명도. 0이면 완전 투명, 1이면 불투명하며 1보다 작으면 투명 처리가 켜집니다 <br>
-     */
-    opacity?: number;
-    /**
-     * 카메라 거리에 따라 색과 밝기가 달라지는 셰이더 재질을 쓸지 여부. false면 단색 재질을 사용하며, 생성 시에만 적용되고 `setParam`으로는 바꿀 수 없습니다 <br>
-     */
-    setDistanceMaterial?: boolean;
-    /**
-     * 구체 표면 색상. 16진수 숫자(`0xff0000`), CSS 색 문자열(`'#ff0000'`) 또는 `THREE.Color`를 넣습니다 <br>
-     */
-    color?: three.ColorRepresentation;
-    /**
-     * 도형 종류 식별자 (기본값 `'basic'`). 구체는 이 값으로 재질이 달라지지 않으며, 재질 종류는 `setDistanceMaterial`이 정합니다 <br>
-     */
-    type?: string;
-};
-
-/**
- * ~extends U3dGeometryCO <br>
- *
- * U3dSphere(구체) 생성자에 넘기는 옵션입니다. <br>
- * 외곽선 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`가, 색상·투명도 같은 도형 공통 옵션은 `U3dGeometryCO`가 정의합니다. <br>
- */
-type U3dSphereCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dSphereCO_Content, never>;
-
 declare const U3dSphere_base: Omit<typeof U3dGeometry, "prototype"> & {
     new (opt?: U3dGeometryCO, isInit?: boolean): GeOnDTMixedInstance_U3dSphere & InstanceType<typeof U3dGeometry>;
     prototype: GeOnDTMixedInstance_U3dSphere & InstanceType<typeof U3dGeometry>;
 };
 
-/**
- * ~extends U3dGeometryCO <br>
- *
- * U3dSphere(구체) 생성자에 넘기는 옵션입니다. <br>
- * 외곽선 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`가, 색상·투명도 같은 도형 공통 옵션은 `U3dGeometryCO`가 정의합니다. <br>
- *
- * @memberof U3dSphere
- * @inner
- *
- * @typedef {object} U3dSphereCO_Content
- * @property {number} [radius=5] 구체의 반지름 (미터). 화면에 그릴 때는 좌표가 지정된 위도의 보정 배율이 곱해집니다 <br>
- * @property {number} [widthSegments=8] 가로(둘레) 방향 분할 수. 클수록 옆에서 본 윤곽이 원에 가까워지고 정점 수가 늘어납니다. <br>
- * 최소 3 <br>
- * @property {number} [heightSegments=6] 세로(위아래) 방향 분할 수. 클수록 표면이 매끄러워지고 정점 수가 늘어납니다. <br>
- * 최소 2 <br>
- * @property {number} [phiStart=0] 가로 방향으로 그리기 시작할 각도 (라디안) <br>
- * @property {number} [phiLength] 가로 방향으로 그릴 각도 범위 (라디안). 기본값은 `Math.PI * 2`(360도)로 둘레 전체를 그리며, 줄이면 수박 조각처럼 일부만 남습니다 <br>
- * @property {number} [thetaStart=0] 세로 방향으로 그리기 시작할 각도 (라디안) <br>
- * @property {number} [thetaLength] 세로 방향으로 그릴 각도 범위 (라디안). 기본값은 `Math.PI`(180도)로 위아래 전체를 그리며, `Math.PI / 2`를 넣으면 반구가 됩니다 <br>
- * @property {number} [opacity=1] 불투명도. 0이면 완전 투명, 1이면 불투명하며 1보다 작으면 투명 처리가 켜집니다 <br>
- * @property {boolean} [setDistanceMaterial=false] 카메라 거리에 따라 색과 밝기가 달라지는 셰이더 재질을 쓸지 여부. false면 단색 재질을 사용하며, 생성 시에만 적용되고 `setParam`으로는 바꿀 수 없습니다 <br>
- * @property {import('three').ColorRepresentation} [color] 구체 표면 색상. 16진수 숫자(`0xff0000`), CSS 색 문자열(`'#ff0000'`) 또는 `THREE.Color`를 넣습니다 <br>
- * @property {string} [type] 도형 종류 식별자 (기본값 `'basic'`). 구체는 이 값으로 재질이 달라지지 않으며, 재질 종류는 `setDistanceMaterial`이 정합니다 <br>
- *
- * @typedef {Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dSphereCO_Content} U3dSphereCO
- */
 /**
  * ~extends import('@U3dGeometry') <br>
  *
@@ -331,7 +259,7 @@ declare const U3dSphere_base: Omit<typeof U3dGeometry, "prototype"> & {
  * 좌표는 생성 후 `setVertex`(월드) 또는 `setPositions`(위경도)로 지정하며, 첫 번째 좌표에 구체가 놓입니다. <br>
  *
  * 반지름·분할 수·각도 범위 같은 형상 필드에 직접 대입한 값은 곧바로 화면에 반영되지 않습니다. <br>
- * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용되므로, 값을 바꿀 때는 `setParam`을 사용하십시오. <br>
+ * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용됩니다. 분할 수는 `setWidthSegments`·`setHeightSegments` 또는 `setParam`으로 변경하십시오. <br>
  *
  * @group geometry
  * @extends {__GeOnDTMixinBase_U3dSphere}
@@ -467,14 +395,6 @@ declare class U3dSphere extends U3dSphere_base {
      */
     thetaLength: number;
     /**
-     * 외곽선(모서리 선) 표시 여부 (기본값 false). <br>
-     * 켜면 구체의 모서리를 따라 선 객체가 자식으로 추가되며, 선 색은 `lineColor` 옵션 값(없으면 검정)을 사용합니다. <br>
-     * 생성 옵션과 `setParam`에서는 `outline`(별칭 `useline`/`useLine`/`edge`) 이름을 사용합니다. <br>
-     *
-     * @type {boolean}
-     */
-    useline: boolean;
-    /**
      * 카메라 거리에 따라 색과 밝기가 달라지는 셰이더 재질을 사용하는지 여부 (기본값 false). <br>
      * false면 단색 재질을 사용합니다. **생성 시에만 적용되며 `setParam`으로는 바꿀 수 없습니다.** <br>
      *
@@ -488,11 +408,11 @@ declare class U3dSphere extends U3dSphere_base {
      */
     _googleScale: number;
     /**
-     * @type {import('three').LineSegments | undefined}
+     * @type {import('three').Mesh | undefined}
      *
      * @ignore
      */
-    _outline: three.LineSegments | undefined;
+    _outline: three.Mesh | undefined;
     opacity: any;
     /**
      * 설정된 좌표(vertices)의 첫 번째 점으로 구체 위치를 이동시키고 지오메트리를 갱신합니다. <br>
@@ -516,12 +436,27 @@ declare class U3dSphere extends U3dSphere_base {
      *
      * @override
      *
-     * @param {number} opacity 투명도 (0~1). 외곽선을 포함한 모든 하위 자식에도 적용하며, 1보다 작으면 투명 처리가 켜집니다 <br>
+     * @param {number} opacity 투명도 (0~1). 자동 생성 외곽선을 제외한 일반 하위 자식에도 적용하며, 1보다 작으면 투명 처리가 켜집니다 <br>
      */
     override setOpacity(opacity: number): void;
     /**
+     * 가로(둘레) 방향 분할 수를 변경합니다. 값이 바뀌면 형상과 외곽선을 갱신합니다. <br>
+     * @param {number} segments 3 이상의 유한한 정수 <br>
+     */
+    setWidthSegments(segments: number): void;
+    /** @returns {number} 가로(둘레) 방향 분할 수. 기본값은 8입니다 <br> */
+    getWidthSegments(): number;
+    /**
+     * 세로(위아래) 방향 분할 수를 변경합니다. 값이 바뀌면 형상과 외곽선을 갱신합니다. <br>
+     * @param {number} segments 2 이상의 유한한 정수 <br>
+     */
+    setHeightSegments(segments: number): void;
+    /** @returns {number} 세로(위아래) 방향 분할 수. 기본값은 6입니다 <br> */
+    getHeightSegments(): number;
+    /**
      * 구체의 속성(색상·투명도·반지름·세그먼트·각도·외곽선)을 한 번에 변경합니다. <br>
-     * 전달한 값만 반영되고 나머지는 기존 값이 유지되며, 형태 관련 값을 바꾸면 지오메트리가 즉시 다시 생성됩니다. <br>
+     * 전달한 값만 반영되고 나머지는 기존 값이 유지되며, 형태 관련 값이 바뀔 때 형상을 다시 만듭니다. <br>
+     * 스타일만 변경하면 형상과 외곽선을 유지하며, 인자 없는 호출이나 빈 옵션은 형상을 다시 만듭니다. <br>
      * `setDistanceMaterial`은 생성 시에만 적용되어 여기서 변경되지 않습니다. <br>
      * 좌표(`vertices`·`coordinates`)와 `name`·`showLabel`·`properties`도 생성 옵션 전용이라 넣어도 오류 없이 무시됩니다. <br>
      *
@@ -547,7 +482,76 @@ declare class U3dSphere extends U3dSphere_base {
      * 자원 정리에 앞서 `DISPOSE` 이벤트가 발생하며, **호출한 뒤에는 같은 구체를 다시 사용할 수 없습니다.** <br>
      */
     dispose(): void;
+    /**
+     * 본체 형상을 유지하고 외곽선만 갱신합니다.
+     * @protected
+     * @ignore
+     */
+    protected _updateOutline(): void;
     #private;
 }
+
+/**
+     * ~extends U3dGeometryCO <br>
+     *
+     * U3dSphere(구체) 생성자에 넘기는 옵션입니다. <br>
+     * 외곽선 옵션(`outline`과 별칭)은 `U3dOutlineCO`가, 색상·투명도 같은 도형 공통 옵션은 `U3dGeometryCO`가 정의합니다. <br>
+     */
+    type U3dSphereCO_Content = {
+        /**
+         * 구체의 반지름 (미터). 화면에 그릴 때는 좌표가 지정된 위도의 보정 배율이 곱해집니다 <br>
+         */
+        radius?: number;
+        /**
+         * 가로(둘레) 방향 분할 수. 클수록 옆에서 본 윤곽이 원에 가까워지고 정점 수가 늘어납니다. <br>
+         * 최소 3 <br>
+         */
+        widthSegments?: number;
+        /**
+         * 세로(위아래) 방향 분할 수. 클수록 표면이 매끄러워지고 정점 수가 늘어납니다. <br>
+         * 최소 2 <br>
+         */
+        heightSegments?: number;
+        /**
+         * 가로 방향으로 그리기 시작할 각도 (라디안) <br>
+         */
+        phiStart?: number;
+        /**
+         * 가로 방향으로 그릴 각도 범위 (라디안). 기본값은 `Math.PI * 2`(360도)로 둘레 전체를 그리며, 줄이면 수박 조각처럼 일부만 남습니다 <br>
+         */
+        phiLength?: number;
+        /**
+         * 세로 방향으로 그리기 시작할 각도 (라디안) <br>
+         */
+        thetaStart?: number;
+        /**
+         * 세로 방향으로 그릴 각도 범위 (라디안). 기본값은 `Math.PI`(180도)로 위아래 전체를 그리며, `Math.PI / 2`를 넣으면 반구가 됩니다 <br>
+         */
+        thetaLength?: number;
+        /**
+         * 불투명도. 0이면 완전 투명, 1이면 불투명하며 1보다 작으면 투명 처리가 켜집니다 <br>
+         */
+        opacity?: number;
+        /**
+         * 카메라 거리에 따라 색과 밝기가 달라지는 셰이더 재질을 쓸지 여부. false면 단색 재질을 사용하며, 생성 시에만 적용되고 `setParam`으로는 바꿀 수 없습니다 <br>
+         */
+        setDistanceMaterial?: boolean;
+        /**
+         * 구체 표면 색상. 16진수 숫자(`0xff0000`), CSS 색 문자열(`'#ff0000'`) 또는 `THREE.Color`를 넣습니다 <br>
+         */
+        color?: three.ColorRepresentation;
+        /**
+         * 도형 종류 식별자 (기본값 `'basic'`). 구체는 이 값으로 재질이 달라지지 않으며, 재질 종류는 `setDistanceMaterial`이 정합니다 <br>
+         */
+        type?: string;
+    };
+
+/**
+     * ~extends U3dGeometryCO <br>
+     *
+     * U3dSphere(구체) 생성자에 넘기는 옵션입니다. <br>
+     * 외곽선 옵션(`outline`과 별칭)은 `U3dOutlineCO`가, 색상·투명도 같은 도형 공통 옵션은 `U3dGeometryCO`가 정의합니다. <br>
+     */
+    type U3dSphereCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dSphereCO_Content, never>;
 
 export type { GeOnDTMixedInstance_U3dSphere, U3dSphere, U3dSphereCO, U3dSphereCO_Content, U3dSphere_base };

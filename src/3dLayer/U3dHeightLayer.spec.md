@@ -28,6 +28,9 @@
 - `UHeightUtil`은 부모 고도 데이터 분할과 커스텀 지형 편집을 수행한다.
 - `UPlaneBufferGeometry`는 타일별 지형 정점, 노멀, 바운딩 볼륨과 커스텀 편집 영역을 보유한다.
 
+```spec
+```
+
 ## 3. 정규 자연어 수도코드
 
 ```spec
@@ -69,8 +72,7 @@ U3dHeightLayer extends U3dLayer 클래스 정의
         애플리케이션 처분 경로에서 해제하는 정적 작업 처리기 참조
 
     static terrains: Map<string, UPlaneBufferGeometry> = 빈 Map
-        타일 키별 공유 지형 지오메트리 저장소
-
+        원래 타일 키로 공유 지형 지오메트리를 보관하는 저장소이다.
     constructor(opt: U3dHeightLayerCO = {})
         역할: 고도 레이어의 공통 식별자와 부모 고도 대체 설정을 초기화한다.
 
@@ -116,7 +118,7 @@ U3dHeightLayer extends U3dLayer 클래스 정의
         동작: _heightScale을 반환한다.
 
     setHeightScale(scale: number | null | undefined = 1.0) -> void
-        역할: 지형 높이 배율 설정과 현재 캐시 타일 메시의 Z축 배율을 변경한다.
+        역할: 지형 높이 배율 설정과 현재 캐시 타일 메시의 Z축 배율을 변경하고 지도 컨트롤러의 충돌 높이를 다시 계산한다.
 
         인터페이스:
             scale: 지형 높이에 적용할 배율이며 생략하거나 undefined 또는 null이면 1.0을 사용한다.
@@ -131,10 +133,13 @@ U3dHeightLayer extends U3dLayer 클래스 정의
             U3dLayer — 캐시 키와 draw argument 사용; 함수: {getCacheKeys()}; 속성 읽기: {_drawArg}
             UDrawArg — 캐시 키에 해당하는 현재 타일 조회; 함수: {getTile()}
             U3dQuadTile — 표시 배율과 공간 경계 반영; 함수: {_setHeightScale()}
+            U3dApp — 지도 컨트롤러 조회; 함수: {getMapControl()}
+            UMapControlBase — 현재 카메라 위치의 충돌 높이 재계산; 함수: {_refreshCollisionHeight()}
 
         동작:
             _heightScale에 보정한 값을 저장한다.
             캐시 키를 순회해 조회 가능한 타일에 _heightScale의 적용을 요청한다. 실제 메시 배율의 비교·행렬·공간 경계 갱신은 타일에 맡긴다.
+            모든 타일의 배율을 반영한 뒤 지도 컨트롤러가 제공되면 현재 카메라 위치의 충돌 높이 갱신을 한 번 요청한다.
 
     createParentHeight(tile: U3dQuadTile, opt: U3dHeightWorkOption) -> undefined
         역할: 부모 타일의 캐시 데이터와 지오메트리에서 자식 타일의 대체 고도를 생성한다.
@@ -209,6 +214,7 @@ U3dHeightLayer extends U3dLayer 클래스 정의
             UPlaneBufferGeometry — 공유 지형 생성, 높이 범위·바운딩 상태 반영, 노멀 재계산과 GPU 재업로드 표시; 생성자: {new UPlaneBufferGeometry()}; 함수: {computeVertexNormals()}; 속성 읽기: {boundingBox, boundingSphere}; 속성 쓰기: {_maxHeight, _minHeight, attributes.position.needsUpdate, attributes.normal.needsUpdate}
             U3dApp — 기존 고도 레이어와 개선 품질 조회; 함수: {getLayer(), getImproveValue()}
             UDEF — 노멀 재계산 품질 기준 제공; 상수: {IMPROVE_TEXTURE_LEVEL.low}
+            TERRAIN_NORMAL_UPDATER — 품질·병합 정책에 따른 법선 준비 또는 지연; 함수: {_update()}
             THREE.Box3 — 지형 바운딩 구 갱신; 함수: {getBoundingSphere()}; 속성 쓰기: {min.z, max.z}
 
         동작:
@@ -219,8 +225,8 @@ U3dHeightLayer extends U3dLayer 클래스 정의
             우선 적용된 레이어 이름을 tile._layer에 기록한다.
             최소·최대 높이를 지오메트리와 boundingBox에 기록하고 boundingSphere를 갱신한다.
             커스텀 지형 편집 영역을 반영한다.
-            개선 품질이 low보다 높으면 전체 정점 노멀을 다시 계산한다.
-            position attribute에 재업로드를 표시하고, 노멀을 다시 계산했으면 normal attribute에도 표시한다.
+            position 변경을 먼저 표시하고 공유 법선 서비스 TERRAIN_NORMAL_UPDATER._update에 최대 레벨·품질·부모 상속 정책을 이름 있는 객체로 전달한다. low보다 높은 품질은 전체 법선을 준비하고 low에서는 최신 정책과 미준비 상태만 기록한다. 병합 고도는 부모 상속에서 제외한다.
+            법선 계산·상속·재사용과 normal의 GPU 갱신 표시는 법선 전담 객체가 관리한다.
             갱신을 마치면 true를 반환한다.
 
     updateHeightByUser(_tile: U3dHeightUserTileInfoOption, skey?: string) -> boolean
@@ -258,12 +264,13 @@ U3dHeightLayer extends U3dLayer 클래스 정의
 
         의존:
             defined — 공유 지오메트리와 메시 존재 여부 판정; 함수: {defined()}
+            TERRAIN_NORMAL_UPDATER — 준비 상태와 장착 후 고도 번호 연결; 함수: {_attach()}
             U3dQuadTile — 타일 키와 배율·지오메트리·로드 상태 변경; 함수: {getKey(), _setHeightScale(), changeGeometry(), setHeightLoaded()}; 속성 읽기: {_mesh}
 
         동작:
             타일 키의 공유 지오메트리를 조회한다.
             지오메트리와 메시가 있으면 현재 높이 배율의 적용을 타일에 요청한다.
-            공유 지오메트리를 타일에 연결하고 고도 로드 완료 상태로 표시한다.
+            공유 지오메트리를 타일에 연결하고 TERRAIN_NORMAL_UPDATER._attach로 준비 상태의 고도 번호를 연결한 뒤 고도 로드 완료로 표시한다.
 
     updateGeometryWidthBoxList(geometry: UPlaneBufferGeometry, tile: U3dQuadTile) -> void
         역할: 현재 타일과 교차하는 CustomLand 편집 객체를 지형 지오메트리에 반영한다.
@@ -281,13 +288,15 @@ U3dHeightLayer extends U3dLayer 클래스 정의
             UIndexManager — 타일 범위의 CustomLand 검색; 함수: {search()}
             UIndexItem — 검색된 CustomLand 객체 조회; 속성 읽기: {key}
             UHeightUtil — CustomLand 높이의 지오메트리 반영; 정적 함수: {updateGeometryWidthBox()}
+            UHeightEditOrderManager — 앱별 편집 순서 확정; 정적 함수: {forApp()}; 함수: {order()}
             U3dQuadTile — CustomLand 검색 범위 제공; 속성 읽기: {_minx, _miny, _maxx, _maxy}
 
         동작:
             높이 편집 목록이 비어 있으면 남아 있는 커스텀 박스를 지우고 종료한다.
             필요한 경우 geometry의 boundingBox를 계산한다.
             인덱스 관리자에서 타일 범위와 교차하는 CustomLand 항목을 검색한다.
-            기존 커스텀 박스를 지우고 검색된 각 CustomLand를 geometry에 반영한다.
+            기존 커스텀 박스를 지우고 앱별 관리자의 순번 오름차순으로 검색 결과를 정렬한 뒤 각 CustomLand를 geometry에 반영한다. 나중에 생성한 편집이 겹친 정점에 나중에 적용된다.
+            검색 배열과 중복 항목은 보존한다. 미등록 객체는 등록 객체 뒤에서 기존 검색 순서를 유지한다.
 
     override disposeTile(tile: U3dQuadTile, opt?: Partial<{deletefunc: Function}>) -> void
         역할: 타일 키의 공유 지형 지오메트리와 상위 레이어의 타일 자원을 정리한다.
@@ -461,6 +470,7 @@ U3dHeightTileHeader 타입 정의
         원시 자료의 NoData 표본값이며 없으면 undefined
     count: number
         고도 타일의 실제 값 개수
+
 ```
 
 ## 4. 공통 처리 기준과 제약

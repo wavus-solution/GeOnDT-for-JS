@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -206,6 +206,7 @@ declare class U3dObjectBarrier {
     /**
      * 후처리 외곽선 pass에 객체를 등록해 화면 합성 단계에서 테두리를 그립니다.<br>
      * 객체의 재질을 건드리지 않으므로 원래 색과 질감이 그대로 유지됩니다.<br>
+     * 도형이 자동 생성한 외곽선은 제외하고 본체 형상을 기준으로 하이라이트합니다.<br>
      * 보통 setBarrier()가 대신 호출하며, 후처리 길을 직접 지정하고 싶을 때만 씁니다.<br>
      * 외곽선 pass가 준비되어 있지 않으면 false를 반환합니다.
      * farPoint의 기본 보정·부분 입력·명시적 해제는 setBarrier()와 같습니다.

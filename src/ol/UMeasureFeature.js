@@ -19,6 +19,53 @@ let MEASURE_FEATURE_REVISION_SEQUENCE = 0;
  */
 
 class UMeasureFeature {
+    /**
+     * 평탄 좌표의 공유·복원과 타일별 교체를 관리하는 공통 입력을 만듭니다.
+     * 완성된 측정 피처는 레이어의 등록 단계에서 생성하며 여기서는 생성하지 않습니다.
+     * @template {{id: string | number}} T
+     * @param {UMeasureCoordinateSource} source 좌표와 속성을 소유한 원본입니다.
+     * @param {T} feature 표시 식별자와 메타데이터를 구성한 입력 객체입니다.
+     * @param {string} type GeoJSON 형상 종류입니다.
+     * @param {string} [styleType=type] 기존 스타일 함수가 관찰할 원본 종류입니다.
+     * @returns {T & UMeasureCoordinateFeature} 같은 입력 객체에 좌표 접근을 연결한 결과입니다.
+     *
+     * @ignore
+     */
+    static _createCoordinateFeature(source, feature, type, styleType = type) {
+        return INTERNAL.createCoordinateFeature(source, feature, type, styleType);
+    }
+
+    /** @type {{coordinates: Float64Array | undefined, vectors: Array<import('three').Vector3> | undefined} | undefined} */
+    #flatCoordinatesState;
+
+    /**
+     * 내부 데칼 입력으로 쓸 수 있는 불변 좌표를 읽으며 공개 벡터 조회 뒤에는 비어 있습니다.
+     * @returns {Float64Array | undefined} 아직 객체로 복원하지 않은 좌표입니다.
+     *
+     * @ignore
+     */
+    get _flatCoordinates() { return this.#flatCoordinatesState?.coordinates; }
+
+    /**
+     * 지연 좌표 상태를 교체하거나 기존 참조를 해제합니다.
+     * @param {Float64Array | undefined} value 새 내부 좌표입니다.
+     *
+     * @ignore
+     */
+    set _flatCoordinates(value) {
+        this.#flatCoordinatesState = value ? {coordinates: value, vectors: undefined} : undefined;
+    }
+
+    /**
+     * 같은 원본 대표와 표시 조각만 지연 벡터 상태를 공유합니다. 서로 다른 타일은 공유하지 않습니다.
+     * @param {UMeasureFeature} feature 승인한 표시 조각입니다.
+     *
+     * @ignore
+     */
+    _shareFlatCoordinates(feature) {
+        this.#flatCoordinatesState = feature.#flatCoordinatesState;
+        this._measureVectors = this.#flatCoordinatesState ? feature._measureVectors : feature.getMeasureVectors();
+    }
 
     /**
      * @type {UMeasureFeatureExtent | undefined}
@@ -44,7 +91,7 @@ class UMeasureFeature {
         }
         self.setGeometryRevision(initialGeometryRevision);
         self.setPropertyRevision(initialPropertyRevision);
-        const geometry = self.getGeometry();
+        const geometry = self._getSearchGeometry();
         if (geometry && !(geometry instanceof ol.geom.Geometry)) self.#setMeasureFunction(geometry);
         else INTERNAL.registerGeometryCoordinates(self, geometry?.intersectsExtent, UMeasureFeature.prototype.getGoogleCoordinates);
     }
@@ -66,9 +113,17 @@ class UMeasureFeature {
         self._extent = opt.extent ?? undefined;
         self._worldExtent = opt.worldExtent ?? undefined;
         self._geometry = opt.geometry ?? undefined;
+        /**
+         * 공개 편집용 형상과 분리한 읽기 전용 검색 스냅샷입니다.
+         *
+         * @type {OLGeometry | undefined}
+         *
+         */
+        self._searchGeometry = opt.searchGeometry ?? undefined;
         self._srs = opt.srs ?? undefined;
         self._type = opt.type ?? undefined;
         self._measureVectors = opt.measureVectors ?? [];
+        self._flatCoordinates = opt.flatCoordinates;
         self._fid = fid?? undefined;
         self._olFeature = olFeature ?? undefined;
         self._style = hasOwn(opt, 'style') ? opt.style : sourceFeature?._style;
@@ -302,12 +357,28 @@ class UMeasureFeature {
     }
 
     /**
-     * 연결된 원본 OpenLayers geometry를 반환하며 원본 메서드를 변경하지 않습니다.
-     * @returns 현재 원본 OpenLayers 형상이며, 연결된 형상이 없으면 undefined입니다.
+     * 연결된 원본 형상을 반환하며 공유 검색 형상은 최초 공개 조회에서 독립 복제합니다.
+     * @returns 원본 또는 이 피처만 수정할 수 있는 형상이며 없으면 undefined입니다.
      */
     getGeometry() {
         const geometry = this._olFeature?.getGeometry?.();
-        return geometry instanceof ol.geom.Geometry ? geometry : this._geometry ?? undefined;
+        if (geometry instanceof ol.geom.Geometry) return geometry;
+        if (!this._geometry && this._searchGeometry) {
+            this._geometry = this._searchGeometry.clone();
+            this._searchGeometry = undefined;
+        }
+        return this._geometry ?? undefined;
+    }
+
+    /**
+     * 내부 검색에서는 공개 편집용 형상을 만들지 않고 현재 형상을 읽습니다.
+     * @returns 변경하지 않고 읽을 검색 형상이며 없으면 undefined입니다.
+     * @ignore
+     */
+    _getSearchGeometry() {
+        if (this.getGeometry !== UMeasureFeature.prototype.getGeometry) return this.getGeometry();
+        const geometry = this._olFeature?.getGeometry?.();
+        return geometry instanceof ol.geom.Geometry ? geometry : this._geometry ?? this._searchGeometry;
     }
 
     /**
@@ -315,8 +386,9 @@ class UMeasureFeature {
      * @param {OLGeometry | null | undefined} geometry 새 원본 형상입니다.
      */
     setGeometry(geometry) {
-        if (this._geometry === geometry) return;
+        if (this._geometry === geometry && !this._searchGeometry) return;
         this._geometry = geometry;
+        this._searchGeometry = undefined;
         if (this._olFeature instanceof ol.Feature && this._olFeature.getGeometry() !== geometry) this._olFeature.setGeometry(geometry);
         if (geometry && !(geometry instanceof ol.geom.Geometry)) this.#setMeasureFunction(geometry);
         else INTERNAL.registerGeometryCoordinates(this, geometry?.intersectsExtent, UMeasureFeature.prototype.getGoogleCoordinates);
@@ -339,13 +411,16 @@ class UMeasureFeature {
     setWorldExtent(box) {
         this._worldExtent = box;
     }
-    // measureVectors 구글 좌표로 변환하여 반환
+    /**
+     * 측정 좌표를 지도 좌표로 변환하며 지연 좌표가 있으면 먼저 복원합니다.
+     * @returns {Array<import('three').Vector3>} 변환한 좌표 목록입니다.
+     */
     getGoogleCoordinates(){
         const self = this;
        // return self._googleVectors;
         const googleVectors = [];
         if(!self._drawArg) return googleVectors;
-        self._measureVectors.forEach(vec =>{
+        self.getMeasureVectors().forEach(vec =>{
             const vec_ = self._drawArg.getWorldToGoogle(vec.x, vec.y);
             vec_.z = vec.z;
             googleVectors.push(vec_);
@@ -370,6 +445,16 @@ class UMeasureFeature {
      * @returns {Array<import('three').Vector3>} 내부 좌표 목록의 원본 참조입니다.
      */
     getMeasureVectors() {
+        const state = this.#flatCoordinatesState;
+        if (state) {
+            if (!state.vectors) {
+                const flat = state.coordinates;
+                state.vectors = [];
+                if (flat) for (let i = 0; i < flat.length; i += 2) state.vectors.push(new THREE.Vector3(flat[i], flat[i + 1], 0));
+                state.coordinates = undefined;
+            }
+            this._measureVectors = state.vectors;
+        }
         return this._measureVectors;
     }
 
@@ -379,6 +464,7 @@ class UMeasureFeature {
      * @param {Array<import('three').Vector3>} vectors 새 측정 좌표 목록입니다.
      */
     setMeasureVectors(vectors) {
+        this._flatCoordinates = undefined;
         this._measureVectors = vectors;
         this.bumpGeometryRevision();
         this.bumpRevision();
@@ -822,7 +908,9 @@ function isSameMeasurePropertyStyle(left, right) {
         && Object.is(left.strokeOpacity, right.strokeOpacity)
         && Object.is(left.strokeWidth, right.strokeWidth)
         && Object.is(left.visible, right.visible)
-        && Object.is(left.highlight, right.highlight);
+        && Object.is(left.highlight, right.highlight)
+        && Object.is(left.isDynamicRadius, right.isDynamicRadius)
+        && Object.is(left.dynamicRadius, right.dynamicRadius);
 }
 
 /**

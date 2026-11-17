@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <base href="../">
+    <script>
+// 공통 예제의 실제 기준 URL로 배포 모듈 주소를 해석하고 모듈을 읽기 전에 Import Map을 등록합니다.
+function installExampleImportMap() {
+    const entries = {"/extension/GESpreadObject/GESpreadObject.js":"../dist/extension/GESpreadObject/GESpreadObject.min.js","/extension/sequence/sequence.js":"../dist/extension/sequence/sequence.min.js","/extension/a3fTimeSeries/a3fTimeSeries.js":"../dist/extension/a3fTimeSeries/a3fTimeSeries.min.js"}, imports = {};
+    for (const [specifier, target] of Object.entries(entries)) imports[new URL(specifier, document.baseURI).href] = new URL(target, document.baseURI).href;
+    const map = document.createElement('script'); map.type = 'importmap'; map.textContent = JSON.stringify({imports});
+    document.currentScript.after(map);
+}
+installExampleImportMap();
+</script>
     <title>GeOnDT 예제 미리보기</title>
     <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
     <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">

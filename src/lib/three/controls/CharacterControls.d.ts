@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -9,7 +9,6 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../../d
 import type { U3dModelBasicLayer } from "../../../3dLayer/U3dModelBasicLayer.js";
 import type { UDrawArg } from "../../../core/UDrawArg.js";
 import type { EventCallBack } from "../../../types/global.js";
-import type { DeferredObject } from "../../../util/deferred.js";
 
 // 생성자에 설치하는 on/once는 반환값을 전달하지 않으므로 부모 메서드와 구분합니다.
 declare const CharacterControlsBase: Omit<typeof U3dModelBasicLayer, 'prototype'> & {
@@ -44,7 +43,8 @@ declare class CharacterControls extends CharacterControlsBase {
     dispose: () => void;
     getObject: () => three.PerspectiveCamera;
     getDirection: (v: three.Vector3) => three.Vector3;
-    setModelFile: (filePath: string, rotate?: three.Euler | {x: number; y: number; z: number}) => DeferredObject<void>;
+    /** 모델과 애니메이션 준비를 기다립니다. 실패·취소는 반환 Promise의 거부로 전달합니다. */
+    setModelFile: (filePath: string, rotate?: three.Euler | {x: number; y: number; z: number}) => Promise<void>;
     setWalkModel: (walkModel: any) => void;
     getWalkModel: () => any;
     setWalkSpeed: (speed: number) => void;

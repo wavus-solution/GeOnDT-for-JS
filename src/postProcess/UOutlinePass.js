@@ -2,6 +2,7 @@ import {OutlinePass} from '@union3d/lib/three/postprocessing/OutlinePass';
 import {Pass} from '@union3d/lib/three/postprocessing/Pass';
 import {getOutlineMaterial} from "@union3d/shader/GOutLineShader";
 import {INTERNAL} from '@union3d/postProcess/UOutlinePass.internal';
+import {U3dOutline} from '@union3d/geometry/U3dOutline';
 import {
     ClampToEdgeWrapping,
     Color,
@@ -47,6 +48,7 @@ const STYLE_LINEWIDTH_SCALE_MAX = 10;
  */
 class UOutlinePass extends OutlinePass {
     #time = 0;
+    #lineMasks = INTERNAL.createLineMasks();
     /**
      * 간략 외곽 옵션을 검증·복사하며 잘못된 타입·수치는 TypeError·RangeError로 전달합니다.
      *
@@ -75,7 +77,11 @@ class UOutlinePass extends OutlinePass {
         return {...style, farPoint: Object.freeze({enabled: option.enabled ?? false, ...thresholds, ...cssWidth, minSizePx, simplifyTolerancePx, group: option.group})};
     }
 
-    /** @type {number} 활성 외곽의 기본 CSS 두께이며 명시적 setLineWidth 호출로 갱신합니다. */
+    /**
+     * 활성 외곽의 기본 CSS 두께이며 명시적 setLineWidth 호출로 갱신합니다.
+     *
+     * @type {number}
+     */
     #farPointLineWidth = 1.5;
     /** @type {UOutlineFarPointRenderer | undefined} */
     #farPoints;
@@ -89,7 +95,11 @@ class UOutlinePass extends OutlinePass {
     /** @type {UOutlineFarPointRenderer | undefined} */
     #prewarmFarPoints;
     #disposed = false;
-    /** 마스크 셰이더에 적용한 투영 종류입니다. @type {boolean} */
+    /**
+     * 마스크 셰이더에 적용한 투영 종류입니다.
+     *
+     * @type {boolean}
+     */
     #maskPerspective;
     /**
      * Constructs a new outline pass.
@@ -398,6 +408,7 @@ class UOutlinePass extends OutlinePass {
     dispose(){
         if (this.#disposed) return;
         this.#disposed = true;
+        this.#lineMasks.dispose();
         this.#prewarmFarPoints?._dispose();
         this.#prewarmFarPoints = undefined;
         this.#farPoints?._dispose();
@@ -508,6 +519,8 @@ class UOutlinePass extends OutlinePass {
         renderStyleIds.length = 0;
 
         const gatherSelectedMeshesCallBack = (object, root) => {
+            // 도형이 자체 생성한 외곽선 객체는 OutlinePass 적용 대상에서 제외하여 중복 하이라이트를 방지합니다.
+            if (object.userData?._u3dGeometryOutline) return;
             //  유효한 객체들만 순회하므로, 여기서 메쉬인지 여부만 확인하면 됩니다.
             if (object.isMesh && object.parent) {
                 cache.add(object);
@@ -537,6 +550,8 @@ class UOutlinePass extends OutlinePass {
 
             let hasInvalidChild = false;
             selectedObject.traverse((child) => {
+                // 도형이 자체 생성한 외곽선 객체는 OutlinePass 적용 대상에서 제외하여 중복 하이라이트를 방지합니다.
+                if (child.userData?._u3dGeometryOutline) return;
                 if (hasInvalidChild) {
                     return;
                 }
@@ -612,6 +627,22 @@ class UOutlinePass extends OutlinePass {
 
         // effective=true면 부모 체인까지 탐색한 "실제 적용될 styleId" 기준으로 반환합니다.
         return self._styleMap.get(styleId);
+    }
+
+    /**
+     * 실제 렌더링 시각과 GPU에 저장된 속도로 대상의 누적 bounce 주기를 반환합니다.
+     * @param {import('three').Object3D} object 외곽선 대상
+     * @returns {number | undefined} 누적 파동 주기이며 bounce 대상이 아니면 undefined입니다.
+     * @ignore
+     */
+    _getBounceProgress(object) {
+        if (this.getOutlineStyleForObject(object)?.mode !== OutlineMode.BOUNCE) return undefined;
+        const styleId = this.#getEffectiveStyleId(object);
+        const effectRow = 2;
+        const speedChannel = 2;
+        const speedByte = this._styleTexture?.image.data[(effectRow * this._styleCapacity + styleId) * 4 + speedChannel];
+        if (speedByte === undefined) return undefined;
+        return this.#time * Math.max(0.05, speedByte * STYLE_BOUNCE_SPEED_MAX / 255);
     }
 
      /**
@@ -1283,17 +1314,11 @@ class UOutlinePass extends OutlinePass {
         const originalMaterial = originalMaterialOverride ?? object.material;
         // InstancedMesh 계열은 전용 material로 그린다. InstancedMesh2가 렌더 직전에 material을 패치해도
         // 일반 mesh가 쓰는 material은 건드려지지 않아 다음 선택에서 셰이더 상태가 섞이지 않는다.
-        const maskMaterial = this.#getMaskMaterialFor(object);
-        object.material = maskMaterial;
-        const lodMaterials = new Map();
-
-         if (object?.isInstancedMesh && object?.instanceIndex && maskMaterial?.uniforms?.instanceStyleIdTexture) {
-            const tex = this.#ensureInstanceStyleIdTexture(object);
-            maskMaterial.uniforms.instanceStyleIdTexture.value = tex;
-            if (maskMaterial.uniforms.instanceStyleTexSize) {
-                maskMaterial.uniforms.instanceStyleTexSize.value = tex?.image?.width ?? 1;
-            }
-        }
+        const maskMaterial = object.isLineSegments2 && originalMaterial?.isLineMaterial
+            ? this.#lineMasks.get(originalMaterial, this.prepareMaskMaterial, renderer)
+            : this.#getMaskMaterialFor(object);
+        /** @type {Array<U3dOutlineMaterialState>} */
+        const materialStates = [];
 
         // 전용 material 분리 이후에도 일반 material만큼은 defines가 바뀌면 안 되므로 스냅샷으로 감시한다.
         // (인스턴스 전용 material의 인스턴싱 defines는 정상 상태이므로 되돌리지 않는다.)
@@ -1301,11 +1326,18 @@ class UOutlinePass extends OutlinePass {
         const prevDefines = watchDefines ? { ...maskMaterial.defines } : undefined;
 
         try {
+            U3dOutline._pushMaterialOverride(materialStates, object, maskMaterial, originalMaterial);
+            if (object?.isInstancedMesh && object?.instanceIndex && maskMaterial?.uniforms?.instanceStyleIdTexture) {
+                const tex = this.#ensureInstanceStyleIdTexture(object);
+                maskMaterial.uniforms.instanceStyleIdTexture.value = tex;
+                if (maskMaterial.uniforms.instanceStyleTexSize) {
+                    maskMaterial.uniforms.instanceStyleTexSize.value = tex?.image?.width ?? 1;
+                }
+            }
             for (const lod of object.LODinfo?.objects ?? []) {
                 if (lod._parentLOD !== object) continue;
-                lodMaterials.set(lod, lod.material);
                 // 미선택 형상이 원래 재질로 마스크에 남지 않도록 모든 표현에서 재질을 맞춥니다.
-                lod.material = maskMaterial;
+                U3dOutline._pushMaterialOverride(materialStates, lod, maskMaterial);
             }
             if (object.isInstancedMesh && object.getBarrierInstances && object.getBarrierInstances() && object.getBarrierInstances().length > 0) {
                 if (instancedIndicesOverride) {
@@ -1319,8 +1351,7 @@ class UOutlinePass extends OutlinePass {
                 renderer.render(object, this.renderCamera);
             }
         } finally {
-            object.material = originalMaterial;
-            for (const [lod, material] of lodMaterials) lod.material = material;
+            U3dOutline._restoreMaterialOverrides(materialStates);
 
             // ↓ 렌더링 후 defines 복원 (키 존재 여부뿐 아니라 값까지 비교)
             if (watchDefines) {
@@ -1585,38 +1616,41 @@ class UOutlinePass extends OutlinePass {
     }
 
     #renderMask(renderer, info, context) {
-        this._changeVisibilityOfNonSelectedObjects(false); // 비선택 오브젝트 숨김
-        this.renderScene.overrideMaterial = this.prepareMaskMaterial; // prepareMaskMaterial이 깊이 버퍼와 비교
+        try {
+            this._changeVisibilityOfNonSelectedObjects(false); // 비선택 오브젝트 숨김
+            this.renderScene.overrideMaterial = this.prepareMaskMaterial; // prepareMaskMaterial이 깊이 버퍼와 비교
 
-        // 일반/인스턴스 마스크 material 중 어느 쪽이 쓰이든 같은 깊이 비교 기준을 써야 한다.
-        for (const maskMaterial of this.#getMaskMaterials()) {
-            const uniforms = maskMaterial.uniforms;
-            if (!uniforms) continue;
-            uniforms['cameraNearFar'].value.set(this.renderCamera.near, this.renderCamera.far);
-            uniforms['depthTexture'].value = this.renderTargetDepthBuffer.texture;
-            uniforms['textureMatrix'].value = this.textureMatrix;
+            // 일반/인스턴스 마스크 material 중 어느 쪽이 쓰이든 같은 깊이 비교 기준을 써야 한다.
+            for (const maskMaterial of this.#getMaskMaterials()) {
+                const uniforms = maskMaterial.uniforms;
+                if (!uniforms) continue;
+                uniforms['cameraNearFar'].value.set(this.renderCamera.near, this.renderCamera.far);
+                uniforms['depthTexture'].value = this.renderTargetDepthBuffer.texture;
+                uniforms['textureMatrix'].value = this.textureMatrix;
+            }
+
+            renderer.setRenderTarget(this.renderTargetMaskBuffer);
+            renderer.clear();
+
+            for (let i = 0; i < info.objects.length; i++) {
+                this.#renderObjectToMask(
+                    renderer,
+                    info.objects[i],
+                    info.styleIds[i],
+                    undefined,
+                    info.instanced.get(info.objects[i])
+                );
+            }
+        } finally {
+            // 렌더 콜백에서 장면과 분리된 객체도 저장한 참조로 복원합니다.
+            for (const [object, visible] of this._visibilityCache) {
+                object.visible = visible;
+            }
+            this._visibilityCache.clear();
+
+            this.renderScene.background = context.background;
+            this.renderScene.overrideMaterial = context.override;
         }
-
-        renderer.setRenderTarget(this.renderTargetMaskBuffer);
-        renderer.clear();
-
-        for (let i = 0; i < info.objects.length; i++) {
-            this.#renderObjectToMask(
-                renderer,
-                info.objects[i],
-                info.styleIds[i],
-                undefined,
-                info.instanced.get(info.objects[i])
-            );
-        }
-
-        this._changeVisibilityOfNonSelectedObjects(true);
-        this._visibilityCache.clear();
-
-        const background = context.background;
-        const override = context.override;
-        this.renderScene.background = background; // background 복원
-        this.renderScene.overrideMaterial = override; // overrideMaterial 복원
     }
 
     /**

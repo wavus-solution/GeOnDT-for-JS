@@ -3,17 +3,18 @@ const MAIN_LAYER_NAME = 'vectorLayer';
 /** 데이터 입력과 초기 도형을 담는 보조 레이어입니다. 검색 대상에 포함하지 않습니다. */
 const SUB_LAYER_NAME = 'subVectorLayer';
 /** 동적 반경 설정이 일반 포인트에 적용되지 않도록 전용 레이어에 분리합니다. */
-const DYNAMIC_LAYER_NAME = 'dynamicCircleLayer';
 const SEARCH_GEOMETRY_STYLE = {fillColor: '#7aff7a', strokeColor: '#ffff00'};
 const HIGHLIGHT_STYLE = {fillColor: 'rgba(0,255,0,0.5)', strokeColor: '#ffff00', strokeWidth: 1.5};
 const ORBIT_CENTER = [126.9395, 37.52];
 const INITIAL_ORBIT_RADIUS = 70;
+const OUTER_ORBIT_RADIUS = INITIAL_ORBIT_RADIUS * 1.6;
 const INITIAL_CIRCLE_RADIUS = 30;
 const INITIAL_DYNAMIC_CIRCLE_RADIUS = 15;
 const CIRCLE_SEGMENT_COUNT = 64;
 const ORBIT_ANGLE_STEP = Math.PI / 360;
 const ROTATION_ANGLE_STEP = Math.PI / 180;
-const ANIMATION_INTERVAL_MS = 1000 / 40;
+/** 기존 40Hz 기준의 각도 증가량을 경과시간으로 환산해 같은 회전 속도를 유지합니다. */
+const ANIMATION_STEP_MS = 1000 / 40;
 const ANIMATION_DRAW_WORK_FRAME = 20;
 const TWO_PI = Math.PI * 2;
 
@@ -39,8 +40,11 @@ export async function initialize(context) {
     let searchOpen = false;
     let overlay;
     let overlayPositionFrame = 0;
+    let overlaySizeObserver;
+    let overlayLayoutKey;
     let disposed = false;
-    let animationTimer;
+    let animationFrame;
+    let animationUpdatedAt = 0;
     let orbitAngle = 0;
     const home = context.config?.home;
     const center = app._drawArg.getGeographicToGoogle(home?.longitude ?? ORBIT_CENTER[0], home?.latitude ?? ORBIT_CENTER[1]);
@@ -65,18 +69,10 @@ export async function initialize(context) {
     const subVectorLayer = new GeOnDT.vector.U2dVectorShaderLayer({name: SUB_LAYER_NAME, minLevel: 15, transparent: true});
     app.addLayer(subVectorLayer);
     app.showLayer(SUB_LAYER_NAME, true);
-    // @example-code:start geometry.dynamic-circle
-    const dynamicCircleLayer = new GeOnDT.vector.U2dVectorShaderLayer({
-        name: DYNAMIC_LAYER_NAME, minLevel: 15, transparent: true,
-        isDynamicRadius: true, dynamicRadius: INITIAL_DYNAMIC_CIRCLE_RADIUS
-    });
-    app.addLayer(dynamicCircleLayer);
-    app.showLayer(DYNAMIC_LAYER_NAME, true);
-    // @example-code:end geometry.dynamic-circle
 
     /** UI 구독자가 현재 상태를 읽을 수 있도록 참조 목록을 새로 만듭니다. */
     function getState() {
-        return {settings: {...settings}, drawings: [...drawings.values()], animationEnabled: animationTimer !== undefined,
+        return {settings: {...settings}, drawings: [...drawings.values()], animationEnabled: animationFrame !== undefined,
             selectedDrawingId, searchResults: [...searchResults], searchOpen};
     }
 
@@ -89,6 +85,10 @@ export async function initialize(context) {
     function closeOverlay() {
         cancelAnimationFrame(overlayPositionFrame);
         overlayPositionFrame = 0;
+        overlaySizeObserver?.disconnect();
+        overlaySizeObserver = undefined;
+        if (overlayLayoutKey) app.unkey('change', overlayLayoutKey);
+        overlayLayoutKey = undefined;
         if (!overlay) return;
         const previous = overlay;
         overlay = undefined;
@@ -150,6 +150,8 @@ export async function initialize(context) {
         closeOverlay();
         const element = document.createElement('section');
         element.className = 'vector2d-feature-overlay';
+        // 화면 밖 판정과 최초 배치를 마치기 전에는 미배치 팝업을 노출하지 않습니다.
+        element.style.visibility = 'hidden';
         const header = document.createElement('header');
         const title = document.createElement('strong');
         title.textContent = '피처 ' + item.id;
@@ -185,26 +187,47 @@ export async function initialize(context) {
         // endPosition을 지정하면 SDK가 드래그를 활성화하며 useLine으로 두 위치를 연결합니다.
         overlay = new GeOnDT.overlay.U3dOverlay({
             name: 'vector2d-feature-info', element, position, endPosition: {...position},
-            anchor: [0, 1], useAnchor: true, useLine: true, linecolor: '#ffff00'
+            useAnchor: false, useLine: true, linecolor: '#ffff00'
         });
         app.addOverlay(overlay);
         // @example-code:end search.overlay
         const current = overlay;
-        // SDK가 첫 화면 좌표를 적용한 뒤 크기를 읽습니다. 오른쪽 패널에 닫기 버튼이 가려지거나
-        // 화면 위로 잘릴 때에는 지도 좌표를 유지하면서 오버레이를 펼치는 방향만 바꿉니다.
-        overlayPositionFrame = requestAnimationFrame(() => {
+        /** 카메라·크기 변경을 모아 SDK의 화면 좌표 적용 이후에 배치합니다. */
+        function scheduleOverlayPosition() {
+            if (overlay !== current || overlayPositionFrame) return;
+            overlayPositionFrame = requestAnimationFrame(positionOverlay);
+        }
+        /** 실제 크기와 현재 카메라 좌표를 기준으로 팝업을 지도 안에 배치합니다. */
+        function positionOverlay() {
             overlayPositionFrame = 0;
-            if (overlay !== current) return;
+            if (overlay !== current || current._isDragging) return;
             const bounds = element.getBoundingClientRect();
+            if (!bounds.width || !bounds.height) return;
             const map = app.container().getBoundingClientRect();
             const panel = context.elements.root.querySelector('#vector2d-draw-panel').getBoundingClientRect();
             const right = panel.width ? Math.min(map.right, panel.left) : map.right;
-            if (bounds.right > right) current.anchor[0] = 1;
-            if (bounds.left < map.left) current.anchor[0] = 0;
-            if (bounds.top < map.top) current.anchor[1] = 0;
-            if (bounds.bottom > map.bottom) current.anchor[1] = 1;
-            current.callOnchange();
-        });
+            // change 리스너 순서와 무관하게 이전 프레임의 DOM 위치 대신 현재 카메라로 투영합니다.
+            const projected = current.point3D.clone().project(app._camera);
+            const x = map.left + (projected.x + 1) * map.width / 2;
+            const y = map.top + (1 - projected.y) * map.height / 2;
+            const left = Math.max(map.left, Math.min(x, right - bounds.width));
+            const top = Math.max(map.top, Math.min(y - bounds.height, map.bottom - bounds.height));
+            const offsetX = left - x;
+            // 기존 오프셋은 패널 하단을 기준으로 하므로 원하는 위쪽 위치에 높이를 함께 반영합니다.
+            const offsetY = y - bounds.height - top;
+            if (current.balloon.x !== offsetX || current.balloon.y !== offsetY) {
+                current.balloon.x = offsetX;
+                current.balloon.y = offsetY;
+                current.callOnchange();
+                scheduleOverlayPosition();
+                return;
+            }
+            element.style.visibility = 'visible';
+        }
+        overlaySizeObserver = new ResizeObserver(scheduleOverlayPosition);
+        overlaySizeObserver.observe(element);
+        overlayLayoutKey = app.on('change', scheduleOverlayPosition);
+        scheduleOverlayPosition();
     }
 
     /**
@@ -337,11 +360,11 @@ export async function initialize(context) {
         if (settings.drawing && settings.drawType !== 'Point') finishDrawing();
     });
 
-    /** 초기 도형의 공통 갱신 타이머를 정리합니다. */
+    /** 초기 도형의 다음 RAF 갱신 예약을 취소합니다. */
     function stopInitialAnimation() {
-        if (animationTimer === undefined) return;
-        window.clearInterval(animationTimer);
-        animationTimer = undefined;
+        if (animationFrame === undefined) return;
+        window.cancelAnimationFrame(animationFrame);
+        animationFrame = undefined;
     }
 
     /** 초기 도형의 목록·선택·원본을 함께 정리하며 입력 데이터는 보존합니다. */
@@ -356,16 +379,21 @@ export async function initialize(context) {
         }
     }
 
-    /** 홈 위치 주변에 초기 도형을 배치하고 공통 편집 API로 움직입니다. */
+    /** 기존 5개와 바깥쪽 4개를 같은 홈 중심에 배치합니다. */
     function createInitialDrawings() {
         if (disposed) return;
         clearInitialDrawings();
         orbitAngle = 0;
-        dynamicCircleLayer.setDynamicRadius(true, INITIAL_DYNAMIC_CIRCLE_RADIUS);
         const circle = Array.from({length: CIRCLE_SEGMENT_COUNT}, (_, index) => {
             const angle = TWO_PI * index / CIRCLE_SEGMENT_COUNT;
             return [INITIAL_CIRCLE_RADIUS * Math.cos(angle), INITIAL_CIRCLE_RADIUS * Math.sin(angle)];
         });
+        // @example-code:start geometry.dynamic-circle
+        const dynamicCircle = new GeOnDT.geom.U2dPoint({
+            fillColor: '#a55bff', fillOpacity: 0.8, strokeColor: '#ffffff', strokeWidth: 2,
+            radius: INITIAL_DYNAMIC_CIRCLE_RADIUS, isDynamicRadius: true
+        });
+        // @example-code:end geometry.dynamic-circle
         const samples = [
             {name: '공전 원', type: 'Polygon', coordinates: circle,
                 geometry: new GeOnDT.geom.U2dPolygon({fillColor: '#ffff00', fillOpacity: 0, strokeColor: '#ffff00', strokeWidth: 3})},
@@ -375,12 +403,24 @@ export async function initialize(context) {
                 geometry: new GeOnDT.geom.U2dLine({strokeColor: '#ff6aa2', strokeWidth: 5})},
             {name: '폴리곤', type: 'Polygon', coordinates: [[-35, -25], [35, -25], [20, 30], [-20, 15]],
                 geometry: new GeOnDT.geom.U2dPolygon({fillColor: '#7aff7a', fillOpacity: 0.55, strokeColor: '#ffffff', strokeWidth: 3})},
-            {name: '동적 원', type: 'Point', coordinates: [[0, 0]], layer: dynamicCircleLayer,
-                geometry: new GeOnDT.geom.U2dPoint({fillColor: '#a55bff', fillOpacity: 0.8, strokeColor: '#ffffff', strokeWidth: 2, radius: INITIAL_DYNAMIC_CIRCLE_RADIUS})}
+            {name: '동적 원', type: 'Point', coordinates: [[0, 0]], geometry: dynamicCircle}
         ];
+        const innerSampleCount = samples.length;
+        samples.push(
+            {name: '바깥 포인트', type: 'Point', coordinates: [[0, 0]], orbitRadius: OUTER_ORBIT_RADIUS,
+                geometry: new GeOnDT.geom.U2dPoint({fillColor: '#00ffff', strokeColor: '#ffffff', strokeWidth: 2, radius: 8})},
+            {name: '바깥 라인', type: 'LineString', coordinates: [[-12, -8], [0, 12], [12, -8]], orbitRadius: OUTER_ORBIT_RADIUS,
+                geometry: new GeOnDT.geom.U2dLine({strokeColor: '#ffaa33', strokeWidth: 3})},
+            {name: '바깥 폴리곤', type: 'Polygon', coordinates: [[-12, -10], [12, -10], [0, 14]], orbitRadius: OUTER_ORBIT_RADIUS,
+                geometry: new GeOnDT.geom.U2dPolygon({fillColor: '#ff66ff', fillOpacity: 0.55, strokeColor: '#ffffff', strokeWidth: 2})},
+            {name: '바깥 원', type: 'Polygon', coordinates: circle.map(([x, y]) => [x / 2, y / 2]), orbitRadius: OUTER_ORBIT_RADIUS,
+                geometry: new GeOnDT.geom.U2dPolygon({fillColor: '#ffff00', fillOpacity: 0, strokeColor: '#ffff00', strokeWidth: 2})}
+        );
         samples.forEach((sample, index) => {
-            const phase = index * TWO_PI / samples.length;
-            const anchor = [center.x + INITIAL_ORBIT_RADIUS * Math.cos(phase), center.y + INITIAL_ORBIT_RADIUS * Math.sin(phase)];
+            const phase = index < innerSampleCount ? index * TWO_PI / innerSampleCount
+                : (index - innerSampleCount) * TWO_PI / (samples.length - innerSampleCount);
+            const radius = sample.orbitRadius ?? INITIAL_ORBIT_RADIUS;
+            const anchor = [center.x + radius * Math.cos(phase), center.y + radius * Math.sin(phase)];
             const coordinates = sample.coordinates.map(([x, y]) => [x + anchor[0], y + anchor[1]]);
             const geometry = sample.geometry;
             geometry.setPosition(sample.type === 'Point' ? coordinates[0] : sample.type === 'Polygon' ? [coordinates] : coordinates, 'EPSG:3857');
@@ -388,24 +428,32 @@ export async function initialize(context) {
             const layer = sample.layer ?? subVectorLayer;
             layer.addGeometry(geometry);
             const item = registerDrawing(geometry, sample.type, false, layer, '초기 ' + sample.name);
-            item.motion = {phase, anchor, offset: [0, 0]};
+            item.motion = {phase, anchor, offset: [0, 0], radius};
         });
-        animationTimer = window.setInterval(updateInitialDrawings, ANIMATION_INTERVAL_MS);
         notifyState();
     }
 
-    /** 원본의 이동·회전만 변경하며 목록과 편집 중인 입력창은 매 프레임 다시 만들지 않습니다. */
-    function updateInitialDrawings() {
-        orbitAngle = (orbitAngle - ORBIT_ANGLE_STEP) % TWO_PI;
+    /**
+     * RAF 경과시간으로 기존 속도의 이동·회전량을 계산합니다.
+     * @param {number} now 브라우저가 전달한 RAF 시각(ms)입니다.
+     */
+    function updateInitialDrawings(now) {
+        if (disposed || animationFrame === undefined) return;
+        animationFrame = window.requestAnimationFrame(updateInitialDrawings);
+        const step = (now - animationUpdatedAt) / ANIMATION_STEP_MS;
+        if (step <= 0) return;
+        animationUpdatedAt = now;
+        orbitAngle = (orbitAngle - ORBIT_ANGLE_STEP * step) % TWO_PI;
         for (const item of drawings.values()) {
             if (!item.motion) continue;
             const angle = orbitAngle + item.motion.phase;
-            const anchor = [center.x + item.motion.offset[0] + INITIAL_ORBIT_RADIUS * Math.cos(angle),
-                center.y + item.motion.offset[1] + INITIAL_ORBIT_RADIUS * Math.sin(angle)];
+            const radius = item.motion.radius ?? INITIAL_ORBIT_RADIUS;
+            const anchor = [center.x + item.motion.offset[0] + radius * Math.cos(angle),
+                center.y + item.motion.offset[1] + radius * Math.sin(angle)];
             const geometry = item.geometry;
             // @example-code:start feature.update
             geometry.translate(anchor[0] - item.motion.anchor[0], anchor[1] - item.motion.anchor[1]);
-            geometry.rotate(ROTATION_ANGLE_STEP, anchor);
+            geometry.rotate(ROTATION_ANGLE_STEP * step, anchor);
             // @example-code:end feature.update
             item.motion.anchor = anchor;
         }
@@ -413,6 +461,8 @@ export async function initialize(context) {
     }
 
     createInitialDrawings();
+    animationUpdatedAt = performance.now();
+    animationFrame = window.requestAnimationFrame(updateInitialDrawings);
 
     /**
      * 수동 편집 후 공전 중심도 옮겨 재개 첫 프레임에서 원래 위치로 돌아가지 않게 합니다.
@@ -425,8 +475,9 @@ export async function initialize(context) {
         const anchor = [(extent[0] + extent[2]) / 2, (extent[1] + extent[3]) / 2];
         const angle = orbitAngle + item.motion.phase;
         item.motion.anchor = anchor;
-        item.motion.offset = [anchor[0] - center.x - INITIAL_ORBIT_RADIUS * Math.cos(angle),
-            anchor[1] - center.y - INITIAL_ORBIT_RADIUS * Math.sin(angle)];
+        const radius = item.motion.radius ?? INITIAL_ORBIT_RADIUS;
+        item.motion.offset = [anchor[0] - center.x - radius * Math.cos(angle),
+            anchor[1] - center.y - radius * Math.sin(angle)];
     }
 
     return {
@@ -587,13 +638,13 @@ export async function initialize(context) {
             const geometry = item.geometry;
             const feature = item.layer.getFeatureById(geometry.getFeature().getId());
             geometry.setParam({...style, nonChanged:false});
-            if (item.layer === dynamicCircleLayer) dynamicCircleLayer.setDynamicRadius(true, style.radius);
             // OL 스타일만 바꾸면 레이어의 캐시 스타일이 우선하여 이전 색으로 표시됩니다.
             // 명시적 피처 스타일도 변경하여 표시용 상태와 원본 도형을 함께 갱신합니다.
             if (feature) item.layer.setFeatureStyle(feature, {
                 fillColor: style.fillColor, strokeColor: style.strokeColor,
                 fillOpacity: style.fillOpacity, strokeOpacity: style.strokeOpacity, strokeWidth: style.strokeWidth,
-                visible: geometry.getParam().visible, excludeSearch: geometry.getExcludeSearch(), nonChanged: false
+                visible: geometry.getParam().visible, excludeSearch: geometry.getExcludeSearch(), nonChanged: false,
+                isDynamicRadius: geometry.getParam().isDynamicRadius
             });
             item.style = {...style};
             notifyState();
@@ -708,12 +759,13 @@ export async function initialize(context) {
         setAnimationEnabled(enabled) {
             if (!enabled) {
                 stopInitialAnimation();
-            } else if (animationTimer === undefined && [...drawings.values()].some(item => item.motion)) {
-                animationTimer = window.setInterval(updateInitialDrawings, ANIMATION_INTERVAL_MS);
+            } else if (animationFrame === undefined && [...drawings.values()].some(item => item.motion)) {
+                animationUpdatedAt = performance.now();
+                animationFrame = window.requestAnimationFrame(updateInitialDrawings);
             }
             notifyState();
         },
-        /** 초기 도형만 원래 위치·스타일로 다시 만들고 이동·회전을 시작합니다. */
+        /** 초기 도형만 원래 위치·스타일로 복원하고 재생 선택 전까지 멈춰 둡니다. */
         resetInitialDrawings: createInitialDrawings,
         /**
          * 초기 도형의 좌표 갱신이 진행 중인지 알려 줍니다.
@@ -721,7 +773,7 @@ export async function initialize(context) {
          * @returns {boolean} 좌표 갱신 여부
          */
         isAnimationEnabled() {
-            return animationTimer !== undefined;
+            return animationFrame !== undefined;
         },
         /**
          * 선택한 형식의 문자열을 읽어 2D 객체로 만듭니다.
@@ -777,10 +829,8 @@ export async function initialize(context) {
             app.unkey('dblclick', dblClickKey);
             vectorLayer.clear();
             subVectorLayer.clear();
-            dynamicCircleLayer.clear();
             app.removeLayer(MAIN_LAYER_NAME);
             app.removeLayer(SUB_LAYER_NAME);
-            app.removeLayer(DYNAMIC_LAYER_NAME);
         }
     };
 }

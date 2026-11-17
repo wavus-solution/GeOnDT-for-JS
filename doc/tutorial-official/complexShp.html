@@ -1511,6 +1511,10 @@
                             mesh._oriPosition.z += offset;
                         });
                         offset += 0.05;
+                    }).catch(error => {
+                        // 연속 클릭으로 교체된 이전 애니메이션은 undefined로 거부됩니다.
+                        // 이 취소만 무시하고, 성공 후처리 등에서 발생한 실제 오류는 보고합니다.
+                        if (error !== undefined) console.error('층간 벌림 적용에 실패했습니다.', error);
                     });
                 });
             }

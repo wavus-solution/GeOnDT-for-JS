@@ -11,6 +11,53 @@ export async function initialize(context) {
     // 앱이 줌 레벨에 맞춰 정한 maxDistance도 보존해야 하므로 런타임 초기값을 기준으로 삼습니다.
     const initialFactor = {...factor};
     const initialCollision = control.getUseCollision();
+    const initialMouseBindings = control.getMouseBindings();
+    const initialKeyBindings = control.getKeyBindings();
+
+    const keyActions = {panUp: '팬 위로', panDown: '팬 아래로', panLeft: '팬 왼쪽', panRight: '팬 오른쪽',
+        rotateUp: '위로 회전', rotateDown: '아래로 회전', rotateLeft: '왼쪽 회전', rotateRight: '오른쪽 회전', none: '사용 안 함'};
+    const keyPresets = {
+        pan: {ArrowUp: 'panUp', ArrowDown: 'panDown', ArrowLeft: 'panLeft', ArrowRight: 'panRight'},
+        rotate: {ArrowUp: 'rotateUp', ArrowDown: 'rotateDown', ArrowLeft: 'rotateLeft', ArrowRight: 'rotateRight'}
+    };
+
+    function applyKeyPreset(name) {
+        if (name === 'default') control.resetKeyBindings();
+        else if (name === 'pan' || name === 'rotate') control.setKeyBindings(keyPresets[name]);
+    }
+
+    function getKeyPreset() {
+        const keys = control.getKeyBindings();
+        return Object.keys(keyPresets).find(name => Object.entries(keyPresets[name]).every(([code, action]) => keys[code] === action)) || 'custom';
+    }
+
+    function getKeyCode() {
+        return `const control = app.getMapControl();\ncontrol.setKeyBindings(${JSON.stringify(control.getKeyBindings(), null, 4)});`;
+    }
+    const mousePresets = {
+        default: {mouse: {left: 'pan', middle: 'none', right: 'rotate'}, modifiers: {ctrlOrMeta: {left: 'rotate', middle: 'inherit', right: 'inherit'}}},
+        swapped: {mouse: {left: 'rotate', middle: 'none', right: 'pan'}, modifiers: {ctrlOrMeta: {left: 'pan', middle: 'inherit', right: 'inherit'}}}
+    };
+
+    /** 감도 프리셋과 독립적으로 마우스 조작만 변경합니다. */
+    function applyMousePreset(name) {
+        if (name === 'default') control.resetMouseBindings();
+        else if (name === 'swapped') control.setMouseBindings(mousePresets.swapped);
+    }
+
+    /** 입력 매핑의 공개 API를 그대로 사용해 검증과 드래그 취소 정책을 공유합니다. */
+    function setMouseBinding(button, action, modifier) {
+        control.setMouseBindings(modifier ? {modifiers: {ctrlOrMeta: {[button]: action}}} : {mouse: {[button]: action}});
+    }
+
+    function getMousePreset() {
+        const current = JSON.stringify(control.getMouseBindings());
+        return Object.keys(mousePresets).find(key => JSON.stringify(mousePresets[key]) === current) || 'custom';
+    }
+
+    function getMouseCode() {
+        return `const control = app.getMapControl();\ncontrol.setMouseBindings(${JSON.stringify(control.getMouseBindings(), null, 4)});`;
+    }
     const {FIX_ANCHOR, NON_ANCHOR, FIRST_PERSON} = GeOnDT.constant.CONTROL_TYPE;
     const types = [[FIX_ANCHOR, '앵커 기준'], [NON_ANCHOR, '앵커 없이'], [FIRST_PERSON, '1인칭']];
 
@@ -24,7 +71,7 @@ export async function initialize(context) {
         {key: 'panInertiaMinSpeed', group: 'inertia', label: '최소 속도 (CSS px/s)', min: 0.1, help: '이 속도 이하는 관성을 시작하지 않거나 멈춥니다.'},
         {key: 'panInertiaMaxSpeed', group: 'inertia', label: '시작 속도 상한 (CSS px/s)', min: 0.1, help: '빠른 드래그로 너무 멀리 움직이지 않게 제한합니다.'},
         {key: 'panInertiaSampleTime', group: 'inertia', label: '속도 평활·유효 시간 (ms)', min: 1, help: '이 시간 이상 멈췄다가 놓으면 관성이 생기지 않습니다.'},
-        {key: 'rotateInertiaEnabled', group: 'rotationInertia', label: '회전 관성 사용', kind: 'boolean', help: '오른쪽 드래그 또는 Ctrl+왼쪽 드래그를 놓은 뒤 회전을 서서히 멈춥니다.'},
+        {key: 'rotateInertiaEnabled', group: 'rotationInertia', label: '회전 관성 사용', kind: 'boolean', help: '회전으로 지정한 마우스 드래그를 놓은 뒤 회전을 서서히 멈춥니다.'},
         {key: 'rotateInertiaFactor', group: 'rotationInertia', label: '회전 관성 세기', min: 0, help: '놓을 때의 회전 입력 속도 배율입니다. 0이면 회전 관성을 끕니다.'},
         {key: 'rotateInertiaDamping', group: 'rotationInertia', label: '회전 감속 계수 (1/s)', min: 0.1, help: '클수록 빠르게 멈춥니다. 지도 기본 8, 실내 13, 1인칭 14입니다.'},
         {key: 'rotateInertiaMinSpeed', group: 'rotationInertia', label: '회전 최소 속도 (CSS px/s)', min: 0.1, help: '각속도가 아닌 마우스 입력 속도입니다. 이 속도 이하는 멈춥니다.'},
@@ -53,7 +100,7 @@ export async function initialize(context) {
         {key: 'moveType', group: 'mode', label: '팬 이동 방식', options: types, help: '앵커 이동이 성립하지 않으면 일반 팬 경로를 사용합니다.'},
         {key: 'rotationType', group: 'mode', label: '회전 방식', options: types, help: '팬·회전·줌 방식을 각각 선택할 수 있습니다.'},
         {key: 'zoomType', group: 'mode', label: '줌 방식', options: types, help: '1인칭 방식은 카메라의 전후 이동을 사용합니다.'},
-        {key: 'firstPersonModeKey', group: 'mode', label: '임시 1인칭 전환 키 코드', min: 1, max: 255, integer: true, help: '16은 Shift입니다. 누르는 동안 1인칭으로 전환합니다. 방향키 코드는 사용할 수 없습니다.'},
+        {key: 'firstPersonModeKey', group: 'mode', label: '임시 1인칭 전환 키 코드', min: 1, max: 255, integer: true, help: '16은 Shift입니다. 누르는 동안 1인칭으로 전환합니다. 방향키와 이동·회전에 사용 중인 키는 사용할 수 없습니다.'},
         {key: 'collisionFactor', group: 'mode', label: '지면 충돌 여유 높이', min: 0.001, help: '충돌 판정 시 지면 고도에 더하는 카메라 여유 높이입니다.'},
         {key: 'collisionOffset', group: 'mode', label: '지면 고도 오프셋', help: '충돌에 사용하는 지면 고도를 보정합니다. 음수도 허용합니다.'}
     ];
@@ -85,6 +132,7 @@ export async function initialize(context) {
     /** 진행 중인 관성을 끊고 전체 설정을 적용합니다. getFactor()의 공유 객체는 교체하지 않습니다. */
     function applyFactors(next) {
         // @example-code:start control.apply
+        control.setFirstPersonModeKey(next.firstPersonModeKey);
         control.setControlType(next.moveType);
         Object.assign(factor, next);
         // @example-code:end control.apply
@@ -132,16 +180,28 @@ export async function initialize(context) {
             .map(field => [field.key, current[field.key]]));
         // PAN만 같은 값으로 지정해 관성을 취소합니다. 일부 그룹의 코드로 다른 입력 방식까지 바꾸지 않습니다.
         return `const control = app.getMapControl();\ncontrol.setControlType(${current.moveType}, GeOnDT.constant.CONTROL_CASE.PAN);\nObject.assign(control.getFactor(), ${JSON.stringify(values, null, 4)});`
-            + (group ? '' : `\ncontrol.setUseCollision(${control.getUseCollision()});`);
+            + (group ? '' : `\ncontrol.setUseCollision(${control.getUseCollision()});\ncontrol.setMouseBindings(${JSON.stringify(control.getMouseBindings(), null, 4)});\ncontrol.setKeyBindings(${JSON.stringify(control.getKeyBindings(), null, 4)});`);
     }
 
     applyPreset('map');
     return {
         fields, presets, state, applyPreset, setFactor, getCode,
+        applyMousePreset, setMouseBinding, getMousePreset, getMouseCode,
+        keyActions, applyKeyPreset, getKeyPreset, getKeyCode,
+        getKeyBindings: () => control.getKeyBindings(),
+        setKeyBinding(code, action) { control.setKeyBindings({[code]: action}); },
+        getMouseBindings: () => control.getMouseBindings(),
+        onInputBindingsChange(listener) {
+            const key = control.on('inputbindingschange', listener);
+            return () => { if (key) control.off('inputbindingschange', key); };
+        },
         getFactors: () => ({.../** @type {FactorOption} */ (control.getFactor())}),
         getCollision: () => control.getUseCollision(),
         setCollision(value) { control.setUseCollision(value); state.customized = true; },
-        restore() { applyFactors(initialFactor); control.setUseCollision(initialCollision); }
+        restore() {
+            applyFactors(initialFactor); control.setUseCollision(initialCollision); control.setMouseBindings(initialMouseBindings);
+            control.resetKeyBindings(); control.setKeyBindings(initialKeyBindings);
+        }
     };
 }
 

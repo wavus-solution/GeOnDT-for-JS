@@ -338,6 +338,15 @@ UTerrainMesh extends UMesh 클래스 정의
         의존: __GError__ — 바운딩 구 재설정 시도 오류 기록; 함수: {__GError__()}
         동작: value가 falsy이면 #boundingSphere에 저장하고 종료하며, 아니면 오류를 기록한다.
 
+    refreshTerrainPresentation(reason: string = 'terrain-presentation-changed') -> boolean
+        역할: texture와 피처를 다시 생성하지 않고 기존 메시 연결의 표시 조건만 재평가한다.
+        처리 기준:
+            manager나 타일 키가 없으면 false를 반환한다.
+            현재 메시·부모 타일 키·표시·렌더 순서와 사유를 내부 표시 갱신 경계로 전달한다. 재등록으로 보류 중인 해제 요청을 초기화하지 않는다.
+        의존:
+            UShaderTerrainDecalManager — 기존 연결의 표시·합성·재적용 예약; 함수: {_refreshTerrainMaterialPresentation()}
+        동작: manager의 갱신 결과를 반환한다.
+
     override onAfterRender() -> void
         역할: 렌더된 메시를 프레임 자원 관리자에 등록한다.
         의존: UDEF — 자원 관리자의 렌더 객체 등록; 함수: {resourceManager.addObjectResource()}

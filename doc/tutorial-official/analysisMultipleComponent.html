@@ -1282,10 +1282,10 @@
                         analy.readyModel(modelInfo.name, modelInfo.baseurl);
                         promise.resolve();
                     } else {
-                        loadedModelInfo.then(() => {
+                        loadedModelInfo.ready.then(() => {
                             analy.readyModel(modelInfo.name, modelInfo.baseurl);
                             promise.resolve();
-                        })
+                        }).catch(error => { promise.reject(error); })
                     }
                 } else {
                     // 컴포넌트로 사용할 모델을 최초 불러오기
@@ -1605,9 +1605,9 @@
                     if (analy.isLoadModel(modelInfo.name, modelInfo.baseurl)) {
                         promise.resolve();
                     } else {
-                        loadedModelInfo.then(() => {
+                        loadedModelInfo.ready.then(() => {
                             promise.resolve();
-                        })
+                        }).catch(error => { promise.reject(error); })
                     }
                 } else {
                     // 컴포넌트로 사용할 모델을 최초 불러오기

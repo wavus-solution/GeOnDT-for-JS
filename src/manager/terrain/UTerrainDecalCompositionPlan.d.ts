@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -62,7 +62,7 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../dist
         /**
          * stroke를 포함한 tile-local `[minX, minY, maxX, maxY]` 범위입니다. 없으면 겹친다고 보수적으로 판정합니다.
          */
-        bounds?: Array<number>;
+        bounds?: ReadonlyArray<number>;
         /**
          * 호출부가 정규화한 Feature 변경 안정성입니다. 값이 없으면 미분류로 보고 기존 판정을 유지합니다.
          */
@@ -154,6 +154,10 @@ type TerrainDecalCompositionPart = Readonly<TerrainDecalCompositionPartState>;
          * Feature의 변경 안정성이며 미분류면 `undefined`입니다.
          */
         compositionStability: TerrainDecalCompositionStability | undefined;
+        /**
+         * 표시 조각과 구멍을 모두 포함한 tile-local 원자 Feature 범위의 동결 사본입니다. 범위를 모르는 조각이 있으면 `undefined`입니다.
+         */
+        bounds?: ReadonlyArray<number>;
     };
 
 type TerrainDecalCompositionFeature = Readonly<TerrainDecalCompositionFeatureState>;
@@ -232,9 +236,13 @@ type TerrainDecalCompositionBatch = Readonly<TerrainDecalCompositionBatchState>;
          */
         batches: Array<TerrainDecalCompositionBatchState>;
         /**
-         * 전체 Feature stream을 기존 path, area, circle 직접 합성으로 그대로 재현할 수 있는지 여부입니다. 안정성 분류 정책과 무관한 stream 속성입니다.
+         * 전체 Feature stream을 기본 순서 또는 타입별 연속 구간 순서의 직접 합성으로 재현할 수 있는지 여부입니다. 안정성 분류 정책과 무관한 stream 속성입니다.
          */
         directCompatible: boolean;
+        /**
+         * 전체 `direct` 실행의 타입 순열입니다. `0`은 path-area-circle, `1`은 path-circle-area, `2`는 area-path-circle, `3`은 area-circle-path, `4`는 circle-path-area, `5`는 circle-area-path이며 `hybrid`·`precomposed`는 기존 순서인 `0`을 사용합니다.
+         */
+        directTypeOrder: 0 | 1 | 2 | 3 | 4 | 5;
         /**
          * 합성 실행 방식입니다.
          */
@@ -242,7 +250,7 @@ type TerrainDecalCompositionBatch = Readonly<TerrainDecalCompositionBatchState>;
         /**
          * 합성 방식 선택 이유입니다.
          */
-        modeReason: "type-stream-compatible" | "type-stream-requires-precompose" | "polygon-local-hole-requires-precompose" | "order-inversion-disjoint-geometry" | "stability-metadata-incomplete" | "stability-static-only-precomposed" | "stability-hybrid-disjoint" | "stability-cross-intersects-precomposed" | "stability-separation-unverifiable-precomposed" | "stability-dynamic-subset-requires-precompose";
+        modeReason: "type-stream-compatible" | "type-block-order-compatible" | "type-stream-requires-precompose" | "polygon-local-hole-requires-precompose" | "order-inversion-disjoint-geometry" | "stability-metadata-incomplete" | "stability-static-only-precomposed" | "stability-hybrid-disjoint" | "stability-hybrid-ordered" | "stability-cross-intersects-precomposed" | "stability-separation-unverifiable-precomposed" | "stability-dynamic-subset-requires-precompose";
         /**
          * source 경계를 제외한 canonical 합성 순서 식별자입니다.
          */

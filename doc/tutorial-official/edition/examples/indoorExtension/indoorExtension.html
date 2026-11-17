@@ -1,0 +1,69 @@
+<template data-example-rail>
+    <button class="rail-button" type="button" data-panel-target="indoorExtension-option-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">▦</span><span>실내 보행</span>
+    </button>
+</template>
+<aside class="glass-panel example-panel example-option-panel" id="indoorExtension-option-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div><span class="eyebrow">INDOOR WALK</span><h2>광명역 실내 보행</h2></div>
+        <button class="panel-close" type="button" data-panel-close="indoorExtension-option-panel" aria-label="실내 보행 설정 닫기">×</button>
+    </header>
+    <div class="panel-content">
+        <p class="panel-description">실내 모델과 캐릭터 준비가 끝나면 Room을 선택해 보행을 시작하세요.</p>
+        <section class="example-section" aria-labelledby="indoorExtension-room-heading">
+            <h3 id="indoorExtension-room-heading">시작 위치</h3>
+            <div class="indoorExtension-room-buttons">
+                <button type="button" data-indoor-room="Room1" disabled aria-pressed="false">Room1</button>
+                <button type="button" data-indoor-room="Room2" disabled aria-pressed="false">Room2</button>
+                <button type="button" data-indoor-room="Room3" disabled aria-pressed="false">Room3</button>
+            </div>
+            <button class="indoorExtension-overview" type="button" data-indoor-overview disabled>전체 보기 (3인칭)</button>
+        </section>
+        <section class="example-section" aria-labelledby="indoorExtension-key-heading">
+            <h3 id="indoorExtension-key-heading">보행 조작</h3>
+            <dl class="example-result-list">
+                <div><dt>이동</dt><dd>WASD / 방향키</dd></div>
+                <div><dt>시선 회전</dt><dd>마우스 드래그</dd></div>
+                <div><dt>점프</dt><dd>F</dd></div>
+                <div><dt>걷기·달리기 전환</dt><dd>Shift</dd></div>
+                <div><dt>보행 종료</dt><dd>Esc / 전체 보기</dd></div>
+            </dl>
+        </section>
+        <section class="example-section" aria-labelledby="indoorExtension-cctv-heading">
+            <h3 id="indoorExtension-cctv-heading">CCTV</h3>
+            <label class="example-option-row"><input type="checkbox" data-indoor-cctv checked><span>CCTV 화면 표시</span></label>
+            <p>보행 중에는 캐릭터와 가까운 CCTV 화면을 표시합니다.</p>
+        </section>
+        <section class="example-section" aria-labelledby="indoorExtension-result-heading">
+            <h3 id="indoorExtension-result-heading">현재 상태</h3>
+            <dl class="example-result-list">
+                <div><dt>모드</dt><dd data-indoor-mode>준비 중</dd></div>
+                <div><dt>시작 위치</dt><dd data-indoor-current-room>선택 전</dd></div>
+                <div><dt>군중</dt><dd data-indoor-count>0명</dd></div>
+                <div><dt>준비 상태</dt><dd data-indoor-status>준비 중</dd></div>
+            </dl>
+        </section>
+    </div>
+</aside>
+<div class="indoorExtension-loading" data-indoor-loading role="status" aria-live="polite" aria-busy="true">
+    <div class="indoorExtension-loading-card glass-panel">
+        <strong>실내 보행 준비</strong>
+        <p data-indoor-message>실내 모델과 캐릭터 자료를 준비합니다.</p>
+        <progress data-indoor-progress max="100" value="0" aria-label="자료 준비 진행률"></progress>
+        <span data-indoor-percent>0%</span>
+        <p data-indoor-error hidden></p>
+    </div>
+</div>
+<template id="indoorExtension-cctv-template">
+    <div class="indoorExtension-cctv glass-panel">
+        <header><strong data-cctv-title>CCTV</strong><button type="button" data-cctv-action="close" aria-label="CCTV 화면 닫기">×</button></header>
+        <div class="indoorExtension-cctv-tools">
+            <button type="button" data-cctv-action="left" aria-label="왼쪽 회전">←</button>
+            <button type="button" data-cctv-action="right" aria-label="오른쪽 회전">→</button>
+            <button type="button" data-cctv-action="up" aria-label="위 회전">↑</button>
+            <button type="button" data-cctv-action="down" aria-label="아래 회전">↓</button>
+            <button type="button" data-cctv-action="reset">초기화</button>
+            <label><input type="checkbox" data-cctv-helper>가시선</label>
+        </div>
+    </div>
+</template>

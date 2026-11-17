@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -9,7 +9,7 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
-import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineAliasCO } from "./U3dGeometry.js";
+import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineCO } from "./U3dGeometry.js";
 import type { U3dPOI } from "./U3dPOI.js";
 import type { UMeta } from "../meta/UMeta.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
@@ -17,6 +17,7 @@ import type { EventCallBack, GeoPositionVector3, KeyValue, WorldPositionVector3 
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dFault {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -24,7 +25,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -54,24 +54,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: number): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): number | undefined;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -138,8 +154,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -192,6 +208,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
@@ -611,12 +628,6 @@ declare class U3dFault extends U3dFault_base {
      */
     _length: number;
     /**
-     * @type {boolean}
-     *
-     * @ignore
-     */
-    _useline: boolean;
-    /**
      * 화면 픽셀 기준 외곽 테두리 두께입니다. <br>
      *
      * @type {number}
@@ -674,7 +685,7 @@ declare class U3dFault extends U3dFault_base {
      *
      * @ignore
      */
-    _edgeLine: three_examples_jsm_lines_LineSegments2_js.LineSegments2 | undefined;
+    _outline: three_examples_jsm_lines_LineSegments2_js.LineSegments2 | undefined;
     /**
      * @type {import('three').Vector3 | undefined}
      *
@@ -1047,7 +1058,7 @@ declare class U3dFault extends U3dFault_base {
      *
      * @override
      *
-     * @param {number} value 불투명도 (0~1). 외곽선을 포함한 모든 하위 자식에도 적용하며, 1 미만이면 투명 처리가 켜집니다 <br>
+     * @param {number} value 불투명도 (0~1). 자동 생성 외곽선을 제외한 일반 하위 자식에도 적용하며, 1 미만이면 투명 처리가 켜집니다 <br>
      */
     override setOpacity(value: number): void;
     /**
@@ -1125,17 +1136,18 @@ declare class U3dFault extends U3dFault_base {
      */
     setRenderOffset(val: number): void;
     /**
-     * 단층 내부 분할선을 제외한 외곽 테두리 표시 여부를 설정합니다. <br>
-     *
-     * @param {boolean} useLine 외곽 테두리 표시 여부 <br>
+     * 단층 외곽 테두리 두께를 반환합니다. <br>
+     * @override
+     * @returns {number} 외곽 테두리 두께 (outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀) <br>
      */
-    setUseLine(useLine: boolean): void;
+    override getLineWidth(): number;
     /**
-     * 단층 외곽 테두리 두께를 화면 픽셀 단위로 설정합니다. <br>
+     * 단층 외곽 테두리 두께를 outlineType에 지정한 단위로 설정합니다. <br>
      *
-     * @param {number} lineWidth 외곽 테두리 두께 (화면 픽셀). 0 이하이거나 숫자가 아니면 2를 적용합니다 <br>
+     * @override
+     * @param {number} lineWidth 외곽 테두리 두께 (outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀). 0보다 큰 유한한 숫자 <br>
      */
-    setLineWidth(lineWidth: number): void;
+    override setLineWidth(lineWidth: number): void;
     /**
      * 단층에 사용자 정의 속성 정보(key-value)를 설정합니다. <br>
      *
@@ -1175,7 +1187,7 @@ declare class U3dFault extends U3dFault_base {
     setHighLight(color?: three.ColorRepresentation, opacity?: number): void;
     /**
      * 하이라이트(강조 표시)를 해제하고 원래 색상·투명도로 되돌립니다. <br>
-     * 외곽선 옵션(`useline`)이 꺼져 있으면 강조용 외곽선도 함께 제거합니다. <br>
+     * 외곽선 옵션(`outline`)이 꺼져 있으면 강조용 외곽선도 함께 제거합니다. <br>
      */
     resetHighLight(): void;
     /**
@@ -1222,7 +1234,7 @@ declare class U3dFault extends U3dFault_base {
 }
 
 /**
-     * ~extends import('@U3dGeometry').U3dGeometryCO <br>
+     * ~extends U3dGeometryCO <br>
      *
      * `U3dFault` 생성자 옵션입니다. <br>
      * `topCoordinates`가 두 개 이상이면 그 선을 따라 단층면을 만들고, 하나이면 `strike`·`length`로 단층면을 만듭니다. <br>
@@ -1322,7 +1334,7 @@ declare class U3dFault extends U3dFault_base {
          */
         showLabel?: boolean;
         /**
-         * 외곽 테두리 두께 (화면 픽셀). 0 이하이거나 숫자가 아니면 2를 적용합니다 <br>
+         * 외곽 테두리 두께 (outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀). 생략하면 1을 적용하며 기본 단위는 pixel입니다 <br>
          */
         lineWidth?: number;
         /**
@@ -1336,13 +1348,13 @@ declare class U3dFault extends U3dFault_base {
     };
 
 /**
-     * ~extends import('@U3dGeometry').U3dGeometryCO <br>
+     * ~extends U3dGeometryCO <br>
      *
      * `U3dFault` 생성자 옵션입니다. <br>
      * `topCoordinates`가 두 개 이상이면 그 선을 따라 단층면을 만들고, 하나이면 `strike`·`length`로 단층면을 만듭니다. <br>
      * `topCoordinates`가 없으면 형상 없이 생성되며, 이후 `setFaultData`·`setGeometryData`로 형상을 적용합니다. <br>
      */
-    type U3dFaultCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dFaultCO_Content, never>;
+    type U3dFaultCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dFaultCO_Content, never>;
 
 /**
      * ~extends U3dGeometryStyleParam <br>
@@ -1380,7 +1392,7 @@ declare class U3dFault extends U3dFault_base {
          */
         outline: boolean;
         /**
-         * 외곽 테두리 두께 (화면 픽셀) <br>
+         * 외곽 테두리 두께 (outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀) <br>
          */
         lineWidth: number;
         /**

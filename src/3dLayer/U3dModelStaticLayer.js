@@ -76,6 +76,8 @@ class U3dModelStaticLayer extends U3dModelBasicLayer {
             for (let i = 0; i < this._listModel.length; i++) {
                 this.load(this._listModel[i]).then((object) => {
                     try {
+                        // 기반 로더의 완료 후에도 이 콜백 전까지 해제될 수 있습니다.
+                        if (this._disposed) throw new DOMException('정적 모델 배치 중 레이어가 해제되었습니다.', 'AbortError');
                         this._objectLoadCount--;
                         // 요청 때의 복사본이 아니라 완료 시점에 목록에 있는 메타데이터를 사용합니다.
                         object._crs = this._listModel[i].crs;

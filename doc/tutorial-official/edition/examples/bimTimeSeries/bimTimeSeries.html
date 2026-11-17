@@ -1,0 +1,103 @@
+<template data-example-rail>
+ <button class="rail-button" type="button" data-panel-target="bim-sequence-panel" data-initial-open="false" aria-expanded="false"><span class="rail-icon" aria-hidden="true">▦</span><span>교량 시퀀스</span></button>
+ <button class="rail-button" type="button" data-panel-target="bim-property-panel" data-initial-open="false" aria-expanded="false" aria-controls="bim-property-panel" title="선택 객체 속성"><span class="rail-icon" aria-hidden="true">▤</span><span>객체 속성</span></button>
+</template>
+<aside class="bim-left-dock" aria-label="레이어 관리와 교량 탐색">
+ <div class="bim-left-tabs" role="tablist" aria-label="왼쪽 패널">
+  <button type="button" id="bim-layer-list-tab" role="tab" data-left-tab="bim-layer-list-content" aria-controls="bim-layer-list-content" aria-selected="true" tabindex="0">레이어 목록</button>
+  <button type="button" id="bim-settings-tab" role="tab" data-left-tab="bim-settings-content" aria-controls="bim-settings-content" aria-selected="false" tabindex="-1">태장교 설정</button>
+  <button type="button" id="bim-object-list-tab" role="tab" data-left-tab="bim-object-list-content" aria-controls="bim-object-list-content" aria-selected="false" tabindex="-1">태장교 부재목록</button>
+ </div>
+ <section id="bim-layer-list-content" class="bim-layer-panel" role="tabpanel" aria-labelledby="bim-layer-list-tab" data-sequence="layer-list">
+  <header class="bim-layer-heading"><h2>레이어 목록</h2><span class="bim-layer-count">6개</span></header>
+  <p class="bim-layer-description">미리 등록한 자료를 표시합니다.</p>
+  <ul class="bim-layer-list" aria-label="건물·시설 레이어 목록">
+   <!-- 태장교는 시계열 세션을 재사용하고 호저제2·우산제1 구교·토공 비탈면·방음벽는 별도 3D Tiles 레이어로 연결합니다. -->
+   <li class="bim-layer-item" data-layer-id="bridge-taejang">
+    <span class="bim-layer-name">태장교</span>
+    <button type="button" class="bim-layer-visibility" data-layer-visibility="bridge-taejang" data-layer-label="태장교" aria-pressed="true" aria-label="태장교 숨기기" title="태장교 숨기기" disabled>숨기기</button>
+    <button type="button" class="bim-layer-move" data-sequence-action="fit" aria-label="태장교로 이동" title="태장교로 이동">
+     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5"/></svg>
+    </button>
+   </li>
+   <li class="bim-layer-item" data-layer-id="culvert-hojeo2">
+    <span class="bim-layer-name">호저제2 구교 (1.5×1)<br><small data-reference-layer-status="hojeo2" role="status" aria-live="polite">3D Tiles · 연결 중…</small></span>
+    <button type="button" class="bim-layer-visibility" data-layer-visibility="hojeo2" data-layer-label="호저제2 구교" aria-pressed="false" aria-label="호저제2 구교 보이기" title="호저제2 구교 보이기" disabled>보이기</button>
+    <button type="button" class="bim-layer-move" data-reference-layer="hojeo2" aria-label="호저제2 구교로 이동" title="호저제2 구교로 이동" disabled>
+     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5"/></svg>
+    </button>
+   </li>
+   <li class="bim-layer-item" data-layer-id="culvert-usan1">
+    <span class="bim-layer-name">우산제1 구교 (5.0×1)<br><small data-reference-layer-status="usan1" role="status" aria-live="polite">3D Tiles · 연결 중…</small></span>
+    <button type="button" class="bim-layer-visibility" data-layer-visibility="usan1" data-layer-label="우산제1 구교" aria-pressed="false" aria-label="우산제1 구교 보이기" title="우산제1 구교 보이기" disabled>보이기</button>
+    <button type="button" class="bim-layer-move" data-reference-layer="usan1" aria-label="우산제1 구교로 이동" title="우산제1 구교로 이동" disabled>
+     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5"/></svg>
+    </button>
+   </li>
+   <li class="bim-layer-item" data-layer-id="earthwork-slope">
+    <span class="bim-layer-name">토공 비탈면<br><small data-reference-layer-status="slope" role="status" aria-live="polite">3D Tiles · 연결 중…</small></span>
+    <button type="button" class="bim-layer-visibility" data-layer-visibility="slope" data-layer-label="토공 비탈면" aria-pressed="false" aria-label="토공 비탈면 보이기" title="토공 비탈면 보이기" disabled>보이기</button>
+    <button type="button" class="bim-layer-move" data-reference-layer="slope" aria-label="토공 비탈면으로 이동" title="토공 비탈면으로 이동" disabled>
+     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5"/></svg>
+    </button>
+   </li>
+   <li class="bim-layer-item" data-layer-id="noise-barrier-10km120">
+    <span class="bim-layer-name">방음벽 10km120<br><small data-reference-layer-status="noise-barrier" role="status" aria-live="polite">3D Tiles · 연결 중…</small></span>
+    <button type="button" class="bim-layer-visibility" data-layer-visibility="noise-barrier" data-layer-label="방음벽 10km120" aria-pressed="false" aria-label="방음벽 10km120 보이기" title="방음벽 10km120 보이기" disabled>보이기</button>
+    <button type="button" class="bim-layer-move" data-reference-layer="noise-barrier" aria-label="방음벽 10km120으로 이동" title="방음벽 10km120으로 이동" disabled>
+     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5"/></svg>
+    </button>
+   </li>
+   <li class="bim-layer-item" data-layer-id="noise-barrier-9km400">
+    <span class="bim-layer-name">방음벽 9km400<br><small data-reference-layer-status="noise-barrier-9km400" role="status" aria-live="polite">3D Tiles · 연결 중…</small></span>
+    <button type="button" class="bim-layer-visibility" data-layer-visibility="noise-barrier-9km400" data-layer-label="방음벽 9km400" aria-pressed="false" aria-label="방음벽 9km400 보이기" title="방음벽 9km400 보이기" disabled>보이기</button>
+    <button type="button" class="bim-layer-move" data-reference-layer="noise-barrier-9km400" aria-label="방음벽 9km400으로 이동" title="방음벽 9km400으로 이동" disabled>
+     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v3m0 12v3M3 12h3m12 0h3"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="1.5"/></svg>
+    </button>
+   </li>
+  </ul>
+  <details class="bim-layer-add">
+   <summary>웹주소로 레이어 추가</summary>
+   <label for="bim-layer-name">레이어 이름<input id="bim-layer-name" type="text" placeholder="예: 주변 건물" autocomplete="off" maxlength="120"></label>
+   <label for="bim-layer-url">자료 웹주소<input id="bim-layer-url" type="url" placeholder="https://서버주소/tileset.json" spellcheck="false" autocomplete="off" aria-describedby="bim-layer-source-note"></label>
+   <div class="bim-layer-add-actions"><span class="bim-layer-format">3D Tiles</span><button type="button" disabled title="웹주소를 확정한 뒤 자료 연결을 적용합니다.">레이어 추가</button></div>
+   <p id="bim-layer-source-note" class="bim-layer-note">추가 웹주소는 코드에 등록하여 처음부터 목록에 표시합니다. 직접 입력 연결은 아직 준비 중입니다.</p>
+  </details>
+ </section>
+ <section id="bim-settings-content" role="tabpanel" aria-labelledby="bim-settings-tab" data-sequence="settings-panel" hidden></section>
+ <section id="bim-object-list-content" role="tabpanel" aria-labelledby="bim-object-list-tab" data-sequence="object-list" hidden></section>
+</aside>
+<aside id="bim-sequence-panel" class="glass-panel example-panel bim-sequence-panel" aria-hidden="true">
+ <header class="panel-header"><div><span class="eyebrow">BRIDGE SEQUENCE</span><h2>교량 시계열</h2></div><button class="panel-close" type="button" data-panel-close="bim-sequence-panel" aria-label="교량 시퀀스 닫기">×</button></header>
+ <div class="panel-content">
+  <details open><summary>자료 연결·저장</summary>
+   <p>최초 재생·시간 이동 시 카메라 가까운 부재부터 순서가 고정됩니다. 초기 공정은 조작을 설명하는 0~90초 예시입니다. 실제 시공 일정과 구분하여 사용하십시오.</p>
+   <label>형상 tileset.json 주소<input type="url" data-sequence="uri" spellcheck="false"></label>
+<label>속성 Schema.json / batch.json 주소<input type="url" data-sequence="properties" spellcheck="false"></label>
+<label>자료 버전<input type="text" data-sequence="revision" spellcheck="false"></label>
+<label>상대 주소 기준 URL<input type="url" data-sequence="base" spellcheck="false"></label>
+<label>초기 시퀀스 문서 주소<input type="url" data-sequence="document" spellcheck="false"></label>
+   <div class="bim-actions"><button type="button" data-sequence-action="connect">연결</button><button type="button" data-sequence-action="cancel" disabled>연결 취소</button><button type="button" data-sequence-action="fit">전체 보기</button></div>
+   <div class="bim-actions"><button type="button" data-sequence-action="save">시퀀스 저장</button><button type="button" data-sequence-action="open">시퀀스 열기</button><input type="file" accept=".json,application/json" data-sequence="file" hidden></div>
+  </details>
+  <p role="status" aria-live="polite" data-sequence="status">자료 연결 대기</p>
+  <details><summary>속성·그룹 편집</summary><div data-sequence="groups"></div></details>
+  <details><summary>단계·일정·조립 이동</summary><div data-sequence="schedule"></div></details>
+  <details><summary>그룹별 XYZ 분리 거리</summary>
+   <p>분리율 100%의 이동 거리입니다. 동(X)·북(Y)·상(Z), 단위 m입니다.</p>
+   <label>그룹<select data-sequence="explode-group"></select></label>
+   <div class="bim-vector"><label>동 X<input type="number" step="any" data-sequence="east" value="0"></label><label>북 Y<input type="number" step="any" data-sequence="north" value="0"></label><label>상 Z<input type="number" step="any" data-sequence="up" value="0"></label></div>
+   <button type="button" data-sequence-action="explode-apply">분리 거리 적용</button>
+  </details>
+ </div>
+</aside>
+<aside id="bim-property-panel" class="glass-panel example-panel bim-property-panel" aria-hidden="true">
+ <header class="panel-header"><div><span class="eyebrow">OBJECT PROPERTIES</span><h2>선택 객체 속성</h2></div><button class="panel-close" type="button" data-panel-close="bim-property-panel" aria-label="객체 속성 닫기">×</button></header>
+ <div class="panel-content"><div data-sequence="object-properties"></div></div>
+</aside>
+<section class="bim-sequence-bottom" aria-label="교량 시계열 타임라인" data-collapsed="false">
+ <button class="bim-timeline-toggle" type="button" data-sequence-action="toggle-timeline" aria-expanded="true" aria-controls="bim-timeline-content">타임라인 접기</button>
+ <div id="bim-timeline-content" class="bim-timeline-content" data-sequence="timeline-content" aria-hidden="false">
+  <div data-sequence="timeline"><p>자료 연결 후 타임라인이 표시됩니다.</p></div>
+ </div>
+</section>

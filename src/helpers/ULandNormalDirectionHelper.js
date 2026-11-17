@@ -157,9 +157,17 @@ class ULandNormalDirectionHelper extends LineSegments2 {
     #maxLength;
     /** @type {import('@union3d/core/URaycaster').URaycaster} */
     #raycaster;
-    /** 레이 시작 월드 좌표. helper의 position에 복사한다. @type {import('three').Vector3} */
+    /**
+     * 레이 시작 월드 좌표(EPSG:3857)이며, helper의 position에 복사합니다.
+     *
+     * @type {import('three').Vector3}
+     */
     #worldPosition = new Vector3();
-    /** 레이 시작점 기준의 로컬 선분 끝점. @type {import('three').Vector3} */
+    /**
+     * 레이 시작점 기준의 로컬 선분 끝점입니다.
+     *
+     * @type {import('three').Vector3}
+     */
     #lineEnd = new Vector3();
     /** @type {import('three').Vector3} */
     #searchPosition = new Vector3();

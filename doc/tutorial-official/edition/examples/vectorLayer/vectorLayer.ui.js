@@ -1,16 +1,16 @@
 /** 도형 종류별 스타일 예시입니다. 각 항목은 입력 폼의 설정과 1:1로 대응합니다. */
 const STYLE_EXAMPLES = {
     Point: '{"color":"#2b448b","shadow":false,"size":30,"img":"image/marker.png"}',
-    Line: '{"color":"#2b448b","shadow":false,"lineWidth":5}',
-    Cylinder: '{"color":"#2b448b","shadow":false,"radiusTop":5,"radiusBottom":5,"height":20,"radialSegments":32,"heightSegments":1,"openEnded":false,"opacity":1,"outline":true}',
-    Box: '{"color":"#2ecc71","shadow":false,"width":10,"height":10,"depth":10,"opacity":1,"outline":false}',
-    Circle: '{"color":"#2b448b","shadow":false,"radius":10,"opacity":1}',
-    Sphere: '{"color":"#f39c12","shadow":false,"radius":10,"opacity":1,"outline":false}',
-    Pipe: '{"color":"#3498db","shadow":false,"piperadius":2,"pathsegments":64,"radiussegments":16,"closed":false,"tension":0.5,"opacity":1}',
-    UserGeometry: '{"color":"#2b448b","shadow":false,"height":100,"opacity":0.7,"outline":false,"usecurve":false}',
-    PolygonLoftGeometry: '{"color":"#2b448b","shadow":false,"height":100,"topScale":0.7,"opacity":0.7,"outline":true}',
-    PathGeometry: '{"color":"#2b448b","shadow":false,"opacity":0.4,"height":100,"width":20,"pathheight":10,"tension":0.5,"outline":true}',
-    Fault: '{"width":100,"length":100,"dip":60,"dtop":0,"strike":0,"opacity":0.7,"outline":false}',
+    Line: '{"color":"#2b448b","shadow":false,"lineWidth":2}',
+    Cylinder: '{"color":"#2b448b","shadow":false,"radiusTop":5,"radiusBottom":5,"height":20,"radialSegments":32,"heightSegments":1,"openEnded":false,"opacity":1,"outline":true,"outlineType":"meter","lineWidth":0.3,"lineColor":"#000000","lineOpacity":1}',
+    Box: '{"color":"#2ecc71","shadow":false,"width":10,"height":10,"depth":10,"opacity":1,"outline":true,"outlineType":"meter","outlineTension":1,"lineWidth":0.3,"lineColor":"#000000","lineOpacity":1}',
+    Circle: '{"color":"#2b448b","shadow":false,"radius":10,"opacity":1,"outline":true,"outlineType":"meter","lineWidth":0.3,"lineColor":"#000000","lineOpacity":1}',
+    Sphere: '{"color":"#f39c12","shadow":false,"radius":10,"opacity":1,"outline":true,"outlineType":"meter","lineWidth":0.3,"lineColor":"#000000","lineOpacity":1}',
+    Pipe: '{"color":"#3498db","shadow":false,"piperadius":2,"pathsegments":64,"radiussegments":16,"closed":false,"tension":0.5,"opacity":1,"outline":true,"outlineType":"meter","lineWidth":0.3,"lineColor":"#000000","lineOpacity":1}',
+    UserGeometry: '{"color":"#2b448b","shadow":false,"height":100,"opacity":0.7,"outline":true,"outlineType":"meter","outlineTension":1,"usecurve":false,"lineWidth":0.3,"lineColor":"#000000","lineOpacity":1}',
+    PolygonLoftGeometry: '{"color":"#2b448b","shadow":false,"height":100,"topScale":0.7,"opacity":0.7,"outline":true,"outlineType":"meter","outlineTension":1,"lineWidth":0.3,"lineColor":"#000000","lineOpacity":1}',
+    PathGeometry: '{"color":"#2b448b","shadow":false,"opacity":0.4,"height":100,"width":20,"pathheight":10,"tension":0.5,"outline":true,"outlineType":"meter","lineWidth":0.3}',
+    Fault: '{"width":100,"length":100,"dip":60,"dtop":0,"strike":0,"opacity":0.7,"outline":true,"outlineType":"meter","lineWidth":0.3}',
     GIZMO: '{}'
 };
 
@@ -20,6 +20,11 @@ const COMMON_DESCRIPTIONS = {
     opacity: '투명도 0~1 (1이면 불투명)',
     shadow: '그림자 사용 여부',
     outline: '외곽선(테두리 선) 표시 여부',
+    lineColor: '외곽선 색상 (hex)',
+    lineOpacity: '외곽선 투명도 0~1 (1이면 불투명). 본체 투명도와 독립적으로 적용됩니다',
+    outlineType: '외곽선 두께 단위: meter(미터, 기본값) 또는 pixel(화면 픽셀)',
+    outlineTension: '외곽선 코너의 둥근 정도 0~1. 0은 각진 연결, 1은 둥근 연결이며 기본값은 1입니다',
+    lineWidth: '외곽선 두께. outlineType이 meter이면 미터, pixel이면 화면 픽셀. 0보다 큰 값',
     depthOffset: '깊이 보정 (미터). 0보다 크면 그만큼 카메라 쪽으로 당겨 그려 지형에 가려지는 것을 줄입니다. 0이면 보정하지 않습니다',
     wireframe: '면을 채우지 않고 삼각형 모서리만 선으로 그릴지 여부',
     dynamicDepthOffset: '렌더링할 때마다 지형에 묻힌 정도를 재서 깊이 보정값으로 쓸지 여부'
@@ -73,15 +78,15 @@ const PROPERTY_DESCRIPTIONS = {
 /** type과 coord를 포함한 [불러오기] 입력 예시입니다. */
 const COORD_EXAMPLES = {
     Point: '{\n  "type": "Point",\n  "coord": {"x": 126.9395, "y": 37.52, "z": 8},\n  "color": "#2b448b",\n  "shadow": false,\n  "size": 30,\n  "img": "image/marker.png"\n}',
-    Cylinder: '{\n  "type": "Cylinder",\n  "coord": {"x": 126.9395, "y": 37.52, "z": 8},\n  "color": "#2b448b",\n  "shadow": false,\n  "radiusTop": 5,\n  "radiusBottom": 5,\n  "height": 20,\n  "radialSegments": 32,\n  "heightSegments": 1,\n  "openEnded": false,\n  "opacity": 1,\n  "outline": true\n}',
-    Box: '{\n  "type": "Box",\n  "coord": {"x": 126.9395, "y": 37.52, "z": 8},\n  "color": "#2ecc71",\n  "shadow": false,\n  "width": 10,\n  "height": 10,\n  "depth": 10,\n  "opacity": 1,\n  "outline": false\n}',
-    Circle: '{\n  "type": "Circle",\n  "coord": {"x": 126.9395, "y": 37.52, "z": 8},\n  "color": "#2b448b",\n  "shadow": false,\n  "radius": 10,\n  "opacity": 1\n}',
-    Sphere: '{\n  "type": "Sphere",\n  "coord": {"x": 126.9395, "y": 37.52, "z": 8},\n  "color": "#f39c12",\n  "shadow": false,\n  "radius": 10,\n  "opacity": 1,\n  "outline": false\n}',
-    Line: '{\n  "type": "Line",\n  "coord": [{"x": 126.9390, "y": 37.520, "z": 8}, {"x": 126.9400, "y": 37.521, "z": 8}],\n  "color": "#2b448b",\n  "shadow": false,\n  "lineWidth": 5\n}',
-    Pipe: '{\n  "type": "Pipe",\n  "coord": [{"x": 126.9390, "y": 37.520, "z": 8}, {"x": 126.9395, "y": 37.521, "z": 8}, {"x": 126.9400, "y": 37.520, "z": 8}],\n  "color": "#3498db",\n  "shadow": false,\n  "piperadius": 2,\n  "pathsegments": 64,\n  "radiussegments": 16,\n  "closed": false,\n  "tension": 0.5,\n  "opacity": 1\n}',
-    UserGeometry: '{\n  "type": "UserGeometry",\n  "coord": [{"x": 126.9390, "y": 37.520, "z": 8}, {"x": 126.9395, "y": 37.521, "z": 8}, {"x": 126.9400, "y": 37.520, "z": 8}],\n  "color": "#2b448b",\n  "shadow": false,\n  "height": 100,\n  "opacity": 0.7,\n  "outline": false,\n  "usecurve": false\n}',
-    PolygonLoftGeometry: '{\n  "type": "PolygonLoftGeometry",\n  "coord": [{"x": 126.9390, "y": 37.520, "z": 8}, {"x": 126.9395, "y": 37.521, "z": 8}, {"x": 126.9400, "y": 37.520, "z": 8}],\n  "color": "#2b448b",\n  "shadow": false,\n  "height": 100,\n  "topScale": 0.7,\n  "opacity": 0.7,\n  "outline": true\n}',
-    Fault: '{\n  "type": "Fault",\n  "coord": [{"x": 126.9390, "y": 37.520, "z": 50}, {"x": 126.9395, "y": 37.521, "z": 50}, {"x": 126.9400, "y": 37.520, "z": 50}],\n  "width": 100,\n  "length": 100,\n  "dip": 60,\n  "dtop": 0,\n  "strike": 0,\n  "opacity": 0.7,\n  "outline": false\n}'
+    Cylinder: '{\n  "type": "Cylinder",\n  "coord": {"x": 126.9395, "y": 37.52, "z": 8},\n  "color": "#2b448b",\n  "shadow": false,\n  "radiusTop": 5,\n  "radiusBottom": 5,\n  "height": 20,\n  "radialSegments": 32,\n  "heightSegments": 1,\n  "openEnded": false,\n  "opacity": 1,\n  "outline": true,\n  "outlineType": "meter",\n  "lineWidth": 0.3\n}',
+    Box: '{\n  "type": "Box",\n  "coord": {"x": 126.9395, "y": 37.52, "z": 8},\n  "color": "#2ecc71",\n  "shadow": false,\n  "width": 10,\n  "height": 10,\n  "depth": 10,\n  "opacity": 1,\n  "outline": true,\n  "outlineType": "meter",\n  "lineWidth": 0.3\n}',
+    Circle: '{\n  "type": "Circle",\n  "coord": {"x": 126.9395, "y": 37.52, "z": 8},\n  "color": "#2b448b",\n  "shadow": false,\n  "radius": 10,\n  "opacity": 1,\n  "outline": true,\n  "outlineType": "meter",\n  "lineWidth": 0.3\n}',
+    Sphere: '{\n  "type": "Sphere",\n  "coord": {"x": 126.9395, "y": 37.52, "z": 8},\n  "color": "#f39c12",\n  "shadow": false,\n  "radius": 10,\n  "opacity": 1,\n  "outline": true,\n  "outlineType": "meter",\n  "lineWidth": 0.3\n}',
+    Line: '{\n  "type": "Line",\n  "coord": [{"x": 126.9390, "y": 37.520, "z": 8}, {"x": 126.9400, "y": 37.521, "z": 8}],\n  "color": "#2b448b",\n  "shadow": false,\n  "lineWidth": 2\n}',
+    Pipe: '{\n  "type": "Pipe",\n  "coord": [{"x": 126.9390, "y": 37.520, "z": 8}, {"x": 126.9395, "y": 37.521, "z": 8}, {"x": 126.9400, "y": 37.520, "z": 8}],\n  "color": "#3498db",\n  "shadow": false,\n  "piperadius": 2,\n  "pathsegments": 64,\n  "radiussegments": 16,\n  "closed": false,\n  "tension": 0.5,\n  "opacity": 1,\n  "outline": true,\n  "outlineType": "meter",\n  "lineWidth": 0.3\n}',
+    UserGeometry: '{\n  "type": "UserGeometry",\n  "coord": [{"x": 126.9390, "y": 37.520, "z": 8}, {"x": 126.9395, "y": 37.521, "z": 8}, {"x": 126.9400, "y": 37.520, "z": 8}],\n  "color": "#2b448b",\n  "shadow": false,\n  "height": 100,\n  "opacity": 0.7,\n  "outline": true,\n  "outlineType": "meter",\n  "lineWidth": 0.3,\n  "usecurve": false\n}',
+    PolygonLoftGeometry: '{\n  "type": "PolygonLoftGeometry",\n  "coord": [{"x": 126.9390, "y": 37.520, "z": 8}, {"x": 126.9395, "y": 37.521, "z": 8}, {"x": 126.9400, "y": 37.520, "z": 8}],\n  "color": "#2b448b",\n  "shadow": false,\n  "height": 100,\n  "topScale": 0.7,\n  "opacity": 0.7,\n  "outline": true,\n  "outlineType": "meter",\n  "lineWidth": 0.3\n}',
+    Fault: '{\n  "type": "Fault",\n  "coord": [{"x": 126.9390, "y": 37.520, "z": 50}, {"x": 126.9395, "y": 37.521, "z": 50}, {"x": 126.9400, "y": 37.520, "z": 50}],\n  "width": 100,\n  "length": 100,\n  "dip": 60,\n  "dtop": 0,\n  "strike": 0,\n  "opacity": 0.7,\n  "outline": true,\n  "outlineType": "meter",\n  "lineWidth": 0.3\n}'
 };
 
 /** 깊이 보정이 재질에 반영되는 도형 목록입니다. 여기 없는 도형은 입력란을 숨깁니다. */
@@ -133,8 +138,12 @@ export function initializeUI(context, example) {
     const detailLayer = query('#geometry-detail-layer');
     const detailType = query('#geometry-detail-type');
     const detailForm = query('#geometry-detail-form');
-    // TEMP: setWireframe/getWireframe 확인용
+    const shapeSettings = query('#geometry-shape-settings');
+    const styleSettings = query('#geometry-style-settings');
+    const detailTabs = [...root.querySelectorAll('[data-detail-tab]')];
     const wireframeToggle = query('#geometry-wireframe-toggle');
+    const wireframeField = wireframeToggle.closest('label');
+    let activeDetailTab = 'shape';
     const sideJsonPanel = query('#geometry-json-panel');
     const sideJsonInput = query('#geometry-json-input');
     const sideJsonResult = query('#geometry-json-result');
@@ -176,7 +185,9 @@ export function initializeUI(context, example) {
             minheight: param.height, // 지면 높이
             transparent: param.opacity < 1,
             segments: 200, // 경로 세분화 조각 갯수
-            outline: param.outline !== false // 외곽선(테두리 선) 생성 유무
+            outline: param.outline !== false, // 외곽선(테두리 선) 생성 유무
+            outlineType: param.outlineType,
+            lineWidth: param.lineWidth
         });
     });
 
@@ -196,6 +207,17 @@ export function initializeUI(context, example) {
     });
     on('#delete-selected', 'click', deleteSelectedGeometry);
     on('#geometry-detail-close', 'click', closeGeometryDetail);
+    on('[data-detail-tab]', 'click', event => setDetailTab(event.currentTarget.dataset.detailTab));
+    on('[data-detail-tab]', 'keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+        event.preventDefault();
+        const tabs = detailTabs.filter(tab => !tab.disabled);
+        const index = tabs.indexOf(event.currentTarget);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1
+            : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+        setDetailTab(tabs[next].dataset.detailTab);
+        tabs[next].focus();
+    });
     on('#geometry-json-toggle', 'click', () => setJsonPanelEnabled(!jsonPanelEnabled));
     on('#geometry-json-close', 'click', () => setJsonPanelEnabled(false));
     on('#geometry-json-reset', 'click', fillSelectedStyleJson);
@@ -203,13 +225,21 @@ export function initializeUI(context, example) {
     sideJsonInput.addEventListener('input', () => { sideJsonDirty = true; }, listenerOptions);
     //+ 선택 도형 설정 폼은 선택할 때마다 새로 만들어지므로 폼을 담는 요소에 한 번만 위임해 둡니다.
     detailForm.addEventListener('change', event => {
-        const input = event.target.closest('input');
-        if (!input || !selectedGeometryId) return;
+        const input = event.target.closest('input, select');
+        if (!input || input === wireframeToggle || input.name === 'outlineTension' || !selectedGeometryId) return;
         example.updateSelectedGeometry(collectChangedParam(input));
+        updateOutlineWidthUnit(detailForm);
         //+ GUI로 바꾼 값을 JSON으로 설정 창에도 반영합니다. 적용하지 않은 JSON 편집이 있으면 덮어쓰지 않습니다.
         if (!sideJsonDirty) fillSelectedStyleJson();
     }, listenerOptions);
-    // TEMP: setWireframe/getWireframe 확인용
+    detailForm.addEventListener('input', event => {
+        const input = event.target.closest('input[name="outlineTension"]');
+        if (!input || !selectedGeometryId) return;
+        input.closest('label').querySelector('output').value = Number(input.value).toFixed(2);
+        example.updateSelectedGeometry(collectChangedParam(input));
+        if (!sideJsonDirty) fillSelectedStyleJson();
+    }, listenerOptions);
+    // 와이어프레임은 전용 API로 전환합니다.
     wireframeToggle.addEventListener('change', () => {
         if (!selectedGeometryId) return;
         example.setSelectedWireframe(wireframeToggle.checked);
@@ -350,7 +380,7 @@ export function initializeUI(context, example) {
         updateSelectedListButton();
         selectedGeometryType = selected.type;
         renderGeometryDetail(selected);
-        wireframeToggle.checked = example.getSelectedWireframe(); // TEMP: setWireframe/getWireframe 확인용
+        wireframeToggle.checked = example.getSelectedWireframe();
         fillSelectedStyleJson();
         setSidePanelOpen(detailPanel, true);
         setSidePanelOpen(sideJsonPanel, jsonPanelEnabled);
@@ -384,18 +414,81 @@ export function initializeUI(context, example) {
         const typeBlock = templates.querySelector('.vector-form-grid[data-param-target="' + selected.type + '"]');
         if (typeBlock) blocks.push(typeBlock);
 
-        const forms = blocks.map(block => {
+        const fields = blocks.flatMap(block => {
             const form = block.cloneNode(true);
-            //+ 복제한 입력이 id 중복이나 종류 전환 규칙에 걸리지 않게 식별 정보를 지웁니다.
-            form.removeAttribute('id');
-            form.removeAttribute('data-param-target');
-            form.classList.remove('param', 'active');
-            form.hidden = false;
             form.querySelectorAll('[id]').forEach(element => element.removeAttribute('id'));
-            return form;
+            return [...form.querySelectorAll('label')];
         });
-        detailForm.replaceChildren(...forms);
+        const outlineKeys = ['outline', 'lineColor', 'lineOpacity', 'lineWidth', 'outlineType', 'outlineTension'];
+        const surfaceKeys = ['color', 'colors', 'img', 'opacity'];
+        if (selected.type === 'Line') surfaceKeys.push('lineWidth');
+        const displayKeys = ['depthOffset', 'shadow'];
+        const fieldName = field => field.querySelector('input, select').name;
+        const take = keys => keys.flatMap(key => fields.filter(field => fieldName(field) === key));
+        const styleKeys = [...surfaceKeys, ...outlineKeys, ...displayKeys];
+        const shapeFields = fields.filter(field => !styleKeys.includes(fieldName(field)));
+        const outlineFields = selected.type === 'Line' ? [] : take(outlineKeys);
+        for (const field of shapeFields) {
+            const name = fieldName(field);
+            if ((selected.type === 'Sphere' && name === 'radius')
+                || (selected.type === 'Cylinder' && name === 'height')) field.classList.add('wide-field');
+        }
+
+        shapeSettings.replaceChildren(...createSettingGroup('크기와 형태', shapeFields));
+        styleSettings.replaceChildren(
+            ...createSettingGroup('본체', take(surfaceKeys)),
+            ...createSettingGroup('외곽선', outlineFields),
+            ...createSettingGroup('표시 옵션', [...take(displayKeys), wireframeField])
+        );
+        detailTabs[0].disabled = shapeFields.length === 0;
         populateGeometryParam(detailForm, selected.type, selected.param);
+        updateOutlineWidthUnit(detailForm);
+        setDetailTab(activeDetailTab);
+    }
+
+    /** 입력 이름·이벤트를 유지하면서 라벨과 입력을 같은 열에 정렬합니다. */
+    function createSettingGroup(title, fields) {
+        if (!fields.length) return [];
+        const group = document.createElement('fieldset');
+        group.className = 'vector-setting-group';
+        const legend = document.createElement('legend');
+        legend.textContent = title;
+        const grid = document.createElement('div');
+        grid.className = 'vector-form-grid';
+        for (const field of fields) {
+            const input = field.querySelector('input, select');
+            if (input.type !== 'checkbox') {
+                const caption = document.createElement('span');
+                caption.className = 'vector-field-label';
+                for (const node of [...field.childNodes]) {
+                    if (node !== input) caption.append(node);
+                }
+                field.prepend(caption);
+            }
+            if (input.name === 'outline' || input.name === 'depthOffset') field.classList.add('wide-field');
+            if (input.name === 'depthOffset') {
+                const hint = document.createElement('small');
+                hint.className = 'vector-field-hint';
+                hint.textContent = '0이면 보정 없음';
+                field.append(hint);
+            }
+            grid.append(field);
+        }
+        group.append(legend, grid);
+        return [group];
+    }
+
+    /** 탭 전환은 입력값과 선택 도형을 유지하며, 내용 영역의 스크롤만 처음으로 돌립니다. */
+    function setDetailTab(name) {
+        activeDetailTab = name === 'shape' && detailTabs[0].disabled ? 'style' : name;
+        for (const tab of detailTabs) {
+            const selected = tab.dataset.detailTab === activeDetailTab;
+            tab.setAttribute('aria-selected', String(selected));
+            tab.tabIndex = selected ? 0 : -1;
+        }
+        shapeSettings.hidden = activeDetailTab !== 'shape';
+        styleSettings.hidden = activeDetailTab !== 'style';
+        detailPanel.querySelector('.vector-detail-content').scrollTop = 0;
     }
 
     /**
@@ -404,6 +497,16 @@ export function initializeUI(context, example) {
      * @param {boolean} open true면 표시
      */
     function setSidePanelOpen(panel, open) {
+        if (!open && panel.contains(document.activeElement)) {
+            // 숨길 창 안에 포커스를 남기지 않고, 현재 보이는 관련 컨트롤로 돌려줍니다.
+            const focusTarget = [
+                panel === sideJsonPanel ? jsonToggle : null,
+                geometryLayerList.querySelector('[data-geometry-id][aria-pressed="true"]'),
+                query('input[name="type"]:checked'),
+                context.elements.rail.querySelector('[data-panel-target="vector-layer-panel"]')
+            ].find(element => element && !element.closest('[hidden], [aria-hidden="true"], [inert]'));
+            focusTarget?.focus({preventScroll: true});
+        }
         panel.hidden = !open;
         panel.setAttribute('aria-hidden', String(!open));
     }
@@ -441,9 +544,11 @@ export function initializeUI(context, example) {
         selectedGeometryType = undefined;
         pathDrawButton.disabled = !!example.state.drawingPath;
         selectionStatus.textContent = '목록에서 도형을 누르면 왼쪽에 선택 도형 설정 창이 열립니다.';
-        detailForm.replaceChildren();
         setSidePanelOpen(detailPanel, false);
         setSidePanelOpen(sideJsonPanel, false);
+        // 탭 내용 영역은 이후 선택에서도 재사용하므로 폼의 고정 구조를 제거하지 않습니다.
+        shapeSettings.replaceChildren();
+        styleSettings.replaceChildren(wireframeField);
         updateSelectedListButton();
     }
 
@@ -478,7 +583,7 @@ export function initializeUI(context, example) {
             if (typeof param[key] === 'number') param[key] /= Math.PI;
         }
 
-        const inputs = container.querySelectorAll('input');
+        const inputs = container.querySelectorAll('input, select');
         const colorIndexes = {};
         inputs.forEach(input => {
             let value = param[input.name];
@@ -492,7 +597,16 @@ export function initializeUI(context, example) {
             else if (input.type === 'color') input.value = normalizeColor(value, input.value);
             else if (input.name === 'img' && typeof value !== 'string') input.value = value.src || input.value;
             else input.value = String(value);
+            if (input.name === 'outlineTension') {
+                input.closest('label').querySelector('output').value = Number(input.value).toFixed(2);
+            }
         });
+    }
+
+    /** 선택한 외곽선 단위에 맞춰 두께 입력의 단위를 표시합니다. */
+    function updateOutlineWidthUnit(container) {
+        const type = container.querySelector('select[name="outlineType"]')?.value || 'meter';
+        container.querySelectorAll('[data-outline-width-unit]').forEach(label => { label.textContent = type === 'pixel' ? 'px' : 'm'; });
     }
 
     /**
@@ -712,7 +826,7 @@ export function initializeUI(context, example) {
 
     /**
      * 변경된 입력 하나를 setParam용 부분 옵션으로 변환합니다.
-     * @param {HTMLInputElement} input 변경된 입력
+     * @param {HTMLInputElement|HTMLSelectElement} input 변경된 입력
      * @returns {Record<string, unknown>} 부분 변경 옵션
      */
     function collectChangedParam(input) {
@@ -720,7 +834,7 @@ export function initializeUI(context, example) {
             return {colors: Array.from(detailForm.querySelectorAll('input[name="colors"]')).map(field => field.value)};
         }
         let value;
-        if (input.type === 'number') value = Number(input.value);
+        if (input.type === 'number' || input.type === 'range') value = Number(input.value);
         else if (input.type === 'checkbox') value = input.checked;
         else value = input.value;
         if (input.name === 'thetaStart' || input.name === 'thetaLength') value *= Math.PI;
@@ -736,10 +850,10 @@ export function initializeUI(context, example) {
         const templates = paramTemplate.content;
         const param = {};
         const typeBlock = templates.querySelector('.vector-form-grid[data-param-target="' + type + '"]');
-        (typeBlock ? typeBlock.querySelectorAll('input') : []).forEach(input => {
+        (typeBlock ? typeBlock.querySelectorAll('input, select') : []).forEach(input => {
             if (input.value === undefined || input.value === '') return;
             let value;
-            if (input.type === 'number') value = Number(input.value);
+            if (input.type === 'number' || input.type === 'range') value = Number(input.value);
             else if (input.type === 'checkbox') value = input.checked;
             else value = input.value;
 

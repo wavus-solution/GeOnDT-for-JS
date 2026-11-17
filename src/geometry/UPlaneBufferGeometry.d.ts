@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -9,10 +9,7 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { UBufferGeometry } from "../core/geometry/UBufferGeometry.js";
 
 /**
- * ~extends import('@UBufferGeometry') <br>
- *
- * 지형(terrain) 렌더링에 쓰이는 격자형 평면 Buffer Geometry 클래스입니다. <br>
- * 가장자리 스커트(skirt), 커스텀 높이 박스 등 지형 표현에 필요한 기능을 포함합니다. <br>
+ * ~extends import('@UBufferGeometry')
  *
  * @extends {UBufferGeometry}
  */
@@ -125,6 +122,24 @@ declare class UPlaneBufferGeometry extends UBufferGeometry {
      */
     _customBox: Map<string, UPlaneCustomBox>;
     /**
+     * 정점별 편집 선택 표시이며 1은 평탄화 또는 사면 보호 대상입니다.
+     *
+     * @type {Uint8Array}
+     */
+    _editedVertexMask: Uint8Array;
+    /**
+     * 정점별 편집 표시를 연결합니다.
+     *
+     * @param {Uint8Array} value 정점별 편집 표시 배열(1이면 편집 대상으로 선택됨)
+     */
+    set editedVertexMask(value: Uint8Array);
+    /**
+     * 평탄화·사면으로 선택한 정점의 보호 표시를 반환합니다.
+     *
+     * @returns {Uint8Array} 정점 순서의 편집 선택 표시
+     */
+    get editedVertexMask(): Uint8Array;
+    /**
      * @type {{ width: number, height: number, widthSegments: number, heightSegments: number } | undefined}
      *
      * @ignore
@@ -154,19 +169,20 @@ declare class UPlaneBufferGeometry extends UBufferGeometry {
      */
     getShareCount(): number;
     /**
-     * 대상 geometry의 속성을 이 geometry에 적용합니다(attributes를 재할당하지 않고 내부 속성만 교체합니다). <br>
+     * 대상 geometry의 속성을 이 geometry에 적용합니다(attributes를 재할당하지 않고 내부 속성만 교체합니다).
      *
-     * @param {UPlaneBufferGeometry} targetGeometry 속성을 가져올 대상 지오메트리 <br>
-     * @returns {this} 이 지오메트리(this) <br>
+     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} targetGeometry 속성과 배열을 공유할 원본 지오메트리
+     * @returns {this} 이 지오메트리(this)
+                                                                                   
      */
     change(targetGeometry: UPlaneBufferGeometry): this;
     /**
+     * 기반 지오메트리를 복사하고 편집 정점 표시도 독립 배열로 복제합니다.
+     *
      * @override
      *
-     * @param {UPlaneBufferGeometry} source
-     * @returns {this}
-     *
-     * @ignore
+     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} source 독립 복사할 원본 지오메트리
+     * @returns {this} 복사를 마친 이 지오메트리
      */
     override copy(source: UPlaneBufferGeometry): this;
     /**
@@ -228,26 +244,27 @@ declare class UPlaneBufferGeometry extends UBufferGeometry {
         z: number;
     } | undefined;
     /**
-     * 버텍스 노말 계산 <br>
-     *
-     * @override
-     *
-     * @param {number} [ratio]
-     *
-     * @ignore
+     * 표면 가장자리의 높이만 변경한 뒤 영향받는 두 줄과 스커트의 노멀을 갱신합니다. <br>
+     * 내부 표면의 노멀은 현재 정점에 대해 이미 유효해야 합니다. <br>
+     * 비표준 격자는 전체 계산을 사용합니다. <br>
+     * 공유 속성·배열·높이·bounds를 유지하며 GPU 갱신 표시는 호출자가 담당합니다.
      */
-    override computeVertexNormals(ratio?: number): void;
+    computeBoundaryVertexNormals(): void;
     /**
-     * 메쉬 초기화 <br>
+     * 부분 법선 계산과 경계 실행기에서 공유하는 표준 격자 지원 조건입니다.
      *
-     * @param {number} width
-     * @param {number} height
-     * @param {number} widthSegments
-     * @param {number} heightSegments
-     * @param {number} [defaultHeight=UDEF.TERRAIN_NO_DATA]
+     * @returns {boolean} 내부 법선을 유지한 경계 계산이 가능한지 여부입니다.
+     */
+    _supportsBoundaryVertexNormals(): boolean;
+    /**
+     * 메쉬 초기화
+     *
+     * @param {number} width 로컬 평면 너비
+     * @param {number} height 로컬 평면 높이
+     * @param {number} widthSegments 가로 분할 수(양의 정수)
+     * @param {number} heightSegments 세로 분할 수(양의 정수)
+     * @param {number} [defaultHeight=UDEF.TERRAIN_NO_DATA] 고도 미지정 정점에 쓸 로컬 Z(기본값 UDEF.TERRAIN_NO_DATA)
      * @returns {boolean}
-     *
-     * @ignore
      */
     initialize(width: number, height: number, widthSegments: number, heightSegments: number, defaultHeight?: number): boolean;
     /**
@@ -272,11 +289,17 @@ declare class UPlaneBufferGeometry extends UBufferGeometry {
      */
     setCustomBox(minx: number, miny: number, maxx: number, maxy: number, height: number, id: string): void;
     /**
-     * 커스텀 박스 전체 삭제 <br>
-     *
-     * @ignore
+     * 커스텀 박스와 정점별 편집 선택 표시를 비웁니다.
      */
     clearCustomBox(): void;
+    /**
+     * 실제 편집 연산이 선택한 정점을 경계 자동 보정에서 보호합니다. <br>
+     * 높이가 이미 목표값인 정점도 표시하여 이후 경계 보정이 덮어쓰지 않게 합니다.
+     *
+     * @param {number} vertexIndex 스커트를 포함한 0 기반 정점 인덱스
+     * @returns {boolean} 유효한 정점에 표시했는지 여부
+     */
+    markEditedVertex(vertexIndex: number): boolean;
     /**
      * 커스텀 박스 반환 <br>
      *

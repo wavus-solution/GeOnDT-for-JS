@@ -74,6 +74,12 @@ UAnimationNextFrameCommand 타입 정의
         speed는 speed: number를 가진다.
 
 UAnimationControllerEMD: UAnimationControllerEMI
+UAnimationScheduledWaypoint 타입 정의
+    point: WorldPositionVector3
+        목표 월드 좌표의 복사본
+    time: number
+        호출 시점부터 예상 도착까지의 시간(ms, 0 이상 정수). 재개 시점이나 이동 시간을 알 수 없으면 Infinity
+
 UAnimationControllerEMD.START: string = 'start'
 UAnimationControllerEMD.COMPLETE: string = 'complete'
 UAnimationControllerEMD.CHANGE: string = 'change'
@@ -98,6 +104,26 @@ UAnimationController extends UEventDispatcher 클래스 정의
 
     get waypointQueueSize() -> number
         동작: #waypointQueue.length 값을 반환한다.
+
+    _getScheduledWaypoints(count: number = 100) -> Array<UAnimationScheduledWaypoint>
+        인터페이스: 현재 목표와 대기 경유지를 도착 순서대로 복사해 최대 count개 반환한다. 새 입력·프레임 지연이 없는 경우를 추정하며 조회로 이동 상태를 바꾸지 않는다.
+        동작:
+            dispose되었거나 실행 중이 아니거나 count가 양의 정수가 아니면 빈 배열을 반환한다.
+            아직 적용하지 않은 첫 segment 명령이 있으면 그 출발·도착·기한을 사용하고, 없으면 현재 구간의 목표와 남은 거리·기한을 사용한다.
+            출발·도착점이 다르고 남은 거리가 양수인 현재 목표를 복사한다. 예상 시간은 실제 도착 허용 범위에 진입할 때까지의 속도·기한 기준 시간 중 작은 값에서 마지막 프레임 이후 경과 시간을 빼고 0 하한을 적용한다. 현재 구간의 전체 거리를 전달해 진행률 기준을 유지한다.
+            대기 경유지는 순서대로 읽고 앞 목표부터의 거리를 구하며, 유효하지 않거나 길이가 없는 구간은 건너뛴다.
+            각 경유지의 뒤에 남은 전체 대기 수로 기한을 보정하고 기본 속도와 보정 기한으로 예상 시간을 구해 누적한다.
+            일시정지 중에는 모든 예상 시간을 Infinity로 두며 각 목표 좌표와 반올림한 예상 시간을 반환한다. 실제 도착은 구간마다 다음 프레임까지 늦어질 수 있다.
+
+    #estimateTravelTime(distance: number, speed: number, duration: number | undefined, elapsed: number = 0, totalDistance: number = distance) -> number
+        동작:
+            도착 허용 거리는 0.5m와 구간 전체 거리 × easing의 역함수로 구한 진행률 0.9999 시점의 남은 거리 비율 중 큰 값이다. 실제 이동 판정과 거리·진행률 기준 상수를 공유한다.
+            도착까지 필요한 거리 = max(0, distance − 허용 거리)이며 0이면 속도·기한과 관계없이 0을 반환한다.
+            속도가 양수이면 필요한 거리 / speed × 1000, 아니면 Infinity를 속도 기준 시간으로 삼는다.
+            기한이 있으면 max(0, duration − elapsed) × 필요한 거리 / distance를 기한 기준 시간으로 삼아 속도 기준 시간과 작은 값을 반환한다. 기한이 없으면 속도 기준 시간을 반환한다.
+
+    #getWaypointDuration(durationMs: number | undefined, backlog: number) -> number | undefined
+        동작: 기한이 없으면 undefined를 반환한다. 있으면 durationMs / min(4, backlog + 1)에 1ms 하한을 적용하되 입력 기한을 넘기지 않은 값을 반환한다.
 
     get isRunning() -> boolean
         동작: #isRunning 값을 반환한다.
@@ -228,8 +254,8 @@ UAnimationController extends UEventDispatcher 클래스 정의
             첫 항목을 꺼내 제거하고 항목 또는 to가 없으면 false를 반환한다.
             기존 #to를 #from에, 다음 to를 #to에 복사해 거리를 구한다.
             거리가 유한하지 않거나 0 이하이면 다음 항목을 재귀적으로 시도하여 결과를 반환한다.
-            거리를 저장하고 기한이 있으면 남은 대기 수 + 1과 4 중 작은 값으로 나눈다.
-                나눈 기한에 1ms 하한을 적용하되 입력 기한을 넘기지 않으며 기한 보정 모드로 설정한다.
+            거리를 저장하고 남은 대기 수로 보정한 기한을 구한다.
+            보정 기한이 있으면 그 값을 저장하고 기한 보정 모드로 설정한다.
             기한이 없으면 고정 속도로 전환하고 기본 속도를 복원한다.
             전체 기록을 보존하며 구간을 초기화한 뒤 현재 시각을 마지막 갱신 시각에 저장한다.
             CHANGE에 자신을 전달하고 true를 반환한다.

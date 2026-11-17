@@ -37,10 +37,10 @@ material 이 소유하지 않은 GPU 전용 texture 는 복제하거나 해제�
 
 ```spec
 TERRAIN_MATERIAL_PROGRAM_KEYS: Array<string>
-    terrain/path/area/circle/composite/hybrid decal 여섯 boolean 조합에 대응하는 사전 생성 program cache key 64개. 호출마다 문자열을 조립하지 않기 위해 미리 만든다.
+    terrain/path/area/circle/composite/hybrid/hybrid-run decal 일곱 boolean 조합에 대응하는 사전 생성 program cache key 768개(128개 define 조합 × 여섯 직접 타입 순서). 호출마다 문자열을 조립하지 않기 위해 미리 만든다.
 
 TERRAIN_MATERIAL_DECAL_DEFINE_KEYS: ReadonlyArray<string>
-    decal 상태 교체마다 제거해야 하는 terrain decal define 목록. direct 와 composite 는 상호 배타이고 hybrid 는 두 경로를 함께 쓰므로, 세 경로의 define 을 함께 지워야 이전 경로가 되살아나지 않는다.
+    decal 상태 교체마다 제거해야 하는 terrain decal define 목록. direct 와 composite 는 상호 배타이고 hybrid 는 두 경로를 함께 쓰므로, 구간 전용 USE_TERRAIN_DECAL_HYBRID_RUN 을 포함한 모든 경로 define 을 함께 지워야 이전 경로가 되살아나지 않는다.
 
 TERRAIN_DATA_TEXTURE_UPLOADED_KEY: string
     DataTexture 가 한 번이라도 업로드됐는지 표시하는 내부 key
@@ -59,10 +59,12 @@ getTerrainMaterialProgramCacheKey(defines: Record<string, number | undefined> = 
         terrain, path, area, circle 사용 여부를 하위 네 bit 로 담는다.
         direct 와 composite 는 fragment 경로가 다르므로 전환 시 반드시 다시 컴파일해야 한다. composite 를 다섯째 bit 로 담는다.
         hybrid 는 두 경로를 함께 쓰는 세 번째 분기이므로 composite 만 켠 상태와 같은 program 으로 볼 수 없다. 여섯째 bit 로 담는다.
+        USE_TERRAIN_DECAL_HYBRID_RUN 은 동적 구간 전용 packed 입력의 전체 평가를 선택하므로 일곱째 bit 로 구분한다. 일반 hybrid 와 구간 전용 hybrid 의 전환도 예열과 program 변경 판단에 반영한다.
         이 함수는 prewarm 의 예열 판단과 상태 적용의 program 변경 판단에도 쓰이므로 경로를 가르는 define 을 빠뜨리면 갱신이 일어나지 않는다.
 
     동작:
-        여섯 define 의 사용 여부로 bit mask 를 만들어 대응하는 사전 생성 key 를 반환한다.
+        일곱 define 의 사용 여부로 bit mask 를 만든다. TERRAIN_DECAL_TYPE_ORDER 의 정수 1~5 는 128 단위로 구분하고 기본값·범위 밖 값은 기존 순서의 key 를 유지한다.
+        상태 교체와 clear 는 이전 TERRAIN_DECAL_TYPE_ORDER 를 제거하여 직접 순서가 canonical·hybrid·composite 에 남지 않게 한다.
 
 isExternalGpuTexture(value: unknown) -> boolean
     역할: 다른 모듈이 소유한 GPU 전용 texture 인지 확인한다.
@@ -101,23 +103,27 @@ cloneUniformValue(value: unknown, previousValue: unknown) -> unknown
     처리 기준:
         외부 GPU texture 는 그대로 참조한다.
         같은 규격의 DataTexture 는 새로 만들지 않고 변경 행만 올려 재사용한다.
-        복제한 texture 에는 material 소유 표시를 남기고 전달받은 buffer 소유 표시는 제거한다.
+        배열이 아닌 값에서 직접 복제한 Texture에는 material 소유 표시를 남기고 전달받은 buffer 소유 표시는 제거한다.
         DataTexture 는 TextureSource 와 CPU 배열도 분리하고 첫 전체 업로드 완료를 추적한다.
         복제할 수 없는 값은 그대로 쓴다.
 
+    의존:
+        updateReusableTerrainDataTexture — DataTexture 규격 비교와 기존 객체 갱신; 함수: {updateReusableTerrainDataTexture()}
+        trackTerrainDataTextureUpload — 복제 DataTexture의 첫 업로드 추적; 함수: {trackTerrainDataTextureUpload()}
+
     동작:
         외부 GPU texture 면 그대로 반환한다.
-        재사용 가능한 DataTexture 가 있으면 그것을 반환한다. [외부 위임: UShaderTerrainDecalUtils.updateReusableTerrainDataTexture()]
-        배열이면 항목별로 복제하고, 복제 가능한 값이면 복제한 뒤 texture 에는 소유 표시와 갱신 표시를 남긴다.
+        재사용 가능한 DataTexture 가 있으면 그것을 반환한다.
+        배열이면 clone 함수가 있는 항목만 한 단계 복제하고 나머지는 같은 참조를 담는다. 이 분기의 배열 항목에는 소유 표식이나 업로드 추적을 추가하지 않는다.
+        배열이 아닌 복제 가능한 값이면 복제하고 Texture에는 material 소유 표식을 남기며 buffer 소유 표식은 지운다. DataTexture는 Source를 새로 만들고 data.slice가 있으면 그 사본을, 없으면 같은 data를 사용한다. 첫 업로드 추적을 연결한다.
         그 밖의 값은 그대로 반환한다.
 
 UTerrainMaterial extends THREE.MeshPhongMaterial 클래스 정의
     의존:
         THREE.MeshPhongMaterial — 기본 지형 image material 상태와 컴파일 확장 지점 제공; 상속: {THREE.MeshPhongMaterial}
-        UShaderTerrainDecalUtils — Texture 재사용·변경 범위 병합·최초 업로드 추적 계산을 제공한다.
 
     name: string
-        material 이름이며 항상 UTerrainMaterial 이다.
+        생성 시 UTerrainMaterial로 지정하는 공개 이름이다. 외부 쓰기를 차단하지 않는다.
     _decalShader: object | undefined
         마지막 컴파일에서 받은 shader 객체이며 uniform 재연결에 쓴다.
     _baseShaderUniforms: Map<string, IUniform>
@@ -186,6 +192,8 @@ UTerrainMaterial extends THREE.MeshPhongMaterial 클래스 정의
 
     #applyTerrainDecalState(state: object, ownsUniformTextures: boolean) -> void
         역할: 소유권을 구분해 define·uniform·shader 연결·투명 상태를 함께 교체한다.
+        인터페이스: 교체 전후의 customProgramCacheKey는 현재 material을 receiver로 호출한다.
+        의존: THREE.MeshPhongMaterial — program key 조회와 shader 갱신 요청; 함수: {customProgramCacheKey()}; 속성 쓰기: {needsUpdate}
 
         동작:
             빈 상태와 전달 상태를 합치고 현재 program cache key 를 기억한다.
@@ -239,6 +247,8 @@ UTerrainMaterial extends THREE.MeshPhongMaterial 클래스 정의
         처리 기준:
             threshold, depthOffset, tileScale 기본 uniform 을 항상 담아 decal 이 없을 때도 shader 계약을 유지한다.
 
+        의존: THREE.Vector2 — 기본 tileScale 생성; 생성자: {new THREE.Vector2()}
+
         동작:
             빈 define 과 기본 uniform 세 개, 반투명·강제 갱신 거짓을 담은 상태를 반환한다.
 
@@ -263,10 +273,12 @@ UTerrainMaterial extends THREE.MeshPhongMaterial 클래스 정의
 
         의존:
             MeshPhongMaterial — program key·컴파일 hook 설치와 첫 컴파일 요청; 속성 읽기: {defines}; 속성 쓰기: {customProgramCacheKey, onBeforeCompile, needsUpdate}
+            GDecalTerrainShader — 기본 shader 문자열에 decal 주입; 함수: {setVertexShader(), setFragmentShader()}
 
         동작:
             program cache key 함수를 설치한다.
-            컴파일 hook 에서 shader 를 보관하고 기본 uniform 을 갈무리한 뒤 decal uniform 을 넣고 vertex·fragment shader 를 교체한다.
+            컴파일 hook은 arrow callback으로 생성 시 material을 참조한다. shader와 새 기본 uniform Map을 보관하고 기본 uniform을 갈무리한다.
+            decal uniform을 합친 뒤 GDecalTerrainShader의 두 주입 함수를 실행해 vertex·fragment 문자열을 교체한다.
             첫 컴파일을 요청한다.
 
     #applyDefines(defines: Record<string, number> = {}) -> void
@@ -291,10 +303,14 @@ UTerrainMaterial extends THREE.MeshPhongMaterial 클래스 정의
             겹치지 않으면 컴파일된 WebGL uniform 조회가 같은 객체를 참조할 수 있어 키는 유지하고 값만 비운다.
             재사용하지 않는 이전 소유 texture 만 해제한다.
 
+        의존: trackTerrainDataTextureUpload — 공유 DataTexture의 첫 업로드 추적; 함수: {trackTerrainDataTextureUpload()}
+
         동작:
-            새 uniform 을 값 복제 규칙으로 정규화한다.
-            컴파일된 shader 가 있으면 기본 uniform 을 갈무리하고 사라진 key 를 복원하거나 값만 비운다.
-            교체로 버려지는 소유 texture 를 해제하고 decal 상태의 uniform 을 새 집합으로 바꾼다.
+            각 입력의 value가 nullish가 아니면 그 값을 쓰고 nullish이면 입력 전체를 값으로 사용한다. value가 0·false이면 그대로 사용한다. [확인 Q-001]
+            공유 경로에서는 값 참조를 유지하고 DataTexture 업로드 추적만 연결한다. 소유 경로에서는 이전 상태도 소유 경로일 때만 같은 key의 이전 값을 재사용 후보로 넘겨 복제한다.
+            this._decalShader.uniforms가 있으면 기본 uniform을 갈무리하고 사라진 key를 복원하거나 값만 비운다.
+            새 인자 ownsUniformTextures와 관계없이, 이전 this._terrainDecalState.ownsUniformTextures가 true인 경우만 교체로 버려지는 소유 texture를 해제한다.
+            decal 상태의 uniform을 새 집합으로 바꾼다.
 
     #captureBaseShaderUniforms(shaderUniforms: object = {}, nextUniforms: object = {}, prevUniforms: object = {}) -> void
         역할: 새 decal uniform 과 이름이 겹치는 기본 shader uniform 객체를 복원용으로 보관한다.

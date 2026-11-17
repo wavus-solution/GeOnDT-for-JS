@@ -4,6 +4,7 @@ import {defined} from "@util/defined";
 import {defaultValue} from "@util/defaultValue";
 import {UAnaly} from "@union3d/analy/UAnaly";
 import {UDEF} from "@union3d/core/UDEF";
+import {UMesh} from '@union3d/core/mesh/UMesh';
 import {UGizmoControls} from "@union3d/mode/UGizmoControls";
 import {__GError__, __GSError__, __GInfo__} from "@U3dMessage";
 import {U3dOverlay} from '@union3d/overlay/U3dOverlay';
@@ -1058,7 +1059,8 @@ class UAnalyGizmoModel extends UAnaly {
     }
 
     /**
-     * 선택한 각 모델의 편집 정보를 앱에 알리고 분석 end 이벤트를 전달합니다.
+     * 현재 모델의 식별값으로 편집 정보를 앱에 알리고 대상별 end 이벤트를 전달합니다.
+     * 미등록 절차형 객체도 편집 종료는 알리되 데이터 모델의 편집 이력에는 등록하지 않습니다.
      */
     onEnd() {
         if (!defined(this._control)) this.createGizmo();
@@ -1078,14 +1080,7 @@ class UAnalyGizmoModel extends UAnaly {
             if (defined(obj.userData) && defined(obj.userData['origin']))
                 editData._oriPosition = obj.userData['origin'].position;
 
-            let id;
-            if (defined(obj.userData?.id)) {
-                id = obj.userData.id;
-            } else {
-                const objExt = /** @type {{_opt: ({id: (unknown|undefined)}|undefined)}} */ (/** @type {unknown} */ (obj));
-                id = defined(objExt._opt) && defined(objExt._opt.id) ? objExt._opt.id : obj.id;
-            }
-
+            const id = UMesh._getObjectId(obj);
             const editedEvent = {
                 id,
                 position: obj.position,
@@ -1093,7 +1088,7 @@ class UAnalyGizmoModel extends UAnaly {
                 mode: controlMode,
                 axis: ctrl?.axis ?? null
             };
-            this._app?.editedMesh(obj, editedEvent);
+            if (defined(id)) this._app?.editedMesh(obj, editedEvent);
             this.dispatchEvent({ type: 'end', data });
         }
     }

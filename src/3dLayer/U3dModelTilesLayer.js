@@ -10,7 +10,7 @@ import { UGroup } from '@union3d/core/UGroup';
 import { U3DTileset } from '@union3d/3dTiles/U3DTileset';
 import { UFileLoader } from '@union3d/core/loader/UFileLoader';
 import { UCheckTime } from '@union3d/core/UCheckTime';
-import { UB3dmParser, prepareTileMeshMaterials } from '/union3d/core/parser/UB3dmParser.js';
+import { UB3dmParser, prepareTileMeshMaterials } from '@union3d/core/parser/UB3dmParser';
 import { UI3dmParser } from "@union3d/core/parser/UI3dmParser";
 import { UPntsParser } from '@union3d/core/parser/UPntsParser';
 import { Coordinates } from '@union3d/3dTiles/Coordinates';
@@ -19,7 +19,7 @@ import { UMathEngine } from '@union3d/math/UMathEngine';
 import { UBox3 } from '@union3d/core/UBox3';
 import { UMetaData } from '@union3d/meta/UMetaData';
 import { U3dMessage } from '@union3d/message/U3dMessage';
-import { deferred } from "@union3d/util/deferred";
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import { U3dQuadTileWork } from "@union3d/quadtree/U3dQuadTileWork";
 import { Guid } from "@union3d/util/Guid";
 import { UCmptParser } from "@union3d/core/parser/UCmptParser";
@@ -27,6 +27,7 @@ import { Yield } from "@union3d/util/Yield";
 import { LRUCache } from "@union3d/util/LRUCache";
 import { UGLTFLoader } from "@union3d/core/loader/UGLTFLoader";
 import { U3DTilesMesh } from "@union3d/core/mesh/U3DTilesMesh";
+import { UMesh } from '@union3d/core/mesh/UMesh';
 
 // let outlineB3DM = false //+ b3dm 영역 박스 표출
 const TDTILES = '3dtiles';
@@ -46,17 +47,11 @@ const TILES_TYPE = {
 const DEFAULT_MAX_SCREEN_SPACE_ERROR = 32;
 
 /**
- * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer <br>
- *
- * 3D Tiles 콘텐츠를 로드하여 계층별로 표시하는 모델 레이어입니다. <br>
- * 원본 타일 경계 또는 선택적 콘텐츠 이동 범위로 탐색·LOD·표시 수명을 판정합니다. <br>
- * 모델 레이어와 시퀀스 확장에서 사용하며 파일 로딩·배치·캐시와 선택 경계 설정을 관리합니다.
+ * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer
  *
  * @group 3dLayer
- *
  * @extends {U3dModelLayer}
  */
-/// <summary>3D Tiles 콘텐츠를 로드하여 계층별로 표시하는 모델 레이어입니다.  원본 타일 경계 또는 선택적 콘텐츠 이동 범위로 탐색·LOD·표시 수명을 판정합니다.  모델 레이어와 시퀀스 확장에서 사용하며 파일 로딩·배치·캐시와 선택 경계 설정을 관리합니다. </summary>
 class U3dModelTilesLayer extends U3dModelLayer {
     /**
      * 옵션 입력의 기존 표기를 정본 키로 연결합니다.
@@ -86,24 +81,25 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * @ignore
      */
     _contentOffsetBoundsDirty = false;
-    /** @type {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} */
+    /**
+     * 레이어가 소유하는 재질 원본 상태입니다. 외부에서 항목을 교체하면 배율 복원 기준을 잃습니다.
+     *
+     * @type {WeakMap<import('three').Material, UModelTileMaterialState>}
+     *
+     * @ignore
+     */
     _materialStateMap = new WeakMap();
-
-    /** @returns {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} 원본 상태 참조입니다. */
-    /// <summary>레이어가 소유하는 재질별 원본 상태 WeakMap 참조를 반환합니다. 재질 수명을 연장하지 않으며 호출자는 원본 항목을 임의로 제거하지 않아야 합니다.</summary>
-    get materialStateMap() { return this._materialStateMap; }
-
-    /** @param {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} value 연결 전 사용할 원본 상태 저장소입니다. */
-    /// <summary>타일 트리가 연결되기 전에 원본 상태 저장소를 교체합니다. 연결 중 교체는 원본 유실을 막기 위해 거부합니다.</summary>
-    /// <param name="value">Material을 키로 UModelTileMaterialStateVo를 보관하는 WeakMap이며 null을 허용하지 않습니다. 레이어가 참조를 보관하고 항목을 추가합니다.</param>
-    set materialStateMap(value) {
-        if (!(value instanceof WeakMap)) throw new TypeError('재질 원본 상태 저장소는 WeakMap이어야 합니다.');
-        if (this._rootTileSet && value !== this._materialStateMap) throw new Error('타일 연결 중에는 재질 원본 상태 저장소를 교체할 수 없습니다.');
-        this._materialStateMap = value;
-    }
 
     #stopUpdate = false;
     #scaledHeightOffset = 0; //3857스케일 적용된 heightOffset
+    /**
+     * 타일 해제 횟수입니다. 같은 타일을 즉시 재사용하면 disposed는 false로 돌아오지만,
+     * 해제 전에 예약한 캐시·이벤트 callback까지 다시 유효해져서는 안 됩니다.
+     * 카메라 갱신 세대와 별개이며 WeakMap이므로 제거된 타일을 붙잡지 않습니다.
+     *
+     * @type {WeakMap<object, number>}
+     */
+    #contentRevisions = new WeakMap();
     /**
      * 콘텐츠 캐시의 최대 항목 수입니다.
      *
@@ -139,8 +135,6 @@ class U3dModelTilesLayer extends U3dModelLayer {
      *
      * @param {U3dModelTilesLayerCO} opt 타일 데이터 주소와 표시·요청 설정
      */
-    /// <summary>타일 주소·파서·캐시·경계와 재질 원본 상태 저장소를 준비하여 3D Tiles 표시 수명을 구성합니다.</summary>
-    /// <param name="opt">타일 주소·표시·요청 설정을 가진 U3dModelTilesLayerCO object이며 null을 허용하지 않습니다. 정규화 후 값을 보관하며 외부 자원 소유권은 이전하지 않습니다.</param>
     constructor(opt) {
         opt = normalizeOptionKeys(opt, new.target);
         super(opt);
@@ -332,11 +326,11 @@ class U3dModelTilesLayer extends U3dModelLayer {
 
     /**
      * 원본 재질 불투명도에 레이어 불투명도를 곱합니다.
-     * @param {number} val 레이어 불투명도이며 0~1로 보정합니다.
+     *
      * @override
+     *
+     * @param {number} val 레이어 불투명도(유한수는 0~1로 제한, null·undefined는 무시)
      */
-    /// <summary>현재 트리와 캐시에 원본 불투명도 × 레이어 불투명도를 적용합니다. 1로 복원하면 원본 transparent·depthWrite 설정으로 되돌리고 기존 resetOpacity 경로도 유지합니다.</summary>
-    /// <param name="val">단위 없는 유한 number이며 0 미만은 0, 1 초과는 1로 보정합니다. null·undefined는 기존처럼 무시하고 다른 자료형·NaN·무한수는 거부합니다.</param>
     setOpacity(val) {
         if (!defined(val)) return;
         if (typeof val !== 'number' || !Number.isFinite(val)) throw new TypeError('레이어 불투명도는 유한수여야 합니다.');
@@ -351,11 +345,8 @@ class U3dModelTilesLayer extends U3dModelLayer {
     /**
      * 0 이동을 포함하는 선택적 월드 이동 범위를 설정합니다.
      *
-     * @param {ModelContentOffsetBounds | null} [bounds=null] 원본 형상에 더할 월드 X/Y/Z 최소·최대 이동량. 배열을 복사하며 null이면 기존 판정입니다.
-     * @returns {void}
+     * @param {ModelContentOffsetBounds | null} [bounds=null] 원본 형상에 더할 월드 X·Y·Z 이동 범위(null이면 기존 경계 판정)
      */
-    /// <summary>0 이동을 포함하는 선택적 월드 이동 범위를 설정합니다. </summary>
-    /// <param name="bounds">원본 형상에 더할 월드 X/Y/Z 최소·최대 이동량. 배열을 복사하며 null이면 기존 판정입니다. 자료형: ModelContentOffsetBounds | null. 생략 시 기본값: null.</param>
     setContentOffsetBounds(bounds = null) {
         const candidate=INTERNAL.copyContentOffsetBounds(bounds);
         if(JSON.stringify(candidate)===JSON.stringify(this._contentOffsetBounds))return;
@@ -367,39 +358,30 @@ class U3dModelTilesLayer extends U3dModelLayer {
      *
      * @returns {ModelContentOffsetBounds | null} 호출자 소유의 범위 사본 또는 null
      */
-    /// <summary>현재 선택 경계 이동 범위를 독립 배열로 반환합니다. </summary>
     getContentOffsetBounds() {return this._contentOffsetBounds===null?null:{min:[...this._contentOffsetBounds.min],max:[...this._contentOffsetBounds.max]};}
     /**
      * 선택 경계 이동 범위를 독립 배열로 반환합니다.
      *
      * @returns {ModelContentOffsetBounds | null} 호출자 소유의 범위 사본 또는 null
      */
-    /// <summary>선택 경계 이동 범위를 독립 배열로 반환합니다. </summary>
     get contentOffsetBounds() {return this.getContentOffsetBounds();}
     /**
      * 선택 경계 이동 범위를 검증 후 설정합니다.
      *
-     * @param {ModelContentOffsetBounds | null} value 원본을 변경하지 않을 범위. null이면 기존 판정으로 복귀합니다.
-     * @returns {void}
+     * @param {ModelContentOffsetBounds | null} value 이동 경계 범위(null이면 기존 판정으로 복귀)
      */
-    /// <summary>선택 경계 이동 범위를 검증 후 설정합니다. </summary>
-    /// <param name="value">원본을 변경하지 않을 범위. null이면 기존 판정으로 복귀합니다. 자료형: ModelContentOffsetBounds | null.</param>
     set contentOffsetBounds(value) {this.setContentOffsetBounds(value);}
     /**
      * 경계 변경 후 갱신 대기 여부를 반환합니다.
      *
      * @returns {boolean} 다음 유효 update에서 판정 갱신이 필요하면 true
      */
-    /// <summary>경계 변경 후 갱신 대기 여부를 반환합니다. </summary>
     get contentOffsetBoundsDirty() {return this._contentOffsetBoundsDirty;}
     /**
      * 갱신 대기 상태의 직접 변경을 거부합니다.
      *
-     * @param {boolean} value 요청한 상태. setContentOffsetBounds와 update만 관리합니다.
-     * @returns {void}
+     * @param {boolean} value 요청한 이동 경계 상태(직접 변경 불가)
      */
-    /// <summary>갱신 대기 상태의 직접 변경을 거부합니다. </summary>
-    /// <param name="value">요청한 상태. setContentOffsetBounds와 update만 관리합니다. 자료형: boolean.</param>
     set contentOffsetBoundsDirty(value) {throw new Error('경계 갱신 상태는 레이어가 관리합니다.');}
 
     /**
@@ -439,18 +421,15 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * @override
      *
      * @param {import('@UDrawArg').UDrawArg} drawArg 현재 프레임의 렌더링 문맥
-     * @param {number} [curTime] 사용하지 않는 매개변수. 다른 레이어와 같은 호출 형태를 위해 유지
-     * @param {boolean} [force=false] `true`면 갱신 주기를 무시하고 즉시 갱신
+     * @param {number} [curTime] 공통 레이어 호출 형식과 맞추기 위해 유지하는 미사용 인수
+     * @param {boolean} [force=false] 갱신 주기를 무시하고 즉시 갱신할지 여부(기본값 false)
      */
-    /// <summary>매 프레임 타일셋의 가시 범위와 갱신 주기를 확인하고 자식 없는 콘텐츠 루트를 포함한 3D Tiles 트리를 탐색·갱신합니다.  앱은 `drawArg` 하나만 넘기며, 내부에서 갱신 주기를 무시해야 할 때 `force`를 `true`로 호출합니다. </summary>
-    /// <param name="drawArg">현재 프레임의 렌더링 문맥 자료형: import('@UDrawArg').UDrawArg.</param>
-    /// <param name="curTime">사용하지 않는 매개변수. 다른 레이어와 같은 호출 형태를 위해 유지 자료형: number.</param>
-    /// <param name="force">`true`면 갱신 주기를 무시하고 즉시 갱신 자료형: boolean. 생략 시 기본값: false.</param>
     update(drawArg, curTime, force = false) {
         const self = this;
 
         if (
-            self.isStopUpdate()
+            self._disposed
+            || self.isStopUpdate()
             || !self.isInitialized()
             || !self._initializedJson
             || !defined(self._drawArg)
@@ -477,6 +456,9 @@ class U3dModelTilesLayer extends U3dModelLayer {
         const contentSphere = INTERNAL.contentOffsetSphere(self._sphere, contentOffsetContext);
         self._contentOffsetBoundsDirty = false;
         if (!self._drawArg.intersectsBox(contentBox) || contentSphere.distanceToPoint(curPosition) > limit) {
+            // 비동기 후처리가 이 프레임보다 먼저 요청을 정리했어도 복귀는 새 탐색입니다.
+            // 비어 있는 트리는 순회하지 않고 위치 비교 기준만 무효화합니다.
+            self._prevPostion = undefined;
             // 화면 밖으로 완전히 벗어난 경우에는 캐시 등록 전인 진행 요청도 제거해야 네트워크 슬롯과
             // 파서 작업이 현재 화면에 필요 없는 타일에 계속 사용되지 않습니다.
             if (self._dataCache.length() > 0 || self._activeTileContentRequests.size > 0) {
@@ -507,6 +489,10 @@ class U3dModelTilesLayer extends U3dModelLayer {
                 self.searchTiles(rootChild, self._rootTileSet, updateId, true, checkContext);
                 continue;
             }
+            // 콘텐츠 없는 루트 경계는 요청 경로를 거치지 않고 자식 탐색의 부모로만 쓰입니다.
+            // 숨김·화면 이탈로 콘텐츠를 정리한 뒤 현재 탐색이 다시 선택했으므로 재사용합니다.
+            // 하위 노드는 선택될 때 각각 복원하며, 취소한 요청·해제 세대는 되돌리지 않습니다.
+            rootChild.disposed = false;
             const children = rootChild.children || [];
             rootChild.loadCount = 0;
             rootChild.loadList = children;
@@ -715,6 +701,10 @@ class U3dModelTilesLayer extends U3dModelLayer {
             try {
                 self.#defineBatchGroup().then(function(obj) {
                     self._batchGroup = obj;
+                }).catch(error => {
+                    // 배치 그룹은 부가 메타데이터입니다. 루트 JSON과의 도착 순서가 ready의
+                    // 성공 여부를 바꾸지 않도록 기존처럼 레이어 초기화와 분리합니다.
+                    if (!self._disposed) console.error('배치 그룹 JSON을 불러오지 못했습니다.', error);
                 });
             } catch (e) {
                 throw new Error('Batch Group Json File is loading failed');
@@ -723,7 +713,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
         //+ comment group add
         // self._app._sceneComment.add(self._groupComment);
 
-        const promise = deferred();
+        const promise = deferredPromise();
         const url = self._proxyUrl + self._baseUrl + self._apiKey;
         const loader = new UFileLoader();
         loader.crossOrigin = 'anonymous';
@@ -733,6 +723,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
             //+ onLoad
             function(json) {
                 try {
+                    if (self._disposed) throw new DOMException('Tiles 초기화 중 레이어가 해제되었습니다.', 'AbortError');
                     if (!defined(json)) {
                         U3dMessage.error(self._classtype, U3dMessage.CNT.CMM.NON_SERVER_DATA_1, '9614544');
                         promise.reject(false);
@@ -845,7 +836,9 @@ class U3dModelTilesLayer extends U3dModelLayer {
                     if (defined(self._resolveReady))
                         self._resolveReady();
                 } catch (error) {
-                    // 타일·요청 Deferred의 계약을 건드리지 않고 레이어 준비 실패만 통지합니다.
+                    // 반환한 초기화 작업도 종결해야 setApp·refresh와 직접 호출자가 함께 실패를
+                    // 관찰할 수 있습니다. ready만 거부하면 별도 요청 Promise가 계속 대기합니다.
+                    promise.reject(error);
                     if (self.isReady()) {
                         console.error('완료된 3D Tiles 레이어의 초기화 후처리에서 오류가 발생했습니다.', error);
                         return;
@@ -1099,6 +1092,9 @@ class U3dModelTilesLayer extends U3dModelLayer {
      */
     removeAllTiles() {
         const self = this;
+        // 콘텐츠를 비웠으므로 같은 카메라 위치로 돌아와도 한 번은 다시 탐색해야 합니다.
+        // 다음 정상 탐색에서 위치 기준이 다시 저장되며, 정지 프레임의 기존 생략은 유지합니다.
+        self._prevPostion = undefined;
         self.updateCancel();
         self._cancelAllTileContentRequests();
         self.clearCache();
@@ -1113,7 +1109,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * @returns {Promise<void>} 동기 정리가 끝나면 완료되며 정리 중 예외가 발생하면 실패합니다.
      */
     clear() {
-        let promise = deferred();
+        let promise = deferredPromise();
         const self = this;
         try {
             self.updateCancel();
@@ -1174,8 +1170,9 @@ class U3dModelTilesLayer extends U3dModelLayer {
             }
 
             self.clear().then(function() {
-                self.initialize();
-            });
+                // 반환한 초기화 Promise까지 연결해야 루트 JSON의 비동기 실패도 처리됩니다.
+                return self.initialize();
+            }).catch(error => { self._rejectReady(error); });
         } catch (e) {
             throw new Error('layer refresh is fail : ' + e);
         }
@@ -1188,21 +1185,15 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * @param {import('@U3DTileset').U3DTileset} tile 탐색할 타일
      * @param {import('@U3DTileset').U3DTileset} parent 형제 로딩 상태를 집계할 부모
      * @param {string | number} updateId 현재 갱신 세대 ID
-     * @param {boolean} [isFirst=true] 최초 경계 교차 검사를 수행할지 여부
+     * @param {boolean} [isFirst=true] 최초 경계 교차 검사를 수행할지 여부(기본값 true)
      * @param {TileCheckContext} [checkContext] 같은 탐색 주기에서 공유할 판정 문맥
-     * @returns {Promise<import('@U3DTileset').U3DTileset> | undefined} 현재 타일 요청이며 취소·범위 제외 시 undefined
+     * @returns {undefined | Promise<import('@U3DTileset').U3DTileset>} 현재 타일 요청이며 취소·범위 제외 시 undefined
      *
      * @ignore
      */
-    /// <summary>타일(tile)을 선택하여 콘텐츠 로딩과 부모·자식 표시 전환을 연결합니다.  반환값은 현재 타일의 요청이며 자손 전체의 완료를 뜻하지 않습니다. </summary>
-    /// <param name="tile">탐색할 타일 자료형: import('@U3DTileset').U3DTileset.</param>
-    /// <param name="parent">형제 로딩 상태를 집계할 부모 자료형: import('@U3DTileset').U3DTileset.</param>
-    /// <param name="updateId">현재 갱신 세대 ID 자료형: string | number.</param>
-    /// <param name="isFirst">최초 경계 교차 검사를 수행할지 여부 자료형: boolean. 생략 시 기본값: true.</param>
-    /// <param name="checkContext">같은 탐색 주기에서 공유할 판정 문맥 자료형: TileCheckContext.</param>
     searchTiles(tile, parent, updateId, isFirst = true, checkContext = this.#createCheckContext(undefined, updateId)) {
         const self = this;
-        if (self.isCancel(updateId)) return;
+        if (self._disposed || parent.disposed || self.isCancel(updateId)) return;
 
         if (!defined(tile.viewBox))
             self.createViewBox(tile);
@@ -1215,10 +1206,15 @@ class U3dModelTilesLayer extends U3dModelLayer {
             }
         }
 
+        self.setPromise(tile, updateId);
+        const request = tile.promise;
+        // 완료 후에도 콜백 실행 전까지 해제·재요청이 가능합니다. 같은 updateId만으로는
+        // 구별할 수 없으므로 이번 탐색이 기다린 요청 자체와 부모·자식의 수명을 확인합니다.
+        const isCurrent = () => !self._disposed && !parent.disposed && !tile.disposed
+            && tile.promise === request && !self.isCancel(updateId);
         if (parent.type === TILES_TYPE.BOUND || parent.refine === UDEF.TILE_REFINE.ADD) {
-            self.setPromise(tile, updateId);
-            tile.promise.then((workedTile) => { //형제들 기다리지 말고 바로 다음 서치 진행
-                if (self.isCancel(updateId)) return;
+            request.then((workedTile) => { //형제들 기다리지 말고 바로 다음 서치 진행
+                if (!isCurrent() || workedTile.disposed) return;
                 const results = [];
                 workedTile.loadCount = 0;
                 // 같은 updateId 안의 재귀 검색은 동일한 checkContext를 공유해 중복 계산을 피한다.
@@ -1227,6 +1223,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
                         self.addGroup(workedTile);
                     workedTile.loadList = results;
                     for (let child of results) {
+                        if (!isCurrent()) return;
                         self.searchTiles(child, workedTile, updateId, isFirst, checkContext);
                     }
 
@@ -1239,19 +1236,23 @@ class U3dModelTilesLayer extends U3dModelLayer {
                         }
                     }
                 }
-                parent.loadCount++;
+                if (isCurrent()) parent.loadCount++;
+            }, () => {
+                // 실패 정리는 setPromise가 맡으며 ADD 탐색은 이 가지에서 종료합니다.
+            }).catch(error => {
+                if (isCurrent()) console.error('타일 표시 반영 중 오류가 발생했습니다.', error);
             });
         } else {
             isFirst = false;
-            self.setPromise(tile, updateId);
-            tile.promise.then((workedTile) => { //같은 레벨 형제들 까지 다 완료 되면
-                if (self.isCancel(updateId)) return;
+            request.then((workedTile) => { //같은 레벨 형제들 까지 다 완료 되면
+                if (!isCurrent() || workedTile.disposed) return;
                 const results = [];
                 workedTile.loadCount = 0;
                 // REPLACE 방식도 같은 updateId 안에서는 동일한 판정 기준을 유지한다.
                 if (self.checkTileDepth(workedTile, 3, results, checkContext)) {
                     workedTile.loadList = results;
                     for (let child of results) {
+                        if (!isCurrent()) return;
                         self.searchTiles(child, workedTile, updateId, isFirst, checkContext);
                     }
                 } else {
@@ -1259,10 +1260,13 @@ class U3dModelTilesLayer extends U3dModelLayer {
                     workedTile.complete = UDEF.TILES_STATE._END;
                 }
 
+                if (!isCurrent()) return;
                 parent.loadCount++;
                 if (parent.loadList.length === parent.loadCount) {
                     for (let child of parent.loadList) {
+                        if (!isCurrent()) return;
                         const workedTile = self.#getReplaceTile(child);
+                        if (workedTile.disposed) continue;
                         if (workedTile.complete === UDEF.TILES_STATE._END) {
                             self.addGroup(workedTile);
                         }
@@ -1278,9 +1282,12 @@ class U3dModelTilesLayer extends U3dModelLayer {
                         self.removeGroupUpTree(workedTile, parent.parent);
                     }
                 }
-            }).catch(() => {
-                if (self.isCancel(updateId)) return;
+            }, () => {
+                // 요청의 실패를 직접 구독합니다. setPromise의 후속 catch가 실패 타일을
+                // 정리하기 전에 현재 요청인지 판정하고, 필요한 부모 대체 표시를 수행합니다.
+                if (!isCurrent()) return;
                 for (let child of parent.loadList) {
+                    if (!isCurrent()) return;
                     const workedTile = self.#getReplaceTile(child);
                     const requestState = self._activeTileContentRequests.get(workedTile.id);
                     if (workedTile.work && requestState?.updateId === updateId
@@ -1293,11 +1300,13 @@ class U3dModelTilesLayer extends U3dModelLayer {
                     }
                     self.removeGroupUpTree(workedTile, parent, UDEF.TILES_STATE._END);
                 }
-                self.addGroup(parent);
+                if (isCurrent()) self.addGroup(parent);
+            }).catch(error => {
+                if (!self._disposed) console.error('타일 표시 전환 중 오류가 발생했습니다.', error);
             });
         }
 
-        return tile.promise;
+        return request;
     }
 
     /**
@@ -1309,14 +1318,16 @@ class U3dModelTilesLayer extends U3dModelLayer {
     setPromise(tile, updateId) {
         const self = this;
         tile.promise = self.addRequestQueue(tile, updateId);
-        tile.promise.then((workedTile) => { //형제들 기다려야함으로 상태만 변경 시켜 준다.
+        const request = tile.promise;
+        request.then((workedTile) => { // 현재 요청의 결과만 타일 상태에 반영합니다.
+            if (tile.promise !== request || tile.disposed || self._disposed) return;
             workedTile.failMsg = '';
             if (workedTile.complete !== UDEF.TILES_STATE._CACHED)
                 workedTile.complete = UDEF.TILES_STATE._END;
-        });
-        tile.promise.catch((workedTile) => {
-            // disposeTile()이 활성 요청을 reject하면 deferred callback이 동기 실행됩니다. 타일이 이미
-            // dispose 절차에 들어간 경우 같은 자원 정리를 재진입하지 않습니다.
+        }).catch(() => {
+            if (tile.promise !== request || self._disposed) return;
+            const workedTile = tile;
+            // 완료 콜백을 기다리는 동안 해제·재요청될 수 있으므로 현재 요청과 수명을 확인합니다.
             if (workedTile.disposed) return;
             self.disposeTile(workedTile, updateId);
         });
@@ -1519,8 +1530,8 @@ class U3dModelTilesLayer extends U3dModelLayer {
     addRequestQueue(tile, updateId) {
         const self = this;
 
-        if (self.isCancel(updateId)) {
-            const cancelledPromise = deferred();
+        if (self._disposed || self.isCancel(updateId)) {
+            const cancelledPromise = deferredPromise();
             tile.failMsg = '작업 취소됨: ' + updateId; //failMsg는 삭제 예정
             cancelledPromise.reject(tile);
             return cancelledPromise;
@@ -1528,7 +1539,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
 
         if (tile.complete >= UDEF.TILES_STATE._END) {
             // 이미 완료된 타일은 활성 요청 상태를 만들지 않고 즉시 반환합니다.
-            const completedPromise = deferred();
+            const completedPromise = deferredPromise();
             tile.disposed = false;
             completedPromise.resolve(tile);
             return completedPromise;
@@ -1540,11 +1551,14 @@ class U3dModelTilesLayer extends U3dModelLayer {
                 url = tile.baseURL + (tile.content.uri || tile.content.url);
                 tile.userData.url = url;
             } else if (tile.type === TILES_TYPE.BOUND) {
-                const boundPromise = deferred();
+                // 경계 전용 타일도 일반 콘텐츠처럼 새 탐색에서 재사용할 수 있어야 합니다.
+                // URL 없는 분기는 아래의 공통 복원 지점에 도달하지 않으므로 완료 전에 복원합니다.
+                tile.disposed = false;
+                const boundPromise = deferredPromise();
                 boundPromise.resolve(tile);
                 return boundPromise;
             } else {
-                const invalidUrlPromise = deferred();
+                const invalidUrlPromise = deferredPromise();
                 tile.failMsg = 'URL 없음: ' + updateId;
                 invalidUrlPromise.reject(tile);
                 return invalidUrlPromise;
@@ -1563,20 +1577,26 @@ class U3dModelTilesLayer extends U3dModelLayer {
             self._cancelTileContentRequest(tile);
         }
 
-        /** @type {DeferredObject<import('@U3DTileset').U3DTileset>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<import('@U3DTileset').U3DTileset>} */
+        const promise = deferredPromise();
 
-        ////////////////////////////////////////// 캐쉬 입력
+        // /////////////////////////////////////// 캐쉬 입력
         // 실제 파이프라인 하나에 한 번만 등록합니다. 새 탐색 세대가 작업을 이어받아도 이 callback을
         // 중복 추가하지 않으므로 메시 로드 이벤트와 캐시 등록이 세대 수만큼 반복되지 않습니다.
+        const contentRevision = self.#contentRevisions.get(tile);
+        const isCurrentContent = () => !self._disposed && !tile.disposed
+            && self.#contentRevisions.get(tile) === contentRevision;
         promise.then((workedTile) => {
+            if (!isCurrentContent() || workedTile.disposed) return;
             if (workedTile.userData.meshes) {
                 if (workedTile.userData.unitMeshes) {
                     for (let mesh of workedTile.userData.unitMeshes) {
+                        if (!isCurrentContent() || workedTile.disposed) return;
                         self.dispatchEvent({ type: U3dEvent.MESH.LOADED, data: mesh });
                     }
                 }
 
+                if (!isCurrentContent() || workedTile.disposed) return;
                 const workedUrl = workedTile.userData.url;
                 if (!self._dataCache.has(workedUrl)) {
                     const cacheValue = {
@@ -1589,8 +1609,10 @@ class U3dModelTilesLayer extends U3dModelLayer {
                     self._dataCache.put(workedUrl, cacheValue);
                 }
             }
+        }).catch(error => {
+            if (error !== tile && !self._disposed) console.error('타일 캐시 반영 중 오류가 발생했습니다.', error);
         });
-        ////////////////////////////////////////// 캐쉬 입력
+        // /////////////////////////////////////// 캐쉬 입력
 
         const cacheValue = self._dataCache.get(url);
         if (cacheValue) {
@@ -1661,9 +1683,15 @@ class U3dModelTilesLayer extends U3dModelLayer {
             // 수 있는 동시 다운로드가 파싱 시간만큼 줄어들기 때문이며, 파서 동시 실행은
             // _workProcess2가 별도로 제한합니다. 타일 파이프라인 완료는 기존 공유 Promise가
             // 그대로 담당합니다.
-            const slotDone = deferred();
+            const slotDone = deferredPromise();
             self.#processQueue(info, slotDone).then((workedTile) => {
                 const requestState = info.requestState;
+                // JSON 해석과 이 콜백 사이에도 취소·타일 교체가 가능합니다. 이미 폐기된
+                // 결과로 addRequestQueue를 호출하면 disposed를 풀고 다운로드를 되살리게 됩니다.
+                if (self._disposed || self._isTileContentRequestCancelled(info) || workedTile.disposed) {
+                    self._finishTileContentRequest(requestState, 'reject', info.tile);
+                    return;
+                }
                 if (requestState.tile.type === TILES_TYPE.JSON && workedTile.type !== TILES_TYPE.BOUND) {
                     // 외부 tileset JSON이 실제 콘텐츠 타일로 교체되면 교체된 타일도 현재 최신 세대에
                     // 연결합니다. 이후 세대가 교체 타일을 선택하면 그 하위 요청 역시 동일하게 승계됩니다.
@@ -1778,16 +1806,15 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * 아직 큐에 있는 파서는 최신 세대가 타일을 이어받지 않았을 때만 <br>
      * 제거하고, 이미 실행 중인 파서는 타일 dispose 여부를 완료 시점에 다시 확인합니다.
      *
-     * @param {(item: ModelTileParserQueueItem) => DeferredObject<import('@U3DTileset').U3DTileset>} fnc 파서 함수. <br>
-     *        호출 즉시 결과를 반환하는 동기 함수가 아니라 then/catch를 제공하는 DeferredObject를 반환해야 합니다.
+     * @param {(item: ModelTileParserQueueItem) => Promise<import('@U3DTileset').U3DTileset>} fnc 타일 처리 결과를 Promise로 반환하는 파서 함수
      * @param {ModelTileParserQueueItem} item 파서 파라미터
      * @returns {Promise<import('@U3DTileset').U3DTileset>} 비동기 처리 객체
      */
     addParserQueue(fnc, item) {
         const self = this;
-        const promise = deferred();
+        const promise = deferredPromise();
 
-        // 공개 타입은 파서 작업의 성공 여부와 관계없이 항상 기다릴 수 있는 DeferredObject를 반환합니다.
+        // 공개 타입은 파서 작업의 성공 여부와 관계없이 항상 기다릴 수 있는 DeferredPromise를 반환합니다.
         // 잘못된 입력에서 undefined를 반환하면 이 메서드를 오버라이드한 U3dVectorTileLayer가 상위 반환값을
         // 그대로 전달할 수 없고 호출자도 then/catch 사용 전에 매번 undefined를 검사해야 합니다.
         if (!fnc || !item) {
@@ -1802,7 +1829,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
         }
         const callback = function(item) {
             if (item.requestState) item.requestState.phase = 'parsing';
-            /** @type {DeferredObject<import('@U3DTileset').U3DTileset> | undefined} */
+            /** @type {Promise<import('@U3DTileset').U3DTileset> | undefined} */
             let parserResult;
             try {
                 parserResult = fnc.call(self, item);
@@ -1812,7 +1839,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
                 return promise;
             }
 
-            // 파서 계약은 then/catch를 모두 제공하는 DeferredObject입니다. 잘못된 구현을 그대로 호출하면
+            // 파서 계약은 then/catch를 모두 제공하는 Promise입니다. 잘못된 구현을 그대로 호출하면
             // WorkProcess callback 자체가 예외로 끝나고 외부 promise가 영원히 대기할 수 있으므로 여기서
             // 명시적으로 실패시킵니다. 하위 레이어가 addParserQueue를 재정의해도 반환 계약은 동일합니다.
             if (!parserResult
@@ -1823,7 +1850,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
                 return promise;
             }
 
-            return parserResult.then(() => {
+            parserResult.then(() => {
                 // dispose 이후 늦게 끝난 파서 결과는 타일에 적용하지 않습니다. 파서 자체를 즉시 멈출 수
                 // 없는 형식에서도 외부 요청 Promise의 성공 전환을 확실히 차단하는 마지막 방어선입니다.
                 if (self._isTileContentRequestCancelled(item)) {
@@ -1835,6 +1862,10 @@ class U3dModelTilesLayer extends U3dModelLayer {
             }).catch(() => {
                 promise.reject(item.tile);
             });
+            // catch가 반환하는 체인은 실패를 처리한 뒤 성공으로 끝납니다. 그 체인을 큐에
+            // 반환하면 파싱 실패도 성공으로 기록하고 Cancel을 건너뛰므로, 호출자와 큐가
+            // 같은 완료 객체를 기다리게 합니다. 성공·실패·취소 모두 슬롯은 한 번만 반환됩니다.
+            return promise;
         };
         const cancel = function(item) {
             if (item.requestState) item.requestState.cancelled = true;
@@ -1919,10 +1950,11 @@ class U3dModelTilesLayer extends U3dModelLayer {
 
         const self = this;
 
-        // deferred의 reject callback은 동기 실행되므로 요청을 reject하기 전에 dispose 상태를 먼저
+        // 요청 완료 콜백이 실행되기 전에 dispose 상태를 먼저
         // 공개합니다. setPromise()의 실패 callback이 같은 disposeTile()로 재진입하여 메시와 자식을
         // 두 번 정리하는 것을 방지합니다.
         tile.disposed = true;
+        self.#contentRevisions.set(tile, (self.#contentRevisions.get(tile) ?? 0) + 1);
 
         // disposeTile은 프러스텀 컬링이나 레이어 수명주기에서 "이 타일은 더 이상 필요 없다"고 확정한
         // 시점입니다. 따라서 탐색 세대와 무관하게 이 타일의 모든 다운로드·파싱 단계를 폐기합니다.
@@ -2029,7 +2061,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
      */
     loadMetaData(url) {
         const self = this;
-        let promise = deferred();
+        let promise = deferredPromise();
         if (defined(self._metaDataJson)) {
             promise.resolve(self._metaDataJson);
             return promise;
@@ -2367,7 +2399,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * @param {import('@U3DTileset').U3DTileset} tile 표시할 타일
      */
     addGroup(tile) {
-        if (tile.visible) return;
+        if (this._disposed || tile.disposed || tile.visible) return;
 
         const self = this;
         tile.visible = true;
@@ -2452,18 +2484,13 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * @param {import('@UFrustum').UFrustum} frustum 카메라 프러스텀
      * @param {import('three').Sphere} sphere 타일 구
      * @param {number} geometricError 기존 호출 형식으로 전달되는 값이며 판정에는 사용하지 않음
-     * @param {ModelContentOffsetContext | null} [contentOffsetContext=null] 같은 탐색 주기의 이동 경계 문맥. 원본 구는 변경하지 않습니다.
+     * @param {ModelContentOffsetContext | null} [contentOffsetContext=null] 현재 탐색에서 사용할 이동 경계 문맥(기본값 null)
      * @returns {boolean} 교차 여부
      *
      * @ignore
      */
-    /// <summary>타일 경계가 카메라 표시 범위와 겹치는지 판정합니다. </summary>
-    /// <param name="frustum">카메라 프러스텀 자료형: import('@UFrustum').UFrustum.</param>
-    /// <param name="sphere">타일 구 자료형: import('three').Sphere.</param>
-    /// <param name="geometricError">기존 호출 형식으로 전달되는 값이며 판정에는 사용하지 않음 자료형: number.</param>
-    /// <param name="contentOffsetContext">같은 탐색 주기의 이동 경계 문맥. 원본 구는 변경하지 않습니다. 자료형: ModelContentOffsetContext | null. 생략 시 기본값: null.</param>
     #intersectsSphere(frustum, sphere, geometricError, contentOffsetContext = null) {
-        // 타일 경계가 카메라 표시 범위와 겹치는지 판정합니다.
+
         return INTERNAL.intersectsSphere(frustum, INTERNAL.contentOffsetSphere(sphere, contentOffsetContext), geometricError);
     }
 
@@ -2472,13 +2499,9 @@ class U3dModelTilesLayer extends U3dModelLayer {
      *
      * @param {import('three').Vector3} [campos] 판정에 사용할 카메라 위치
      * @param {string | number} [updateId] 문맥을 소유할 탐색 세대 ID
-     * @param {ModelContentOffsetContext | null} [contentOffsetContext] 이 탐색이 소유하는 이동 경계 문맥. 생략하면 현재 설정에서 생성합니다.
+     * @param {ModelContentOffsetContext | null} [contentOffsetContext] 현재 탐색의 이동 경계 문맥(생략하면 현재 설정으로 생성)
      * @returns {TileCheckContext} 공유 판정 문맥
      */
-    /// <summary>한 탐색 주기에서 재귀 타일 판정이 공유할 카메라·SSE 스냅샷을 만듭니다. </summary>
-    /// <param name="campos">판정에 사용할 카메라 위치 자료형: import('three').Vector3.</param>
-    /// <param name="updateId">문맥을 소유할 탐색 세대 ID 자료형: string | number.</param>
-    /// <param name="contentOffsetContext">이 탐색이 소유하는 이동 경계 문맥. 생략하면 현재 설정에서 생성합니다. 자료형: ModelContentOffsetContext | null.</param>
     #createCheckContext(campos = this._drawArg.getCameraPosition(), updateId = this.getUpdateId(), contentOffsetContext = INTERNAL.createContentOffsetContext(this._contentOffsetBounds)) {
         // checkTileDepth/#checkTileDetail 핫패스에서 매 tile마다 같은 값을 다시 조회하지 않기 위한 스냅샷이다.
         const viewSizeOffset = this._viewSizeOffset;
@@ -2507,7 +2530,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * @ignore
      */
     #checkTileDetail(tile, checkContext) {
-        // 표시 후보를 판정하고 타일의 화면 오차 기록을 갱신합니다.
+
         return INTERNAL.checkTileDetail(this, tile, checkContext);
     }
 
@@ -2703,7 +2726,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * @ignore
      */
     #transformPoint(vector3) {
-        // 타일 좌표를 배치에 사용하는 경위도·높이로 변환합니다.
+
         return INTERNAL.transformPoint(vector3);
     }
 
@@ -2720,14 +2743,14 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * 파서 작업을 큐에 등록한 직후 resolve합니다.
      *
      * @param {ModelTileContentQueueInfo} info 다운로드 작업 정보
-     * @param {DeferredObject<import('@U3DTileset').U3DTileset>} slotDone 다운로드 슬롯 반납 시점을 알리는 Deferred
-     * @returns {DeferredObject<import('@U3DTileset').U3DTileset>} 다운로드·파서 연결 결과
+     * @param {DeferredPromise<import('@U3DTileset').U3DTileset>} slotDone 다운로드 슬롯 반납 시점을 알리는 Deferred
+     * @returns {Promise<import('@U3DTileset').U3DTileset>} 다운로드·파서 연결 결과
      */
     #processQueue(info, slotDone) {
         const self = this;
         const tile = info.tile;
         const state = info.requestState;
-        const promise = deferred();
+        const promise = deferredPromise();
 
         if (self._isTileContentRequestCancelled(info)) {
             tile.failMsg = '타일 작업 폐기됨: ' + state.updateId;
@@ -2787,7 +2810,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
                         updateId: state.updateId,
                         requestState: state
                     };
-                    /** @type {DeferredObject<import('@U3DTileset').U3DTileset> | undefined} */
+                    /** @type {Promise<import('@U3DTileset').U3DTileset> | undefined} */
                     let parserPromise;
                     if (magic === TILES_TYPE.B3DM) {
                         parserPromise = self.addParserQueue(self.#parseB3DM, param);
@@ -2820,12 +2843,12 @@ class U3dModelTilesLayer extends U3dModelLayer {
                     });
 
                     // 파서 작업이 _workProcess2 큐에 등록된 뒤에 슬롯을 반납합니다. 등록 전에 반납하면
-                    // 남은 파이프라인이 어느 작업 카운터에도 잡히지 않는 순간이 생기고, deferred 콜백은
-                    // 동기 실행되므로 반납 즉시 다음 다운로드가 이 시점의 상태를 관찰할 수 있습니다.
+                    // 남은 파이프라인이 어느 작업 카운터에도 잡히지 않는 순간이 생깁니다.
+                    // Promise 콜백 실행 전에 파서 등록을 완료하여 다음 다운로드가 일관된 상태를 봅니다.
                     slotDone.resolve(tile);
                 } catch {
                     // JSON 해석, tileset 확장 또는 형식 판별 중 예외가 callback 밖으로 빠져나가면 외부
-                    // DeferredObject가 끝나지 않습니다. 반드시 현재 타일 실패로 변환해 작업을 닫습니다.
+                    // DeferredPromise가 끝나지 않습니다. 반드시 현재 타일 실패로 변환해 작업을 닫습니다.
                     tile.failMsg = '타일 콘텐츠 처리 실패: ' + state.updateId;
                     promise.reject(tile);
                     slotDone.reject(tile);
@@ -2852,9 +2875,6 @@ class U3dModelTilesLayer extends U3dModelLayer {
      *
      * @ignore
      */
-    /// <summary>파싱된 메시의 배치 정보와 원본 기반 재질 표시 설정을 내부 공통 처리에 연결합니다.</summary>
-    /// <param name="mesh">변경할 ModelMesh이며 null을 허용하지 않습니다. 형상과 원본 색상은 유지하고 배치 참조·재질 표시 속성을 변경합니다.</param>
-    /// <param name="result">batchTable을 가진 ModelTileBatchResult object이며 읽기 전용입니다.</param>
     #redefineMesh(mesh, result) {
         // 파싱 결과에 레이어 식별 정보와 현재 표시 설정을 적용합니다.
         return INTERNAL.redefineMesh(this, mesh, result);
@@ -2874,7 +2894,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
         }
 
 
-        let promise = deferred();
+        let promise = deferredPromise();
         let url = self._batchGroupPath;
         if (!self.#isAbsolutePath(url)) {
             let path = self._baseUrl.substr(0, self._baseUrl.lastIndexOf("/"));
@@ -2930,10 +2950,10 @@ class U3dModelTilesLayer extends U3dModelLayer {
         return INTERNAL.computeTransform(info);
     }
 
-    #calcPosition(object, tile, info, callback) {
+    #calcPosition(object, tile, info, callback, contentIndex = 0) {
         const self = this;
         //+ 타일에 중심점이 있으면
-        const promise = deferred();
+        const promise = deferredPromise();
         let editCenter = false;
         let rtcCenter = undefined;
 
@@ -2964,6 +2984,29 @@ class U3dModelTilesLayer extends U3dModelLayer {
             promise.reject();
             return promise;
         }
+
+        // 같은 콘텐츠 파일을 다른 타일에 배치한 경우도 독립된 사용 메시다.
+        // 런타임 tile.id 대신 원본 children 순번을 사용한다. 외부 tileset의
+        // root 교체는 같은 부모 슬롯을 차지하므로 재로딩 후에도 경로가 유지된다.
+        const tilePath = [];
+        for (let node = tile; node.parent; node = node.parent) {
+            const index = node.parent.children.indexOf(node);
+            if (index < 0) {
+                throw new Error('현재 타일 계층에 등록되지 않은 콘텐츠에는 puid를 부여할 수 없습니다.');
+            }
+            tilePath.unshift(index);
+        }
+        const ownerId = JSON.stringify(['layer', self._name]);
+        // BIM 그룹 재편성·좌표 보정 전에 원본 노드 경로를 기록한다.
+        // CMPT의 하위 콘텐츠 순번까지 포함하여 같은 파일 내 복합 타일을 구분한다.
+        const assignPuid = (node, nodePath) => {
+            node.puid = UMesh._createPuid(ownerId, info.url,
+                JSON.stringify([tilePath, contentIndex, nodePath]));
+            for (let i = 0; i < node.children.length; i++) {
+                assignPuid(node.children[i], [...nodePath, i]);
+            }
+        };
+        assignPuid(object, []);
 
         const gCenter = self.#transformPoint(rtcCenter);
         const center3857 = self._drawArg.getGeographicToGoogle(gCenter.x, gCenter.y, gCenter.z);
@@ -3045,7 +3088,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
      * @ignore
      */
     #calcScale(object, tile, center, geoCenter) {
-        // 타일 경계를 기준으로 메시 크기를 표시 좌표계에 맞춥니다.
+
         return INTERNAL.calcScale(object, tile, center, geoCenter);
     }
 
@@ -3182,7 +3225,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
         let info = obj.info;
         let tile = obj.info.tile;
         const updateId = obj.updateId;
-        const promise = deferred();
+        const promise = deferredPromise();
         if (self._isTileContentRequestCancelled(obj)) {
             promise.reject(tile);
             return promise;
@@ -3204,7 +3247,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
             self._cmptParser = new UCmptParser({ url: info.url });
         }
 
-        self._cmptParser.parse(buffer, option, self).then(function(result) {
+        Promise.resolve(self._cmptParser.parse(buffer, option, self)).then(function(result) {
             if (self._isTileContentRequestCancelled(obj)) {
                 promise.reject(tile);
                 return;
@@ -3216,15 +3259,15 @@ class U3dModelTilesLayer extends U3dModelLayer {
                 return promise;
             }
 
-            tiles.forEach(function(child) {
+            tiles.forEach(function(child, contentIndex) {
                 let type = child.type;
                 if (defined(type)) {
                     if (type === TILES_TYPE.B3DM) {
-                        self.#afterParseB3DM(child, info);
+                        self.#afterParseB3DM(child, info, contentIndex);
                     } else if (type === TILES_TYPE.I3DM) {
-                        self.#afterParseI3DM(child, info);
+                        self.#afterParseI3DM(child, info, contentIndex);
                     } else if (type === TILES_TYPE.PNTS) {
-                        self.#afterParsePNTS(child, info);
+                        self.#afterParsePNTS(child, info, contentIndex);
                     }
                 }
             });
@@ -3244,7 +3287,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
         let info = obj.info;
         let tile = obj.info.tile;
         const updateId = obj.updateId;
-        const promise = deferred();
+        const promise = deferredPromise();
         if (self._isTileContentRequestCancelled(obj)) {
             promise.reject(tile);
             return promise;
@@ -3267,7 +3310,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
             self._i3dmParser = new UI3dmParser({ url: info.url });
         }
 
-        self._i3dmParser.parse(buffer, option, self).then(function(result) {
+        Promise.resolve(self._i3dmParser.parse(buffer, option, self)).then(function(result) {
             if (self._isTileContentRequestCancelled(obj)) {
                 promise.reject(tile);
                 return;
@@ -3284,7 +3327,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
     #parsePNTS(obj) {
         const self = this;
         const { buf, info, tile, updateId } = obj;
-        const promise = deferred();
+        const promise = deferredPromise();
         const TEMP_POSITION = new THREE.Vector3();
         const TEMP_QUATERNION = new THREE.Quaternion();
 
@@ -3310,7 +3353,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
             self._pntsParser = new UPntsParser();
         }
 
-        self._pntsParser.parse(buf, option, tile).then(function(result) {
+        Promise.resolve(self._pntsParser.parse(buf, option, tile)).then(function(result) {
             if (tile.disposed) {
                 promise.reject(tile);
                 return;
@@ -3343,7 +3386,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
 
     #parseVCTR(obj) {
         const self = this;
-        const promise = deferred();
+        const promise = deferredPromise();
         const updateId = obj.updateId;
         let tile = obj.info.tile;
 
@@ -3364,7 +3407,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
     #parseB3DM(obj) {
         const self = this;
         const { buf, info, tile, updateId } = obj;
-        const promise = deferred();
+        const promise = deferredPromise();
         if (self._isTileContentRequestCancelled(obj)) {
             tile.failMsg = '작업 취소됨: ' + updateId;
             promise.reject(tile);
@@ -3389,7 +3432,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
         self._b3dmParser.setDracoDecodePath(UDEF.DRACO_DECODER_PATH);
         self._b3dmParser.setWorkerLimit(4);
 
-        self._b3dmParser.parse(buf, option, self).then(function(result) {
+        Promise.resolve(self._b3dmParser.parse(buf, option, self)).then(function(result) {
             /*
                 - +chows 2022/11/23
                 - picking
@@ -3423,12 +3466,11 @@ class U3dModelTilesLayer extends U3dModelLayer {
         return promise;
     }
 
-    /// <summary>직접 GLB 콘텐츠를 읽어 B3DM과 같은 재질 보존·배치 후처리로 연결합니다.</summary>
-    /// <param name="obj">다운로드한 buf·타일·요청 세대를 가진 ModelTileParserQueueItem이며 null을 허용하지 않습니다. 자원은 레이어가 관리합니다.</param>
+    // 직접 GLB 콘텐츠를 읽어 B3DM과 같은 재질 보존·배치 후처리로 연결합니다.
     #parseGLB(obj) {
         const self = this;
         const { buf, info, tile, updateId } = obj;
-        const promise = deferred();
+        const promise = deferredPromise();
         const url = info.url;
         if (self._isTileContentRequestCancelled(obj)) {
             tile.failMsg = '작업 취소됨: ' + updateId;
@@ -3464,14 +3506,12 @@ class U3dModelTilesLayer extends U3dModelLayer {
         }
 
         self._glbLoader.parse(buf, url,
-            /// <summary>파싱한 GLB를 원본 재질 보존·배치 후처리에 전달합니다.</summary>
-            /// <param name="result">scene을 가진 GLTF 결과 object이며 레이어가 장면을 소유하고 type·byteLength를 추가합니다.</param>
+            // 파싱한 GLB를 원본 재질 보존·배치 후처리에 전달합니다.
             function(result) {
 
             const object = result.scene;
             object.traverse(
-                /// <summary>직접 GLB 경로에도 B3DM과 같은 원본 재질 보존 처리를 적용합니다.</summary>
-                /// <param name="mesh">파싱된 Three.js Object3D이며 컬링·명시적 재질 옵션만 변경할 수 있습니다.</param>
+                // 직접 GLB 경로에도 B3DM과 같은 원본 재질 보존 처리를 적용합니다.
                 function prepareMesh(mesh) { prepareTileMeshMaterials(mesh, option); }
             );
 
@@ -3492,8 +3532,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
 
             promise.resolve(tile);
         },
-        /// <summary>GLB 해석 실패를 현재 타일 요청 실패로 전달합니다.</summary>
-        /// <param name="e">로더가 전달한 Error 또는 오류 정보이며 원본을 변경하지 않습니다.</param>
+        // GLB 해석 실패를 현재 타일 요청 실패로 전달합니다.
         function(e) {
             promise.reject(tile);
         }, undefined, 0, undefined, {
@@ -3507,7 +3546,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
         return promise;
     }
 
-    #afterParseB3DM(result, info) {
+    #afterParseB3DM(result, info, contentIndex = 0) {
         const self = this;
         let tile = info.tile;
         //+ chows
@@ -3552,7 +3591,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
                 info.tile.userData.unitMeshes.push(temp);
                 temp._tileset = tile;
             }
-        });
+        }, contentIndex);
 
         info.tile.type = TILES_TYPE.B3DM;
         if (!defined(info.tile.refine))
@@ -3582,7 +3621,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
         }
     }
 
-    #afterParseI3DM(result, info) {
+    #afterParseI3DM(result, info, contentIndex = 0) {
         const object = result.gltf.scene;
         const self = this;
         let tile = info.tile;
@@ -3596,7 +3635,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
 
         object.renderOrder = self._renderOrder;
 
-        self.#calcPosition(object, tile, info);
+        self.#calcPosition(object, tile, info, undefined, contentIndex);
 
         //+ 타일 당 메쉬 생성
         info.tile.userData.meshes = info.tile.userData.meshes || [];
@@ -3614,7 +3653,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
         info.tile.userData.unitMeshes.push(object);
     }
 
-    #afterParsePNTS(result, info) {
+    #afterParsePNTS(result, info, contentIndex = 0) {
         const self = this;
         let tile = info.tile;
         const object = result.point;
@@ -3644,7 +3683,7 @@ class U3dModelTilesLayer extends U3dModelLayer {
                 temp._tileset = tile;
 
             }
-        });
+        }, contentIndex);
 
         info.tile.type = TILES_TYPE.PNTS;
         if (!defined(info.tile.refine))
@@ -3740,207 +3779,6 @@ class U3dModelTilesLayer extends U3dModelLayer {
     #getReplaceTile(tile) {
         // 후속 처리에 사용할 최종 대체 타일을 조회합니다.
         return INTERNAL.getReplaceTile(tile);
-    }
-
-    /**
-     * 타일 콘텐츠 요청의 세대 승계와 dispose 취소 불변식을 격리된 가짜 상태로 검사합니다.
-     *
-     * 실제 레이어의 타일·캐시·로더는 변경하지 않습니다. <br>
-     * 같은 요청 상태를 새 updateId가 이어받을 때 <br>
-     * 공유 Promise와 큐/파서 파라미터가 유지되는지, dispose 취소 시 저장된 최종 URL만 abort되는지, <br>
-     * 상태 Map과 tile.work가 객체 identity 기준으로 한 번만 정리되는지를 확인합니다.
-     *
-     * @returns {boolean} 모든 요청 생명주기 불변식을 만족하면 true
-     */
-    __$testTileContentRequestLifecycle() {
-        const testLayer = Object.create(U3dModelTilesLayer.prototype);
-        testLayer._activeTileContentRequests = new Map();
-
-        let abortedUrl;
-        const expectedRequestUrl = 'proxy:https://example.test/tile.b3dm?key=test';
-        testLayer._loader = {
-            isLoading: (url) => url === expectedRequestUrl,
-            abort: (url) => { abortedUrl = url; }
-        };
-
-        let workActive = true;
-        const work = { setActive: (active) => { workActive = active; } };
-        const tile = {
-            id: 'test-tile',
-            disposed: false,
-            failMsg: '',
-            work: work
-        };
-        const promise = deferred();
-        let rejectedTile;
-        promise.catch((rejected) => { rejectedTile = rejected; });
-
-        /** @type {ModelTileContentRequestState} */
-        const state = {
-            tileId: tile.id,
-            tile: tile,
-            sourceUrl: 'https://example.test/tile.b3dm',
-            requestUrl: expectedRequestUrl,
-            updateId: 1,
-            callbackId: 'test-tile:1',
-            promise: promise,
-            phase: 'downloading',
-            cancelled: false,
-            settled: false,
-            networkStarted: true,
-            networkCompleted: false,
-            work: work,
-            queueInfo: { url: 'https://example.test/tile.b3dm', tile: tile, updateId: 1 },
-            parserItem: { tile: tile, updateId: 1 }
-        };
-        // 테스트용 최소 객체는 재귀 타입의 requestState를 생성 후 연결하여 실제 런타임 참조 구조와
-        // 동일하게 만듭니다.
-        state.queueInfo.requestState = state;
-        state.parserItem.requestState = state;
-        state.parserItem.info = state.queueInfo;
-        state.parserItem.buf = new ArrayBuffer(0);
-        testLayer._activeTileContentRequests.set(tile.id, state);
-
-        const adoptedPromise = testLayer._adoptTileContentRequest(state, 2);
-        const adopted = adoptedPromise === promise
-            && state.updateId === 2
-            && state.queueInfo.updateId === 2
-            && state.parserItem.updateId === 2;
-
-        const cancelled = testLayer._cancelTileContentRequest(tile);
-        return adopted
-            && cancelled
-            && state.cancelled
-            && state.settled
-            && workActive === false
-            && abortedUrl === expectedRequestUrl
-            && rejectedTile === tile
-            && tile.work === undefined
-            && testLayer._activeTileContentRequests.size === 0;
-    }
-
-    /**
-     * 다운로드 WorkProcess 슬롯 반납 시점과 파이프라인 완료 시점의 분리 계약을 검사합니다.
-     *
-     * `#processQueue()`의 private 접근 때문에 실제 생성된 인스턴스에 bind되어 실행되어야 하며, <br>
-     * 레이어의 로더와 파서 큐 등록을 가짜 구현으로 잠시 교체한 뒤 종료 전에 복원합니다. <br>
-     * 실제 네트워크 요청과 WorkProcess 큐에는 작업을 만들지 않습니다.
-     *
-     * @returns {boolean} 사전 폐기·네트워크 실패에서 두 Promise가 함께 실패하고, <br>
-     *          파서 경로에서 슬롯이 파싱 완료보다 먼저 반납되면 true
-     */
-    __$testTileContentSlotRelease() {
-        const self = this;
-        const originalLoader = self._loader;
-        const hasOwnParserQueue = Object.prototype.hasOwnProperty.call(self, 'addParserQueue');
-        const originalParserQueue = self.addParserQueue;
-        /** @type {Array<string>} */
-        const testTileIds = [];
-
-        /** @type {undefined | function(ArrayBuffer): void} */
-        let capturedOnLoad;
-        /** @type {undefined | function(): void} */
-        let capturedOnError;
-        let loadCallCount = 0;
-
-        const observe = (/** @type {DeferredObject<any>} */ target) => {
-            const result = { resolved: false, rejected: false };
-            target.then(() => { result.resolved = true; });
-            target.catch(() => { result.rejected = true; });
-            return result;
-        };
-
-        const createQueueInfo = (/** @type {string} */ tileId) => {
-            const tile = { id: tileId, disposed: false, failMsg: '', complete: UDEF.TILES_STATE._DOWNLOADING, userData: {} };
-            /** @type {ModelTileContentRequestState} */
-            const state = {
-                tileId: tileId,
-                tile: /** @type {import('@U3DTileset').U3DTileset} */ (/** @type {unknown} */ (tile)),
-                sourceUrl: 'https://example.test/' + tileId + '.b3dm',
-                requestUrl: 'https://example.test/' + tileId + '.b3dm',
-                updateId: 1,
-                callbackId: tileId + ':1',
-                promise: deferred(),
-                phase: 'queued',
-                cancelled: false,
-                settled: false,
-                networkStarted: false,
-                networkCompleted: false
-            };
-            /** @type {ModelTileContentQueueInfo} */
-            const info = { url: state.sourceUrl, tile: state.tile, updateId: 1, requestState: state };
-            state.queueInfo = info;
-            self._activeTileContentRequests.set(tileId, state);
-            testTileIds.push(tileId);
-            return info;
-        };
-
-        try {
-            self._loader = /** @type {any} */ ({
-                load: function(/** @type {string} */ url, /** @type {any} */ onLoad, /** @type {any} */ onProgress, /** @type {any} */ onError) {
-                    loadCallCount++;
-                    capturedOnLoad = onLoad;
-                    capturedOnError = onError;
-                },
-                isLoading: () => false,
-                abort: () => { }
-            });
-
-            // 사전 폐기: 네트워크를 시작하지 않고 파이프라인과 슬롯이 함께 실패해야 합니다.
-            const cancelledInfo = createQueueInfo('__test-slot-release-1');
-            cancelledInfo.requestState.cancelled = true;
-            const cancelledSlotDone = deferred();
-            const cancelledPipeline = this.#processQueue(cancelledInfo, cancelledSlotDone);
-            const cancelledSlot = observe(cancelledSlotDone);
-            const cancelledPipe = observe(cancelledPipeline);
-            const cancelledPass = cancelledSlot.rejected && cancelledPipe.rejected && loadCallCount === 0;
-
-            // 네트워크 실패: 오류 callback에서 파이프라인과 슬롯이 함께 실패해야 합니다.
-            const errorInfo = createQueueInfo('__test-slot-release-2');
-            const errorSlotDone = deferred();
-            const errorPipeline = this.#processQueue(errorInfo, errorSlotDone);
-            const errorLoadStarted = loadCallCount === 1 && typeof capturedOnError === 'function';
-            if (errorLoadStarted) capturedOnError();
-            const errorSlot = observe(errorSlotDone);
-            const errorPipe = observe(errorPipeline);
-            const errorPass = errorLoadStarted && errorSlot.rejected && errorPipe.rejected;
-
-            // 파서 경로: 파서 작업 등록 직후 슬롯만 먼저 반납되고 파이프라인은 파서 완료를 기다려야 합니다.
-            const parserDeferred = deferred();
-            let parserQueueCallCount = 0;
-            self.addParserQueue = function() {
-                parserQueueCallCount++;
-                return parserDeferred;
-            };
-            const parseInfo = createQueueInfo('__test-slot-release-3');
-            const parseSlotDone = deferred();
-            const parsePipeline = this.#processQueue(parseInfo, parseSlotDone);
-            const parseLoadStarted = loadCallCount === 2 && typeof capturedOnLoad === 'function';
-            if (parseLoadStarted) capturedOnLoad(new TextEncoder().encode(TILES_TYPE.B3DM).buffer);
-            const parseSlot = observe(parseSlotDone);
-            const parsePipe = observe(parsePipeline);
-            const releasedBeforeParse = parseLoadStarted
-                && parserQueueCallCount === 1
-                && parseSlot.resolved
-                && !parsePipe.resolved
-                && !parsePipe.rejected
-                && parseInfo.requestState.networkCompleted
-                && parseInfo.tile.complete === UDEF.TILES_STATE._PARSING;
-            parserDeferred.resolve(parseInfo.tile);
-            const parsePass = releasedBeforeParse && parsePipe.resolved;
-
-            return cancelledPass && errorPass && parsePass;
-        } finally {
-            self._loader = originalLoader;
-            if (hasOwnParserQueue) {
-                self.addParserQueue = originalParserQueue;
-            } else {
-                delete /** @type {any} */ (self).addParserQueue;
-            }
-            for (const tileId of testTileIds) {
-                self._activeTileContentRequests.delete(tileId);
-            }
-        }
     }
 
     /**

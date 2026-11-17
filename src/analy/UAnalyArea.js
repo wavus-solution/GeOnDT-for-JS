@@ -249,6 +249,7 @@ class UAnalyArea extends UAnaly {
 
     /**
      * 활성 분석의 가이드 끝점을 마우스 교차점으로 갱신합니다.
+     * 지도 외 UI와 잘못된 화면 좌표는 무시하고 마지막 정상 측정을 유지합니다.
      * 측정 레이어가 없어 끝점 갱신을 생략해도 교차점이 있으면 라벨 갱신은 수행합니다.
      *
      * @param {MouseEvent} e 마우스 이벤트
@@ -261,9 +262,13 @@ class UAnalyArea extends UAnaly {
 
         const app = /** @type {import('@union3d/app/U3dApp').U3dApp} */ (self._app);
         if (!app) return;
+        // UI 자식의 offset 좌표가 지도 좌표로 해석되지 않도록 캔버스 입력만 받습니다.
+        if (e.target !== app.getRenderer()?.domElement) return;
         const measureLayer = app.getMeasureLayer();
 
         const normal = U3dMouseEvent.computeNormalize(e);
+        if (!Number.isFinite(normal.x) || !Number.isFinite(normal.y)
+            || Math.abs(normal.x) > 1 || Math.abs(normal.y) > 1) return;
         const event = {
             normalizedX: normal.x,
             normalizedY: normal.y

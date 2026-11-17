@@ -18,15 +18,15 @@ override가 없으면 기본 설정 객체를 그대로 돌려준다. override�
 
 ### 1.4 주요 사용처와 연계 대상
 
-`UShaderTerrainDecalManager`가 생성 시 `createTerrainDecalConfig()`로 확정 설정을 만들어 `TERRAIN_CONFIG`에 보관하고, payload cache 상한과 프레임 예산 시작값으로 사용한다. `UShaderTerrainDecalTileStateManager`와 `UTerrainDecalComposeScheduler`는 manager 인스턴스만 인자로 받으므로 `getTerrainDecalConfig()`로 읽는다. 테스트가 만든 최소 manager 대역에도 안전해야 하므로 조회는 항상 유효한 설정을 돌려준다.
+`UShaderTerrainDecalManager`가 생성 시 `createTerrainDecalConfig()`로 확정 설정을 만들어 `TERRAIN_CONFIG`에 보관하고, payload cache 상한과 프레임 예산 시작값으로 사용한다. `UShaderTerrainDecalTileStateManager`와 `UTerrainDecalComposeScheduler`는 manager 인스턴스만 인자로 받으므로 `getTerrainDecalConfig()`로 읽는다. TERRAIN_CONFIG가 없으면 기본 설정을 사용하며 이미 제공된 설정 객체는 그대로 반환한다.
 
 ## 2. 요구사항과 품질 기준
 
 ```spec
 알 수 없는 key 와 유효하지 않은 값은 조용히 무시하고 기본값을 유지해야 한다. 설정 하나가 잘못되어 파이프라인 전체가 멈추는 편보다 기본값으로 동작하고 나머지 override 를 살리는 편이 안전하다.
 0 보다 커야 하는 값은 0 이나 음수로 덮어쓸 수 없어야 한다.
-확정 설정은 얼려 돌려주어 실행 중에 조용히 바뀌지 않아야 한다.
-manager 나 설정이 없어도 조회는 항상 유효한 설정을 돌려주어야 한다.
+createTerrainDecalConfig가 반환하는 설정 객체는 동결한다.
+manager 또는 TERRAIN_CONFIG가 nullish이면 기본 설정을 반환한다. 제공된 설정은 다시 검증하지 않는다.
 ```
 
 ## 3. 정규 자연어 수도코드
@@ -65,8 +65,6 @@ TerrainDecalConfig 타입 정의
         배경 tile flush 에 쓸 프레임당 시간 예산(ms)
     foregroundPriorityMin: number
         이 값 이상의 priority 를 전경 작업으로 계산한다.
-    debugLogLimit: number
-        tile 상태 디버그 로그의 최대 보관 수
     payloadCacheMaxEntries: number
         Worker delta 기준선인 tile payload snapshot 을 보관할 최대 tile 수
     payloadFeatureCacheMaxEntries: number
@@ -76,7 +74,7 @@ TerrainDecalConfig 타입 정의
     payloadSnapshotCacheMaxBytes: number
         tile payload snapshot cache 의 최대 바이트
     hybridCompositionEnabled: number
-        0 이 아니면 hybrid 합성 실행 경로를 켠다. Source 안정성 분류를 전달해 정적 Feature 는 offscreen 합성 texture 로, 비교차 동적 Feature 는 direct 로 같은 terrain material 에서 함께 표시한다.
+        0 이 아니면 일반 평탄 입력의 합성 계획에 Source 안정성 분류를 전달한다. 정적 구간 뒤에 동적 구간이 오거나 두 집합이 비교차이고 동적 부분집합의 직접 평가가 가능하면 정적 texture 와 동적 direct 를 함께 표시한다. 정적 전용 타일과 검증된 연속 구간의 RTT 직접 재사용은 이 옵션과 별도로 처리한다.
 
 TERRAIN_DECAL_DEFAULT_CONFIG: Readonly<TerrainDecalConfig>
     조정 가능한 값의 기본값이며 각 값은 기존 구현이 쓰던 값을 그대로 옮긴 것이다.
@@ -109,7 +107,7 @@ TERRAIN_DECAL_DEFAULT_CONFIG.swapReadyTimeoutMs: number = 30_000
     swap 준비 대기 timeout 기본값
 
 TERRAIN_DECAL_DEFAULT_CONFIG.workerResultCacheSize: number = 1000
-    worker 결과 캐시 크기 기본값(LRUCache 단위 100KB, 약 100MB). 2026-09-16 실측에서 폴리곤 타일의 worker 결과 1건이 약 1.15MB(Polygon 456개)라 이전 값 128(12.8MB)은 10장만 담았고, 이미지 host 추가로 가시 타일 약 90장의 host 구간이 한 번에 무효화되면 대부분이 cache 재생 대신 worker 재팩으로 되돌아갔다. 한 화면분의 폴리곤 타일을 담는 값이며 GPU 아닌 main-memory typed array 예산이다.
+    worker 결과의 LRU 용량 기본값이다. LRUCache의 100KB 단위로 환산하면 약 100MB이며 CPU typed array 보관 예산이다.
 
 TERRAIN_DECAL_DEFAULT_CONFIG.gpuStateCacheSize: number = 64
     GPU 상태 캐시 크기 기본값
@@ -129,11 +127,8 @@ TERRAIN_DECAL_DEFAULT_CONFIG.backgroundFlushFrameBudgetMs: number = 1.5
 TERRAIN_DECAL_DEFAULT_CONFIG.foregroundPriorityMin: number = 3000
     전경 판정 priority 하한 기본값
 
-TERRAIN_DECAL_DEFAULT_CONFIG.debugLogLimit: number = 5000
-    디버그 로그 보관 수 기본값
-
 TERRAIN_DECAL_DEFAULT_CONFIG.payloadCacheMaxEntries: number = 512
-    payload snapshot 보관 tile 수 기본값이며 UTerrainPayload 모듈 상수에서 옮기며 상향한 값이다.
+    payload snapshot을 보관할 tile 수의 기본값이다.
 
 TERRAIN_DECAL_DEFAULT_CONFIG.payloadFeatureCacheMaxEntries: number = 131_072
     feature payload 항목 수 기본값이며 tile origin 별 key 라 같은 feature 가 parent·child origin 마다 별 항목이 된다.
@@ -145,7 +140,7 @@ TERRAIN_DECAL_DEFAULT_CONFIG.payloadSnapshotCacheMaxBytes: number = 64 * 1024 * 
     snapshot cache 바이트 기본값
 
 TERRAIN_DECAL_DEFAULT_CONFIG.hybridCompositionEnabled: number = 0
-    hybrid 실행 경로 기본값이며 검증 단계이므로 꺼진 상태다. 0 이 아닌 값으로 덮어써야 분류를 전달한다.
+    일반 평탄 입력의 안정성 분류 기본값이며 꺼진 상태다. 0 이 아닌 값으로 덮어써야 이 입력의 계획에 분류를 전달한다. 검증된 연속 구간의 RTT 직접 재사용을 끄는 설정은 아니다.
 
 POSITIVE_CONFIG_KEYS: ReadonlyArray<keyof TerrainDecalConfig>
     0 보다 커야 하는 설정 key 목록. 0 이나 음수가 들어오면 파이프라인이 아무 일도 하지 못하는 값만 담는다. compositeMaxWeightedPixelsPerFrame 은 유한한 값으로만 덮어쓸 수 있고 예산을 다시 끄려면 manager 의 실행 중 접근자로 Infinity 를 넣는다.
@@ -160,10 +155,10 @@ createTerrainDecalConfig(overrides?: Partial<TerrainDecalConfig>) -> Readonly<Te
     처리 기준:
         override 가 없거나 객체가 아니면 기본 설정을 그대로 돌려준다.
         기본 설정의 key 만 훑으므로 알 수 없는 key 는 반영하지 않는다.
-        수로 바꿀 수 없거나 유한하지 않은 값은 건너뛰어 기본값을 유지한다.
+        각 값을 Number로 변환한 뒤 유한하지 않으면 건너뛴다. Number 변환이나 override getter가 던지는 예외는 잡지 않고 전파한다.
         0 보다 커야 하는 key 는 0 이하 값을 건너뛴다.
         기본값과 같은 값은 변경으로 세지 않는다.
-        하나도 바뀌지 않았으면 새 객체를 만들지 않고 기본 설정을 돌려준다.
+        유효한 변경이 없으면 중간 복제 대신 기본 설정 객체를 반환한다.
         clear 예약은 0 이상이며 프레임당 명령 수를 넘을 수 없다.
         확정 설정은 얼려 돌려준다.
 
@@ -174,7 +169,7 @@ createTerrainDecalConfig(overrides?: Partial<TerrainDecalConfig>) -> Readonly<Te
         clear 예약을 0 과 프레임당 명령 수 사이로 맞춘 뒤 얼려 반환한다.
 
 getTerrainDecalConfig(manager?: Partial<{TERRAIN_CONFIG: Readonly<TerrainDecalConfig>}>) -> Readonly<TerrainDecalConfig>
-    역할: manager 에 확정된 설정이 없을 때도 항상 유효한 설정을 반환한다.
+    역할: manager의 설정을 그대로 조회하고 nullish이면 기본 설정을 반환한다.
 
     인터페이스:
         manager: 설정을 소유한 manager
@@ -184,7 +179,7 @@ getTerrainDecalConfig(manager?: Partial<{TERRAIN_CONFIG: Readonly<TerrainDecalCo
         tile 상태와 scheduler 함수들은 manager 인스턴스만 인자로 받으므로 테스트가 만든 최소 대역에도 안전해야 한다.
 
     동작:
-        manager 의 확정 설정이 있으면 그것을, 없으면 기본 설정을 반환한다.
+        manager?.TERRAIN_CONFIG가 null 또는 undefined이면 기본 설정을 반환하고 그 밖의 값은 검증·복제·동결 없이 그대로 반환한다.
 ```
 
 ## 4. 공통 처리 기준과 제약

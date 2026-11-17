@@ -10,7 +10,6 @@ import {UCatmullRomCurve3} from '@union3d/alg/UCatmullRomCurve3';
 import {UMesh} from '@union3d/core/mesh/UMesh';
 import {UBox3} from '@union3d/core/UBox3';
 import {U3dRecoveredMixins} from '@union3d/recover/U3dRecoveredMixins';
-import {deferred} from "@union3d/util/deferred";
 import {UBufferGeometry} from "@union3d/core/geometry/UBufferGeometry";
 import {UAnimationController} from "@union3d/analy/UAnimationController";
 import {U3dCumulativePath} from "@union3d/geometry/U3dCumulativePath";
@@ -139,20 +138,22 @@ class U3dComponentPosition {
     }
 
     /**
-     * 최근 도착한 지점들을 바탕으로 앞으로 도착할 예측 지점 (count개)과 예상 도착 시간을 계산합니다.<br>
-     * 마지막 도착 지점에서 시작해 최근 도착 지점 간 평균 간격만큼 한 단계씩 나아간 지점을 반환합니다.<br>
-     * 최근 도착 지점들이 한쪽으로 꺾이는 추세이면 그 수평 회전율을 이어받아 단계마다 진행 방향을 회전시키므로 예측 지점이 원호를 그립니다.
-     * turnWeight는 회전율 반영 비율이며 0이면 직선 예측, 1이면 추정한 회전율을 그대로 사용합니다(기본 1). 고도(z) 변화는 직선 추세를 유지합니다.<br>
-     * 첫 단계 방향은 최근 이동 추세 방향과 현재 진행 방향(지금 향하고 있는 목표 지점 방향)을 headingWeight 비율로 섞어 정합니다.
-     * 0이면 최근 이동 추세만, 1이면 현재 진행 방향만 사용합니다(기본 1). 현재 진행 방향을 알 수 없으면 최근 이동 추세만 사용합니다.<br>
-     * time은 호출 시점부터 그 지점 도착까지의 예상 시간(ms)이며 계산할 수 없으면 Infinity입니다.<br>
-     * 도착 이력이 count개보다 적으면 undefined를 반환합니다.<br>
-     * count는 2~100 사이의 정수, headingWeight와 turnWeight는 0~1 사이의 숫자여야 하며 아니면 TypeError 또는 RangeError가 발생합니다.
+     * 현재 이동 목표와 대기 경유지를 우선 반영하여 앞으로 도착할 지점(최대 count개)과 예상 도착 시간을 계산합니다.<br>
+     * 예약 목표 이후는 마지막 예약 목표에서, 예약 목표가 없으면 마지막 도착점에서 잡음을 보정한 도착 지점 간 평균 간격만큼 연장합니다.<br>
+     * 최근 도착 지점의 거리 기반 방향·회전율을 사용하며, 짧은 구간과 위치 잡음으로 설명되는 회전은 신뢰도를 낮춥니다.
+     * 이력에서 추정한 초기 회전율은 내부에서 전부 반영합니다.<br>
+     * 가까운 1초 이동 거리(최대 45도 선회)까지 초기 회전율을 유지한 뒤 지수 감쇠합니다. 감쇠 거리는 최근 분석 거리의 절반과 2초 이동 거리 중 큰 값을 사용하되, 외삽의 총 방위각 변화가 90도를 넘지 않도록 제한합니다. 고도(z) 변화는 직선 추세를 유지합니다.<br>
+     * 이력으로 연장하는 첫 단계 방향은 최근 이동 추세 방향과 마지막 예약 구간 방향을 headingWeight 비율로 섞어 정합니다.
+     * 0이면 이력 방향을, 1이면 신뢰 가능한 예약 구간 방향을 우선 사용합니다(기본 1). 방향이 불명확하거나 구간이 잡음보다 짧으면 이력 방향을 유지합니다.<br>
+     * time은 호출 시점부터 그 지점 도착까지의 예상 시간(ms)이며 계산할 수 없거나 일시정지 중이면 Infinity입니다.<br>
+     * 직선·원호 형상과 위치 잡음을 구분해 평균 이동 거리와 속도를 보정하며, 같은 도착 이력의 분석은 재사용합니다.<br>
+     * 도착 이력이 2개 이상이면 이력 수와 count 중 작은 개수까지 외삽 결과를 채웁니다. 이력이 쌓일수록 반환 개수가 늘어납니다.<br>
+     * 이미 알려진 예약 목표는 이력 수와 관계없이 count개까지 우선 반환합니다. 이력이 2개 미만이고 예약 목표도 없으면 undefined를 반환합니다.<br>
+     * count는 2~100 사이의 정수, headingWeight는 0~1 사이의 숫자여야 하며 아니면 TypeError 또는 RangeError가 발생합니다.
      *
-     * @param {number} count 분석할 최근 도착 지점 수와 반환할 미래 단계 수인 2~100 사이의 정수
-     * @param {number} [headingWeight=1] 현재 진행 방향 반영 비율 (0~1). 0이면 도착 이력 추세만, 1이면 현재 진행 방향만 사용합니다.
-     * @param {number} [turnWeight=1] 회전율 반영 비율 (0~1). 0이면 직선 예측, 1이면 도착 이력에서 추정한 수평 회전율을 그대로 반영합니다.
-     * @returns {Array<PredictedPosition> | undefined} 가까운 예측점부터 순서대로 담은 위치와 예상 경과 시간 목록 또는 이력이 부족할 때 undefined
+     * @param {number} count 반환할 미래 단계의 최대 개수인 2~100 사이의 정수. 도착 이력 2개부터 이력 수만큼 점진적으로 외삽하며 분석 창은 출력 개수와 독립적입니다.
+     * @param {number} [headingWeight=1] 이력 외삽에 예약 구간의 진행 방향을 반영할 비율 (0~1). 잡음에 비해 짧은 구간은 신뢰도로 감쇠하며 이미 예약된 좌표는 바꾸지 않습니다.
+     * @returns {Array<PredictedPosition> | undefined} 도착 순서대로 담은 위치와 예상 경과 시간 목록. 예약 목표와 충분한 이력이 모두 없으면 undefined
      *
      * @example
      * const predicted = component.predictFuturePositions(10, 0.5);
@@ -163,14 +164,11 @@ class U3dComponentPosition {
      * }
      *
      * @example
-     * // 이력 추세만으로 예측 (현재 주행 진행 방향 미반영)
+     * // 예약 목표 이후를 이력 추세만으로 연장
      * const trendOnly = component.predictFuturePositions(5, 0);
      *
-     * @example
-     * // 회전을 반영하지 않는 직선 예측
-     * const straight = component.predictFuturePositions(10, 1, 0);
      */
-    predictFuturePositions(count, headingWeight = 1, turnWeight = 1) {
+    predictFuturePositions(count, headingWeight = 1) {
         if (typeof count !== 'number') {
             throw new TypeError('count는 숫자여야 합니다.');
         }
@@ -185,23 +183,26 @@ class U3dComponentPosition {
             throw new RangeError('headingWeight는 0~1 사이여야 합니다.');
         }
 
-        if (typeof turnWeight !== 'number' || Number.isNaN(turnWeight)) {
-            throw new TypeError('turnWeight는 숫자여야 합니다.');
-        }
-        if (turnWeight < 0 || turnWeight > 1) {
-            throw new RangeError('turnWeight는 0~1 사이여야 합니다.');
-        }
 
+        const animation = this.getAnimationNow();
+        const scheduled = animation?._getScheduledWaypoints(count) ?? [];
+        if (scheduled.length >= count) return scheduled;
         const history = this.#cumulativePath?.waypointHistory ?? [];
-        if (history.length < count) return undefined;
+        const predictionCount = Math.min(count, history.length);
+        if (history.length < 2 || scheduled.length >= predictionCount) {
+            return scheduled.length > 0 ? scheduled : undefined;
+        }
 
-        const records = history.slice(-count);
-        const last = records[count - 1];
-        const meanIndex = (count - 1) / 2;
+        // 출력 단계 수를 바꾸어도 동일한 상태의 분석 이력과 공통 예측 구간은 유지한다.
+        const records = history.slice(-WAYPOINT_HISTORY_LIMIT);
+        const sampleCount = records.length;
+        const last = records[sampleCount - 1];
+        const meanIndex = (sampleCount - 1) / 2;
         const step = new THREE.Vector3();
-        let pathLength = 0;
+        const {path, motion} = INTERNAL.getPredictionAnalysis(this, records);
+        const pathLength = path.pathLength;
         let denominator = 0;
-        for (let i = 0; i < count; i++) {
+        for (let i = 0; i < sampleCount; i++) {
             const weight = i - meanIndex;
             const point = records[i].point;
             // 큰 월드 좌표의 공통 오프셋을 빼 작은 이동량의 정밀도를 보존한다.
@@ -209,48 +210,82 @@ class U3dComponentPosition {
             step.y += weight * (point.y - last.point.y);
             step.z += weight * (point.z - last.point.z);
             denominator += weight * weight;
-            if (i > 0) pathLength += point.distanceTo(records[i - 1].point);
         }
         step.divideScalar(denominator);
 
-        // 평균 속도(m/ms): 이력 구간의 실제 이동 거리를 첫 도착부터 마지막 도착까지의 경과 시간으로 나눈다.
+        // 평균 속도(m/ms): 형상과 잡음을 구분해 보정한 이동 거리를 이력의 경과 시간으로 나눈다.
         const elapsedMs = last.time - records[0].time;
-        const averageSpeed = elapsedMs > 0 ? pathLength / elapsedMs : 0;
-        // 단계 거리: 곡선 이력에서는 최소제곱 기울기가 현(chord) 길이로 줄어 예측점이 붕괴하므로 실제 이동한 구간의 평균 길이를 쓴다.
-        const stepLength = pathLength / (count - 1);
+        let averageSpeed = elapsedMs > 0 ? pathLength / elapsedMs : 0;
+        // 속도와 예측 간격에 동일한 보정 거리를 사용해 잡음을 이동량으로 외삽하지 않는다.
+        const historyStepLength = path.stepLength;
+        let stepLength = historyStepLength;
+        if (motion?.stationary) {
+            stepLength = 0;
+            averageSpeed = 0;
+        }
 
         const now = Date.now();
 
-        // 기준점은 마지막 도착 지점이다. k번째 예측이 k번째 실제 도착과 대응하도록 사양(마지막 도착점 + 단계 거리 × k)을 유지한다.
-        const anchor = last.point;
-        const anchorTime = last.time;
+        // 이미 확정된 목표를 모두 지난 위치와 시각에서 이력 외삽을 이어 간다.
+        const lastScheduled = scheduled[scheduled.length - 1];
+        const anchor = lastScheduled?.point ?? last.point;
+        const anchorTime = animation?.isPaused ? Number.POSITIVE_INFINITY
+            : lastScheduled ? lastScheduled.time : last.time - now;
 
-        // 회전율: 이력의 수평 진행 방향 변화에서 단계당 방위각 회전율을 추정하고 turnWeight 비율만 반영한다.
-        const yawRate = turnWeight > 0 ? turnWeight * INTERNAL.estimateYawRate(records.map(record => record.point)) : 0;
+        // 추정한 회전율은 내부에서 가중치 1로 반영하고 출력 단계의 물리적 거리에 맞춰 환산한다.
+        const historyYawRate = motion ? 0 : INTERNAL.estimateYawRate(records.map(record => record.point));
+        const yawRate = motion ? motion.yawRate
+            : historyStepLength > 0 ? historyYawRate * stepLength / historyStepLength : 0;
 
-        // 첫 단계 방향: 최소제곱 추세는 이력 구간의 평균 진행 방향이므로 수평 방위각을 회전율로 다음 구간 시점까지 돌려 놓는다.
-        // 수평 추세가 상쇄되어 방향이 없으면 마지막 유효 구간의 방향을 한 단계 회전시켜 대신 쓴다.
-        let direction = INTERNAL.createTrendDirection(step, stepLength, yawRate * count / 2)
-            ?? this.#getLastSegmentDirection(records)?.applyAxisAngle(ROTATE_AXIS, yawRate);
+        // 기준점의 접선 방향에서 시작한다. 각 예측 구간의 회전은 적분 단계에서 반영한다.
+        let direction = motion?.direction?.clone()
+            ?? INTERNAL.createTrendDirection(step, historyStepLength, historyYawRate * (sampleCount - 1) / 2)
+            ?? this.#getLastSegmentDirection(records);
+        if (lastScheduled && stepLength > 0) {
+            let previous = last.point;
+            let scheduledDistance = 0;
+            for (const target of scheduled) {
+                scheduledDistance += previous.distanceTo(target.point);
+                previous = target.point;
+            }
+            direction?.applyAxisAngle(ROTATE_AXIS, yawRate * scheduledDistance / stepLength);
+        }
         if (headingWeight > 0) {
-            const heading = this.#getCurrentHeadingDirection();
+            let heading = this.#getCurrentHeadingDirection();
+            let segmentLength = animation ? animation.from.distanceTo(animation.to) : 0;
+            if (lastScheduled) {
+                const currentFrom = animation?.to.equals(lastScheduled.point) ? animation.from : this.position;
+                const previous = scheduled.length > 1 ? scheduled[scheduled.length - 2].point : currentFrom;
+                const segment = new THREE.Vector3().subVectors(lastScheduled.point, previous);
+                segmentLength = segment.length();
+                if (segment.lengthSq() > 1e-8) heading = segment.normalize();
+            }
             if (defined(heading)) {
-                direction = defined(direction) ? INTERNAL.rotateTowards(direction, heading, headingWeight) : heading;
+                const reliability = motion ? THREE.MathUtils.clamp((segmentLength / motion.headingBaseline - 1) / 3, 0, 1) : 1;
+                const weight = headingWeight * reliability * reliability * (3 - 2 * reliability);
+                if (weight > 0) direction = defined(direction) ? INTERNAL.rotateTowards(direction, heading, weight) : heading;
             }
         }
 
-        // 예측점: 첫 단계 방향에서 단계마다 회전율만큼 방향을 돌리며 단계 거리씩 나아간 원호 위의 지점들이다.
-        const points = INTERNAL.createTurningSteps(anchor, direction ?? new THREE.Vector3(), stepLength, yawRate, count);
+        // 외삽의 총 방위각 변화는 90도 이내로 제한해 먼 예측이 진행 방향 뒤로 말리지 않게 한다.
+        // 곡률 유지 구간에는 최대 45도를 배정하고 나머지 각도 안에서 부드럽게 감쇠한다.
+        const remainingCount = predictionCount - scheduled.length;
+        const turnDistanceLimit = Math.abs(yawRate) > 0 ? Math.PI * stepLength / (2 * Math.abs(yawRate)) : Infinity;
+        const turnHoldDistance = Math.min(averageSpeed * 1000, turnDistanceLimit / 2);
+        const turnDecayDistance = Math.min(
+            Math.max(motion?.turnDecayDistance ?? pathLength / 2, averageSpeed * 2000),
+            turnDistanceLimit - turnHoldDistance);
+        const points = INTERNAL.createTurningSteps(anchor, direction ?? new THREE.Vector3(), stepLength, yawRate, remainingCount, turnDecayDistance, turnHoldDistance);
 
         /** @type {Array<PredictedPosition>} */
-        const result = [];
-        for (let k = 1; k <= count; k++) {
+        const result = scheduled;
+        for (let k = 1; k <= remainingCount; k++) {
             const distance = stepLength * k;
             let time;
             if (averageSpeed > 0) {
-                time = Math.max(0, Math.round(anchorTime + distance / averageSpeed - now));
+                time = Math.max(0, Math.round(anchorTime + distance / averageSpeed));
             } else {
-                time = distance === 0 ? 0 : Number.POSITIVE_INFINITY;
+                time = distance === 0 ? Math.max(0, Math.round(anchorTime)) : Number.POSITIVE_INFINITY;
             }
             result.push({point: points[k - 1], time});
         }
@@ -1321,8 +1356,10 @@ class U3dComponentPosition {
 
         if(defined(updateInfo.visible)) {
             if(updateInfo.visible !== this._show) {
-                if(updateInfo.visible) this.show();
-                else this.hide();
+                // 프레임 갱신은 기다리지 않지만 인스턴스 컴포넌트의 가시성 변경 실패도 관찰합니다.
+                Promise.resolve(updateInfo.visible ? this.show() : this.hide()).catch(error => {
+                    __GError__(this, 'LOD에 따른 컴포넌트 가시성 변경에 실패했습니다. ' + error, '306011');
+                });
 
                 if(this.userData && this.userData.verticalObjects){
                     this.userData.verticalObjects.forEach(/** @param {import('three').Object3D} group */ (group)=>{
@@ -1672,6 +1709,7 @@ class U3dComponentPosition {
 
     /**
      * 누적 경로(궤적)의 스타일을 변경하는 함수
+     * 새 경로의 첫 좌표를 출발점에 유지하며 drawOffset은 이동 거리에 따라 적용합니다.
      * @param {U3dCumulativePath_StyleOpt} opt 변경 옵션
      */
     setCumulativePathStyle (opt) {
@@ -1696,6 +1734,9 @@ class U3dComponentPosition {
     /**
      * 누적 경로(궤적)의 초기 좌표 값(이전 히스토리)을 설정하는 함수.
      * 이미 경로가 있으면 현재 스타일과 표시 설정을 사용해 새 초기 이력으로 교체합니다.
+     * 렌더 노드의 시각은 호출 시각을 기준으로 현재 위치까지의 거리와 speed로 역산한 epoch 시각(ms)입니다.
+     * 속도가 0이거나 유효하지 않으면 모든 초기 지점에 호출 시각을 사용합니다.
+     * cumulativeProperty.lastInfo.time은 기존처럼 시작부터의 경과 시간(ms)을 유지합니다.
      * @param {Array<GeoPositionVector3>} positions 위경도 좌표 배열
      */
     setInitPathPositions(positions) {
@@ -1715,6 +1756,7 @@ class U3dComponentPosition {
         const valid = positions.filter(isValidPoint);
 
         let cumulativeDist = 0;
+        const speedMs = Number.isFinite(this.speed) && this.speed > 0 ? this.speed / 3.6 : 0;
         // 기존 초기 경로 데이터 초기화
         this.#initPathPositions.length = 0;
         for (let i = 0; i < valid.length; i++) {
@@ -1730,7 +1772,6 @@ class U3dComponentPosition {
 
             cumulativeDist += section;
 
-            const speedMs = this.speed / 3.6;
             const time = speedMs > 0 ? cumulativeDist / speedMs * 1000 : 0;
 
             // 누적 경로 초기 생성을 위한 포맷
@@ -1756,6 +1797,20 @@ class U3dComponentPosition {
             });
             this.#cumulativeProperty.lastInfo = info;
 
+        }
+
+        // 경과 시간과 Date.now()를 한 궤적에 섞지 않고, 렌더 이력만 epoch 시각으로 변환합니다.
+        const last = this.#initPathPositions[this.#initPathPositions.length - 1];
+        if (last) {
+            let duration = last.time;
+            const current = this.getGeographicPosition();
+            if (speedMs > 0 && isValidPoint(current)) {
+                const lastWorld = app.geographicToVector3(last.position);
+                const currentWorld = app.geographicToVector3(current);
+                duration += lastWorld.distanceTo(currentWorld) / speedMs * 1000;
+            }
+            const startTime = Date.now() - duration;
+            for (const record of this.#initPathPositions) record.time += startTime;
         }
 
         // addPosition의 첫 위치 기록에서 경로가 먼저 만들어질 수 있습니다.
@@ -2308,7 +2363,7 @@ class U3dComponentPosition {
                         width: this._pathWidth,
                         transparent: this.pathOpacity < 1,
                         opacity: this.pathOpacity,
-                        edge: this._pathEdge,
+                        outline: this._pathEdge,
                         color: this.pathColor
                     }
                 );
@@ -2384,7 +2439,7 @@ class U3dComponentPosition {
                             width: this._pathWidth,
                             transparent: this.pathOpacity < 1,
                             opacity: this.pathOpacity,
-                            edge: this._pathEdge,
+                            outline: this._pathEdge,
                             color: this.pathColor
                         }
                     );
@@ -3691,10 +3746,11 @@ class U3dComponentPosition {
 
     /**
      * 컴포넌트 가시화(show) 함수
-     * @returns {DeferredObject<unknown> | undefined} 숨김 상태를 표시한 경우 true로 resolve하며 이미 표시 중이면 undefined
+     * 자식 컴포넌트의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
+     *
+     * @returns {Promise<unknown> | undefined} 숨김 상태를 표시한 경우 true로 resolve하며 이미 표시 중이면 undefined
      */
     show () {
-        const promise = deferred();
         const self = this;
 
         // forced 여부에따른 LOD 상태 변경
@@ -3715,7 +3771,9 @@ class U3dComponentPosition {
             for (let i = 0; i < children.length; i++) {
                 const child = children[i];
                 if (child instanceof U3dComponentPosition) {
-                    child.show();
+                    Promise.resolve(child.show()).catch(error => {
+                        __GError__(child, '자식 컴포넌트 표시에 실패했습니다. ' + error, '306011');
+                    });
                 } else  {
                     /**@type{ExtendedObject3D}*/ (child).show?.();
                 }
@@ -3729,16 +3787,18 @@ class U3dComponentPosition {
 
         if(this._labelVisible) self.poi?.show();
 
-        promise.resolve(true);
-        return promise;
+        // 표시 변경은 위에서 끝납니다. 외부 완료 제어가 필요하지 않으므로
+        // resolve/reject 클로저를 만들지 않고 공개 API의 Promise 반환만 유지합니다.
+        return Promise.resolve(true);
     }
 
     /**
      * 컴포넌트 비가시화(hide) 함수
-     * @returns {DeferredObject<unknown> | undefined} 표시 상태를 숨긴 경우 true로 resolve하며 이미 숨김 상태면 undefined
+     * 자식 컴포넌트의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
+     *
+     * @returns {Promise<unknown> | undefined} 표시 상태를 숨긴 경우 true로 resolve하며 이미 숨김 상태면 undefined
      */
     hide () {
-        const promise = deferred();
         const self = this;
 
         // forced 여부에따른 LOD 상태 변경
@@ -3755,7 +3815,9 @@ class U3dComponentPosition {
             for (let i = 0; i < children.length; i++) {
                 const child = children[i];
                 if (child instanceof U3dComponentPosition) {
-                    child.hide();
+                    Promise.resolve(child.hide()).catch(error => {
+                        __GError__(child, '자식 컴포넌트 숨김에 실패했습니다. ' + error, '306011');
+                    });
                 } else {
                     /** @type {ExtendedObject3D} */ (child).hide?.();
                 }
@@ -3774,8 +3836,8 @@ class U3dComponentPosition {
 
         if(this._labelVisible) self.poi?.hide(); // 라벨 있으면 감추기
 
-        promise.resolve(true);
-        return promise;
+        // 이미 같은 상태인 호출은 위에서 undefined로 끝나며 Promise도 만들지 않습니다.
+        return Promise.resolve(true);
     }
 
     /**

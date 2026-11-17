@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -73,10 +73,6 @@ type TerrainDecalConfig = {
      */
     foregroundPriorityMin: number;
     /**
-     * tile 상태 디버그 로그의 최대 보관 수입니다.
-     */
-    debugLogLimit: number;
-    /**
      * Worker delta 기준선인 tile payload snapshot을 보관할 최대 tile 수입니다.
      */
     payloadCacheMaxEntries: number;
@@ -93,7 +89,7 @@ type TerrainDecalConfig = {
      */
     payloadSnapshotCacheMaxBytes: number;
     /**
-     * 0이 아니면 hybrid 합성 실행 경로를 켭니다. Source 안정성 분류를 전달해 정적 Feature는 offscreen 합성 texture로, 비교차 동적 Feature는 direct로 같은 terrain material에서 함께 표시합니다. 기본값은 0이며 혼합 source는 기존 direct·precomposed 판정을 유지합니다. 정적 source만 있는 타일은 이 옵션과 무관하게 축소 필터를 적용하는 precomposed 경로를 사용합니다.
+     * 0이 아니면 일반 평탄 입력의 합성 계획에 Source 안정성 분류를 전달합니다. 정적 구간 뒤에 동적 구간이 오거나 두 집합이 비교차이고 동적 부분집합의 직접 평가가 가능하면 정적 texture와 동적 direct를 함께 표시합니다. 기본값은 0입니다. 정적 전용 타일의 precomposed 처리와 검증된 연속 구간의 정적 RTT 직접 재사용은 이 옵션과 별도로 적용됩니다.
      */
     hybridCompositionEnabled: number;
 };

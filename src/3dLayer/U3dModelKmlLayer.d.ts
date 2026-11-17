@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -14,6 +14,8 @@ import type { KeyValue } from "../types/global.js";
  * ~extends import('@union3d/3dLayer/U3dVectorLayer').U3dVectorLayer <br>
  *
  * KML 또는 KMZ 파일의 지리 형상을 3D 객체로 변환해 표시하는 레이어 클래스입니다.
+ * `ready`는 파일 읽기·파싱·형상 등록과 경계 갱신이 끝나면 이 레이어로 완료됩니다.
+ * 로딩 실패는 `ready`의 거부로 전달하며 이미지 로딩이나 실제 렌더 프레임 완료는 기다리지 않습니다.
  *
  * @group 3dLayer
  * @extends {U3dVectorLayer}
@@ -52,16 +54,17 @@ declare class U3dModelKmlLayer extends U3dVectorLayer {
      * U3dModelKmlLayer 클래스 생성자입니다.<br>
      * KML 텍스트·바이너리 데이터 또는 파일 경로 중 제공된 입력으로 3D 형상 변환을 시작합니다.<br>
      * kmlText, kmlData, baseUrl 순서로 먼저 제공된 입력을 사용합니다.
+     * 입력이 없으면 빈 레이어로 준비되며, 로딩 결과는 `await layer.ready`로 받으십시오.
      *
      * @param {U3dModelKmlLayerCO} opt 레이어 생성 설정
      */
     constructor(opt: U3dModelKmlLayerCO);
     /**
-     * 현재 KML 또는 KMZ 파일을 불러와 변환하는 작업입니다.
+     * 현재 로딩 회차의 ready와 같은 Promise입니다. 외부에서는 ready를 사용하십시오.
      *
-     * @type {Promise<U3dModelKmlLayer> | null}
+     * @type {Promise<this> | null}
      */
-    _loadingPromise: Promise<U3dModelKmlLayer> | null;
+    _loadingPromise: Promise<this> | null;
     /**
      * 생성한 3D 형상을 고유 ID로 찾기 위한 목록입니다.
      *
@@ -103,10 +106,13 @@ declare class U3dModelKmlLayer extends U3dVectorLayer {
     /**
      * 현재 파일 경로의 KML 또는 KMZ를 다시 불러와 레이어 형상을 교체합니다.<br>
      * 파일 경로 없이 텍스트 또는 바이너리 데이터로 생성한 레이어에서는 사용할 수 없습니다.
+     * 로딩 중에는 현재 `ready`를 공유하며 추가 파일 요청을 시작하지 않습니다.
+     * 종결 후에는 새 `ready`를 만들고 같은 Promise를 반환합니다. 이전 Promise의 결과는 유지됩니다.
+     * 경로 누락과 로딩 실패는 반환 Promise로 거부됩니다.
      *
-     * @returns {Promise<U3dModelKmlLayer>} 변환이 끝난 현재 레이어
+     * @returns {Promise<this>} 현재 로딩 회차의 ready
      */
-    reload(): Promise<U3dModelKmlLayer>;
+    reload(): Promise<this>;
     /**
      * ID 값으로 해당하는 Geometry를 반환하는 메서드입니다.
      *
@@ -208,7 +214,11 @@ declare class U3dModelKmlLayer extends U3dVectorLayer {
          */
         height?: number | string;
         /**
-         * 폴리곤 외곽선을 표시할지 여부
+         * 폴리곤 외곽선을 표시할지 여부. useLine보다 우선 적용
+         */
+        outline?: boolean;
+        /**
+         * outline을 생략했을 때 적용하는 기존 외곽선 표시 옵션. 경고 없이 호환 지원
          */
         useLine?: boolean;
         /**

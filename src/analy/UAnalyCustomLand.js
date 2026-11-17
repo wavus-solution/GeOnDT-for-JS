@@ -13,15 +13,16 @@ import {UDraw} from "@union3d/draw/UDraw";
 import {deferredPromise} from "@util/deferredPromise";
 import {ol} from '@union3d/lib/ol/ol-debug.js';
 import {INTERNAL} from '@union3d/analy/UAnalyCustomLand.internal';
+import {UHeightEditOrderManager} from '@union3d/core/height/UHeightEditOrderManager';
 
 /**
- * ~extends import('@UAnaly').UAnaly <br>
- * `지형 편집` 분석 클래스 <br>
- * 편집영역 그리기, 편집높이 설정 등의 기능을 제공한다.
+ * ~extends import('@UAnaly').UAnaly
+ *
  * @group analysis
- * @extends UAnaly
+ * @extends {UAnaly}
  *
  * @tutorial {@link https://3d.geon.kr/doc/tutorial-official/customLand.html}
+ *
  * @example
  * let analy = app.activeAnalysis('CustomLand');
  */
@@ -195,13 +196,17 @@ class UAnalyCustomLand extends UAnaly {
     }
 
     /**
-     * @param {import('@union3d/analy/CustomLand').CustomLand} customLand
+     * 편집 순번을 확정한 뒤 앱 편집 집합과 공간 인덱스에 등록합니다.
+     *
+     * @param {import('@union3d/analy/CustomLand').CustomLand} customLand 등록할 편집 객체
+     * @param {number} [sequence] 저장하거나 수정 전에 발급받은 순번(생략하거나 충돌하면 새 순번 발급)
      */
-    setCustomLandToApp(customLand) {
+    setCustomLandToApp(customLand, sequence) {
         const self = this;
         const drawArg = /** @type {import('@UDrawArg').UDrawArg} */ (self._drawArg);
         const app = drawArg._app;
 
+        UHeightEditOrderManager.forApp(app).register(self.name, customLand, sequence);
         if (app._editHeightBoxList.has(self.name)) {
             app._editHeightBoxList.get(self.name).add(customLand);
         } else {
@@ -314,8 +319,9 @@ class UAnalyCustomLand extends UAnaly {
     }
 
     /**
-     * 편집 지형의 생성 파라미터 값을 반환하는 함수
-     * @return {Array<CustomLandCO>} 생성 파라미터
+     * 생성 파라미터와 적용 순번을 반환합니다.
+     *
+     * @returns {Array<CustomLandCO & Partial<{ heightEditOrder: number; }>>} 생성 파라미터와 앱 내 우선순위
      *
      * @example
      * param {
@@ -325,26 +331,33 @@ class UAnalyCustomLand extends UAnaly {
      */
     getParam() {
         const param = [];
+        const manager = this._app ? UHeightEditOrderManager.forApp(this._app) : null;
         for (let i = 0; i < this._customLandList.length; i++) {
-            param.push(this._customLandList[i].getParameter());
+            const land = this._customLandList[i];
+            const option = land.getParameter();
+            const sequence = manager?.getSequence(land);
+            if (sequence != null) Object.assign(option, {heightEditOrder: sequence});
+            param.push(option);
         }
         return param;
     }
 
     /**
-     * 커스텀 지형의 생성 파라미터 값을 설정하는 함수
-     * @param {Array<CustomLandCO>} param 생성 파라미터
+     * 준비된 월드 박스를 가진 생성 파라미터와 선택적 적용 순번을 복원합니다.
      *
-     *  @see CustomLandCO
+     * @param {Array<CustomLandCO & Partial<{ heightEditOrder: number; }>>} param getParam으로 저장한 편집 지형 생성 옵션과 적용 순번
+     *
+     * @see CustomLandCO
      */
     setParam(param) {
+        for (const option of param) UHeightEditOrderManager.validateSequence(option.heightEditOrder);
         const drawArg = /** @type {import('@UDrawArg').UDrawArg} */ (this._drawArg);
         const app = drawArg._app;
         for (let i = 0; i < param.length; i++) {
             const editLandParam = param[i];
             const customLand = new CustomLand(editLandParam);
             this._customLandList.push(customLand);
-            this.setCustomLandToApp(customLand);
+            this.setCustomLandToApp(customLand, editLandParam.heightEditOrder);
             app.updateHeightLayers(editLandParam.inclineBox || editLandParam.box);
         }
     }
@@ -433,10 +446,11 @@ class UAnalyCustomLand extends UAnaly {
     }
 
     /**
-     * 편집한 지형을 수정하는 기능
+     * 기존 편집의 순번을 유지하면서 지형을 수정합니다.
+     *
      * @param {string} id 수정할 편집지형 ID
-     * @param {DataOPT_Input} option
-     * @returns {Promise<void> | undefined} 수정 완료 또는 입력·대상 지형이 없으면 undefined
+     * @param {DataOPT_Input} option 새 도형과 목표 높이(m)를 담은 편집 옵션
+     * @returns {undefined | Promise<void>} 수정 완료 또는 입력·대상 지형이 없으면 undefined
      *
      * @example
      * analy.editCustomLand("editLand", { id: "editLand_update", height: 55, geoVertex: [{x: 129.154, y: 35.164, z: 15}] });
@@ -444,10 +458,12 @@ class UAnalyCustomLand extends UAnaly {
     editCustomLand(id, option) {
         if (!defined(id)) { console.error("id is undefined"); return; }
         if (!defined(option)) { console.error("option is undefined"); return; }
+        UHeightEditOrderManager.validateSequence(option.heightEditOrder);
         const self = this;
 
         const customLand = self.getCustomLand(id);
         if (!customLand) return;
+        const sequence = self._app ? UHeightEditOrderManager.forApp(self._app).getSequence(customLand) ?? undefined : undefined;
         const oriCenter = /** @type {import('three').Vector3} */ (customLand.getCenter());
         const promise = /** @type {DeferredPromise<void>} */ (deferredPromise());
 
@@ -480,7 +496,7 @@ class UAnalyCustomLand extends UAnaly {
             return promise;
         }
 
-        self.#createCustomLand(finalOption);
+        self.#createCustomLand(finalOption, sequence);
         self.#clearState();
         promise.resolve();
         return promise;
@@ -525,6 +541,9 @@ class UAnalyCustomLand extends UAnaly {
      */
     removeCustomLandById(id) { return this.removeEditLandById(id); }
 
+    /**
+     * 이 분석의 편집 순번과 공간 등록을 해제하고 기존 방식으로 원본 지형을 재적용합니다.
+     */
     removeEditLandAll() {
         const self = this;
         const drawArg = /** @type {import('@UDrawArg').UDrawArg} */ (self._drawArg);
@@ -534,6 +553,7 @@ class UAnalyCustomLand extends UAnaly {
 
         for (let i = 0; i < self._customLandList.length; i++) {
             const editLand = self._customLandList[i];
+            UHeightEditOrderManager.forApp(app).remove(editLand);
             /** @type {import('three').Box3 | undefined} */
             let editLandBox;
             if (editLand.getInclineEdit()) {
@@ -714,7 +734,9 @@ class UAnalyCustomLand extends UAnaly {
     }
 
     /**
-     * @param {import('@union3d/analy/CustomLand').CustomLand} findIndex
+     * 단일 편집의 앱·공간·순번 등록을 해제한 뒤 영향을 받은 고도 타일을 갱신합니다.
+     *
+     * @param {import('@union3d/analy/CustomLand').CustomLand} findIndex 로컬 목록에서 제거할 편집 지형
      *
      * @ignore
      */
@@ -730,6 +752,7 @@ class UAnalyCustomLand extends UAnaly {
         if (index < 0) return;
 
         const customLand = self._customLandList[index];
+        UHeightEditOrderManager.forApp(app).remove(customLand);
         if (app._editHeightBoxList.has(self.name)) {
             app._editHeightBoxList.get(self.name).delete(customLand);
             if (app._editHeightBoxList.get(self.name).size === 0) {
@@ -837,11 +860,14 @@ class UAnalyCustomLand extends UAnaly {
     }
 
     /**
-     * @param {DataOPT} options
+     * 편집 객체를 만들고 저장 순번 또는 수정 전 순번으로 등록한 후 지형을 다시 적용합니다.
+     *
+     * @param {DataOPT} options 좌표·박스와 선택적 적용 순번을 준비한 생성 옵션
+     * @param {number} [sequence] 수정 전 순번(options.heightEditOrder보다 우선)
      *
      * @ignore
      */
-    #createCustomLand(options) {
+    #createCustomLand(options, sequence) {
         if (!defined(options)) return;
         const self = this;
         /** @type {import('@union3d/analy/CustomLand').CustomLand | undefined} */
@@ -851,7 +877,7 @@ class UAnalyCustomLand extends UAnaly {
             const app = drawArg._app;
             custom = new CustomLand(options);
             self._customLandList.push(custom);
-            self.setCustomLandToApp(custom);
+            self.setCustomLandToApp(custom, sequence === undefined ? options.heightEditOrder : sequence);
             app.updateHeightLayers(options.inclineBox || options.box);
         } catch (e) {
             U3dMessage.error(self._classtype, 'CustomLand 생성 중 오류가 발생 하였습니다.', '2639384');
@@ -860,7 +886,9 @@ class UAnalyCustomLand extends UAnaly {
     }
 
     /**
-     * @param {DataOPT} options
+     * 추가 옵션의 저장 순번을 검증하고 기존 도형·데이터 준비 경로로 편집 객체를 생성합니다.
+     *
+     * @param {DataOPT} options 좌표·박스 계산에 사용할 편집 지형 옵션
      *
      * @ignore
      */
@@ -868,6 +896,7 @@ class UAnalyCustomLand extends UAnaly {
         const self = this;
         const promise = /** @type {DeferredPromise<void>} */ (deferredPromise());
         try {
+            UHeightEditOrderManager.validateSequence(options?.heightEditOrder);
             const layers = /** @type {import('@UDrawArg').UDrawArg} */ (self._drawArg)?._app?.getHeightLayers();
             if (!defined(layers) || layers.length === 0) {
                 __GInfo__(self, '생성된 HeightLayer가 존재하지 않습니다.', '5123164');

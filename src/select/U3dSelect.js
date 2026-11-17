@@ -12,7 +12,7 @@ import {U3DTilesMesh} from '@union3d/core/mesh/U3DTilesMesh';
 import {U3dEvent} from '@union3d/event/U3dEvent';
 import {__GInfo__, U3dMessage} from '@union3d/message/U3dMessage';
 import {U3dGeometry} from '@union3d/geometry/U3dGeometry';
-import {deferred} from "@union3d/util/deferred";
+import {deferredPromise} from '@union3d/util/deferredPromise';
 import {URaycaster} from "@union3d/core/URaycaster";
 import {U3dComponentPosition} from "@union3d/3dLayer/U3dComponentPosition";
 import {U3dSelectionBox} from "@union3d/select/U3dSelectionBox";
@@ -24,21 +24,59 @@ import {U3dAppEventHandler} from "@union3d/event/U3dAppEventHandler";
 import {U3dModelU3FLayer} from "@union3d/3dLayer/U3dModelU3FLayer.js";
 import {U3dComponentInstancedPosition} from "@union3d/3dLayer/U3dComponentInstancedPosition.js";
 import {pickScreenCircle, applyHoverColor} from "@union3d/select/U3dSelect.internal.js";
+import {ol} from '@union3d/lib/ol/ol-debug.js';
 
 const invisibleRay = new URaycaster({usevisible: false});
 const TEMP_BOX = new THREE.Box3();
+// 콜백을 공유하는 선택 항목의 수명은 선택 키별로 관리한다. 외부 옵션이나 모델 속성은 늘리지 않는다.
+/** @type {WeakMap<Function, U3dSelectLoadSubscription>} */
+const LOAD_SUBSCRIPTIONS = new WeakMap();
 
 /**
- * ~extends import('@UEventDispatcher').UEventDispatcher <br>
- *
- * 지도 위 3D 객체를 사용자가 고르는 기능(선택)을 담당하는 클래스입니다. <br>
- * 클릭(POINT), 영역·선·원 그리기(AREA/LINE/CIRCLE), 드래그 사각형(BOX) 모드로 객체를 찾아 내부 선택 목록에 넣고, 외곽선 또는 색상으로 강조 표시하며, 진행 상황을 `U3dSelect.EVENT`(`start`/`change`/`end`) 이벤트로 알립니다. <br>
- * 생성 후 `setApp(app)`으로 앱을 연결하고 `active()`를 호출해야 사용자 입력을 받기 시작하며, 다 쓰면 `remove()`로 해제합니다.
+ * ~extends import('@UEventDispatcher').UEventDispatcher
  *
  * @group select
  */
-/// <summary>지도 입력으로 대상을 찾아 선택 목록과 강조 표시를 관리합니다. 시퀀스 편집기는 GUID에 연결된 메시를 이 선택기에 전달합니다. 앱 종료 후에는 레이어 조회·그리기 갱신을 차단하면서 선택 참조와 자체 효과를 정리합니다.</summary>
 class U3dSelect extends UEventDispatcher {
+    /**
+     * 알람 등이 보관한 선택 구독에 해당 대상만 다시 연결합니다.
+     * 같은 콜백의 고유 등록 이름과 다른 대상의 구독을 보존합니다.
+     *
+     * @param {Function} listener 선택기로부터 전달받은 로드 콜백
+     * @param {string} key 선택 키
+     * @param {ModelMesh} object 현재 선택 객체
+     * @returns {boolean} 선택기가 관리하는 콜백인지 여부
+     *
+     * @ignore
+     */
+    static _retainLoadedTarget(listener, key, object) {
+        const subscription = LOAD_SUBSCRIPTIONS.get(listener);
+        if (!subscription) return false;
+        subscription.targets.set(key, createLoadTarget(object, object._intersect));
+        const registered = /** @type {EventCallBack} */ (listener);
+        subscription.owner._loadedListeners[key] = registered;
+        // 등록 이름을 부모 ID로 덮어쓰면 다른 선택기의 같은 부모 구독을 해제할 수 있다.
+        subscription.layer.addEventListener(U3dEvent.MESH.LOADED, registered);
+        return true;
+    }
+
+    /**
+     * 공유 로드 구독에서 선택 한 건만 해제합니다. 마지막 대상 해제 때 이벤트도 제거합니다.
+     *
+     * @param {Function} listener 선택기로부터 전달받은 로드 콜백
+     * @param {string} key 해제할 선택 키
+     * @returns {boolean} 선택기가 관리하는 콜백인지 여부
+     *
+     * @ignore
+     */
+    static _releaseLoadedTarget(listener, key) {
+        const subscription = LOAD_SUBSCRIPTIONS.get(listener);
+        if (!subscription) return false;
+        subscription.targets.delete(key);
+        if (subscription.owner._loadedListeners[key] === listener) delete subscription.owner._loadedListeners[key];
+        if (subscription.targets.size === 0) subscription.layer.off(U3dEvent.MESH.LOADED, listener);
+        return true;
+    }
     /**
      * 이 선택기 인스턴스의 고유 식별자(GUID)입니다. <br>
      * BOX 모드 리스너 이름의 접두어로 씁니다.
@@ -97,6 +135,12 @@ class U3dSelect extends UEventDispatcher {
      * @type {Record<string, EventCallBack | undefined>}
      */
     _loadedListeners;
+    /**
+     * 현재 검색의 분리 대기와 후속 콜백만 보관하며, 선택 해제 시 소유 참조를 끊습니다.
+     * @type {{owner: U3dSelect | undefined, pending: Set<Promise<Array<import('three').Object3D>>>, cleanups: Set<function(boolean): void>, end: undefined | function(): void}}
+     * @ignore
+     */
+    _divisionSelection = {owner: this, pending: new Set(), cleanups: new Set(), end: undefined};
     /**
      * 앱에 등록한 `click` 리스너 식별자. 비활성 상태면 undefined.
      *
@@ -288,35 +332,77 @@ class U3dSelect extends UEventDispatcher {
     #searchLog = new Map(); //key는 검색된 객체, value는 intersect 객체 자체
     /** @type {Array<string>|undefined} */
     #targetLayer = undefined; //객체 검색할때, 입력한 레이어만 검색을 하는 속성 = > 검색을 빠르게 할때 레이어 지정 입력
-    /** @type {number} POINT 모드의 원형 화면 검색 반경(CSS 픽셀). 0이면 기존 레이 검색을 사용합니다. */
+    /**
+     * POINT 모드의 원형 화면 검색 반경(CSS 픽셀). 0이면 기존 레이 검색을 사용합니다.
+     * @type {number}
+     */
     #pickBufferPx;
-    /** @type {boolean} 점 선택의 화면 검색 범위를 표시할지 여부입니다. */
+    /**
+     * 점 선택의 화면 검색 범위를 표시할지 여부입니다.
+     * @type {boolean}
+     */
     #pickBufferVisible;
-    /** @type {HTMLDivElement | undefined} 선택기가 소유하는 화면 검색 범위 원입니다. */
+    /**
+     * 선택기가 소유하는 화면 검색 범위 원입니다.
+     * @type {HTMLDivElement | undefined}
+     */
     #bufferCircle;
-    /** @type {Window | null | undefined} 범위 표시의 화면 크기 변경을 구독한 창입니다. */
+    /**
+     * 범위 표시의 화면 크기 변경을 구독한 창입니다.
+     * @type {Window | null | undefined}
+     */
     #bufferWindow;
     /** 화면 크기 변경 시에도 마지막 NDC와 실제 검색 반경으로 범위를 표시합니다. */
     #bufferResize = () => this.#renderBufferCircle();
-    /** @type {boolean} hover 사용 여부. 기본값은 false입니다. */
+    /**
+     * hover 사용 여부. 기본값은 false입니다.
+     * @type {boolean}
+     */
     #hoverEnabled;
-    /** @type {boolean} 자동 색상 강조 여부. 끄면 hoverchange에서 표시를 결정합니다. */
+    /**
+     * 자동 색상 강조 여부. 끄면 hoverchange에서 표시를 결정합니다.
+     * @type {boolean}
+     */
     #hoverAutoHighlight;
-    /** @type {import('three').Color} 원본 재질과 독립적인 임시 강조 색상입니다. */
+    /**
+     * 원본 재질과 독립적인 임시 강조 색상입니다.
+     * @type {import('three').Color}
+     */
     #hoverColor;
-    /** @type {SelectPointerEvent | undefined} DOM 이벤트를 보관하지 않는 마지막 마우스 NDC 위치입니다. */
+    /**
+     * DOM 이벤트를 보관하지 않는 마지막 마우스 NDC 위치입니다.
+     * @type {SelectPointerEvent | undefined}
+     */
     #hoverPointer;
-    /** @type {U3dSelectHoverTarget | null} 클릭 선택 목록과 독립적으로 관리하는 hover 대상입니다. */
+    /**
+     * 클릭 선택 목록과 독립적으로 관리하는 hover 대상입니다.
+     * @type {U3dSelectHoverTarget | null}
+     */
     #hoverTarget = null;
-    /** @type {(() => void) | undefined} 임시 강조의 복원·자원 해제 함수입니다. */
+    /**
+     * 임시 강조의 복원·자원 해제 함수입니다.
+     * @type {(() => void) | undefined}
+     */
     #hoverRestore;
-    /** @type {(() => void) | undefined} 색상 적용 여부와 독립적인 hover 대상 삭제·geometry 해제 구독입니다. */
+    /**
+     * 색상 적용 여부와 독립적인 hover 대상 삭제·geometry 해제 구독입니다.
+     * @type {(() => void) | undefined}
+     */
     #hoverCleanup;
-    /** @type {Array<{type: string, key: string}>} hover가 등록한 앱 이벤트 식별자입니다. */
+    /**
+     * hover가 등록한 앱 이벤트 식별자입니다.
+     * @type {Array<{type: string, key: string}>}
+     */
     #hoverListeners = [];
-    /** @type {boolean} 버튼을 누른 동안에는 hover 검색을 중지합니다. */
+    /**
+     * 버튼을 누른 동안에는 hover 검색을 중지합니다.
+     * @type {boolean}
+     */
     #hoverDragging = false;
-    /** @type {boolean} 해제 이벤트에서 런타임 설정을 바꿔도 종료 중인 구독을 다시 등록하지 않습니다. */
+    /**
+     * 해제 이벤트에서 런타임 설정을 바꿔도 종료 중인 구독을 다시 등록하지 않습니다.
+     * @type {boolean}
+     */
     #hoverStopping = false;
     /**
      * U3dSelect 클래스 생성자입니다. <br>
@@ -329,16 +415,16 @@ class U3dSelect extends UEventDispatcher {
      */
     constructor(opt = {}) {
         super();
-        const pickBufferPx = opt.pickBufferPx ?? 100;
+        const pickBufferPx = opt.pickBufferPx ?? 0;
         if (!Number.isFinite(pickBufferPx) || pickBufferPx < 0) {
             throw new RangeError('pickBufferPx는 유한한 0 이상의 숫자여야 합니다.');
         }
         this.#pickBufferPx = pickBufferPx;
-        this.#pickBufferVisible = opt.pickBufferVisible ?? !false;
+        this.#pickBufferVisible = opt.pickBufferVisible ?? false;
         if (opt.hover?.autoHighlight !== undefined && typeof opt.hover.autoHighlight !== 'boolean') {
             throw new TypeError('hover.autoHighlight는 불리언이어야 합니다.');
         }
-        this.#hoverEnabled = opt.hover?.enabled ?? !false;
+        this.#hoverEnabled = opt.hover?.enabled ?? false;
         this.#hoverAutoHighlight = opt.hover?.autoHighlight ?? true;
         this.#hoverColor = new THREE.Color(opt.hover?.color ?? 0x00ff00);
         let self = this;
@@ -642,7 +728,7 @@ class U3dSelect extends UEventDispatcher {
         }
         this.#stopHover();
     }
-    /// <summary>박스 입력 구독과 자체 도구를 해제하고 살아 있는 앱의 카메라 제어만 복원합니다.</summary>
+    // 박스 입력 구독과 자체 도구를 해제하고 살아 있는 앱의 카메라 제어만 복원합니다.
     #removeSelectBoxEventListener(){
         const self = this;
         const selectBoxEvent = self.selectBoxEvent;
@@ -665,6 +751,33 @@ class U3dSelect extends UEventDispatcher {
         self.selectBoxEvent.pointerUpId = undefined;
 
         if (isSelectAppAvailable(self)) self._app.disableCameraMove(false); // 살아 있는 맵 컨트롤만 재활성화
+    }
+
+    /**
+     * 원본 도형은 유지하고 원형 측정의 중심·평면 반경으로 선택 영역을 만듭니다.
+     *
+     * @param {import('@UMeasureFeature').UMeasureFeature | undefined} feature 현재 또는 확정된 측정 피처입니다.
+     * @returns {OLGeometry} 선택 검사에 사용할 형상이며 미완성 원은 빈 영역입니다.
+     *
+     * @ignore
+     */
+    #getMeasureGeometry(feature) {
+        const olGeom = /** @type {{geom: {
+            Polygon: function(new: OLGeometry, Triple_Array<number>),
+            Circle: function(new: OLGeometry, Array<number>, number)
+        }}} */ (ol).geom;
+        const geometry = feature?.getGeometry();
+        const drawArg = this._drawArg;
+        if (!geometry || !drawArg) return new olGeom.Polygon([]);
+        if (geometry.getType?.() !== 'Point' || feature?.getType?.() !== UDEF.MEASURE_TYPE.POINTBUFFER) return geometry;
+        const vectors = feature.getMeasureVectors();
+        if (vectors.length < 2) return new olGeom.Polygon([]);
+        const center = vectors[0], edge = vectors[vectors.length - 1];
+        const googleCenter = drawArg.getWorldToGoogle(center.x, center.y);
+        const radius = Math.hypot(edge.x - center.x, edge.y - center.y);
+        // 큰 지도 좌표에서도 반경 경계에 접하는 모델을 포함합니다.
+        const tolerance = radius > 0 ? Number.EPSILON * Math.max(1, Math.abs(googleCenter.x), Math.abs(googleCenter.y), radius) : 0;
+        return new olGeom.Circle([googleCenter.x, googleCenter.y], radius + tolerance);
     }
 
     /**
@@ -728,10 +841,13 @@ class U3dSelect extends UEventDispatcher {
         if(object.children.length > 0) return false;
 
 
-        /** @param {any} target */
+        const selection = self._divisionSelection;
+        /** @param {any} target 분리 후 로드된 모델 */
         const afterFunction = function(target){
+            if (!selection.owner || !isSelectAppAvailable(selection.owner)) return;
+            const self = selection.owner;
             if(self.getSelectType() === UDEF.SELECT_TYPE.OUTLINE || self.getSelectType() === UDEF.SELECT_TYPE.RING){
-                const id_ = target.getUid();
+                const id_ = target.puid;
                 const editInfo = modelLayer.getEditedEventById(id_)
                 if(editInfo && editInfo.color){
                     if (self.getSelectType() === UDEF.SELECT_TYPE.RING) self.setRing(target);
@@ -809,7 +925,11 @@ class U3dSelect extends UEventDispatcher {
                         }
 
                         if(!isSetColor){ // 17 레벨 스왑시 해당 function 실행하여 선택 객체 추가
-                            u3flayer.editedEvent[id].afterFunction = afterFunction
+                            const edited = u3flayer.editedEvent[id];
+                            edited.afterFunction = afterFunction;
+                            selection.cleanups.add(() => {
+                                if (edited.afterFunction === afterFunction) delete edited.afterFunction;
+                            });
                         }
                     }
                 }else{
@@ -856,38 +976,8 @@ class U3dSelect extends UEventDispatcher {
         const modelLayer = /**@type{import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer}*/(layer);
         if(!modelLayer.mergedMeshDivision) return false;
 
-        /**
-         * @param {any} target
-         * @param {any} drawArg
-         * @param {any} id
-         */
-        const afterFunction = function(target, drawArg, id){ //load texture 비동기 작업으로 인한 분리된 객체 확인
-            const geom = event;
-            if(!target.getBBox) return;
-            const bbox = target.getBBox();
-            if(self.getSelectType() === UDEF.SELECT_TYPE.OUTLINE || self.getSelectType() === UDEF.SELECT_TYPE.RING){
-
-                const id_ = id? id: target.getUid();
-                const editInfo = modelLayer.getEditedEventById(id_)
-
-                if(editInfo?.color){
-                    if (self.getSelectType() === UDEF.SELECT_TYPE.RING) self.setRing(target);
-                    else self.setOutline(target);
-                    self.#setSelected([{object:target}], false, false);
-                }
-            }else{
-                if(!bbox.min || !bbox.max) return;
-                const lb = drawArg.getWorldToGoogle(bbox.min.x, bbox.min.y);
-                const rt = drawArg.getWorldToGoogle(bbox.max.x, bbox.max.y);
-
-                if (geom.intersectsExtent && geom.intersectsExtent([lb.x, lb.y, rt.x, rt.y])){
-                    self.#setSelected([{object:target}], false, false);
-                }
-            }
-
-        }
-
-        const resultMesh = /**@type{import('@union3d/3dLayer/U3dModelU3FLayer').U3dModelU3FLayer}*/(layer).mergedMeshDivision(object, undefined, afterFunction);
+        const resultMesh = modelLayer.mergedMeshDivision(object);
+        if (self.#watchDivision(object, event)) return true;
         if (!defined(resultMesh))
             return false;
 
@@ -913,7 +1003,7 @@ class U3dSelect extends UEventDispatcher {
             resultList = /** @type {Array<import('three').Intersection>} */(self._app.intersectModelAtGeographicPoint(event, 3, false, scenes));
         }else if(event.intersectsExtent){ //영역 검색으로 geom 이 들어올때
             for (let splitMesh of resultMesh) {
-                const bbox = /**@type{@import('@UMesh').UMesh}*/splitMesh.getBBox();
+                const bbox = (/** @type {import('@UMesh').UMesh} */(splitMesh)).getBBox();
                 if(self.#intersectsGeomBox(event, bbox)){
                     resultList.push({object:splitMesh});
                 }
@@ -1023,7 +1113,11 @@ class U3dSelect extends UEventDispatcher {
         const tempIntersects = [];
         for(let intersect of intersects){
             const object = intersect.object;
-            if (object._disposed || object._sleeping) continue;
+            if (object._disposed) continue;
+            if (object._sleeping) {
+                self.#watchDivision(object, event);
+                continue;
+            }
             if (object instanceof THREE.Mesh || object instanceof U3dGeometry
                 || (typeof intersect.screenDistance === 'number' && (object.isLine || object.isPoints))) {
                 if(self.#checkSharedObject(intersect)) continue;
@@ -1039,6 +1133,50 @@ class U3dSelect extends UEventDispatcher {
         }
 
         return  tempIntersects.sort(function (a, b) { return a.distance - b.distance;});
+    }
+
+    /**
+     * 현재 검색에 교차한 분리 결과를 받아 최종 영역 안의 표시 가능한 모델만 선택합니다.
+     * @param {ModelMesh} object 분리 원본
+     * @param {OLGeometry} geom 검색 영역
+     * @returns {boolean} 해당 검색에서 분리 완료를 기다리는지 여부
+     */
+    #watchDivision(object, geom) {
+        if (!geom?.intersectsExtent || !object.getLayerName) return false;
+        const layer = /** @type {import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer | undefined} */(this._app.getLayerByName(object.getLayerName()));
+        const ready = layer?._getMeshDivisionPromise?.(object);
+        const selection = this._divisionSelection;
+        if (!ready || !layer) return false;
+        if (selection.pending.has(ready)) return true;
+        selection.pending.add(ready);
+        /** @param {boolean} checkIdle 취소할 때 편집 분리 자원까지 정리할지 여부 */
+        const cancel = function (checkIdle) {
+            if (checkIdle && !layer._disposed) layer.checkDivisionMeshIdle();
+        };
+        selection.cleanups.add(cancel);
+        ready.then(function (targets) {
+            const owner = selection.owner;
+            selection.pending.delete(ready);
+            selection.cleanups.delete(cancel);
+            if (!owner || !isSelectAppAvailable(owner)) {
+                selection.end = undefined;
+                return;
+            }
+            const currentGeom = owner._measureGeom || geom;
+            const intersects = [];
+            for (const target of targets) {
+                const mesh = /** @type {ModelMesh} */(target);
+                if (!mesh._disposed && !mesh._sleeping && mesh.visible && mesh.getBBox &&
+                    owner.#intersectsGeomBox(currentGeom, mesh.getBBox())) intersects.push({object: mesh});
+            }
+            owner.#setSelected(owner._auto ? intersects : intersects.filter(hit => !owner._manualSelects.includes(hit.object)), false, false);
+            if (selection.pending.size === 0) {
+                const end = selection.end;
+                selection.end = undefined;
+                end?.();
+            }
+        });
+        return true;
     }
 
 
@@ -1061,7 +1199,13 @@ class U3dSelect extends UEventDispatcher {
         /** @type {Array<any>} */
         const intersects = [];
         scene.traverse(function (/** @type {any} */ mesh) {
-            if(!mesh.visible) return;
+            if(!mesh.visible) {
+                // 자식 텍스처가 먼저 끝나 원본이 숨겨져도 합성 텍스처의 대기는 이어갑니다.
+                if (!mesh._disposed && mesh._sleeping && mesh.getBBox && self.#intersectsGeomBox(geom, mesh.getBBox())) {
+                    self.#watchDivision(mesh, geom);
+                }
+                return;
+            }
 
             if( mesh instanceof THREE.Scene
                 || mesh instanceof THREE.Group
@@ -1317,7 +1461,7 @@ class U3dSelect extends UEventDispatcher {
                 || info.start + info.count > indexCount) return null;
             part = {start: info.start, count: info.count};
         }
-        const identity = target instanceof U3dComponentPosition ? target.name : 'uuid' in target ? target.uuid : makeObjectKey(target);
+        const identity = makeId(target);
         const key = identity + '^' + (target === mesh ? intersect.instanceId ?? '' : '') + '^' + (part?.start ?? '');
         return {object: target, intersect, key, part};
     }
@@ -1339,10 +1483,9 @@ class U3dSelect extends UEventDispatcher {
 
     /**
      * 이전 표시와 구독을 정리하고 새 대상의 변경 이벤트를 전달합니다.
-     * @param {U3dSelectHoverTarget | null} next 다음 대상. null이면 이탈
+     *
+     * @param {U3dSelectHoverTarget | null} next 다음 호버 대상(null이면 해제)
      */
-    /// <summary>이전 hover 구독과 재질을 복원한 뒤 살아 있는 앱에서만 새 강조와 변경 이벤트를 적용합니다.</summary>
-    /// <param name="next">호출자가 소유한 U3dSelectHoverTarget 또는 null이며 null은 해제를 뜻합니다. 입력의 소유권은 이전하지 않습니다.</param>
     #setHover(next) {
         const previous = this.#hoverTarget;
         const restore = this.#hoverRestore, cleanup = this.#hoverCleanup;
@@ -1356,11 +1499,11 @@ class U3dSelect extends UEventDispatcher {
         if (next) {
             const object = next.intersect.object;
             const geometry = 'geometry' in object && object.geometry instanceof THREE.BufferGeometry ? object.geometry : undefined;
-            /// <summary>현재 hover 대상의 장면 해제나 지오메트리 해제에서 임시 강조를 정리합니다.</summary>
+            // 현재 hover 대상의 장면 해제나 지오메트리 해제에서 임시 강조를 정리합니다.
             const removed = () => { if (this.#hoverTarget === next) this.clearHover(); };
             object.addEventListener('removed', removed);
             geometry?.addEventListener('dispose', removed);
-            /// <summary>선택기가 등록한 대상·지오메트리 수신 함수만 제거합니다.</summary>
+            // 선택기가 등록한 대상·지오메트리 수신 함수만 제거합니다.
             this.#hoverCleanup = () => {
                 object.removeEventListener('removed', removed);
                 geometry?.removeEventListener('dispose', removed);
@@ -1374,8 +1517,7 @@ class U3dSelect extends UEventDispatcher {
         /** @type {U3dSelectHoverEvent} */
         const event = {type: U3dSelect.EVENT.HOVER_CHANGE, previous: previous?.object ?? null,
             current: next?.object ?? null, intersection: next?.intersect ?? null,
-            /// <summary>현재 hover 대상이 유지되는 동안 지정 색상을 적용합니다.</summary>
-            /// <param name="color">THREE.ColorRepresentation 입력이며 기본값은 선택기의 hover 색상입니다. 호출자 입력을 변경하지 않습니다.</param>
+            // 현재 hover 대상이 유지되는 동안 지정 색상을 적용합니다.
             applyColor: (color = this.#hoverColor) => { if (next) this.#applyHoverColor(next, color); }};
         this.dispatchEvent(event);
     }
@@ -1562,7 +1704,7 @@ class U3dSelect extends UEventDispatcher {
         }else{
             scenes = drawArg.getInstanceScenesFromModelLayers();
         }
-        const geom = feature?.getGeometry?.();
+        const geom = self.#getMeasureGeometry(feature);
         self._measureGeom = geom;
 
         for(let scene of scenes){
@@ -1585,7 +1727,7 @@ class U3dSelect extends UEventDispatcher {
 
         commitFeature.call(self);
         if(self._measureFeature)
-            self._measureGeom = self._measureFeature.getGeometry();
+            self._measureGeom = self.#getMeasureGeometry(self._measureFeature);
     }
 
     /**
@@ -1675,6 +1817,10 @@ class U3dSelect extends UEventDispatcher {
      */
     #raiseEvent(type, work) {
         const self = this;
+        if (type === U3dSelect.EVENT.END && self._divisionSelection.pending.size > 0) {
+            self._divisionSelection.end = () => self.#raiseEvent(type, work);
+            return;
+        }
         self._workEvent = type;
         /** @type {any} */
         const eventPayload = this._auto
@@ -1752,7 +1898,7 @@ class U3dSelect extends UEventDispatcher {
             const renderer = self._app.getRenderer();
 
             boxEvent.selectBox.setHelper(renderer);
-            ///////////////////////////////////////////////////////////////////////////
+            // ////////////////////////////////////////////////////////////////////////
             boxEvent.pointerDownId = self.uuid + '_pointerDown';
             app.on(U3dAppEventHandler.EVENT.MOUSEDOWN,(/** @type {any} */ event)=>{
                 self.clearSelect();
@@ -1761,7 +1907,7 @@ class U3dSelect extends UEventDispatcher {
                 boxEvent.selectBox?.pointerDown(event);
                 self.dispatchEvent({type: 'pointerdown', data: [] });
 
-                ///////////////////////////////////////////////////////////////////////////
+                // ////////////////////////////////////////////////////////////////////////
                 if(!boxEvent.pointerMoveId){
                     boxEvent.pointerMoveId = self.uuid + '_pointerMove';
                     app.on(U3dAppEventHandler.EVENT.MOUSEMOVE,(/** @type {any} */ event)=>{
@@ -1776,7 +1922,7 @@ class U3dSelect extends UEventDispatcher {
                     },false, boxEvent.pointerMoveId);
                 }
             },false, boxEvent.pointerDownId);
-            ///////////////////////////////////////////////////////////////////////////
+            // ////////////////////////////////////////////////////////////////////////
             boxEvent.pointerUpId = self.uuid + '_pointerUp';
             app.on(U3dAppEventHandler.EVENT.MOUSEUP,(/** @type {MouseEvent} */ event)=>{
                 boxEvent.selectBox?.setCamera(app._camera);
@@ -1927,7 +2073,7 @@ class U3dSelect extends UEventDispatcher {
     /**
      * 선택 객체에 Outline(외곽선) 하이라이트를 적용하는 함수 <br>
      * `selectType === UDEF.SELECT_TYPE.OUTLINE`|| 'outline' 에서 사용되며, 외부에서 직접 호출할 수도 있습니다.
-     * 생성 옵션 또는 setSelectType()에 저장한 mode·renderOrder·lineWidth·width·farPoint를 배리어에 전달합니다.
+     * 생성 옵션 또는 setSelectType()에 저장한 mode·bounceSpeed·renderOrder·lineWidth·width·farPoint를 배리어에 전달합니다.
      *
      * @param {USelect} selected 선택 객체(모델/메시)
      *
@@ -1947,6 +2093,7 @@ class U3dSelect extends UEventDispatcher {
             color: self._selectColor,
             opacity: self._selectOpacity,
             mode: typeOption.mode ?? U3dObjectBarrier.MODE.BASIC,
+            bounceSpeed: typeOption.bounceSpeed,
             renderOrder: typeOption.renderOrder ?? U3dObjectBarrier.RENDER_ORDER.PASS1,
             farPoint: typeOption.farPoint,
             lineWidth: typeOption.lineWidth,
@@ -2025,7 +2172,6 @@ class U3dSelect extends UEventDispatcher {
      * 입력 리스너를 해제하고 그리던 영역 도형을 확정합니다. <br>
      * 마지막 이벤트가 `end`가 아니면(선택 동작 도중이면) `clear()`로 선택도 해제합니다.
      */
-    /// <summary>입력 구독을 해제합니다. 앱이 종료된 경우 측정 확정과 장면 정리는 건너뛰고 활성 상태를 초기화합니다.</summary>
     deactive() {
         try {
             this.#removeEventListener();
@@ -2056,6 +2202,7 @@ class U3dSelect extends UEventDispatcher {
      * `getSelectWork()` 형태의 작업 정보를 이용해 선택을 재현하는 함수 <br>
      * - 드로잉(측정 레이어) 재생성 <br>
      * - 교차 객체 탐색 후 선택/하이라이트 반영
+     * 영역 검색의 U3F 분리가 진행 중이면 해당 분리 결과를 반영한 뒤 END 이벤트를 전달합니다.
      *
      * @param {{type:string, points:Array<GeoPosition>}} work 선택 작업 정보. `type`은 선택 모드, `points`는 위경도 좌표계(EPSG:4326) 좌표 목록으로 `getSelectWork()`의 반환값을 그대로 넘긴다
      * @returns {boolean|undefined} 재현 성공 시 true. 입력이 유효하지 않거나 앱·측정 레이어가 없으면 반환 없음(POINT 모드는 재현 후에도 반환 없음)
@@ -2071,6 +2218,8 @@ class U3dSelect extends UEventDispatcher {
         const drawArg = /** @type {import('@UDrawArg').UDrawArg} */ (this._drawArg);
 
         if(!defined(this._selectLayer)) return;
+
+        if (self._divisionSelection.pending.size > 0) self.clearSelect();
 
         if (type === UDEF.SELECT_MODE.AREA) {
             this._selectLayer.setMeasureType(UDEF.MEASURE_TYPE.POLYGON);
@@ -2139,7 +2288,8 @@ class U3dSelect extends UEventDispatcher {
         }
         if (!defined(feature))
             return;
-        let geom = feature.getGeometry();
+        let geom = self.#getMeasureGeometry(feature);
+        self._measureGeom = geom;
         let scenes = drawArg.getInstanceScenesFromModelLayers();
         for(let scene of scenes){
             const intersects = self.checkGeom(scene,geom);
@@ -2151,7 +2301,7 @@ class U3dSelect extends UEventDispatcher {
         self._app._sceneComment.remove(self._poiGroup);
         commitFeature.call(self);
         if(self._measureFeature)
-            self._measureGeom = self._measureFeature.getGeometry();
+            self._measureGeom = self.#getMeasureGeometry(self._measureFeature);
 
         self.#raiseEvent(U3dSelect.EVENT.END, work);
 
@@ -2424,9 +2574,10 @@ U3dSelect.prototype.isActive = function () {
 
 /**
  * 선택기능 초기화 함수 <br>
- * 선택/드로잉 상태를 초기화하고 측정 레이어의 draw feature를 정리합니다.
+ * 선택/드로잉 상태를 초기화하고 측정 레이어의 draw feature를 정리합니다. <br>
+ * 선택과 자체 드로잉을 정리합니다. <br>
+ * 종료된 앱의 측정·장면 자원에는 접근하지 않습니다.
  */
-/// <summary>선택과 자체 드로잉을 정리합니다. 종료된 앱의 측정·장면 자원에는 접근하지 않습니다.</summary>
 U3dSelect.prototype.clear = function () {
     this.clearSelect(true);
     pointDispose(this._poiGroup);
@@ -2565,14 +2716,21 @@ U3dSelect.prototype.clearDrawnSelect = function () {
 }
 
 /**
- * 선택 취소하는 함수
+ * 선택 취소하는 함수 <br>
+ * 선택 강조와 보관 참조를 비우고 앱이 살아 있을 때만 그리기 갱신을 요청합니다.
  *
- * @param {boolean} [isCheckIdle=false] 분할(mesh division(*u3f model 한정)) 상태 점검/정리 호출 여부
- *
+ * @param {boolean} [isCheckIdle=false] U3F 분할 메시의 유휴 정리도 요청할지 여부(기본값 false)
  */
-/// <summary>선택 강조와 보관 참조를 비우고 앱이 살아 있을 때만 그리기 갱신을 요청합니다.</summary>
-/// <param name="isCheckIdle">boolean 입력이며 기본값 false입니다. true이면 살아 있는 U3F 레이어의 분할 메시 정리도 요청합니다.</param>
 U3dSelect.prototype.clearSelect = function (isCheckIdle = false) {
+    if (this._divisionSelection) {
+        const selection = this._divisionSelection;
+        selection.owner = undefined;
+        selection.end = undefined;
+        selection.pending.clear();
+        for (const cleanup of selection.cleanups) cleanup(isCheckIdle && isSelectAppAvailable(this));
+        selection.cleanups.clear();
+        this._divisionSelection = {owner: this, pending: new Set(), cleanups: new Set(), end: undefined};
+    }
     this.clearHover();
     for (var key in this._selected) {
         removeSelectedByKey.call(this, key, isCheckIdle);
@@ -2629,13 +2787,14 @@ U3dSelect.prototype.setSelectedAsKey = function (key, select) {
  * 객체로부터 내부 선택 키를 생성하여 반환하는 함수
  *
  * @param {USelect} object 대상 객체
- * @returns {string|void} 선택 키(생성 실패 시 반환 없음)
+ * @returns {string | undefined} 선택 키. 생성할 수 없으면 undefined
  */
 U3dSelect.prototype.getObjectKey = function (object) {
     let key = makeObjectKey(object);
     if (defined(key)) {
         return key;
     }
+    return undefined;
 }
 
 /**
@@ -2819,19 +2978,17 @@ U3dSelect.prototype.off = function (type, listener) {
 };
 
 /**
- * 해당 모델의 선택을 취소하는 기능
- * 링은 이동 전 저장한 선택 키를 객체 참조로 찾아 해제합니다.
+ * 지정한 대상의 선택과 강조를 해제합니다. <br>
+ * 링 선택은 대상의 참조로 이동 전에 보관한 선택 키를 찾아 해제합니다. <br>
+ * 연결한 앱이 살아 있을 때 화면 갱신을 요청합니다.
  *
- * @param {USelect} object 모델객체
+ * @param {USelect} object 선택을 해제할 원래 대상 참조, 형상·재질의 소유권은 변경하지 않음
  */
-/// <summary>한 대상의 선택과 자체 강조를 해제하고 살아 있는 앱의 그리기만 갱신합니다.</summary>
-/// <param name="object">호출자가 소유한 USelect 참조입니다. 선택만 해제하며 형상·재질의 소유권을 이전하지 않습니다.</param>
 U3dSelect.prototype.removeSelected = function (object) {
     this.clearHover(object);
     const ringEntry = this.getSelectType() === UDEF.SELECT_TYPE.RING
         ? Object.entries(this._selected).find(
-            /// <summary>링 선택에 보관한 원본 대상 참조를 비교합니다.</summary>
-            /// <param name="entry">[string, USelect] 입력이며 선택 키와 대상 참조의 쌍입니다. 읽기 전용입니다.</param>
+            // 링 선택에 보관한 원본 대상 참조를 비교합니다.
             entry => entry[1] === object) : undefined;
     if (ringEntry) {
         removeSelectedByKey.call(this, ringEntry[0]);
@@ -2863,33 +3020,41 @@ U3dSelect.prototype.getDbClickId = function () {
 /**
  * 해당 모델을 선택하는 기능 <br>
  * 선택 목록에 넣고 현재 강조 방식(outline/color)으로 표시하며, 배열을 넘기면 각 원소를 차례로 선택합니다. <br>
+ * 배열 머티리얼의 병합 메시도 교차 면 정보가 없으면 전체 모델을 선택합니다. <br>
  * `USelect`가 아닌 값과 공유 메시(`USharedMesh`)는 조용히 무시됩니다. <br>
- * 이벤트는 발생시키지 않습니다.
+ * 이벤트는 발생시키지 않습니다. <br>
+ * 살아 있는 앱에서만 대상을 강조합니다. <br>
+ * 종료된 앱의 지연 요청은 자원을 조회하지 않고 정상 종결합니다.
  *
- * @param {USelect | Array<USelect>} object 선택할 객체 또는 객체 배열
- * @param {U3dIntersectLike} [intersect] picking 결과. 병합 메시의 부분(`faceIndex`)이나 인스턴스(`instanceId`)만 강조할 때 전달
- * @returns {Promise<void>} 선택 처리가 끝나면 이행되는 Promise. 내부 선택 목록이 없는 비정상 상태에서만 거부된다
+ * @param {USelect | Array<USelect>} object 선택할 객체 또는 객체 배열, 호출자가 소유한 USelect 또는 USelect 배열 입력이며 형상·재질의 소유권은 이전하지 않습니다.
+ * @param {U3dIntersectLike} [intersect] 부분 면이나 인스턴스 강조에 사용할 picking 결과(faceIndex·instanceId)
+ * @returns {Promise<void>} 선택 처리가 끝나면 이행되는 Promise. <br>
+ * 내부 선택 목록이 없는 비정상 상태에서만 거부됩니다.
  */
-/// <summary>살아 있는 앱에서만 대상을 강조합니다. 종료된 앱의 지연 요청은 자원을 조회하지 않고 정상 종결합니다.</summary>
-/// <param name="object">호출자가 소유한 USelect 또는 USelect 배열 입력이며 형상·재질의 소유권은 이전하지 않습니다.</param>
-/// <param name="intersect">선택 부분을 지정하는 U3dIntersectLike 입력입니다. 생략 가능하며 입력을 변경하지 않습니다.</param>
 U3dSelect.prototype.addSelected = function (object, intersect) {
     if (!isSelectAppAvailable(this)) return Promise.resolve();
     this.clearHover(object);
-    /** @type {DeferredObject<void>} */
-    let promise = deferred();
+    /** @type {DeferredPromise<void>} */
+    let promise = deferredPromise();
+    /** @type {Array<Promise<void>>} */
+    const selections = [];
     if ((object instanceof UGroup || object instanceof THREE.Mesh || object instanceof THREE.Line || object instanceof THREE.Points || object instanceof U3dGeometry || object instanceof U3dComponentPosition || object instanceof U3DTilesMesh) && !(object instanceof USharedMesh)) {
         addSelected_.call(this, /** @type {USelect} */ (object), intersect, true);
     } else if (Array.isArray(object)) {
         for (let i = 0; i < object.length; i++) {
             const data = object[i];
-            this.addSelected(data, intersect);
+            selections.push(this.addSelected(data, intersect));
         }
     }
-    if (defined(this._selected))
+    if (selections.length) {
+        // 배열 안의 실패도 반환 작업으로 전달합니다. 표준 Promise에서는
+        // 자식 반환값을 버리면 실패가 미처리 거부로 분리됩니다.
+        Promise.all(selections).then(() => promise.resolve(), promise.reject);
+    } else if (defined(this._selected)) {
         promise.resolve();
-    else
+    } else {
         promise.reject();
+    }
 
     /** @type {import('@UDrawArg').UDrawArg} */ (this._drawArg).setUpdateDate();
     return promise;
@@ -3037,7 +3202,7 @@ function addSelected_(object, intersect, isChangeStyle = true) {
  * @this {U3dSelect}
  * @param {any} object
  * @param {string} layerName
- * @param {string} id
+ * @param {string | number | undefined} id 모델 식별자. UID가 없으면 기존 대체 키 규칙을 따릅니다.
  * @param {any} intersect
  * @returns {any}
  */
@@ -3054,8 +3219,9 @@ function addSelectedOnLayer(object, layerName, id, intersect) {
         if (!defined(self._selected[key])) {
             self._selected[key] = object;
 
-            if (defined(object.getBBox) && defined(object.getBBox())) {
-                let eventName = object.getUid ? object.getUid() : object.id;
+            // puid가 없는 일시 객체는 현재 참조만 선택한다. 다른 로드 결과와 추정 연결하지 않는다.
+            if (typeof object.puid === 'string' && object.puid.length > 0 && defined(object.getBBox) && defined(object.getBBox())) {
+                let eventName = object.puid;
 
                 let color = self._selectColor;
                 let opacity = self._selectOpacity;
@@ -3067,7 +3233,9 @@ function addSelectedOnLayer(object, layerName, id, intersect) {
                 // 객체가 병합된 상태인지 확인
                 if (object.isMerged && !object.isMerged()) {
                     eventName = handleMergedObject.call(self, object, layer, color, opacity, eventName);
-                } else if (object.isMerged && object.isMerged() && Array.isArray(object.material)) {
+                } else if (object.isMerged && object.isMerged() && Array.isArray(object.material) && defined(intersect?.faceIndex)) {
+                    // 프로그램 선택에는 교차 면 정보가 없습니다. 그 경우 전체 모델을 선택하고,
+                    // 유효한 faceIndex(0 포함)가 전달된 기존 부분 선택만 재질 편집 정보를 만듭니다.
                     handleMaterialSplit.call(self, object, layer, color, opacity, intersect);
                 }
 
@@ -3092,7 +3260,7 @@ function addSelectedOnLayer(object, layerName, id, intersect) {
  */
 function handleMergedObject( object, layer, color, opacity, eventName) {
     const self = this;
-    const meshId = object.getUid();
+    const meshId = object.puid;
     const editInfo = getEditedEventInfo(layer, meshId);
 
     if (defined(editInfo) && editInfo.editData) {
@@ -3165,255 +3333,170 @@ function handleMaterialSplit(object, layer, color, opacity, intersect) {
  *
  */
 function handleLoadEvent(object, layer, key, eventName, intersect) {
-    const self = this;
-    /** @type {any} */
-    let loadCallback = function (/** @type {any} */ event) {
-        let loadObject = event.data;
-        let isParent = false;
-        let isSet = true;
-        // 병합된 객체의 하위객체들 정보 업데이트
-        if (loadObject.isMerged && loadObject.isMerged()) {
-            isSet = checkMergeAndSetColor.call(self, loadObject, layer, eventName, key, isParent);
-            if(intersect)
-                delete intersect.faceIndex
-        }
-
-        if (!defined(loadObject) || !isSet) {
-            return;
-        }
-
-        let loadKey = makeObjectKey(loadObject);
-        if (self._selected[loadKey] || isParent) {
-            const modelId = loadObject.getUid();
-            if (isSelected.call(self, loadObject) || isParent) {
-                if (!defined(self._reset[loadKey]) || !self._reset[loadKey]) {
-                    if (!loadObject.material) {
-                        loadObject = layer.getModelById(modelId);
-                        getPickMaterial(layer, loadObject);
-                    }
-                    if(self._auto){
-                        if(self.getSelectType() === UDEF.SELECT_TYPE.OUTLINE)
-                            self.setOutline(loadObject);
-                        else if (self.getSelectType() === UDEF.SELECT_TYPE.COLOR) {
-                            self.setColor(loadObject, self._selectColor, self._selectOpacity, intersect);
-                        }else if (self.getSelectType() === UDEF.SELECT_TYPE.RING) {
-                            self.setRing(loadObject);
-                        }
-                        self.setTexture(loadObject, self.exceptTexture);
-                    }
-                }
-                if (!isParent) {
-                    self._selected[loadKey] = loadObject;
-                    loadCallback._isDivided = false;
-                    delete loadCallback._isDivided;
-                }
-            } else {
-                layer.off(U3dEvent.MESH.LOADED, loadCallback);
-            }
-        }
-    }
-
-    // 이미 이벤트 리스너가 등록된 경우 재사용
-    let funcIdx = findEventListenerIndex(layer, eventName);
-    if (funcIdx === -1) {
-        layer.addEventListener(U3dEvent.MESH.LOADED, loadCallback, false, eventName);
-        self._loadedListeners[key] = loadCallback;
-    } else {
-        self._loadedListeners[key] = layer._listeners[U3dEvent.MESH.LOADED][funcIdx];
-    }
-}
-
-/**
- * @this {U3dSelect}
- * @param {any} loadObject
- * @param {any} layer
- * @param {string} eventName
- * @param {string} key
- * @param {any} isParent
- * @returns {any}
- */
-function checkMergeAndSetColor( loadObject, layer, eventName, key, isParent) {
-    const self = this;
-    if (!layer._listeners || !layer._listeners[U3dEvent.MESH.LOADED]) {
+    const index = findEventListenerIndex.call(this, layer, eventName);
+    if (index !== -1) {
+        const listener = layer._listeners[U3dEvent.MESH.LOADED][index];
+        const subscription = /** @type {U3dSelectLoadSubscription} */ (LOAD_SUBSCRIPTIONS.get(listener));
+        subscription.targets.set(key, createLoadTarget(object, intersect));
+        this._loadedListeners[key] = listener;
         return;
     }
 
-    const modelID = loadObject.getUid();
-    let childIdList = [];
+    /** @type {U3dSelectLoadSubscription} */
+    const subscription = {owner: this, layer, parentId: eventName, targets: new Map(), divisions: new WeakMap()};
+    subscription.targets.set(key, createLoadTarget(object, intersect));
+    /** @type {EventCallBack} */
+    const listener = (event) => {
+        const incoming = /** @type {ModelMesh} */ (event.data);
+        if (!incoming || typeof incoming.puid !== 'string') return;
+        // 분리·재질 적용 중 동기 이벤트가 재진입할 수 있다. 순회 도중 해제된 대상은 다시 살리지 않는다.
+        for (const [selectedKey, target] of [...subscription.targets]) {
+            if (this._loadedListeners[selectedKey] !== listener || !this._selected[selectedKey]) continue;
+            const previous = this._selected[selectedKey];
+            const loaded = resolveLoadedTarget(subscription, incoming, target, previous);
+            if (!loaded || loaded._disposed || loaded._sleeping || makeObjectKey(loaded) !== selectedKey) continue;
+            if (!subscription.targets.has(selectedKey) || this._loadedListeners[selectedKey] !== listener ||
+                this._selected[selectedKey] !== previous) continue;
 
-    // 병합된 객체에 대한 처리
-    const editInfo = getEditedEventInfo(layer, modelID);
-    if (editInfo) {
-        childIdList = getChildIdList(layer, editInfo);
-        isParent = isParentObject(editInfo, modelID, isParent);
-    }
-
-    // 병합된 객체가 부모 객체인지 확인하고 관련 이벤트 처리
-    const loadEvents = layer._listeners[U3dEvent.MESH.LOADED];
-    const loadFunc = findLoadEvent(loadEvents, modelID, childIdList, isParent);
-
-    // 관련 이벤트가 있거나 이벤트 대상의 부모객체 일 경우 병합된 객체의 색상 설정 및 편집 정보 업데이트
-    if (isMergeAndSetColorRequired(loadFunc, layer, isParent)) {
-        return processMergedMesh.call(self, loadObject, layer, loadFunc, eventName, key);
-    }
-    return true;
+            if (!this._reset[selectedKey] && this._auto) {
+                // 오래된 강조 대상은 선택기가 해제하되 메시 자체의 자원은 소유 레이어에 맡긴다.
+                if (previous !== loaded && this.getSelectType() === UDEF.SELECT_TYPE.OUTLINE)
+                    this._effector?.removeBarrier(previous, false);
+                const restoredIntersect = target.intersect ? {...target.intersect} : undefined;
+                if (incoming.isMerged?.() && restoredIntersect) delete restoredIntersect.faceIndex;
+                const selected = /** @type {USelect} */ (loaded);
+                if (this.getSelectType() === UDEF.SELECT_TYPE.OUTLINE) this.setOutline(selected);
+                else if (this.getSelectType() === UDEF.SELECT_TYPE.COLOR)
+                    this.setColor(selected, this._selectColor, this._selectOpacity, restoredIntersect);
+                else if (this.getSelectType() === UDEF.SELECT_TYPE.RING) this.setRing(selected);
+                this.setTexture(selected, this.exceptTexture);
+            }
+            if (subscription.targets.has(selectedKey) && this._loadedListeners[selectedKey] === listener &&
+                this._selected[selectedKey] === previous) this._selected[selectedKey] = loaded;
+        }
+    };
+    LOAD_SUBSCRIPTIONS.set(listener, subscription);
+    // UEventDispatcher는 해제 시 함수 이름도 비교하므로 구독마다 고유한 이름을 유지한다.
+    layer.addEventListener(U3dEvent.MESH.LOADED, listener, false, UDEF.createUUID());
+    this._loadedListeners[key] = listener;
 }
 
 /**
- * @param {any} layer
+ * 선택 대상의 영속 ID와 전체·부분 선택 기준을 보관합니다.
+ *
+ * @param {ModelMesh} object 선택 객체
+ * @param {U3dIntersectLike | undefined} intersect 교차 정보
+ * @returns {U3dSelectLoadTarget} 대상별 복원 기준
+ */
+function createLoadTarget(object, intersect) {
+    return {
+        id: object.puid,
+        wholeMerged: Boolean(object.isMerged?.() && Array.isArray(object.material) && !defined(intersect?.faceIndex)),
+        intersect: intersect ? {...intersect} : undefined
+    };
+}
+
+/**
+ * 로드된 부모와 선택 자식의 관계를 확인하고 실제로 복원할 메시를 반환합니다.
+ * 아직 분리 결과가 준비되지 않았으면 null을 반환하고 다음 로드 이벤트까지 선택 의도를 유지합니다.
+ *
+ * @param {U3dSelectLoadSubscription} subscription 부모 로드 구독
+ * @param {ModelMesh} incoming 새로 로드된 메시
+ * @param {U3dSelectLoadTarget} target 선택 대상의 복원 기준
+ * @param {ModelMesh} previous 이전 선택 참조
+ * @returns {ModelMesh | null} 이번 이벤트에서 복원할 실제 선택 객체
+ */
+function resolveLoadedTarget(subscription, incoming, target, previous) {
+    const {layer, parentId} = subscription;
+    const direct = incoming.puid === target.id;
+    const editInfo = getEditedEventInfo(layer, incoming.puid);
+    if (!direct && incoming.puid !== parentId &&
+        !getChildIdList(layer, editInfo).some(id => id === parentId || id === target.id)) return null;
+
+    if (direct && (!incoming.isMerged?.() || target.wholeMerged)) {
+        return incoming.material ? incoming : layer.getModelById(target.id) || null;
+    }
+
+    // 레이어가 이미 복원하여 등록한 자식이 있으면 같은 부모를 다시 분리하지 않는다.
+    if (!direct) {
+        const current = layer.getModelById(target.id, false);
+        if (current && current !== previous && !current._disposed && !current._sleeping) return current;
+    }
+
+    if (incoming.isMerged?.()) {
+        if (Array.isArray(incoming.material) && incoming.material.length > 0) {
+            if (getPickMaterial(layer, incoming) && direct) return incoming;
+        } else if (typeof layer.mergedMeshDivision === 'function') {
+            let divided = subscription.divisions.get(incoming);
+            if (!divided) {
+                // 빈 목록을 먼저 등록해 분리 과정의 중첩 mesh-loaded에서 같은 부모를 재분리하지 않는다.
+                subscription.divisions.set(incoming, []);
+                try {
+                    const result = layer.mergedMeshDivision(incoming);
+                    divided = Array.isArray(result) ? result : [];
+                    if (divided.length > 0) subscription.divisions.set(incoming, divided);
+                    else subscription.divisions.delete(incoming);
+                } catch (error) {
+                    subscription.divisions.delete(incoming);
+                    throw error;
+                }
+            }
+            const restored = divided.find(mesh => mesh.puid === target.id);
+            if (restored) return restored;
+        }
+    }
+
+    // 부모 ID로 자식을 대체하지 않는다. 준비되지 않은 자식은 그 자식의 후속 이벤트로 연결한다.
+    const current = layer.getModelById(target.id, false);
+    return current && current !== previous && !current._disposed && !current._sleeping ? current : null;
+}
+
+/**
+ * @param {import('@union3d/3dLayer/U3dLayer').U3dLayer & Partial<Pick<import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer, 'getEditedEventById'>>} layer
  * @param {string} modelID
  * @returns {any}
  */
 function getEditedEventInfo(layer, modelID) {
-    if (layer.getEditedEventById) {
-        return layer.getEditedEventById(modelID);
-    }
-    return null;
+    return typeof layer.getEditedEventById === 'function' ? layer.getEditedEventById(modelID) : null;
 }
 
-
 /**
- * @param {any} layer
- * @param {any} editInfo
- * @returns {Array<any>}
+ * 병합 부모에 기록된 부분 선택 관계에서 관련 데이터 ID를 얻습니다.
+ *
+ * @param {import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer} layer 모델 레이어
+ * @param {any} editInfo 부모 편집 정보
+ * @returns {Array<string>} 직접 관련된 선택·부모 ID
  */
 function getChildIdList(layer, editInfo) {
-    /** @type {Array<any>} */
-    const childIdList = [];
-    const data = editInfo.editData;
-    const materialSplit = data['materialSplit'];
-
-    if (materialSplit) {
-        materialSplit.forEach((/** @type {any} */ value) => {
-            let childId = value.childId;
-            const childEditInfo = getEditedEventInfo(layer, childId);
-            if (defined(childEditInfo) && childEditInfo.editData) {
-                if (childEditInfo.editData['split']) {
-                    childId = childEditInfo.editData['split'];
-                }
-            }
-            childIdList.push(childId);
-        });
-    }
-    return childIdList;
-}
-
-/**
- * @param {any} editInfo
- * @param {any} modelID
- * @param {any} isParent
- * @returns {any}
- */
-function isParentObject(editInfo, modelID, isParent) {
-    const data = editInfo.editData;
-    const materialColor = data['materialColor'];
-
-    if (materialColor && (materialColor.id === modelID)) {
-        isParent = true;
-    }
-
-    return isParent;
-}
-/**
- * @param {any} loadFunc
- * @param {any} layer
- * @param {any} isParent
- * @returns {boolean}
- */
-function isMergeAndSetColorRequired(loadFunc, layer, isParent) {
-    return (loadFunc > -1 && defined(layer.mergedMeshDivision)) || isParent;
-}
-
-/**
- * @this {U3dSelect}
- * @param {any} loadObject
- * @param {any} layer
- * @param {any} loadFunc
- * @param {string} eventName
- * @param {string} key
- * @returns {any}
- */
-function processMergedMesh(loadObject, layer, loadFunc, eventName, key) {
-    const self = this;
-    const loadEvents = layer._listeners[U3dEvent.MESH.LOADED];
-
-    if (loadEvents[loadFunc] && (!defined(loadEvents[loadFunc]._isDivided) || !loadEvents[loadFunc]._isDivided)) {
-        if (Array.isArray(loadObject.material) && loadObject.material.length > 0) {
-            const isSet = getPickMaterial(layer, loadObject);
-            if (!isSet) return isSet;
-        } else {
-            loadEvents[loadFunc]._isDivided = true;
-            const resultMesh = layer.mergedMeshDivision(loadObject);
-            if (defined(resultMesh) && resultMesh.length > 0) {
-                const resultIndex = resultMesh.findIndex((/** @type {any} */ mesh) => mesh.getUid() === eventName);
-                if (defined(resultIndex) && resultMesh[resultIndex]) {
-                    loadObject = resultMesh[resultIndex];
-
-                    const event = getEditedEventInfo(layer, loadObject.getUid());
-                    if (event) {
-                        let color = self._selectColor;
-                        let opacity = self._selectOpacity;
-                        if(!self._auto){
-                            color = loadObject.material.color;
-                            opacity = loadObject.material.opacity;
-                        }
-                        event.isSetColor = self.getSelectType() === UDEF.SELECT_TYPE.COLOR;
-                        event.color = color;
-                        event.opacity = opacity;
-                        event.exceptTexture = self.exceptTexture;
-                    }
-
-                    // 이전 선택된 객체를 숨기고 메모리에서 해제
-                    if (defined(self._selected[key]) && key === makeObjectKey(loadObject)) {
-                        self._selected[key].visible = false;
-                        self._selected[key].dispose();
-                    }
-                }
-            }
-        }
-    }
-    return true;
-}
-
-
-/**
- * @param {Array<any>} loadEvents
- * @param {string} modelID
- * @param {Array<any>} childIdList
- * @param {boolean} isParent
- * @returns {number}
- */
-function findLoadEvent(loadEvents, modelID, childIdList, isParent) {
-    return loadEvents.findIndex((/** @type {any} */ func) => {
-        if (childIdList.includes(func._name)) {
-            isParent = true;
-            return true;
-        }
-        return func._name === modelID;
+    /** @type {Array<string>} */
+    const ids = [];
+    editInfo?.editData?.materialSplit?.forEach((/** @type {{childId: string}} */ value) => {
+        const child = getEditedEventInfo(layer, value.childId);
+        ids.push(child?.editData?.split || value.childId);
     });
+    return ids;
 }
 
 /**
- * @param {any} layer
- * @param {string} eventName
- * @returns {number}
+ * 같은 선택기가 같은 부모 데이터에 등록한 구독을 찾습니다.
+ *
+ * @this {U3dSelect}
+ * @param {import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer} layer 로드 이벤트 소유 레이어
+ * @param {string} eventName 부모 또는 직접 선택 모델의 puid
+ * @returns {number} 등록 인덱스, 없으면 -1
  */
 function findEventListenerIndex(layer, eventName) {
-    // 이벤트를 한 번도 등록하지 않은 레이어는 _listeners 자체가 없으므로 먼저 확인한다.
-    // (UEventDispatcher는 첫 addEventListener 시점에 _listeners를 만든다.)
-    const loadEvents = layer._listeners?.[U3dEvent.MESH.LOADED];
-    if (loadEvents && loadEvents.length > 0) {
-        return loadEvents.findIndex(function (/** @type {any} */ event) {
-            return event._name === eventName;
-        });
-    }
-    return -1;
+    const events = layer._listeners?.[U3dEvent.MESH.LOADED];
+    return events ? events.findIndex(listener => {
+        const subscription = LOAD_SUBSCRIPTIONS.get(listener);
+        return subscription?.owner === this && subscription.parentId === eventName;
+    }) : -1;
 }
 
 /**
  * @this {U3dSelect}
  * @param {any} object
- * @param {string} id
+ * @param {string | number | undefined} id 모델 식별자. UID가 없으면 기존 대체 키 규칙을 따릅니다.
  * @returns {any}
  */
 function addSelectedNotLayer_(object, id) {
@@ -3562,13 +3645,13 @@ function restoreMaterial(mesh) {
 }
 
 /**
+ * 대상의 강조·선택 참조를 정리합니다. <br>
+ * 앱 종료 후에는 레이어를 다시 찾지 않으며 남은 이벤트 참조를 제거합니다.
+ *
+ * @param {string} key 레이어명과 객체 ID로 구성한 string 선택 키이며 입력을 변경하지 않습니다.
+ * @param {boolean} [isCheckIdle=false] 분할 메시의 유휴 정리도 요청할지 여부(기본값 false)
  * @this {U3dSelect}
- * @param {string} key
- * @param {boolean} [isCheckIdle=false]
  */
-/// <summary>대상의 강조·선택 참조를 정리합니다. 앱 종료 후에는 레이어를 다시 찾지 않으며 남은 이벤트 참조를 제거합니다.</summary>
-/// <param name="key">레이어명과 객체 ID로 구성한 string 선택 키이며 입력을 변경하지 않습니다.</param>
-/// <param name="isCheckIdle">boolean 입력이며 기본값 false입니다. true일 때 살아 있는 레이어의 분할 메시 정리를 요청합니다.</param>
 function removeSelectedByKey(key, isCheckIdle = false) {
     let self = this;
     self._ringEffector?.remove(key);
@@ -3589,6 +3672,9 @@ function removeSelectedByKey(key, isCheckIdle = false) {
 
     if (isSelectAppAvailable(self)) selected = releaseSelectedLayer.call(self, key, selected, isCheckIdle);
 
+    // 앱이 종료된 경우에도 구독이 기억하는 레이어에서 자기 대상만 해제한다.
+    const pendingListener = self._loadedListeners[key];
+    if (pendingListener) U3dSelect._releaseLoadedTarget(pendingListener, key);
     // 레이어가 이미 제거됐어도 선택기가 보관한 콜백 참조는 남기지 않습니다.
     delete self._loadedListeners[key];
 
@@ -3601,8 +3687,7 @@ function removeSelectedByKey(key, isCheckIdle = false) {
             colorTarget.restoreMaterial();
         else if (hasTraverse(colorTarget)) {
             /** @type {any} */(colorTarget).traverse(
-                /// <summary>선택기에 빌려준 메시의 임시 재질 설정을 복원합니다.</summary>
-                /// <param name="mesh">호출자 소유 Object3D 입력이며 자원 자체를 해제하지 않습니다.</param>
+                // 선택기에 빌려준 메시의 임시 재질 설정을 복원합니다.
                 function (/** @type {any} */ mesh) {
                 if (mesh instanceof THREE.Mesh || mesh instanceof THREE.Line || mesh instanceof THREE.Points || mesh instanceof U3dGeometry) {
                     restoreMaterial(mesh);
@@ -3813,8 +3898,10 @@ function isSelected(object) {
 }
 
 /**
- * @param {any} object
- * @returns {string}
+ * 레이어 이름과 대상 식별값으로 선택 사전의 키를 만듭니다.
+ *
+ * @param {any} object 선택 대상
+ * @returns {string} 레이어 이름과 대상 식별자를 결합한 키
  */
 function makeObjectKey(object) {
     return searchLayerName(object) + '^' + makeId(object);
@@ -3864,41 +3951,28 @@ function searchLayerName(object) {
 }
 
 /**
- * @param {any} object
- * @returns {string} ID
+ * 데이터 메시의 puid를 사용하고, 미등록 일시 객체에는 현재 참조만 식별하는 키를 사용합니다.
+ * 좌표·경계·원본 속성·모델 형식으로 동일성을 추정하지 않습니다. 일시 키는 puid가 아니며
+ * 재로딩 연결에 사용하지 않으므로 같은 위치의 새 객체를 기존 선택으로 오인하지 않습니다.
+ *
+ * @param {any} object 선택 대상
+ * @returns {string} 등록된 puid 또는 현재 객체 참조에만 유효한 선택 키
  */
 function makeId(object) {
-    let id;
-    if (object.isMerged) {
-        if (object._isMerged)
-            id = object.getUid();
-        else if (!object._isMerged)
-            id = object.getUid() + UDEF.U3F_DETACHED_TOKEN;
-        return id;
+    if (typeof object.puid === 'string' && object.puid.length > 0) return object.puid;
+    // 메시·그룹은 다른 소비자도 조회하는 Three.js UUID를 그대로 사용한다.
+    // Object3D가 아닌 컴포넌트 배치에는 UUID를 만들거나 puid를 부여하지 않는다.
+    if (typeof object.uuid === 'string' && object.uuid.length > 0) return UMesh._getObjectId(object);
+    let id = RUNTIME_SELECTION_IDS.get(object);
+    if (!id) {
+        id = '@runtime:' + UDEF.createUUID();
+        RUNTIME_SELECTION_IDS.set(object, id);
     }
-
-    if (defined(object.getBBox)) {
-        let bbox = object.getBBox();
-        if (defined(bbox)) {
-            let center = new THREE.Vector3();
-            bbox.getCenter(center);
-            if (defined(center) && defined(center.x) && defined(center.y) && defined(center.z)) {
-                id = center.x.toFixed(4) + '_' + center.y.toFixed(4) + '_' + center.z.toFixed(4);
-            }
-        }
-    }
-
-    if (object instanceof U3dComponentPosition) {
-        id = object.name;
-    }
-
-    if (!defined(id) && object.getUid)
-        id = object.getUid();
-    if (!defined(id))
-        id = object.uuid;
-
     return id;
 }
+
+// 메시 소유자를 대신해 영속 키를 부여하지 않는다. 일시 객체의 참조만 약한 참조로 식별한다.
+const RUNTIME_SELECTION_IDS = new WeakMap();
 
 //+ polygonOffset 설정 및 해제
 /**
@@ -3958,7 +4032,7 @@ function getObjectPosition(object) {
  * @returns {boolean}
  */
 function getPickMaterial(layer, object) {
-    const editEvent = getEditedEventInfo(layer, object.getUid());
+    const editEvent = getEditedEventInfo(layer, UMesh._getObjectId(object));
     if (!defined(editEvent)) return false;
     const data = editEvent.editData;
     const materialSplit = data.materialSplit;
@@ -3989,7 +4063,7 @@ function setSelectedStyle(mesh, color, opacity, type) {
     const layerName = mesh.getLayerName();
     const layer = self._app.getLayerByName(layerName);
     if (!layer) return;
-    const modelId = mesh.getUid();
+    const modelId = UMesh._getObjectId(mesh);
     const editInfo = getEditedEventInfo(layer, modelId);
     if (!editInfo) return;
     editInfo.color = color;
@@ -4121,43 +4195,38 @@ function setMaterialColor(mesh, material, color, opacity){
 export {U3dSelect};
 
 /**
- * 연결된 앱의 생존 여부를 읽습니다. 선택기와 앱의 소유권을 가져오지 않습니다.
- * @param {U3dSelect} selector 검사할 선택기이며 null을 허용하지 않고 입력을 변경하지 않습니다.
+ * 연결된 앱의 생존 여부를 읽습니다. <br>
+ * 선택기와 앱의 소유권을 가져오지 않습니다.
+ *
+ * @param {import('@union3d/select/U3dSelect').U3dSelect} selector 앱 상태를 확인할 선택기
  * @returns {boolean} 앱이 연결되어 있고 종료되지 않았으면 true입니다.
  */
-/// <summary>선택기가 빌린 앱의 생존 여부를 판정합니다. 앱이 없거나 종료됐으면 레이어·카메라·그리기 자원에 접근하지 않습니다.</summary>
-/// <param name="selector">검사할 U3dSelect 입력이며 선택기와 앱을 변경하거나 소유하지 않습니다.</param>
-/// <returns>앱이 연결되어 있고 종료되지 않았으면 boolean true입니다.</returns>
 function isSelectAppAvailable(selector) {
     return defined(selector._app) && selector._app.isDisposed?.() !== true;
 }
 
 /**
  * 선택기의 살아 있는 앱에서 선택 대상의 레이어 자원과 완료 수신을 정리합니다.
- * @this {U3dSelect}
+ *
  * @param {string} key 레이어명과 객체 ID로 구성한 선택 키이며 입력을 변경하지 않습니다.
- * @param {ModelMesh} selected 호출자가 소유하는 레이어 모델 메시이며 null을 허용하지 않고 형상·재질을 해제하지 않습니다.
- * @param {boolean} isCheckIdle true이면 U3F 분할 메시의 유휴 정리를 요청합니다. 필수 입력이며 단위는 없습니다.
+ * @param {ModelMesh} selected 선택 해제할 레이어 모델 메시
+ * @param {boolean} isCheckIdle U3F 분할 메시의 유휴 정리도 요청할지 여부
  * @returns {ModelMesh} 원본 또는 레이어에서 찾은 모델 메시이며 소유권을 이전하지 않습니다.
+ * @this {U3dSelect}
  */
-/// <summary>살아 있는 앱의 선택 레이어 구독·분할 재질·편집 기록을 해제하고 최종 선택 참조를 반환합니다.</summary>
-/// <param name="key">string 선택 키 입력이며 호출자가 보관한 로드 콜백의 조회에 사용합니다.</param>
-/// <param name="selected">호출자 소유 ModelMesh 입력이며 null을 허용하지 않고 형상·재질 자체를 해제하지 않습니다.</param>
-/// <param name="isCheckIdle">boolean 입력이며 true일 때 U3F 분할 메시 정리도 요청합니다.</param>
-/// <returns>원본 또는 레이어에서 찾은 ModelMesh 참조입니다. 소유권을 이전하지 않습니다.</returns>
 function releaseSelectedLayer(key, selected, isCheckIdle) {
     const layer = /** @type {import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer} */ (this._app.getLayer(searchLayerName(selected)));
     const callback = this._loadedListeners[key];
     if (!defined(layer) || !defined(callback)) return selected;
-    layer.off(U3dEvent.MESH.LOADED, callback);
+    if (!U3dSelect._releaseLoadedTarget(callback, key)) layer.off(U3dEvent.MESH.LOADED, callback);
     delete this._loadedListeners[key];
     if (defined(selected._pickMaterials) && selected._pickMaterials.length > 0) {
         for (const materialIndex of [...selected._pickMaterials]) layer.removeMaterialIndex(selected, materialIndex);
     }
-    const editInfo = getEditedEventInfo(layer, selected.getUid());
+    const editInfo = getEditedEventInfo(layer, selected.puid);
     if (editInfo && editInfo.color) {
         if (!selected.material) {
-            const model = layer.getModelById(selected.getUid(), selected._isMerged);
+            const model = layer.getModelById(selected.puid, selected._isMerged);
             if (model) selected = model;
         }
         delete editInfo.isSetColor;

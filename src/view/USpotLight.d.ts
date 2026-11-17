@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -14,7 +14,7 @@ import type { UScene } from "../core/UScene.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { U3dPOI } from "../geometry/U3dPOI.js";
 import type { Degree, WorldPosition } from "../types/global.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 import type { U3dView } from "./U3dView.js";
 
 type LightAnalyOption = {
@@ -273,7 +273,7 @@ declare class USpotLight extends three.SpotLight {
      *      widthSegment: 100
      * })
      */
-    analysisLight(options?: LightAnalyOption): DeferredObject<unknown>;
+    analysisLight(options?: LightAnalyOption): DeferredPromise<boolean>;
     setShadow(enabled?: boolean): void;
     /**
      * 광원의 생성 파라미터(Parameter)를 반환하는 함수

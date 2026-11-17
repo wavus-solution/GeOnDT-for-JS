@@ -6,7 +6,7 @@
 
 KML/KMZ를 읽어 점·선·돌출 폴리곤으로 표시하는 벡터 레이어다. OpenLayers가 KML 피처와 스타일을 해석하고, 현재 단위가 형상별 속성·스타일·식별자를 구성하여 U3dVectorLayer에 등록한다. KMZ 압축 해제와 포함 이미지 조회, 레이어 경계 계산 및 object URL 수명 관리도 담당한다.
 
-`GeOnDT.vector.U3dModelKmlLayer`로 제공하며 `tutorial-official/examples/kmlModelLayer/kmlModelLayer.main.js`에서 URL 로딩·styleFunction·completed 이벤트·앱 등록과 범위 이동을 조합한다. 네트워크 로딩과 Blob 읽기는 비동기지만 KML 파싱, 압축 해제와 형상 추가는 해당 실행 안에서 동기 수행한다.
+`GeOnDT.vector.U3dModelKmlLayer`로 제공하며 `tutorial-official/examples/kmlModelLayer/kmlModelLayer.main.js`에서 URL 로딩·styleFunction·ready 대기·앱 등록과 범위 이동을 조합한다. 네트워크 로딩과 Blob 읽기는 비동기지만 KML 파싱, 압축 해제와 형상 추가는 해당 실행 안에서 동기 수행한다.
 
 ## 3. 정규 자연어 수도코드
 
@@ -27,8 +27,10 @@ U3dModelKmlLayer extends U3dVectorLayer 클래스 정의
         변경 가능한 객체이며 이후 형상 생성과 높이 선택에서 현재 값을 읽는다.
     static GeometryType: Array<string> = Point, LineString, Polygon
         외부에서 변경할 수 있으나 현재 내부 변환 분기는 이 배열을 참조하지 않는다.
-    _loadingPromise: Promise<U3dModelKmlLayer> | null = null
-        생성자가 시작한 로딩만 보관하며 reload는 이 참조를 교체하지 않는다.
+    _loadingPromise: Promise<this> | null = null
+        현재 회차의 ready와 같은 참조를 보관하는 내부 호환 필드다. 외부에서는 ready를 사용한다.
+    #loadController: AbortController | null = null
+        현재 로딩의 요청 표식과 취소 소유자이며 종결 시 비운다.
     _geometryIdMap: Map<string, U3dGeometry> = 빈 Map
         생성 식별자로 형상 참조를 찾는 별도 사전이다.
     _geometrySequence: number = 0
@@ -61,25 +63,48 @@ U3dModelKmlLayer extends U3dVectorLayer 클래스 정의
             부모 생성 뒤 이름표·URL·로딩 참조·식별자 사전·순번·KMZ 자료와 URL 사전을 초기화한다.
             heightField의 기본값은 height이며 styleFunction은 함수인 경우만 저장한다.
             부모가 정한 현재 렌더 순서를 조회하여 입력 로딩 전에 형상 그룹과 장면에 적용한다.
-            정의된 비어 있지 않은 kmlText, 정의된 kmlData, 정의된 비어 있지 않은 baseUrl 순서로 한 경로만 시작하고 반환 Promise를 보관한다.
-            로딩 Promise의 실패에 레이어 receiver 인수와 오류 문자열을 로그로 전달하는 catch를 등록하며 원래 Promise 참조는 유지한다.
+            정의된 비어 있지 않은 kmlText, 정의된 kmlData, 정의된 비어 있지 않은 baseUrl 순서로 한 경로만 선택하여 새 ready 회차로 실행한다. 입력이 없으면 빈 레이어 자신으로 완료하는 작업을 선택한다.
+            ready의 실패에 레이어 receiver 인수와 오류 문자열을 로그로 전달하는 catch를 등록하며 원래 Promise 참조는 유지한다. AbortError는 로그에서 제외한다.
 
-    async #load(path: string = this._baseUrl) -> Promise<U3dModelKmlLayer>
+    #startLoad(load: function) -> Promise<this>
+        인터페이스: load는 AbortSignal을 받아 레이어로 완료되는 Promise를 반환하는 콜백이다.
+        의존:
+            U3dLayer — 초기화 회차와 종결; 함수: {_resetReady(), _resolveReady(), _rejectReady()}; 속성 읽기: {ready, _app}; 속성 쓰기: {_initialized}
+            Web API — 요청 수명 생성; 생성자: {new AbortController()}; 속성 읽기: {AbortController.signal}
+        동작:
+            부모 생성자의 완료를 유지하지 않고 새 ready를 만들며 새 controller를 현재 요청으로 저장한다. _loadingPromise에는 같은 ready를 기록한다.
+            요청의 유효성을 확인한 뒤 load를 호출하고 반환 Promise의 성공·실패 관찰자를 연결한다. 동기 예외도 현재 ready의 실패로 전달한다.
+            성공 관찰자는 현재 controller가 같은 경우에만 유효성을 다시 확인하며 앱에 연결되어 있으면 _initialized를 true로 복구하고 ready를 레이어 자신으로 완료한다. 유효성 확인의 예외는 실패로 전달하고 controller를 비운다.
+            실패 관찰자는 현재 controller가 같은 경우에만 controller를 비우고 실패값을 _rejectReady에 전달한다. 기존 Error는 보존하고 그 외 값의 Error 정규화는 기반 계약을 따른다.
+            해제로 이미 분리된 요청의 관찰자는 현재 상태를 변경하지 않는다. 관찰자 등록 직후 해당 회차의 ready를 반환한다.
+
+    #assertLoadActive(signal: AbortSignal | undefined = this.#loadController?.signal) -> void
+        의존:
+            U3dLayer — 종결·수명 상태; 함수: {isReady()}; 속성 읽기: {_disposed, _taskProcessorDisposing, _app}
+            U3dApp — 앱 해제 확인; 함수: {isDisposed()}
+            Web API — 요청 취소·식별; 속성 읽기: {AbortSignal.aborted, AbortController.signal}
+        동작:
+            signal이 없거나 취소되었거나 현재 controller의 signal과 다르면 AbortError 이름의 Error를 던진다.
+            ready가 이미 종결되었거나 레이어가 해제·해제 진행 중이거나 연결된 앱이 해제되었어도 같은 오류를 던진다.
+
+    async #load(path: string | undefined, signal: AbortSignal) -> Promise<this>
         의존:
             defined — 경로 존재 판정; 함수: {defined()}
-            Web API — 파일 읽기; 함수: {fetch(), Response.arrayBuffer(), Headers.get()}; 속성 읽기: {Response.ok, Response.status, Response.statusText}
+            Web API — 취소 가능한 파일 읽기; 함수: {fetch(), Response.arrayBuffer(), Headers.get()}; 속성 읽기: {Response.ok, Response.status, Response.statusText}
         동작:
             path가 정의되지 않았거나 빈 문자열이면 KML path is undefined 오류로 거부한다.
-            _baseUrl을 먼저 변경한 뒤 fetch를 기다리며 응답이 ok가 아니면 상태 번호와 상태 문구를 포함한 오류로 거부한다.
+            _baseUrl을 먼저 변경한 뒤 signal을 넘긴 fetch를 기다린다. 수신 후 요청 유효성을 확인하고 응답이 ok가 아니면 상태 번호와 상태 문구를 포함한 오류로 거부한다.
+            응답 바이트 읽기 후에도 유효성을 확인하여 해제 후 도착한 바이트가 압축 자료와 형상을 변경하지 못하게 한다.
             응답 바이트와 content-type·path 힌트로 텍스트를 얻는다.
-            얻은 텍스트의 로딩 결과를 반환하며 fetch·읽기·변환 예외도 거부로 전달한다.
+            얻은 텍스트와 signal의 로딩 결과를 반환하며 fetch·읽기·변환 예외도 거부로 전달한다.
 
-    async #loadFromData(data: ArrayBuffer | Uint8Array | Blob) -> Promise<U3dModelKmlLayer>
+    async #loadFromData(data: ArrayBuffer | Uint8Array | Blob, signal: AbortSignal) -> Promise<this>
         의존: Web API — Blob 데이터 읽기; 함수: {Blob.arrayBuffer()}
         동작:
             Blob이면 arrayBuffer를 기다리고 그 외 입력은 그대로 사용한다.
+            요청의 유효성을 확인하여 해제된 Blob의 늦은 완료를 적용하지 않는다.
             빈 힌트로 텍스트를 얻는다.
-            얻은 텍스트의 로딩 결과를 반환한다.
+            얻은 텍스트와 signal의 로딩 결과를 반환한다.
 
     #normalizeToKmlText(input: ArrayBuffer | Uint8Array | string, hint: object) -> string
         동작:
@@ -98,23 +123,25 @@ U3dModelKmlLayer extends U3dVectorLayer 클래스 정의
         동작:
             저장된 URL을 모두 revoke한 뒤 사전을 비운다.
 
-    async #loadFromText(text: string) -> Promise<U3dModelKmlLayer>
+    async #loadFromText(text: string, signal: AbortSignal) -> Promise<this>
         의존:
             defined — 텍스트 존재; 함수: {defined()}
             ol.format.KML — KML 해석; 생성자: {new ol.format.KML()}; 함수: {readFeatures()}
             U3dVectorLayer — 형상 갱신; 함수: {update()}
             UEventDispatcher — 완료 통지; 함수: {dispatchEvent()}
         동작:
-            입력을 확인하기 전에 레이어를 비운다.
+            요청 유효성을 확인한 뒤 입력을 확인하기 전에 레이어를 비우고, 제거 콜백 이후에도 유효성을 다시 확인한다.
             text가 미정의이거나 trim 결과가 빈 문자열이면 완료 이벤트 없이 자신으로 완료한다.
             extractStyles=true, showPointNames=false인 KML reader로 피처 목록을 구한다.
-            피처 순서대로 형상을 추가하며 도중 예외가 생기면 이미 추가한 형상을 되돌리지 않고 Promise를 거부한다.
-            경계를 갱신하고 레이어 update 후 U3dModelKmlLayerEMD.COMPLETED와 자신을 data로 통지한 다음 자신으로 완료한다.
-            네트워크·자원 취소나 오래된 응답 배제는 이 경로에서 수행하지 않는다. [확인 Q-002]
+            피처마다 유효성을 확인하고 순서대로 형상을 추가하며 도중 예외가 생기면 이 로딩 자체는 이미 추가한 형상을 되돌리지 않고 Promise를 거부한다.
+            유효성을 확인한 뒤 경계를 갱신하고 레이어 update를 호출한다. 유효성을 다시 확인하고 U3dModelKmlLayerEMD.COMPLETED와 자신을 data로 통지한다. 이벤트 콜백 이후에도 유효성을 확인한 다음 자신으로 완료한다.
+            파싱·형상 처리·완료 이벤트의 동기 예외도 로딩 Promise를 거부하며 #startLoad의 관찰자가 ready에 전달한다.
 
-    reload() -> Promise<U3dModelKmlLayer>
+    reload() -> Promise<this>
+        의존: U3dLayer — 현재 로딩 완료 참조; 속성 읽기: {ready}
         동작:
-            현재 _baseUrl의 로딩 Promise를 반환하고 _loadingPromise는 교체하지 않는다.
+            controller가 있으면 진행 중인 현재 ready를 그대로 반환하고 추가 요청을 시작하지 않는다.
+            종결 후에는 현재 _baseUrl의 로딩을 새 ready 회차로 시작하고 그 ready를 반환한다. 이전 Promise의 결과는 바꾸지 않는다. 경로 누락·해제·로딩 실패도 새 ready로 전달한다.
 
     override setRenderOrder(val: number) -> void
         역할: KML 형상을 담는 그룹의 렌더 순서를 레이어 설정에 맞춘다.
@@ -139,8 +166,12 @@ U3dModelKmlLayer extends U3dVectorLayer 클래스 정의
             부모 clear 뒤 경계·ID 사전·순번을 초기화하고 object URL을 해제한다. _kmzAssets는 남긴다.
 
     override dispose() -> Promise<boolean>
-        의존: U3dVectorLayer — 상속 해제; 함수: {super.dispose()}
+        의존:
+            U3dVectorLayer — 상속 해제; 함수: {super.dispose()}
+            U3dLayer — 수명 차단과 실패 통지; 함수: {_rejectReady()}; 속성 쓰기: {_taskProcessorDisposing}
+            Web API — 파일 요청 취소; 함수: {AbortController.abort()}
         동작:
+            _taskProcessorDisposing을 true로 설정하여 재진입한 로딩을 차단한다. 현재 controller를 분리하고 진행 중인 ready를 AbortError 이름의 Error로 거부한 뒤 그 controller를 취소한다.
             object URL을 해제하고 _kmzAssets를 null로 지운 뒤 부모 dispose의 반환값을 그대로 반환한다.
 
     getGeometryById(geometryId: string) -> U3dGeometry | undefined
@@ -176,7 +207,7 @@ U3dModelKmlLayer extends U3dVectorLayer 클래스 정의
         동작:
             Point·LineString·Polygon은 한 형상, MultiPoint·MultiLineString·MultiPolygon은 구성 좌표마다 대응 단일 형상으로 처리하며 그 외 타입은 아무 것도 추가하지 않는다.
             각 형상의 식별자와 속성을 먼저 만들고 대응 점·선·폴리곤 생성기에 넘긴다.
-            부모 레이어에 등록하고 ID 사전에 저장한 다음 좌표를 반영한다. 좌표 반영 예외 이전의 등록과 순번 증가는 남는다.
+            부모 레이어에 등록하고 등록 콜백 이후의 요청 유효성을 확인한 뒤 ID 사전에 저장하고 좌표를 반영한다. 좌표 반영 예외 이전의 등록과 순번 증가는 남는다.
             점은 좌표 하나를, 선은 좌표마다 변환한 새 벡터를 설정한다. 폴리곤은 첫 링만 사용하고 나머지 내부 링을 사용하지 않는다.
             폴리곤의 첫 링은 닫힘 좌표를 보정한 뒤 변환하며 위치 반영 뒤 userData.useDepth를 읽어 직접 자식 재질까지 적용한다.
 
@@ -222,7 +253,8 @@ U3dModelKmlLayer extends U3dVectorLayer 클래스 정의
             fill·stroke를 읽은 뒤 Polygon 문맥의 사용자 스타일을 구한다.
             사용자 color가 nullish가 아니면 사용하고 아니면 truthy 채움 색·외곽선 색·기본 폴리곤 색 순으로 선택한다.
             opacity는 사용자 값 또는 색 alpha·기본 opacity를 Number로 변환하고 높이는 별도 우선순위로 구한다.
-            useLine은 사용자 값이 nullish가 아니면 사용하고 아니면 stroke의 정의 여부이며 lineColor는 사용자 값만 쓴다.
+            외곽선 표시값은 사용자 outline, 기존 useLine, stroke의 정의 여부 순으로 nullish 대체하여 정한다. false도 명시값으로 보존한다.
+            lineColor는 사용자 값만 쓰고 외곽선 표시값은 공식 outline 키로 도형에 전달하여 내부 호환 경고를 발생시키지 않는다.
             색 변환·속성 복사 결과와 이름·높이·선 설정으로 돌출 형상을 만든다. 비유한 opacity는 기본값으로 바꾼다.
             visible·setShadow·exceptAO는 각각 boolean일 때만 적용하고 userData.useDepth에는 depth를 그대로 저장한다.
             재질 depth를 적용한 뒤 반환한다.
@@ -236,12 +268,13 @@ U3dModelKmlLayer extends U3dVectorLayer 클래스 정의
         인터페이스: styleFunction의 this는 레이어이며 properties와 type·name 문맥을 받는다.
         의존: KmlStyleFunction — 사용자 함수 실행; 콜백: {styleFunction(properties, context)}
         동작:
-            등록된 콜백을 레이어의 멤버로 호출하며 반환값이 falsy이거나 콜백이 없으면 새 빈 객체를 반환한다. 예외는 그대로 전파한다.
+            등록된 콜백을 레이어의 멤버로 호출하고 콜백 이후 요청의 유효성을 확인한다. 반환값이 falsy이거나 콜백이 없으면 새 빈 객체를 반환하며 예외는 그대로 전파한다.
 
     #getFeatureStyle(feature: any) -> any
         의존: OLFeature — 피처 스타일 읽기; 함수: {getStyleFunction(), getStyle()}
         동작:
             getStyleFunction 결과가 truthy이면 별도 receiver 지정 없이 feature와 해상도 1로 호출하고 아니면 getStyle을 읽는다.
+            스타일 조회 콜백 이후 요청의 유효성을 확인하여 해제된 레이어의 형상 생성을 차단한다.
             결과가 배열이면 그대로, truthy 단일 값이면 한 항목 배열, 그 외에는 빈 배열로 본다.
             빈 목록은 null, 하나이면 원본 스타일을 반환하고 여러 개면 병합 결과를 반환한다.
 
@@ -330,8 +363,10 @@ KmlRenderStyle 부분 타입 명세
             LineString 폭이다.
         height?: number | string
             Polygon 높이다.
+        outline?: boolean
+            Polygon 외곽선 표시의 공식 옵션이다.
         useLine?: boolean
-            Polygon 외곽선 사용이다.
+            outline이 nullish일 때 사용하는 기존 외곽선 표시 옵션이며 경고 없이 수용한다.
         lineColor?: ColorRepresentation
             Polygon 외곽선 색상이다.
         img?: string
@@ -352,7 +387,8 @@ U3dModelKmlLayerEMI 타입 정의
 
 ```spec
 KML 텍스트·바이너리 로딩은 기존 형상을 먼저 비운 뒤 새 형상을 추가하며 전후 상태를 원자적으로 교체하지 않는다.
-완료 이벤트는 형상 추가·경계 반영·update 호출 이후이며 이미지 로딩이나 실제 렌더 프레임 완료를 기다리는 계약이 아니다.
+ready는 현재 로딩 회차의 파일 읽기·파싱·형상 등록·경계 반영·update 호출과 completed 이벤트의 동기 통지가 끝난 뒤 레이어 자신으로 완료된다. 로딩 실패는 Error로 전달하며 이벤트 리스너가 반환하는 Promise는 ready의 대기 대상이 아니다.
+ready와 완료 이벤트는 이미지 로딩이나 실제 렌더 프레임 완료를 기다리는 계약이 아니다. 입력이 없거나 공백 텍스트인 경우도 ready는 완료되며 completed 이벤트는 발생하지 않는다.
 공개 static 기본 스타일과 이벤트 객체는 불변화하지 않으며 각 사용 경로가 실행 시 읽는 값을 사용한다.
 ```
 

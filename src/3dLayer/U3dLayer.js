@@ -12,7 +12,7 @@ import {Guid} from "@util/Guid";
 import {UEventDispatcher} from '@UEventDispatcher';
 import {UCheckTime} from "@union3d/core/UCheckTime";
 import {U3dMessage} from '@U3dMessage';
-import {deferred} from "@util/deferred";
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import {UBox3HelperGroup} from "@union3d/helpers/UBox3HelperGroup";
 import {__GInfo__} from "@U3dMessage";
 import {INTERNAL} from "@union3d/3dLayer/U3dLayer.internal";
@@ -191,9 +191,21 @@ class U3dLayer extends U3dObject {
         return this;
     }
 
-    /** 사용 중인 공유 파서 풀입니다. @type {Set<import('@union3d/core/UTaskProcessor').UTaskProcessor>} @ignore */
+    /**
+     * 사용 중인 공유 파서 풀입니다.
+     *
+     * @type {Set<import('@union3d/core/UTaskProcessor').UTaskProcessor>}
+     *
+     * @ignore
+     */
     _taskProcessors = new Set();
-    /** 해제 중 지연 콜백의 새 풀 사용을 차단합니다. @type {boolean} @ignore */
+    /**
+     * 해제 중 지연 콜백의 새 풀 사용을 차단합니다.
+     *
+     * @type {boolean}
+     *
+     * @ignore
+     */
     _taskProcessorDisposing = false;
 
     /**
@@ -275,7 +287,13 @@ class U3dLayer extends U3dObject {
      * @ignore
      */
     _workCheckId = null;
-    /** 재시작 전 로딩 완료 예약과 준비 콜백을 구분합니다. @type {number} @ignore */
+    /**
+     * 재시작 전 로딩 완료 예약과 준비 콜백을 구분합니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
     _workCheckGeneration = 0;
 
     /**
@@ -1053,7 +1071,7 @@ class U3dLayer extends U3dObject {
      * 타일을 입력받아 해당 타일의 취소(cancel) 작업 객체를 등록합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 대상 타일
-     * @param {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} value 타일 작업을 취소할 때 `reject`(또는 `cancel`)가 호출되는 대기 객체. 같은 타일에 다시 등록하면 이전 값을 덮어씁니다
+     * @param {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} value 타일 작업을 취소할 때 `reject`(또는 `cancel`)가 호출되는 대기 객체. 같은 타일에 다시 등록하면 이전 값을 덮어씁니다
      */
     setCancelByTile(tile, value) {
         const key = this.createKeyByTile(tile);
@@ -1064,7 +1082,7 @@ class U3dLayer extends U3dObject {
      * 타일을 입력받아 등록된 취소(cancel) 작업 객체를 반환합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 대상 타일
-     * @returns {DeferredObject<import('@U3dQuadTile').U3dQuadTile> | undefined} `setCancelByTile` 로 등록한 취소 작업 객체. 등록된 것이 없으면 `undefined` 입니다
+     * @returns {Promise<import('@U3dQuadTile').U3dQuadTile> | undefined} `setCancelByTile` 로 등록한 취소 작업 객체. 등록된 것이 없으면 `undefined` 입니다
      */
     getCancelByTile(tile) {
         const key = this.createKeyByTile(tile);
@@ -1897,8 +1915,8 @@ class U3dLayer extends U3dObject {
         this._taskProcessorDisposing = true;
         try {
             this._resetWorkingEndEvent();
-            /** @type {DeferredObject<boolean>} */
-            const promise = deferred();
+            /** @type {DeferredPromise<boolean>} */
+            const promise = deferredPromise();
             const self = this;
             const selfLayer = /** @type {{dispatch: (function(string, ...unknown): void), removeEventListener: (function(unknown): void)} & Partial<{_eventHandler: {dispose: (function(): void)}}>} */ (/** @type {unknown} */ (self));
 
@@ -2160,7 +2178,16 @@ class U3dLayer extends U3dObject {
             }
         }
         try {
-            return self.initialize();
+            const initialization = self.initialize();
+            // 기반 initialize는 void지만 하위 구현은 초기화 Promise를 반환할 수 있습니다.
+            const pending = /** @type {PromiseLike<unknown> | undefined} */(/** @type {unknown} */(initialization));
+            // 앱은 setApp의 반환값을 기다리지 않고 layer.ready를 사용합니다. 하위 레이어가
+            // 별도의 초기화 Promise를 반환하더라도 실패 관찰자를 연결해 미처리 거부가 새지
+            // 않게 합니다. 성공 시점은 하위 레이어가 정하므로 여기서 ready를 완료하지 않습니다.
+            if (pending && typeof pending.then === 'function') {
+                pending.then(undefined, error => { self._rejectReady(error); });
+            }
+            return initialization;
         } catch (error) {
             // 비동기 완료를 기다리는 사용자가 동기 초기화 실패도 같은 catch에서 받게 합니다.
             // 이미 완료한 레이어는 다시 거부할 수 없으므로 기존 동기 예외를 숨기지 않습니다.

@@ -143,26 +143,31 @@ U3dModelTdsLayer extends U3dModelBasicLayer 클래스 정의
             new.target의 OPT_KEYS로 옵션 키를 정규화한 결과를 opt에 재할당하고 부모 생성자에 전달한다.
             정규화는 원본 옵션 객체를 변경하지 않으며 null 또는 객체가 아닌 입력은 빈 옵션으로 바꾼다.
             baseurl·animationspeed를 포함한 대소문자 변형을 정본 키로 읽는다. 정본과 다른 표기를 함께 전달하면 다른 표기의 값이 우선하며, 다른 표기가 여러 개이면 입력 열거 순서의 마지막 값이 우선한다.
-            부모 생성 후 식별자와 이름을 설정하고 opt.baseUrl을 _baseUrl에 저장한다. 주소가 null 또는 undefined이면 나머지 자식 초기화를 하지 않고 반환한다. [확인 Q-001]
-            position과 scale의 undefined 기본값은 각각 새 영벡터와 단위벡터, rotation은 영좌표 객체이며 type은 animation이다. 믹서 목록·시계·미정의 action과 animationSpeed 기본값 1을 저장한다.
-            사용자 그룹 목록을 비우고 containMetaData·usePositionOffset·setAveragePosition의 undefined 기본값 false를 저장한다. 이름 옵션 세 개와 averagePos의 미정의 상태를 초기화한다.
-            setUserGroupFunction이 undefined이면 기본 함수를 저장하고 userGroupParams가 undefined이면 새 빈 객체를 저장한다.
-            location이 truthy이면 그것을, 아니면 position을 _location으로 사용한다. Vector3이면 참조를 유지하고 아니면 x·y·z를 새 Vector3에 복사한다. 두 입력이 없으면 성분 접근에서 예외가 발생한다. [확인 Q-001]
+            부모 생성 후 _classtype과 _className을 U3dModelTdsLayer로 설정한다. opt.name을 _name에, opt.baseUrl을 _baseUrl에 저장하며 두 기본값은 undefined이다. 주소가 null 또는 undefined이면 나머지 자식 초기화를 하지 않고 반환한다. [확인 Q-001]
+            _baseUrl이 defined이면:
+                _position과 _scale에 대응 옵션을 저장하며 undefined 기본값은 각각 새 영벡터와 단위벡터다. _rotation은 영좌표 객체, _type은 animation을 undefined 기본값으로 사용한다.
+                _mixers를 빈 배열로, _clock을 새 UClock으로, _action을 undefined로 저장하고 _animationSpeed에 옵션의 undefined 기본값 1을 적용한다.
+                _userGroupList를 빈 배열로 만들고 _containMetaData·_usePositionOffset·_setAveragePosition에 대응 옵션의 undefined 기본값 false를 적용한다.
+                _positionOffsetName·_jsonFileName·_userGroupDataName은 대응 옵션을 사용하며 undefined 기본값은 각각 position_offset·metaData.json·userGroupData다. _averagePos는 undefined로 초기화한다.
+                setUserGroupFunction이 undefined이면 기본 함수를 저장하고 userGroupParams가 undefined이면 새 빈 객체를 저장한다.
+                location이 truthy이면 그것을, 아니면 position을 _location으로 사용한다. Vector3이면 참조를 유지하고 아니면 x·y·z를 새 Vector3에 복사한다. 두 입력이 없으면 성분 접근에서 예외가 발생한다. [확인 Q-001]
 
     override initialize() -> void
         인터페이스: 모델 초기화를 시작하며 완료 Promise를 반환하지 않는다.
         의존:
             U3dModelLayer — 공통 초기화; 함수: {prototype.initialize.call()}
             UDrawArg — 좌표 변환; 함수: {getGeographicToWorld()}
-            U3dModelBasicLayer — 초기화 배치 상태; 함수: {get3DBoxFromGoogleBox()}; 속성 읽기: {_needXml, _drawArg, _geoLocation, _object, _title, _boundingBox}; 속성 쓰기: {_bbox3D}
+            U3dModelBasicLayer — 상속된 준비 통지와 초기화 배치 상태; 함수: {get3DBoxFromGoogleBox(), isReady(), _rejectReady()}; 속성 읽기: {_needXml, _disposed, _drawArg, _geoLocation, _object, _title, _boundingBox}; 속성 쓰기: {_bbox3D}
             THREE.Vector3 — 경계 중심; 생성자: {new THREE.Vector3()}
             defined — null·undefined 판정; 함수: {defined()}
         동작:
             U3dModelLayer.initialize를 현재 레이어에 적용한다. _needXml이 정확히 true이면 XML 요청 완료 후 모델 로딩을 시작한다.
+            모델 로딩 시작 직전에 해제 여부를 확인한다. XML 완료와 callback 실행 사이에 해제되었으면 AbortError로 실패 처리하며 다운로드를 시작하지 않는다. XML 거부와 성공 callback의 예외를 같은 실패 처리기로 연결한다.
             그 외에는 _location이 정의되지 않았을 때만 _geoLocation을 월드 좌표로 변환한다. _object._xml을 새 객체로 만들고 제목을 기록한다.
             _boundingBox로 만든 새 _bbox3D의 중심을 구하여 min과 max에서 빼고 _location을 더한다. 이후 모델 로딩을 시작한다.
             초기화 설정의 동기 예외와 기존 XML·모델 작업에서 전달된 거부를 레이어 _rejectReady에 연결한다. 원래 작업의 반환값·실패값과 내부의 미종결 경로는 변경하지 않는다.
-            이미 완료한 레이어의 즉시 초기화 설정에서 발생한 동기 예외는 호출자에게 다시 전달한다. 완료 뒤 도착한 비동기 실패는 로그에 남기고 완료 상태를 유지한다.
+            isReady는 성공·실패 중 어느 쪽으로든 준비 통지가 끝났는지 판정한다. 이미 통지한 상태에서 즉시 초기화 설정의 동기 예외가 발생하면 호출자에게 다시 전달한다.
+            모델 로딩 Promise의 늦은 거부는 이미 통지한 상태이면 오류 로그만 남긴다. XML 경로의 거부는 _rejectReady에 전달하며 이 함수는 이미 통지한 상태를 변경하지 않는다.
 
     setUserGroupParams(params: U3dModelTdsGroupParams) -> void
         인터페이스: 기본 층 분류 콜백이 읽을 설정 객체를 저장한다.
@@ -212,9 +217,10 @@ U3dModelTdsLayer extends U3dModelBasicLayer 클래스 정의
             defined — null·undefined 판정; 함수: {defined()}
         동작:
             _drawArg·그 내부 _app·_group·geo·geo.x·geo.y 중 하나라도 정의되지 않았으면 반환한다.
-            _geoLocation의 x·y를 먼저 갱신하고 두 성분으로 월드 변환한다. geo.z가 정의되었으면 _height·변환 위치 z·_geoLocation.z를 함께 갱신한다.
-            _bbox3D의 min·max에서 이전 _location을 빼고 새 월드 위치를 더한다. _location과 _position에 같은 새 위치 참조를 저장한다.
-            _group의 직접 자식 position을 새 위치로 설정하며 별도의 행렬 갱신은 하지 않는다.
+            _drawArg, self._drawArg._app, _group, geo가 모두 defined이고 geo.x·geo.y도 defined이면:
+                _geoLocation의 x·y를 먼저 갱신하고 두 성분으로 월드 변환한다. geo.z가 defined이면 _height·변환 위치 z·_geoLocation.z를 함께 갱신한다.
+                _bbox3D의 min·max에서 이전 _location을 빼고 새 월드 위치를 더한다. _location과 _position에 같은 새 위치 참조를 저장한다.
+                _group의 직접 자식 position을 새 위치로 설정하며 별도의 행렬 갱신은 하지 않는다.
 
     setGroupOriginPosition() -> void
         인터페이스: 현재 그룹과 그 직접 자식 메시의 위치를 원위치로 보관한다.
@@ -237,9 +243,12 @@ U3dModelTdsLayer extends U3dModelBasicLayer 클래스 정의
             U3dModelBasicLayer — 그룹 처리 문맥; 속성 읽기: {_drawArg, _group}
             defined — null·undefined 판정; 함수: {defined()}
         동작:
-            floorCount가 정의되지 않으면 반환한다. height와 commonChar가 정의되지 않으면 각각 0과 0 문자열을 적용하고 seperator가 정의되지 않으면 내부 분리 문자로 밑줄을 사용한다. 콜백 설정에는 생략된 seperator를 undefined로 남긴다.
-            _drawArg._app을 먼저 읽고 _group이 정의되지 않았으면 반환한다. 원본 목록을 조회한다.
-            원본 위치·자식 이름 연결이 변경되고 처리 플래그는 성공 끝에서 false로 초기화된다. 콜백·복제 실패의 예외와 실패 전 변경을 복구하지 않는다. [확인 Q-003]
+            floorCount가 defined이면:
+                height와 commonChar가 정의되지 않으면 각각 0과 0 문자열을 적용하고 seperator가 정의되지 않으면 내부 분리 문자로 밑줄을 사용한다. 콜백 설정에는 생략된 seperator를 undefined로 남긴다.
+                _drawArg._app을 먼저 읽는다. _group이 defined이면:
+                    원본 목록을 조회한다.
+                    원본 위치·자식 이름 연결이 변경되고 처리 플래그는 성공 끝에서 false로 초기화된다. 콜백·복제 실패의 예외와 실패 전 변경을 복구하지 않는다. [확인 Q-003]
+            floorCount 또는 _group이 정의되지 않으면 해당 지점에서 반환한다.
 
     animateInterval(interval: number | String, x?: number, y?: number, z?: number) -> void
         인터페이스: 50ms 반복 호출로 사용자 그룹의 층간 이동량을 증가시킨다. interval*10 회수 경계까지 처리한다.
@@ -265,7 +274,8 @@ U3dModelTdsLayer extends U3dModelBasicLayer 클래스 정의
         의존: defined — null·undefined 판정; 함수: {defined()}
         동작:
             _userGroupList가 정의되지 않았으면 반환하고 정의되지 않은 각 좌표는 0으로 대체한다.
-            등록 목록 길이를 먼저 저장하고 각 이름으로 실제 원본 목록을 조회한다. 새 좌표 객체, 전체 길이, 전체 길이-i 순서를 전달한다. 조회 실패 결과에 별도 가드를 추가하지 않는다.
+            _userGroupList가 defined이면:
+                등록 목록 길이를 먼저 저장하고 각 이름으로 실제 원본 목록을 조회한다. 새 좌표 객체, 전체 길이, 전체 길이-i 순서를 전달한다. 빈 목록은 조회·이동 없이 끝나며 조회 실패 결과에 별도 가드를 추가하지 않는다.
 
     setUserGroupPosition(group: Array<Object3D>, position?: Vector3Like, floorCount?: number, order?: number) -> void
         인터페이스: 원위치와 층간 이동량으로 전달된 객체 목록의 위치를 다시 계산한다.
@@ -324,10 +334,15 @@ U3dModelTdsLayer extends U3dModelBasicLayer 클래스 정의
             U3dModelBasicLayer — 파일 메타데이터; 속성 읽기: {_metaDataObject}
             defined — null·undefined 판정; 함수: {defined()}
         동작:
-            obj가 정의되지 않거나 _containMetaData가 falsy이거나 _metaDataObject가 정의되지 않으면 반환한다. _containMetaData가 truthy인 경로에서 try 밖에서 메시 이름을 얻고 정의된 이름일 때만 후속 처리한다.
-            _containMetaData가 truthy인 경로의 try 안에서 객체의 메타데이터 그룹 이름이 없으면 부모 이름을 _metaDataGroupName에 저장한다. 파일 metadata, 사용자 그룹 저장 키에 해당하는 files 항목, 객체 그룹 이름에 해당하는 files 항목을 읽는다.
-            그룹이 존재하면 objects의 메시 이름 항목이 정의된 경우에만 fileMetaData·groupMetaData·meshMetaData·userGroupData 묶음을 반환한다. 그룹 자체가 없으면 groupMetaData와 meshMetaData가 undefined인 묶음을 반환한다.
-            그룹은 있으나 메시 항목이 없으면 undefined이다. try 내부 오류는 metadata load fail 로그로 기록한다.
+            obj가 defined이면:
+                _containMetaData가 truthy이면:
+                    _metaDataObject가 defined이면:
+                        try 밖에서 메시 이름을 얻는다.
+                        얻은 이름 objName이 defined이면 try 안에서 후속 처리한다:
+                            객체의 메타데이터 그룹 이름이 없으면 부모 이름을 _metaDataGroupName에 저장한다. 파일 metadata, 사용자 그룹 저장 키에 해당하는 files 항목, 객체 그룹 이름에 해당하는 files 항목을 읽는다.
+                            그룹이 존재하면 objects의 메시 이름 항목이 정의된 경우에만 fileMetaData·groupMetaData·meshMetaData·userGroupData 묶음을 반환한다. 그룹 자체가 없으면 groupMetaData와 meshMetaData가 undefined인 묶음을 반환한다.
+                            그룹은 있으나 메시 항목이 없으면 undefined이다. try 내부 오류는 metadata load fail 로그로 기록한다.
+            사전 조건이나 이름 확인을 통과하지 못하면 undefined이다.
 
     setMetaDataByUser(target: string, key: string, value: string) -> void
         인터페이스: 그룹 또는 그룹#메시의 메타데이터 키에 JSON 문자열을 해석해 기록한다.
@@ -350,7 +365,10 @@ U3dModelTdsLayer extends U3dModelBasicLayer 클래스 정의
             defined — null·undefined 판정; 함수: {defined()}
         동작:
             group이 정의되지 않거나 _containMetaData가 falsy이거나 _metaDataObject가 정의되지 않거나 자식이 비었으면 반환한다.
-            files[key]가 정의되지 않았으면 빈 객체를 만들고 group.name 키에 목록을 저장한다. 서버 저장은 실행하지 않는다.
+            group이 defined이면:
+                _containMetaData가 truthy이면:
+                    _metaDataObject가 defined이면:
+                        files[key]가 정의되지 않았으면 빈 객체를 만들고 group.name 키에 목록을 저장한다. 서버 저장은 실행하지 않는다.
 
     getUserGroupDataName() -> string
         인터페이스: 사용자 그룹 메타데이터의 저장 키를 반환한다.
@@ -403,47 +421,45 @@ U3dModelTdsLayer extends U3dModelBasicLayer 클래스 정의
             _group 또는 children이 정의되지 않으면 undefined이며 그 외에는 children 자체를 반환한다.
 
 initWithXML() -> Promise<U3dModelTdsLayer>
-    인터페이스: this로 전달된 레이어의 XML을 요청한다.
+    인터페이스: this는 현재 TDS 레이어이며 성공값은 해당 레이어다.
     의존:
-        deferred — 수동 완료 객체; 함수: {deferred()}
-        XMLHttpRequest — XML 요청; 생성자: {new XMLHttpRequest()}; 함수: {overrideMimeType(), open(), send()}
-        defined — null·undefined 판정; 함수: {defined()}
+        defined — XML 주소 존재 판정; 함수: {defined()}
+        Web API — XML 요청과 취소 오류; 생성자: {new XMLHttpRequest(), new DOMException()}; 함수: {overrideMimeType(), open(), send()}; 콜백: {onload, onerror, onabort, ontimeout}
     동작:
-        deferred와 XMLHttpRequest를 먼저 만든다. _xmlUrl이 정의된 경우 MIME을 text/xml로 지정하고 GET 비동기 요청을 보낸다.
-        onload의 this는 요청 객체이다. status가 200이면 this로 전달받아 보관한 레이어의 parseXML을 호출한 뒤 레이어로 resolve한다. 404이면 주소와 파일 부재 로그만 출력한다.
-        주소 부재·다른 상태·네트워크 오류에 대한 resolve·reject 처리는 없고 parseXML 예외도 잡지 않는다. deferred를 반환한다. [확인 Q-005]
+        XML 주소가 nullish이면 Error로 거부한다. 주소가 있으면 MIME 형식을 text/xml로 지정하고 비동기 GET을 보낸다.
+        응답에서 레이어가 해제되었으면 AbortError로, HTTP 상태가 200 미만이거나 300 이상이면 상태를 포함한 Error로 거부한다.
+        유효 응답을 parseXML에 전달한 뒤 현재 레이어로 완료하며 해석·반영 예외도 같은 Promise로 거부한다.
+        통신 실패·시간 초과는 Error로, 요청 취소는 AbortError로 거부한다. 요청 설정·전송 중 예외도 Promise 생성자의 실패로 전달된다.
 
 loadModel() -> Promise<U3dModelTdsLayer | undefined>
-    인터페이스: this 레이어의 U3F 또는 목록 로딩 후 완료 상태를 통지한다.
     의존:
-        UDEF — Promise 생성; 정적 함수: {createPromise()}
+        UDEF — 실행 양보 뒤 비동기 로딩 시작; 정적 함수: {createPromise()}
         U3dModelBasicLayer — U3F 초기화; 함수: {initializeU3f()}
         UDrawArg — 화면 갱신 요청; 함수: {setUpdateDate()}
-        U3dLayer — 레이어 완료 알림; 함수: {_resolveReady()}
+        U3dLayer — 레이어 준비 완료; 함수: {_resolveReady()}
+        Web API — 해제된 레이어의 실패; 생성자: {new DOMException()}
     동작:
-        createPromise 실행기에서 _useU3f가 정의되고 truthy이면 initializeU3f 완료 후 자신으로 resolve한다. 그 외에는 목록 로딩에 resolve를 전달한다.
-        UDEF.createPromise는 표준 Promise를 반환한다. 성공 콜백에서 _isLoaded=true, setUpdateDate, 레이어 _resolveReady()를 순서대로 실행한 뒤 받은 결과를 반환한다. 따라서 새 체인의 완료값도 U3F 경로의 레이어 또는 목록 경로의 undefined를 유지한다.
-        성공 콜백의 예외와 UDEF 실행기의 예외는 반환 Promise의 거부로 전달되며 이미 반영한 상태는 남는다. 이 함수는 모델의 별도 비동기 실패를 실행기 바깥 reject로 연결하지 않는다. [확인 Q-005]
+        UDEF.createPromise의 실행 양보 뒤 _useU3f가 truthy이면 initializeU3f를 기다려 현재 레이어를 결과로 만들고, 아니면 목록 로딩의 값 없는 결과를 사용한다. 두 경로의 실패는 바깥 Promise로 전달한다.
+        성공 콜백에서 레이어가 해제되었으면 AbortError를 발생시켜 완료 Promise를 거부한다.
+        살아 있으면 _isLoaded를 true로, drawArg의 갱신일을 현재로 변경하고 _resolveReady를 호출한 뒤 선택한 경로의 결과를 반환한다.
 
-loadListModel(resolve?: function) -> void
-    인터페이스: this 레이어의 선택된 시작 인덱스부터 모델을 병렬 로딩한다.
+loadListModel() -> Promise<void>
     의존:
-        U3dModelBasicLayer — 모델 로더; 함수: {load()}
-        Promise — 전체 완료; 정적 함수: {all()}
-        __GError__ — 로딩 실패 기록; 함수: {__GError__()}
-        defined — null·undefined 판정; 함수: {defined()}
+        U3dModelBasicLayer — 개별 모델 로딩; 함수: {load()}
+        defined — XML 자료 존재 판정; 함수: {defined()}
+        Web API — 해제된 레이어의 실패; 생성자: {new DOMException()}
     동작:
-        시작 인덱스는 0이며 _needXml이 truthy이고 _object._xml이 정의되었으면 _firstFileName과 name이 처음 엄격히 같은 항목의 인덱스로 바꾼다. 일치가 없으면 0을 유지한다.
-        시작 인덱스부터 목록 끝까지 load를 호출하여 결과를 Promise.all로 모은다. 시작 인덱스 앞의 항목은 로딩하지 않는다.
-        모두 성공하면 객체 후처리를 실행한 다음 resolve가 정의된 경우 인수 없이 현재 레이어를 this로 호출한다.
-        Promise.all 또는 성공 콜백 실패는 5536043 로그 호출로 연결하며 외부 완료 함수를 호출하지 않는다. 동기 load 예외는 이 catch의 범위 밖이다. 함수 자체는 Promise를 반환하지 않는다. [확인 Q-005]
+        시작 인덱스는 0이다. _needXml이 truthy이고 _object._xml이 정의되어 있으면 XML의 _firstFileName과 이름이 같은 첫 목록 항목을 찾아 시작 인덱스로 사용한다. 일치하지 않으면 0을 유지한다.
+        시작 인덱스부터 끝까지 각 모델의 load를 즉시 호출하고 Promise.all로 결과를 입력 순서대로 기다린다. 빈 목록도 완료된다.
+        모든 요청 성공 뒤 레이어가 해제되었으면 AbortError로 거부하고, 아니면 객체 배치를 반영한 뒤 값 없이 완료한다. 요청·배치 실패는 반환 Promise로 전파한다.
 
 userGroupFunction() -> Record<string, Array<ModelMesh>> | undefined
     인터페이스: this 레이어의 기본 층 분류 함수이며 그룹 이름별 원본 객체 목록을 만든다.
     의존: defined — null·undefined 판정; 함수: {defined()}
     동작:
         설정 객체를 얻어 floorCount를 먼저 읽은 다음 설정 객체의 정의 여부를 검사한다. commonName·commonChar가 정의되지 않으면 반환한다.
-        seperator가 정의되지 않았으면 밑줄을 사용하고 자동 분리 모드로 둔다. 원본 목록을 조회한다.
+        userGroupParams가 defined이고 userGroupParams.commonName과 userGroupParams.commonChar가 defined이면:
+            seperator가 정의되지 않았으면 밑줄을 사용하고 자동 분리 모드로 둔다. 원본 목록을 조회한다.
 setAfterLoadedObjects(objects: Array<Object3D>) -> void
     인터페이스: this 레이어의 로딩 객체 배율과 선택적인 평균 중심 위치를 반영한다.
     동작:

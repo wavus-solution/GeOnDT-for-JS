@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -16,39 +16,16 @@ import type { Double_Array } from "../types/global.js";
 import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /**
- * 인스턴스 화살표 추가를 위한 콜백 함수 타입
- */
-type AddInstancesCallback = (count: number, updateFn: () => void) => void;
-
-/**
- * 인스턴스 화살표 렌더링 Mesh 타입
- */
-type SlopeUInstancedMesh = UInstancedMesh<three.CylinderGeometry | three.ConeGeometry, three.MeshBasicMaterial, number, UInstancedMeshCO> & {
-    addInstances: AddInstancesCallback;
-};
-
-/**
- * 인스턴스 화살표 추가를 위한 콜백 함수 타입
- *
- * @callback AddInstancesCallback
- * @param {number} count
- * @param {function(): void} updateFn
- * @returns {void}
- */
-/**
- * 인스턴스 화살표 렌더링 Mesh 타입
- *
- * @typedef {import('@union3d/core/mesh/UInstancedMesh').UInstancedMesh<import('three').CylinderGeometry | import('three').ConeGeometry, import('three').MeshBasicMaterial, number, import('@union3d/core/mesh/UInstancedMesh').UInstancedMeshCO> & {addInstances: AddInstancesCallback}} SlopeUInstancedMesh
- */
-/**
  * ~extends import('@UAnaly').UAnaly <br>
- * `경사향` 분석 클래스
+ *
+ * 경사향(SlopeAspect)과 경사도를 격자 셀별로 계산하고 지도에 방향 화살표를 표시합니다.
+ *
  * @group analysis
  * @extends {UAnaly}
  *
  * @example
- * var analy = app.getAnalysis('SlopeAspect');
- * await analy.active();
+ * const analy = app.getAnalysis('SlopeAspect');
+ * await analy.getSlope({x: 127.0, y: 37.5});
  */
 declare class UAnalySlopeAspect extends UAnaly {
     static WIDTH: number;
@@ -131,6 +108,7 @@ declare class UAnalySlopeAspect extends UAnaly {
      */
     setOpacity(opacity?: number): void;
     /**
+     * 현재 결과 셀의 스타일을 다시 평가하고 화살표의 위치·가시성·색상·투명도를 갱신합니다.
      */
     onAfterRender(): void;
     /**
@@ -154,15 +132,14 @@ declare class UAnalySlopeAspect extends UAnaly {
      */
     setArrowStyleFunction(arrowStyleFunction: undefined | ((arg0: SlopeAspectCell, arg1: number | undefined) => SlopeAspectArrowStryle)): void;
     /**
-     * 경사향 분석 함수.
-     * 입력받은 마우스 이벤트를 기준으로
-     * 분석 옵션에 따른 그리드를 생성하여, 경사향을 화면에 표출한다.
-     * @param {import('three').Vector3 | {x: number, y: number}} position 분석 중심 위치 위경도
-     * @param {Partial<UAnalySlopeAspectCO>} [options] 분석 옵션
-     * @return {Promise<boolean>}
-     * @throws {TypeError} 표면 샘플링 방식, 대상 레이어 목록 또는 화살표 형상 옵션 타입이 올바르지 않은 경우
-     * @throws {RangeError} 화살표 형상 옵션이 0 이하인 경우
-     * @throws {Error} 대상 레이어가 없거나 경사도·경사향을 계산할 유효 표면점이 없는 경우
+     * 지정한 중심 주변의 경사도와 경사향을 계산하고 화살표 표시를 갱신합니다. <br>
+     * 미완료 요청이 있으면 취소한 뒤 새 분석을 예약합니다.
+     * 격자 샘플링 중 취소된 요청은 화살표를 표출하지 않습니다.
+     *
+     * @param {import('three').Vector3 | {x: number, y: number}} position 분석 중심의 월드 좌표(EPSG:3857) 벡터 또는 위경도 좌표계(EPSG:4326)의 x·y 객체
+     * @param {Partial<UAnalySlopeAspectCO>} [options] 이번 분석을 시작할 때 적용할 옵션
+     * @returns {Promise<boolean>} 분석 성공 시 true로 완료되며, 취소 시 false로 거부되는 Promise <br>
+     * 옵션이 올바르지 않거나 대상 레이어 또는 유효 표면점이 없으면 분석 오류로 거부됩니다.
      */
     getSlope(position: three.Vector3 | {
         x: number;
@@ -207,8 +184,9 @@ declare class UAnalySlopeAspect extends UAnaly {
     };
 
 /**
-     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
-     * UAnalySlopeAspect 생성자 옵션
+     * ~extends UAnalyCO <br>
+     *
+     * 경사향(SlopeAspect) 분석의 영역·표면 조회와 화살표 표출 옵션입니다.
      */
     type UAnalySlopeAspectCO_Content = {
         /**
@@ -282,8 +260,9 @@ declare class UAnalySlopeAspect extends UAnaly {
     };
 
 /**
-     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
-     * UAnalySlopeAspect 생성자 옵션
+     * ~extends UAnalyCO <br>
+     *
+     * 경사향(SlopeAspect) 분석의 영역·표면 조회와 화살표 표출 옵션입니다.
      */
     type UAnalySlopeAspectCO = Omit<Omit<UAnalyCO, never> & UAnalySlopeAspectCO_Content, never>;
 
@@ -407,6 +386,18 @@ declare class UAnalySlopeAspect extends UAnaly {
          * 경사향 격자 화살표 스타일 콜백함수
          */
         arrowStyleFunction?: (cel: SlopeAspectCell, index?: number) => SlopeAspectArrowStryle;
+    };
+
+/**
+     * 인스턴스 화살표 추가를 위한 콜백 함수 타입
+     */
+    type AddInstancesCallback = (count: number, updateFn: () => void) => void;
+
+/**
+     * 인스턴스 화살표 렌더링 Mesh 타입
+     */
+    type SlopeUInstancedMesh = UInstancedMesh<three.CylinderGeometry | three.ConeGeometry, three.MeshBasicMaterial, number, UInstancedMeshCO> & {
+        addInstances: AddInstancesCallback;
     };
 
 export type { AddInstancesCallback, SlopeAspectArrowStryle, SlopeAspectCell, SlopeAspectOption, SlopeAspectSamplingMode, SlopeAspectTarget, SlopeUInstancedMesh, UAnalySlopeAspect, UAnalySlopeAspectCO, UAnalySlopeAspectCO_Content };

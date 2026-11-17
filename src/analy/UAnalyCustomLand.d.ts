@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -16,13 +16,13 @@ import type { Double_Array, GeoPosition, GeoPositionVector3, WorldPositionVector
 import type { OLFeature, OLStyle } from "../types/ol.js";
 
 /**
- * ~extends import('@UAnaly').UAnaly <br>
- * `지형 편집` 분석 클래스 <br>
- * 편집영역 그리기, 편집높이 설정 등의 기능을 제공한다.
+ * ~extends import('@UAnaly').UAnaly
+ *
  * @group analysis
- * @extends UAnaly
+ * @extends {UAnaly}
  *
  * @tutorial {@link https://3d.geon.kr/doc/tutorial-official/customLand.html}
+ *
  * @example
  * let analy = app.activeAnalysis('CustomLand');
  */
@@ -114,9 +114,12 @@ declare class UAnalyCustomLand extends UAnaly {
      */
     stopDraw(): void;
     /**
-     * @param {import('@union3d/analy/CustomLand').CustomLand} customLand
+     * 편집 순번을 확정한 뒤 앱 편집 집합과 공간 인덱스에 등록합니다.
+     *
+     * @param {import('@union3d/analy/CustomLand').CustomLand} customLand 등록할 편집 객체
+     * @param {number} [sequence] 저장하거나 수정 전에 발급받은 순번(생략하거나 충돌하면 새 순번 발급)
      */
-    setCustomLandToApp(customLand: CustomLand): void;
+    setCustomLandToApp(customLand: CustomLand, sequence?: number): void;
     areaPoiClear(): void;
     /**
      * 경사도 추가 분석
@@ -165,8 +168,9 @@ declare class UAnalyCustomLand extends UAnaly {
      */
     checkHeightByLayer(box: UBox3): boolean;
     /**
-     * 편집 지형의 생성 파라미터 값을 반환하는 함수
-     * @return {Array<CustomLandCO>} 생성 파라미터
+     * 생성 파라미터와 적용 순번을 반환합니다.
+     *
+     * @returns {Array<CustomLandCO & Partial<{ heightEditOrder: number; }>>} 생성 파라미터와 앱 내 우선순위
      *
      * @example
      * param {
@@ -174,14 +178,19 @@ declare class UAnalyCustomLand extends UAnaly {
      *   geoVertex: [{x: 129.154, y: 35.164, z: 15}]
      * }
      */
-    getParam(): Array<CustomLandCO>;
+    getParam(): Array<CustomLandCO & Partial<{
+        heightEditOrder: number;
+    }>>;
     /**
-     * 커스텀 지형의 생성 파라미터 값을 설정하는 함수
-     * @param {Array<CustomLandCO>} param 생성 파라미터
+     * 준비된 월드 박스를 가진 생성 파라미터와 선택적 적용 순번을 복원합니다.
      *
-     *  @see CustomLandCO
+     * @param {Array<CustomLandCO & Partial<{ heightEditOrder: number; }>>} param getParam으로 저장한 편집 지형 생성 옵션과 적용 순번
+     *
+     * @see CustomLandCO
      */
-    setParam(param: Array<CustomLandCO>): void;
+    setParam(param: Array<CustomLandCO & Partial<{
+        heightEditOrder: number;
+    }>>): void;
     /**
      * 커스텀 지형을 선택 시 선택 방식을 지정하는 함수 (Polygon OR Box)
      * @param {string} type 선택 방식 `Polygon` | `Box`
@@ -219,15 +228,16 @@ declare class UAnalyCustomLand extends UAnaly {
      */
     addCustomLand(options: DataOPT_Input): Promise<void>;
     /**
-     * 편집한 지형을 수정하는 기능
+     * 기존 편집의 순번을 유지하면서 지형을 수정합니다.
+     *
      * @param {string} id 수정할 편집지형 ID
-     * @param {DataOPT_Input} option
-     * @returns {Promise<void> | undefined} 수정 완료 또는 입력·대상 지형이 없으면 undefined
+     * @param {DataOPT_Input} option 새 도형과 목표 높이(m)를 담은 편집 옵션
+     * @returns {undefined | Promise<void>} 수정 완료 또는 입력·대상 지형이 없으면 undefined
      *
      * @example
      * analy.editCustomLand("editLand", { id: "editLand_update", height: 55, geoVertex: [{x: 129.154, y: 35.164, z: 15}] });
      */
-    editCustomLand(id: string, option: DataOPT_Input): Promise<void> | undefined;
+    editCustomLand(id: string, option: DataOPT_Input): undefined | Promise<void>;
     /**
      * 편집된 지형 리스트를 반환하는 함수
      * @return {Array<import('@union3d/analy/CustomLand').CustomLand>}
@@ -246,6 +256,9 @@ declare class UAnalyCustomLand extends UAnaly {
      * @param {string} id 편집된 지형의 id
      */
     removeCustomLandById(id: string): void;
+    /**
+     * 이 분석의 편집 순번과 공간 등록을 해제하고 기존 방식으로 원본 지형을 재적용합니다.
+     */
     removeEditLandAll(): void;
     /**
      * 편집된 모든 지형을 초기화하는 함수
@@ -268,7 +281,7 @@ declare class UAnalyCustomLand extends UAnaly {
 }
 
 /**
-     * 편집 지형 입력 옵션. 사용자가 addCustomLand/editCustomLand에 최초 전달하는 원본 옵션
+     * addCustomLand/editCustomLand에 전달할 편집 지형 입력 옵션입니다.
      */
     type DataOPT_Input = {
         /**
@@ -283,6 +296,10 @@ declare class UAnalyCustomLand extends UAnaly {
          * 편집 지형의 고도값 (양수: 지면 위, 음수: 지면 아래) (필수)
          */
         height: number;
+        /**
+         * getParam에서 저장한 앱 내 적용 순번. 0 이상 Number.MAX_SAFE_INTEGER 미만 안전한 정수. 생략하면 신규 순번을 발급하며 기존 편집 수정은 원래 순번을 유지
+         */
+        heightEditOrder?: number;
         /**
          * 경사면 편집 활성화 여부
          */
@@ -324,6 +341,10 @@ declare class UAnalyCustomLand extends UAnaly {
          * 편집 지형의 고도값
          */
         height?: number;
+        /**
+         * 저장·복원할 앱 내 적용 순번. 0 이상 Number.MAX_SAFE_INTEGER 미만 안전한 정수이며 생략하면 신규 순번 발급
+         */
+        heightEditOrder?: number;
         /**
          * 경사면 편집 활성화 여부
          */

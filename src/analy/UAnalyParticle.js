@@ -12,7 +12,8 @@ import {deferredPromise} from '@util/deferredPromise';
 import {Yield} from '@util/Yield';
 import {normalizeOptionKeys} from '@util/normalizeOptionKeys';
 import {UClock} from '@union3d/core/UClock';
-import {INTERNAL} from '@union3d/analy/UAnalyParticle.internal';
+import {UErrorCollector} from '@union3d/util/UErrorCollector';
+import {INTERNAL, maskCreationApps} from '@union3d/analy/UAnalyParticle.internal';
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
@@ -436,8 +437,11 @@ class UAnalyParticle extends UAnaly {
 
     /**
      * 모델 강제 로딩 범위의 마스크를 생성하고 값 생성 완료를 통지합니다. <br>
-     * useForceLoad가 false이면 레이어 준비 후 즉시 완료합니다. <br>
-     * 잘못된 레벨·트리 교체·로딩 실패는 설정과 이벤트를 복원한 뒤 거절합니다. <br>
+     * useForceLoad가 false이면 모델 상한을 변경하지 않고 레이어 준비 후 완료합니다. <br>
+     * 같은 앱의 강제 요청은 값 생성까지 한 번에 하나만 실행합니다. <br>
+     * 대기 중 공개 API로 모델 상한을 설정하면 임시값과 같은 값이어도 해당 설정을 유지합니다. <br>
+     * 잘못된 레벨·트리 교체·로딩 실패는 이벤트 정리와 필요한 복원을 시도한 뒤 거절합니다. <br>
+     * 정리 중 일부 단계가 실패해도 나머지 정리를 시도하며, 여러 실패는 errors에 원래 사유를 담아 전달합니다. <br>
      * opt 원본에 기본값을 보완하며 opt 누락은 동기 예외, 앱 미연결은 미완료 반환으로 남습니다.
      *
      * @param {UAnalyParticleMaskOption} opt 마스크 레이어와 모델 로딩 범위 설정
@@ -468,38 +472,79 @@ class UAnalyParticle extends UAnaly {
 
         if (!this._app) return promise;
         const app = this._app;
+        const useForceLoad = defaultValue(opt.useForceLoad, true);
         const tree = app._quadtreeSet;
         if (!tree?.hasQuadTree(UDEF.TILE_TYPE.MODEL) || app.isDisposed() || app._quadTreeChanging || app._mapRegionApplying
-            || (parameters.useForceLoad !== false && app.isStopUpdate())) {
+            || (useForceLoad && (app.isStopUpdate() || maskCreationApps.has(app)))) {
             promise.reject(new Error('타일 트리를 사용할 수 없거나 다른 강제 로딩 작업이 진행 중입니다.'));
             return promise;
         }
         const roots = tree.getQuadTrees(UDEF.TILE_TYPE.MODEL);
-        const originalModelLimit = app._modelMaxLevel;
+        let originalModelLimit = app._modelMaxLevel;
+        /** @type {number | undefined} */
+        let appliedModelLimit;
+        // 값 비교만으로는 사용자가 임시값과 같은 상한을 다시 지정했는지 알 수 없습니다.
+        // 공개 setter가 호출하는 무효화 함수에 이번 요청의 복원 권한을 연결합니다.
+        const invalidateModelLimit = () => { appliedModelLimit = undefined; };
+        if (useForceLoad) maskCreationApps.set(app, invalidateModelLimit);
         const controller = new AbortController();
+        /** @type {Promise<void> | undefined} */
+        let loadPromise;
         let cleaned = false;
-        const cleanup = () => {
+        /**
+         * 정리 재진입을 막고 독립적인 해제를 모두 시도한 뒤 요청을 한 번만 종결합니다.
+         * 실패 여부를 사유와 분리하여 undefined 등으로 거절된 요청도 성공으로 바꾸지 않습니다.
+         *
+         * @param {boolean} failed 작업 실패 또는 취소 여부
+         * @param {unknown} [reason] 원래 실패 사유
+         */
+        const finish = (failed, reason) => {
             if (cleaned) return;
             cleaned = true;
-            controller.abort();
-            for (const root of roots) root.off(U3dEvent.TILE.DISPOSE, cancel);
-            tree?.off(U3dEvent.TILE.FORCE_MODEL_LOADED, eventName);
-            // 미지정 상태도 복원하여 공용 기본값을 계속 따르게 합니다.
-            app._modelMaxLevel = originalModelLimit;
+            const errors = new UErrorCollector('마스크 생성 또는 정리에 실패했습니다.');
+            if (failed) errors.add(reason);
+            errors.attempt(() => controller.abort());
+            for (const root of roots) errors.attempt(() => root.off(U3dEvent.TILE.DISPOSE, cancel));
+            errors.attempt(() => tree.off(U3dEvent.TILE.FORCE_MODEL_LOADED, eventName));
+            errors.attempt(() => {
+                // 비강제 요청은 복원할 설정을 소유하지 않습니다. 강제 요청도 현재값이
+                // 자신이 적용한 상한일 때만 미지정 상태를 포함한 이전 설정으로 돌립니다.
+                if (appliedModelLimit !== undefined && app._modelMaxLevel === appliedModelLimit) app._modelMaxLevel = originalModelLimit;
+            });
+            const settle = () => {
+                // 강제 로딩의 취소 정리까지 끝난 다음 점유를 해제합니다. 다른 요청의 등록은 보존합니다.
+                if (maskCreationApps.get(app) === invalidateModelLimit) maskCreationApps.delete(app);
+                try {
+                    errors.finish();
+                    promise.resolve();
+                } catch (error) {
+                    promise.reject(error);
+                }
+            };
+            if (failed) {
+                // abort()는 로딩 Promise를 거절할 뿐 그 정리 실패를 동기적으로 던지지 않습니다.
+                // 시작 함수 안에서 취소되어도 loadPromise 할당 뒤 결과를 받아 원래 실패와 함께 전달합니다.
+                Promise.resolve().then(() => loadPromise).then(settle, loadError => {
+                    if (loadError !== reason && loadError !== controller.signal.reason) errors.add(loadError);
+                    settle();
+                });
+            } else settle();
         };
-        const complete = () => { cleanup(); promise.resolve(); };
+        const complete = () => finish(false);
         /**
          * 모델 설정과 이벤트를 복원한 뒤 실패를 알립니다.
          *
          * @param {unknown} error 작업 실패 원인
          */
-        const fail = (error) => { cleanup(); promise.reject(error); };
+        const fail = (error) => finish(true, error);
         const cancel = () => fail(new Error('타일 트리 변경으로 마스크 생성을 취소했습니다.'));
-        for (const root of roots) root.on(U3dEvent.TILE.DISPOSE, cancel);
         // 완료·실패 경로에서 직접 정리하여,
         // 실패를 다시 전파하는 별도의 finally Promise가 남지 않도록 합니다.
 
         try {
+            // 등록 중 예외가 발생해도 이미 연결한 루트의 리스너를 정리합니다.
+            for (const root of roots) root.on(U3dEvent.TILE.DISPOSE, cancel);
+            if (cleaned) return promise;
             if (!app.getLayerByName(layerName)) {
                 this._maskLayer = new U3dMaskLayer(parameters);
                 app.addLayer(/** @type {import('@U3dLayer').U3dLayer} */
@@ -514,7 +559,6 @@ class UAnalyParticle extends UAnaly {
             visibility.catch(fail);
             const level = /** @type {number} */ (parameters.level);
             if (cleaned) return promise;
-            const useForceLoad = defaultValue(opt.useForceLoad, true);
             if (useForceLoad) {
                 const visible = defaultValue(opt.forceLoadVisible, true);
                 const modelForceExtents = /** @type {{minx: number, miny: number, maxx: number, maxy: number}} */ (defaultValue(opt.modelExtents, undefined));
@@ -527,16 +571,22 @@ class UAnalyParticle extends UAnaly {
                 const endPromise = [];
                 /** @type {import('@UEventDispatcher').UEventDispatcher} */ (/** @type {unknown} */ (app._quadtreeSet)).on(U3dEvent.TILE.FORCE_MODEL_LOADED, function (/** @type {{data: {item: import('@U3dQuadModelTile').U3dQuadModelTile | null | undefined}}} */ e) {
                     const tile = e.data.item;
-                    if (cleaned || app._quadTreeChanging || roots.some(root => root._disposed) || !tile) return;
+                    if (cleaned || app._quadTreeChanging || roots.some(root => root._disposed) || !tile || tile._disposed) return;
                     // 현재 요청에 해당하는 타일만 수집하고 같은 키의 중복 생성을 막습니다.
-                    INTERNAL.collectMaskTile(tile, level, box, tileKeys, maskLayerRef);
+                    try { INTERNAL.collectMaskTile(tile, level, box, tileKeys, maskLayerRef); }
+                    catch (error) { fail(error); }
                 }, false, eventName);
+                // 레이어 준비가 동기적으로 설정을 바꿀 수도 있으므로 실제 적용 직전 값을 보관합니다.
+                originalModelLimit = app._modelMaxLevel;
                 if (!app.setMaxQuadTreeLevel(level, UDEF.TILE_TYPE.MODEL)) {
                     throw new RangeError('마스크 생성 레벨이 유효하지 않습니다.');
                 }
-                const load = app.forceLoadModel(visible, minx, maxx, miny, maxy);
+                appliedModelLimit = level;
+                // 표시 실패나 트리 취소 시 이 요청이 시작한 강제 로딩도 함께 정리합니다.
+                const load = app.forceLoadModel(visible, minx, maxx, miny, maxy, controller.signal);
                 if (!load) throw new Error('다른 강제 모델 로딩 작업이 진행 중입니다.');
-                Promise.resolve(load).then(() => {
+                loadPromise = Promise.resolve(load);
+                loadPromise.then(() => {
                     if (cleaned) return;
                     if (app.isDisposed() || roots.some(root => root._disposed)) { cancel(); return; }
                     tileKeys.forEach((tileKey) => {

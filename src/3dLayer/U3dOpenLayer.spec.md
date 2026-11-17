@@ -70,7 +70,7 @@ OLLayer 부분 타입 명세
 
 OLMap 부분 타입 명세
     이 명세에서 사용하는 필드:
-        promise_?: DeferredObject<boolean>
+        promise_?: DeferredPromise<boolean>
             최종 폐기 시 false로 해결할 내부 렌더 완료 객체다.
         ukey_?: any
             등록한 일회성 OL event key다.
@@ -241,6 +241,14 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
     #renderFrameScheduler: U3dOpenLayerFrameScheduler
         이 레이어의 모든 OpenLayers map이 공유하는 렌더 callback 스케줄러
 
+    #releaseActiveLayerCallback(layer: OLLayer) -> boolean
+        역할: 자원 보조 함수에 전달하는 활성 layer 등록 해제 callback이다.
+        동작: 현재 레이어 인스턴스를 포획하여 #activeOLLayers에서 전달된 layer를 삭제하고 WeakSet.delete 결과를 반환한다.
+
+    #releaseSharedSourceCallback(layer: OLLayer, source: object) -> boolean
+        역할: 자원 보조 함수가 source 참조를 반환할 때 현재 레이어의 공유 수명 처리를 연결한다.
+        동작: 현재 레이어 인스턴스를 포획하여 layer와 source를 전달하고 공유 참조 반환 결과를 그대로 돌려준다.
+
     constructor(opt: U3dOpenLayerCO = {})
         인터페이스:
             opt: 좌표계, 영역, 등록 layer, source cache, renderer pool과 선택 기능의 초기 설정
@@ -261,13 +269,17 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
             UMercator(mercator) — 레벨별 해상도 계산; 함수: {Resolution()}
 
         동작:
-            기반 이미지 레이어를 초기화하고 레이어 종류를 IMAGE, 클래스 종류를 U3dOpenLayer로 설정하며 이 레이어의 _disposed를 false로 둔다. 반전 설정은 기본 false, OL 모드는 기본 true, parameter는 전달된 객체 또는 새 빈 객체로 저장한다. useNotFoundPass는 값이 정확히 true일 때만 활성화한다.
-            레이어 전용 frame scheduler와 renderer·source 상태 저장소를 만든다.
+            기반 이미지 레이어를 초기화하고 _type을 IMAGE, _classtype을 U3dOpenLayer로 설정하며 이 레이어의 _disposed를 false로 둔다.
+            _reverseX·_reverseY는 각각 기본 false, _oldebug는 기본 true로 저장한다. _parameter는 전달된 객체 또는 새 빈 객체이고 _srs는 전달된 값, _crs는 기본 EPSG:3857 또는 전달값을 대문자화한 결과다.
+            전달된 layers가 배열이면 name·callback과 새 sharedSources 빈 배열을 가진 항목들을 _layers에 복사하고 아니면 빈 배열을 둔다. #useNotFoundPass는 값이 정확히 true일 때만 활성화한다.
+            #sourceTileCacheLimit과 #olRendererPoolSize는 각각 위의 기본값·유효 범위·내림 기준을 적용한 숫자로 저장한다.
+            레이어 전용 frame scheduler를 만들어 #renderFrameScheduler에 저장하고 renderer·source 상태 저장소를 만든다.
 
-            선택된 경우 반복 404 상태 저장소와 진단 로그 저장소를 만든다.
+            #useNotFoundPass가 true이면 반복 404 상태 저장소를 만든다.
+            기반 isDebugLog가 true이면 진단 로그 저장소를 초기화한다.
             tileBackgroundColor는 truthy 값일 때만 초기 배경색으로 저장한다. [확인 Q-003]
             boundingbox가 있으면 x와 y 경계를 현재·원본 영역에 복사한다. minz와 maxz는 복사하지 않는다. [확인 Q-002]
-            0부터 최대 레벨까지 Mercator 해상도를 계산하여 보관한다.
+            _resolutions를 새 빈 배열로 만들고 0부터 최대 레벨까지 Mercator 해상도를 계산하여 보관한다.
 
     타일 배경색 책임 그룹
         setTileBackgroundColor(color: ColorRepresentation | null) -> void
@@ -332,8 +344,8 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
                 U3dLayer — 진단 로그 활성 여부 판정; 함수: {isDebugLog()}
 
             동작:
-                기존 source 이벤트를 해제한다.
-                generation을 증가시켜 이전 비동기 완료가 새 통계에 합쳐지지 않는 로그 저장소를 만든다.
+                기반 isDebugLog가 false이면 변경 없이 false를 반환한다.
+                활성화되어 있으면 기존 source 이벤트를 해제하고 generation을 증가시킨 로그 저장소를 만든 뒤 true를 반환한다.
 
         #clearDebugSourceTracking() -> void
             역할: 추적한 source 이벤트를 해제하고 진단용 source·tile 상태를 교체한다.
@@ -362,11 +374,13 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
 
         #startDebugTileLoad(state: DebugSourceState, tile: any) -> void
             동작:
-                active load 수와 peak를 갱신하고 tile의 generation과 시작 시각을 저장한다.
+                로그가 없거나 state와 generation이 다르거나 tile이 비어 있거나 객체가 아니면 종료한다.
+                유효한 현재 세대의 tile이면 active load 수와 peak를 갱신하고 tile의 generation과 시작 시각을 저장한다.
 
         #finishDebugTileLoad(state: DebugSourceState, tile: any) -> void
             동작:
-                시작 상태가 있으면 active 수와 경과 통계를 갱신하고 상태를 제거하며, 없으면 unmatched 횟수를 증가시킨다.
+                로그·세대·tile 객체 조건이 맞지 않으면 종료한다. 시작 상태가 없거나 그 세대가 다르면 unmatched 횟수만 증가시키고 종료한다.
+                유효한 시작 상태가 있으면 active 수와 경과 통계를 갱신하고 상태를 제거한다.
 
         #attachDebugSourceEvents(state: DebugSourceState) -> void
             의존:
@@ -562,7 +576,7 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
 
             동작:
                 bundle이 현재 세대인지 확인하고 이벤트·타일 layer를 분리한다.
-                #releaseSharedSourceCallback은 source 참조를 반환하고 #releaseActiveLayerCallback은 활성 집합에서 분리한 layer를 삭제한다. 진단 source 해제 callback도 필요 시 준비한다.
+                source 참조 반환과 활성 layer 등록 해제 callback을 전달하고, 진단 source 해제 callback도 필요 시 준비한다.
                 map·view를 idle 초기화하고 inUse·releasing을 false로 닫는다. [확인 Q-011]
                 bundle.debugHooksInstalled가 true이면 bundle.debugEntry 참조를 비운다.
                 debugEntry가 현재 로그 세대이면 active 진단 수를 감소시킨다.
@@ -580,7 +594,7 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
 
             동작:
                 bundle 상태나 generation이 현재 대여와 일치하지 않으면 stale callback을 기록하고 완료 callback만 실행한다.
-                중복 반환을 막고 이벤트를 해제한다.
+                bundle.releasing을 true로 바꾸어 중복 반환을 막는다. 이벤트 해제는 아래 폐기 또는 render-idle 완료 후의 초기화 단계에서 수행한다.
                 재사용할 수 없으면 즉시 폐기한다.
                 재사용할 수 있으면 map의 render-idle 완료 뒤 idle 초기화 또는 폐기를 결정한다. [확인 Q-009]
 
@@ -615,7 +629,7 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
                 Web URL·Document API — 요청 URL 정규화; 생성자: {new URL()}; 속성 읽기: {document.baseURI}
 
             동작:
-                요청 값을 문자열화하여 절대 URL로 변환하고, 파싱할 수 없으면 원문 문자열을 반환한다.
+                value가 falsy이면 undefined를 반환한다. 그 외에는 문자열로 바꾸고 document.baseURI가 있을 때 절대 URL로 변환한다. 기준 URI가 없거나 변환에 실패하면 문자열화한 값을 반환한다.
 
         #findResourceTiming(url: string | undefined, loadStartTime: number, startToleranceMs: number = 5) -> PerformanceResourceTiming | undefined
             동작: 현재 요청에 대응하는 최신 측정 항목을 찾아 반환한다.
@@ -672,10 +686,10 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
                 PerformanceResourceTiming — 요청 시각 대조와 실제 HTTP 응답 상태 판정; 속성 읽기: {startTime, responseStatus}
 
             동작:
-                요청 URL과 시작 시각에 대응하는 Resource Timing을 찾는다.
+                16ms 뒤 URL의 동일 세대 pending 기록을 읽고, 시작 시각이 요청 시작 - 1ms 이상인 관측값을 우선 사용하며 없으면 허용 오차 1ms로 Resource Timing을 찾는다. URL 진행 수를 반환한 뒤 cache가 없거나 세대가 바뀌었으면 종료한다.
 
-                응답 상태를 확인할 수 없으면 404로 단정하지 않는다.
-                실제 404이면 횟수를 증가시키고 그 외 응답이면 기존 기록을 제거한다.
+                응답 상태가 404가 아니면 기존 URL 기록을 제거한다. 상태가 0이고 현재 진단 세대이면 상태 미확인 횟수도 기록한다.
+                실제 404이면 같은 resource 시작 시각을 중복 집계하지 않고 횟수를 증가시킨다. 새 URL이고 10000건 상한에 도달했으면 가장 오래 사용하지 않은 기록 하나를 제거한다.
                 같은 URL의 실제 404가 2회 누적되면 차단한다. [확인 Q-001]
 
         #passNotFoundTile(imageTile: any) -> boolean
@@ -710,7 +724,7 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
                 OpenLayers TileState — 사용자 취소 완료와 정상 완료 구분; 상수: {ABORT}
 
             동작:
-                기본 TileImage loader가 아니거나 추적·완료 이벤트 API가 없으면 원래 loader를 유지한다.
+                현재 tileLoadFunction이 함수가 아니거나 기본 TileImage loader와 다른 함수이면 원래 loader를 유지한다. 기본 loader 경로는 source.on을 별도로 검사하지 않고 사용한다.
                 기본 loader에서는 유효 ImageTile과 HTMLImageElement를 진행 Map에 연결한다. data·blob URL이나 유효하지 않은 이미지 입력은 추적 없이 원래 loader에 전달한다.
                 반복 404 기능이 활성화되고 observer가 아직 없을 때 observer 설치를 시도한다.
                 #useNotFoundPass가 false이면:
@@ -828,12 +842,11 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
             역할: 타일 layer의 source 참조를 반환하고 참조 수가 0이면 캐시 정리와 지연 처분을 수행한다.
 
             동작:
-                공유 연결이 없으면 false를 반환한다. 있으면 연결을 제거하고 refCount를 감소시킨다.
-                refCount가 0이면:
-                    releasedStates가 있으면 평가 집합에 상태를 추가한다.
-                    releasedStates가 없으면:
-                        state.retired가 true이면 source 처분을 시도한다.
-                        state.retired가 false이면 idle cache를 줄인다.
+                공유 연결이 없거나 저장된 source가 입력 source와 다르면 false를 반환한다. 일치하면 연결을 제거하고 refCount를 0 미만이 되지 않게 감소시킨다.
+                releasedStates가 있으면 남은 refCount와 관계없이 평가 집합에 상태를 추가한다.
+                releasedStates가 없으면:
+                    state.retired가 true이면 source 처분을 시도한다. 실제 해제 가능 여부는 그 함수가 ownerCount와 refCount로 판단한다.
+                    state.retired가 false이면 cache 정리를 요청하며, refCount가 남아 있으면 그 함수가 아무 작업도 하지 않는다.
                 관리된 공유 source였음을 true로 반환한다.
 
     등록 레이어와 수명주기 책임 그룹
@@ -850,6 +863,7 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
 
             동작:
                 404 차단 상태를 초기화한다.
+                #contractErrorReported를 false로 바꾸어 다음 계약 오류를 다시 보고할 수 있게 한다.
                 기존 등록 source를 retired 처리한다.
                 기반 이미지 레이어 refresh를 호출한다.
 
@@ -981,8 +995,8 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
                 U3dLayer — 타일 key·상태·취소와 cache 접근; 함수: {createKeyByTile(), setStateTile(), resetStateTile(), removeCancelByTile(), getCache()}; 속성 읽기: {_drawArg}
                 UEventDispatcher — texture 완료 이벤트 전달; 함수: {dispatchEvent()}
                 U3dQuadTile(tile) — 타일 식별·좌표·레벨과 영역 조회; 속성 읽기: {_key, _x, _y, _rlevel, _rectangle3d}
-                deferred — 내부 완료 객체와 반환용 완료 객체 생성; 함수: {deferred()}
-                DeferredObject — 내부 완료와 반환용 완료 연결; 함수: {resolve(), then()}
+                deferredPromise — 내부 완료 제어 객체 생성; 함수: {deferredPromise()}
+                DeferredPromise — 내부 완료 제어; 함수: {resolve()}
                 UDrawArg(_drawArg) — 타일 world 중심을 Google 좌표로 변환; 함수: {getWorldToGoogle()}
                 UGeoRect(tile._rectangle3d) — 타일 영역 중심 계산; 함수: {centerMap()}
                 UMercator(mercator) — 타일 index와 level의 EPSG:3857 extent 계산; 함수: {TileBounds()}
@@ -994,8 +1008,10 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
 
             동작:
                 기반 레이어가 생성을 허용하지 않으면 undefined를 반환한다.
-                타일을 loading 상태로 바꾸고 내부 완료 객체와 반환용 완료 객체를 만들며, 내부 완료 객체가 해결되면 반환용 완료 객체를 타일로 해결한다.
-                데이터 캐시에 텍스처가 있으면 참조를 할당하고 타일을 end로 바꾼 뒤 LOADED 이벤트와 완료를 전달한다.
+                #debugLogJson이 있으면 타일 좌표를 담은 측정 항목을 만든다.
+                타일을 loading 상태로 바꾸고 내부 완료 객체를 만든다. 이 객체의 then에서 타일을 반환하는 표준 Promise를 호출자에게 돌려주므로 내부 성공 값은 타일로 치환하고 내부 거부는 그대로 전파한다. 콜백은 마이크로태스크에서 실행된다.
+                데이터 캐시에 텍스처가 있더라도 UDEF.imageDebug가 참이면 캐시 항목을 삭제하고 새 렌더링을 계속한다.
+                데이터 캐시에 텍스처가 있고 UDEF.imageDebug가 거짓이면 참조를 할당하고 타일을 end로 바꾼 뒤 LOADED 이벤트와 완료를 전달한다. debugEntry가 있으면 cache-hit을 기록하고 타일 Promise를 반환한다.
                 drawArg가 없으면 상태와 완료 객체를 정리하지 않고 undefined를 반환한다. [확인 Q-005]
                 타일 중심과 Mercator extent로 256x256 view 옵션을 만든다.
                 renderer bundle을 대여한다. #createOLLayers에서 예외가 나면 bundle을 callback-error로 재사용 없이 해제하고 일반 오류는 타일 상태를 reset하며 계약 오류는 end로 고정한 뒤 내부 Deferred를 false로 해결하여 반환용 타일 완료 객체를 반환한다. [확인 Q-016]
@@ -1007,7 +1023,7 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
 
                 타일 취소 callback을 등록하고 map 크기와 명시적 render 요청을 적용한다.
 
-        #registerRendererCancel(tile: U3dQuadTile, promise: DeferredObject<unknown>, rendererBundle: any, rendererGeneration: number, debugEntry?: Record<string, any>) -> void
+        #registerRendererCancel(tile: U3dQuadTile, promise: DeferredPromise<unknown>, rendererBundle: any, rendererGeneration: number, debugEntry?: Record<string, any>) -> void
             역할: 타일 취소 시 실행할 OpenLayers 자원 정리 callback을 기반 취소 저장소에 등록한다. 기반 setCancelByTile은 bundle과 대여 세대를 공급할 수 없어 재정의하지 않고 이 레이어 전용 helper로 둔다.
 
             처리 기준:
@@ -1017,7 +1033,7 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
             의존:
                 U3dLayer — 기반 타일 취소 callback 등록, 타일 key와 취소 저장소 및 상태 초기화; 함수: {setCancelByTile(), createKeyByTile(), resetStateTile()}; 속성 읽기·삭제: {_cancelTiles}
                 defined — 기반 취소 callback 존재 여부 판정; 함수: {defined()}
-                DeferredObject(promise) — 취소 완료 전달; 함수: {resolve()}
+                DeferredPromise(promise) — 취소 완료 전달; 함수: {resolve()}
 
             동작:
                 기반 API에 완료 객체를 등록하고 저장된 cancel을 이 레이어 callback으로 교체한다.
@@ -1028,18 +1044,18 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
                 해제 callback에서 debugEntry가 있으면 cancelled 완료를 기록한다.
                 해제 뒤 완료 객체를 해결한다. 정리 예외의 false 해결은 원래 규칙을 따른다. [확인 Q-004]
 
-        #finishPostComposeWithoutReuse(rendererBundle: any, rendererGeneration: number, promise: DeferredObject<boolean>, debugEntry: Record<string, any> | undefined, status: 'failed' | 'cancelled', reason: string) -> void
+        #finishPostComposeWithoutReuse(rendererBundle: any, rendererGeneration: number, promise: DeferredPromise<boolean>, debugEntry: Record<string, any> | undefined, status: 'failed' | 'cancelled', reason: string) -> void
             역할: 정상 texture를 만들 수 없는 postcompose 경로에서 bundle을 폐기하고 완료 객체를 false로 해결한다.
 
             의존:
-                DeferredObject(promise) — 실패·취소 완료 전달; 함수: {resolve()}
+                DeferredPromise(promise) — 실패·취소 완료 전달; 함수: {resolve()}
 
             동작:
                 bundle을 재사용 불가로 반환한다.
                 해제 callback에서 debugEntry가 있으면 진단 결과·사유를 기록한다.
                 해제 callback에서 완료 객체를 false로 해결한다.
 
-        postCompose(tile: U3dQuadTile, rendererBundle: any, rendererGeneration: number, promise: DeferredObject<boolean>, debugEntry?: Record<string, any>, event?: any) -> void
+        postCompose(tile: U3dQuadTile, rendererBundle: any, rendererGeneration: number, promise: DeferredPromise<boolean>, debugEntry?: Record<string, any>, event?: any) -> void
             인터페이스:
                 event: OpenLayers postcompose frame과 canvas context를 가진 선택 이벤트
 
@@ -1053,7 +1069,7 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
                 LRUCache(dataCache) — 완성 texture 저장; 함수: {put()}
                 UImageUtils — 이미지 디버그 타일 좌표 표시; 정적 함수: {drawTextFromCanvas()}
                 U3dEvent.IMAGE — texture 완료 이벤트 종류; 상수: {LOADED}
-                DeferredObject(promise) — 정상·실패 완료 전달; 함수: {resolve()}
+                DeferredPromise(promise) — 정상·실패 완료 전달; 함수: {resolve()}
                 OpenLayers RenderEvent(event) — 합성 frame과 renderer context 조회; 속성 읽기: {frameState, context}
                 Canvas 2D API — renderer 결과 canvas 접근; 속성 읽기: {canvas}
                 UDEF — 이미지 디버그와 타일 완료 상태; 상수: {imageDebug, TILE_STATE._end}
@@ -1061,8 +1077,9 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
             동작:
                 debugEntry가 있으면 precompose 경과를 기록한다.
                 tile이 없으면 실패하고, tile이 있으면 취소 등록을 제거한다.
-                이벤트가 없거나 tile이 처분되었거나 사용자 렌더가 끝나지 않았거나 context가 없으면 bundle을 폐기하고 false로 완료한다. 일부 경로는 loading 상태를 복구하지 않는다. [확인 Q-007]
-
+                이벤트가 없거나 tile이 처분되었으면 bundle을 폐기하고 false로 완료한다. 이후 실패 분기에도 같은 비재사용 완료 함수를 사용한다.
+                frame과 context를 전달하여 사용자 렌더 완료 여부를 판정한다.
+                사용자 렌더가 끝나지 않았거나 context가 없으면 bundle을 폐기하고 false로 완료한다. 이벤트 없음·렌더 미완료·context 없음 경로는 loading 상태를 복구하지 않는다. [확인 Q-007]
                 tile mesh 또는 drawArg가 없으면 타일을 end로 바꾸고 실패 완료한다.
                 UDEF.imageDebug가 true이면 타일 좌표를 그린다.
                 UDEF.imageDebug가 false이면:
@@ -1121,7 +1138,7 @@ U3dOpenLayer extends U3dImageLayer 클래스 정의
             동작:
                 layers가 배열이 아니거나 parameter가 falsy이면 새 빈 결과 배열을 반환한다. 그 외에는 현재 parameter의 boundingbox와 originBox를 레이어의 현재 영역 값으로 덮어쓴다.
                 정의된 callback만 실행하며 retired·disposed 슬롯은 undefined로 바꾼 sharedSources 배열을 만든다. 각 등록 callback에 현재 parameter와 이 sharedSources를 등록 항목을 수신 객체로 하여 전달한다. callback 자체의 예외는 앞서 만든 layer를 롤백한 후 다시 던진다.
-                callback이 null 또는 undefined를 반환하면 해당 등록 항목의 기존 source 전체를 retired 처리한다.
+                callbackResult가 null 또는 undefined이면 해당 등록 항목의 기존 source 전체를 retired 처리하고 다음 등록 항목으로 넘어간다.
                 callback의 단일 layer와 layer 배열 결과를 같은 순서로 펼친다. 이미 활성인 동일 OL layer 객체이면 계약 오류를 만들어 앞선 결과를 롤백한다.
                 반환 layer의 getSource 같은 후속 접근에서 예외가 나면 이 함수 자체의 롤백을 거치지 않는다. [확인 Q-016]
                 layer source가 기존 슬롯과 같으면 상태와 참조를 재사용한다.
@@ -1159,21 +1176,24 @@ OpenLayers 자원 보조 함수 책임 그룹
             주입 callback — 공유 source 반환, source 해제 진단과 활성 layer 등록 해제; 콜백: {releaseSharedSource(layer, source), onSourceRelease(source, action), onLayerRelease(layer)}
 
         동작:
-            map layer를 역순으로 분리하고 source 연결을 끊은 뒤 공유 참조를 반환하거나 비공유 source를 clear·dispose한다. [확인 Q-011]
-            layer를 처분한 다음 onLayerRelease가 있으면 분리한 객체를 전달한다.
+            olmap이 없으면 종료한다. map layer를 역순으로 순회하며 layer가 없는 항목은 건너뛰고 map에서 먼저 분리한다. [확인 Q-011]
+            onLayerRelease가 있으면 분리한 layer를 즉시 전달한 뒤 source를 읽고 layer의 source 연결을 끊는다.
+            source가 있으면 공유 참조 반환 callback의 결과가 정확히 true인지 확인하고 layer를 dispose한다. 공유 처리가 아닌 source만 clear·dispose하며 각 단계 직전에 해당 진단 callback을 호출한다.
 
     deleteTileOL(olmap?: OLMap, olview?: OLView, releaseSharedSource?: Function, onSourceRelease?: Function) -> void
         의존:
             defined — map, view와 event key 존재 여부 판정; 함수: {defined()}
-            DeferredObject(olmap.promise_) — 미완료 렌더 작업 실패 전달; 함수: {resolve()}
+            DeferredPromise(olmap.promise_) — 미완료 렌더 작업 실패 전달; 함수: {resolve()}
             ol.UMap — event·promise 참조와 target·view·map 자원 해제; 함수: {setTarget(), setView(), dispose()}; 속성 읽기·삭제: {promise_, ukey_}
             ol.Observable — map event listener 해제; 정적 함수: {unByKey()}
             ol.UView — view 자원 해제; 함수: {dispose()}
 
         동작:
-            map의 미완료 객체가 있으면 false로 해결한다.
-            layer와 source 연결을 해제하고 map target·view를 분리한다.
-            map과 view를 dispose한다.
+            olmap이 있으면:
+                map의 미완료 객체가 있으면 false로 해결하고 참조를 지운다.
+                layer와 source 연결을 해제하고 map target·view를 분리한다.
+                등록 event key가 있으면 구독을 해제하고 map을 dispose한다.
+            olview가 있으면 view를 dispose한다.
 
     copyCanvasForTexture(srcCanvas: HTMLCanvasElement) -> HTMLCanvasElement
         역할: 재사용 renderer와 독립된 동일 크기 canvas에 현재 픽셀을 복사한다.
@@ -1182,7 +1202,7 @@ OpenLayers 자원 보조 함수 책임 그룹
             Web Canvas API — texture용 canvas 생성·크기 복제와 픽셀 복사; 함수: {document.createElementNS(), getContext(), drawImage()}; 속성 읽기·쓰기: {width, height}
 
         동작:
-            원본과 같은 크기의 새 canvas를 만들고 현재 픽셀을 한 번 복사하여 반환한다.
+            원본과 같은 크기의 새 canvas를 만든다. 2D context를 얻으면 현재 픽셀을 한 번 복사하고, 얻지 못하면 빈 canvas인 채로 반환한다.
 
     applyTileBackground(context: CanvasRenderingContext2D, color: ColorRepresentation) -> void
         의존:

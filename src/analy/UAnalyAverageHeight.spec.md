@@ -6,6 +6,7 @@
 
 UAnaly를 상속하여 U3dSelect의 선택 메시 또는 병합 메시의 선택된 구성 모델에 대한 높이와 평균을 조회한다.
 U3dApp의 AverageHeight 분석으로 등록·활성화하며 선택 결과 이벤트와 저장한 모델 ID의 선택 복원을 제공한다.
+지형 타일은 이 분석의 선택·결과·평균에서 제외하며 공통 선택기의 지형 선택 기능과 3D Tiles 건물 선택은 유지한다.
 
 ## 3. 정규 자연어 수도코드
 
@@ -105,14 +106,13 @@ UAnalyAverageHeight extends UAnaly 클래스 정의
         인터페이스: key: 선택기의 객체 식별 키다. 반환: 일반 메시 한 건 또는 병합 메시의 선택된 구성 모델별 ID·높이 목록이다.
         의존:
             U3dSelect — 선택 메시 조회; 함수: {getSelectedAsKey()}
-            UMesh — 일반·병합 메시 판정과 ID; 속성 읽기: {material, _isMerged, userData.id}; 함수: {getUid()}
-            U3DTilesMesh — 타일 메시 판정과 ID; 속성 읽기: {userData.id}; 함수: {getUid()}
+            UMesh — 일반·병합 메시 판정과 현재 조회 키; 속성 읽기: {material, _isMerged}; 정적 함수: {_getObjectId()}
         동작:
             #selector가 falsy이면 undefined를 반환한다.
             #selector가 truthy인 경우 다음 높이 조회를 진행한다.
-                key로 조회한 대상이 falsy이거나 UMesh·U3DTilesMesh가 아니면 undefined를 반환한다.
+                key로 조회한 대상이 분석 모델이 아니면 undefined를 반환한다. 지형 타일도 이 검사에서 제외한다.
                 UMesh이면서 재질이 배열이고 _isMerged가 truthy이면 병합 높이 목록을 그대로 반환한다.
-                나머지 대상은 getModelHeight() 결과와 userData.id를 담은 새 한 원소 배열을 반환하며 ID가 null·undefined일 때만 getUid()로 대체한다.
+                나머지 대상은 getModelHeight() 결과와 공통 조회 함수가 반환한 puid 또는 현재 인스턴스 uuid를 담은 새 한 원소 배열을 반환한다.
                 U3DTilesMesh는 _isMerged가 truthy여도 일반 메시 경로를 따른다.
 
     getAverageHeight(u3dSelect?: U3dSelect) -> number | undefined
@@ -126,6 +126,7 @@ UAnalyAverageHeight extends UAnaly 클래스 정의
             #selector가 truthy인 경우 다음 평균 계산을 진행한다.
                 그 다음 내부·외부 선택기가 모두 null·undefined이면 UAnalyAverageHeight is not active를 console.error로 출력하고 0을 반환하는 분기가 있지만 앞선 내부 선택기 검사 때문에 통상 도달하지 않는다.
                 외부 선택기와 그 getSelected 멤버가 null·undefined가 아니면 외부 getSelected()를, 아니면 내부 getSelected()를 호출한다. 멤버가 함수인지는 검사하지 않는다.
+                내부·외부 선택 목록 모두 지형을 높이 합계와 표본 수에서 제외하며 외부 선택기의 상태는 변경하지 않는다.
     getModelHeight(model: UMesh | U3DTilesMesh) -> number
         인터페이스: model: 높이를 구할 메시다. 반환: 월드 축 정렬 경계의 Z축 길이이며 지형 높이를 차감하지 않는다.
         의존: THREE.Box3 — 메시 전체 경계; 생성자: {new THREE.Box3()}; 함수: {setFromObject()}; 속성 읽기: {min.z, max.z}
@@ -137,31 +138,27 @@ UAnalyAverageHeight extends UAnaly 클래스 정의
             defined — 선택기·메시 유무; 함수: {defined()}
             console — 미활성 안내; 함수: {error()}
             U3dSelect — 선택 키·모델 조회; 함수: {getSelectedKey(), getSelectedAsKey()}
-            UMesh — instanceof 판정의 메시 클래스 값; 상수: {UMesh}
-            U3DTilesMesh — instanceof 판정의 타일 메시 클래스 값; 상수: {U3DTilesMesh}
         동작:
             레이어별 목록을 담는 일반 빈 객체를 만든다.
             내부·외부 선택기가 모두 null·undefined이면 UAnalyAverageHeight is not active를 출력하고 빈 배열을 반환한다.
             외부 선택기와 getSelectedKey 멤버가 null·undefined가 아니면 외부 선택기를 선택하며, 아니면 내부 선택기가 falsy일 때 빈 배열로 종료하고 내부 선택기를 사용한다.
-            getSelectedKey() 순서대로 메시를 조회하여 null·undefined 또는 UMesh·U3DTilesMesh가 아닌 값은 건너뛴다.
+            getSelectedKey() 순서대로 메시를 조회하여 지형을 포함한 분석 대상 외의 값은 건너뛴다. 외부 선택기의 상태는 변경하지 않는다.
             키의 첫 ^ 앞 문자열을 레이어 이름으로 사용하며 그 이름의 기존 값이 falsy일 때만 빈 배열로 대체하고 메시 원본 참조를 추가한다. prototype에서 상속한 truthy 값도 기존 값으로 사용한다. [확인 Q-005]
             일반 객체의 for-in 순서대로 새 결과 객체를 만들어 layerName과 목록 원본 참조를 넣는다.
             각 결과 객체마다 인수 없이 getAverageHeight()를 다시 호출하고 null·undefined일 때만 0으로 대체하여 averageHeight에 넣는다. 레이어별 목록으로 평균을 따로 계산하지 않는다.
             결과 배열을 반환한다. 조회·집계 예외는 전파한다.
 
     getSelected(u3dSelect?: U3dSelect) -> Record<string, UMesh | U3DTilesMesh> | undefined
-        인터페이스: u3dSelect: 생략하면 내부 선택기다. 반환: 레이어명^userData.id를 키로 하는 메시 원본 참조의 새 객체다.
+        인터페이스: u3dSelect: 생략하면 내부 선택기다. 반환: 선택기가 제공한 키를 유지하는 메시 원본 참조의 새 객체다.
         의존:
             defined — 선택기·메시 유무; 함수: {defined()}
             console — 미활성 안내; 함수: {error()}
             U3dSelect — 선택 키·모델 조회; 함수: {getSelectedKey(), getSelectedAsKey()}
-            UMesh — 대상 종류와 ID; 속성 읽기: {userData.id}
-            U3DTilesMesh — 대상 종류와 ID; 속성 읽기: {userData.id}
         동작:
             내부·외부 선택기가 모두 null·undefined이면 UAnalyAverageHeight is not active를 출력하고 빈 객체를 반환한다.
             외부 선택기와 getSelectedKey 멤버가 null·undefined가 아니면 외부 선택기를, 아니면 내부 선택기를 사용한다. 선택된 선택기가 falsy이면 undefined를 반환한다.
-            선택 키 순서대로 메시를 조회하여 null·undefined 또는 UMesh·U3DTilesMesh가 아닌 값은 제외한다.
-            원래 키의 첫 ^ 앞 문자열과 메시의 userData.id를 ^로 연결하여 새 일반 객체에 저장한다. 같은 결과 키면 나중 메시로 덮어쓰며 ID의 UID 대체는 하지 않는다.
+            선택 키 순서대로 메시를 조회하여 지형을 포함한 분석 대상 외의 값은 제외한다. 외부 선택기의 상태는 변경하지 않는다.
+            선택기의 각 키를 변경하지 않고 그 키에 메시 원본 참조를 저장한다. 이 분석이 별도의 식별값을 만들거나 userData 속성으로 키를 다시 구성하지 않는다.
             새 객체를 반환한다.
 
     loadCalcResult(parma: {layerName: string, list: Array<string>, averageHeight: number}) -> number | undefined
@@ -176,14 +173,17 @@ UAnalyAverageHeight extends UAnaly 클래스 정의
                 복원이 정상 종료하면 갱신 일시를 설정하고 저장한 averageHeight를 반환한다. 아직 모델이 로드되지 않았어도 로드를 기다리지 않는다.
 
     #addSelectMode(type: string) -> void
-        인터페이스: type: 선택 모드다. 선택 완료 callback은 분석 객체를 포획하며 이벤트의 data를 원본 참조로 전달한다.
+        인터페이스: type: 선택 모드다. 선택 완료 callback은 분석 객체와 생성한 선택기를 포획한다. 이벤트의 data는 제외 대상이 없는 경우 원본 참조를 유지한다.
         의존:
-            U3dSelect — 선택기 생성·이벤트·앱·활성화·식별자; 생성자: {new U3dSelect()}; 함수: {on(), setApp(), active(), getClickId(), getDbClickId()}
+            U3dSelect — 선택기 생성·이벤트·선택 정리·앱·활성화·식별자; 생성자: {new U3dSelect()}; 함수: {on(), getSelected(), removeSelected(), setApp(), active(), getClickId(), getDbClickId()}
             UAnaly — 앱과 분석 이벤트; 속성 읽기: {_app}; 함수: {hasEventType(), dispatchEvent()}
         동작:
             single을 point로, polygon을 area로 바꾸고 나머지는 그대로 사용하여 새 U3dSelect를 생성한다.
             선택기의 end 이벤트에 callback을 등록한다. 인수가 undefined이면 data가 undefined인 기본 객체를 사용한다.
+                이 분석이 생성한 선택기의 목록에서 지형을 포함한 분석 대상 외 객체의 선택·강조를 해제한다. 공통 선택기의 정책이나 외부 선택기는 변경하지 않는다.
+                data가 배열이고 분석 대상 외 객체가 하나라도 있으면 분석 모델만 남긴 새 배열을 만든다. 나머지 경우 data를 그대로 사용하며 원본 배열·모델 참조는 변경하지 않는다.
                 분석에 select 리스너가 있으면 select 이벤트를 전달하고, 그렇지 않고 end 리스너가 있으면 end 이벤트를 전달한다. 둘 다 있으면 select만 전달하며 둘 다 없으면 전달하지 않는다.
+                분석 이벤트 리스너는 정리가 끝난 선택 목록과 지형이 제외된 결과 데이터를 관찰한다.
             새 선택기에 _app을 연결하고 활성화한다.
             활성화가 정상 종료한 뒤 #selector에 저장하고 getClickId() 결과를 #clickId에 저장한다.
             변환한 모드가 polygon 또는 area이면 getDbClickId() 결과를 #dblClickId에 저장한다. 나머지는 이전 값을 보존한다.
@@ -199,7 +199,7 @@ UAnalyAverageHeight extends UAnaly 클래스 정의
             현재 선택기를 보관하고 앱에서 layerName의 레이어를 찾는다. null·undefined이면 [레이어명] 레이어가 없습니다. 오류를 던진다.
             list.forEach로 존재하는 각 ID에 대해 모델을 다시 검색한다.
                 검색 결과가 정확히 undefined이면 로딩 리스너를 요청한다.
-                그 밖의 값은 보관한 선택기의 addSelected에 두 번째 인수 undefined와 함께 전달한다.
+                검색된 값이 분석 모델인 경우에만 보관한 선택기의 addSelected에 두 번째 인수 undefined와 함께 전달한다. 지형은 선택하지 않는다.
             중간 오류가 나도 앞서 추가한 선택이나 리스너는 되돌리지 않는다.
 
     #addLoadedListener(layer: U3dLayer, id: string) -> void
@@ -218,7 +218,8 @@ UAnalyAverageHeight extends UAnaly 클래스 정의
         동작:
             #selector가 falsy이면 종료한다.
             #selector가 truthy인 경우 다음 로딩 처리를 수행한다.
-                e.data.userData.id가 id와 엄격히 같으면 현재 선택기에 메시와 undefined를 전달하여 선택한 다음 보관 리스너 제거를 요청한다.
+                e.data.puid가 id와 엄격히 같으면 분석 모델인 경우에만 현재 선택기에 메시와 undefined를 전달하여 선택한다. 지형은 선택하지 않는다.
+                ID가 일치하면 선택에서 제외한 경우에도 보관 리스너 제거를 요청한다.
                 ID가 다르면 무동작이며 선택 추가에서 예외가 나면 후속 제거하지 않는다.
 
     #findModel(layerName: string, id: string) -> UMesh | U3DTilesMesh | ModelMesh | undefined

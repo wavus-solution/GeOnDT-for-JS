@@ -1,0 +1,110 @@
+/* Hallmark · shape: app screen · genre: modern-minimal · theme: existing · idea: 이벤트 기록과 모델 조작을 분리 · posture: committed · v2.0.0 */
+/* Hallmark · pre-emit critique: P4 H4 E4 S4 R5 V3 · weakest: V, 기존 지도 패널의 구성과 테마를 유지 */
+/* Hallmark · finish-review: subagent · ship · 데스크톱과 모바일 하단까지 가림과 대비를 확인 */
+:root {
+    --event-font-body: Pretendard, "Noto Sans KR", "Segoe UI", sans-serif;
+    --event-font-code: Consolas, monospace;
+    --event-field: #1e4358;
+    --event-field-hover: #254e64;
+    --event-ink: var(--theme-text);
+    --event-muted: #d3e5ed;
+    --event-rule: #89acbc;
+    --event-accent: var(--theme-accent);
+    --event-accent-ink: #173e52;
+    --event-focus: #b9edff;
+    --event-disabled: #284b5e;
+    --event-space-xs: 4px;
+    --event-space-sm: 8px;
+    --event-space-md: 12px;
+    --event-space-lg: 16px;
+    --event-space-xl: 24px;
+    --event-mobile-clearance: 64px;
+}
+
+html,
+body {overflow-x: clip;}
+
+#event-layers-panel {
+    width: min(440px, calc(100% - 100px));
+    color: var(--event-ink);
+    font-family: var(--event-font-body);
+    color-scheme: dark;
+}
+#event-layers-panel .panel-header {gap: var(--event-space-md);}
+#event-layers-panel h2,
+#event-layers-panel h3 {min-width: 0; overflow-wrap: break-word; text-wrap: balance; color: var(--event-ink); font-weight: 700;}
+#event-layers-panel h2 {margin: 0; font-size: 20px; line-height: 1.3;}
+#event-layers-panel h3 {margin: 0; font-size: 16px; line-height: 1.5;}
+#event-layers-panel .panel-content {padding: var(--event-space-lg); font-size: 14px; font-weight: 400; line-height: 1.5;}
+#event-layers-panel .panel-description {margin: 0 0 var(--event-space-lg); color: var(--event-muted); font-size: 14px; line-height: 1.5;}
+#event-layers-panel .event-registration-row,
+#event-layers-panel .event-section-heading {display: flex; align-items: center; justify-content: space-between; gap: var(--event-space-md);}
+#event-layers-panel .event-enable {display: inline-flex; align-items: center; gap: var(--event-space-sm); min-height: 40px; margin: 0; cursor: pointer;}
+#event-layers-panel input[type="checkbox"] {width: 18px; height: 18px; margin: 0; accent-color: var(--event-accent);}
+#event-layers-panel [data-event-status] {color: var(--event-muted); font-size: 12px; text-align: right;}
+#event-layers-panel .event-field {display: grid; gap: var(--event-space-sm); margin: var(--event-space-sm) 0 0; font-size: 13px; font-weight: 500;}
+#event-layers-panel select,
+#event-layers-panel textarea {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border: 1px solid var(--event-rule);
+    border-radius: 6px;
+    padding: var(--event-space-sm) var(--event-space-md);
+    background: var(--event-field);
+    color: var(--event-ink);
+    font: inherit;
+    box-shadow: none;
+}
+#event-layers-panel select {height: 40px; cursor: pointer;}
+#event-layers-panel option {background: var(--event-field); color: var(--event-ink);}
+#event-layers-panel textarea {
+    height: 180px;
+    min-height: 140px;
+    max-height: 300px;
+    resize: vertical;
+    font-family: var(--event-font-code);
+    font-size: 13px;
+    line-height: 1.65;
+}
+#event-layers-panel textarea::placeholder {color: var(--event-muted); opacity: 1;}
+#event-layers-panel .event-log-section {margin-top: var(--event-space-lg);}
+#event-layers-panel .event-section-heading {margin-bottom: var(--event-space-sm);}
+#event-layers-panel .event-log-footer {display: flex; flex-direction: column; align-items: flex-start; gap: var(--event-space-sm); margin-top: var(--event-space-sm);}
+#event-layers-panel .event-log-footer p {margin: 0; color: var(--event-muted); font-size: 12px; line-height: 1.5;}
+#event-layers-panel .event-model-section {margin-top: var(--event-space-xl); padding-top: var(--event-space-lg); border-top: 1px solid var(--theme-line);}
+#event-layers-panel .event-actions {display: flex; flex-wrap: wrap; align-items: center; gap: var(--event-space-sm); margin-top: var(--event-space-md);}
+#event-layers-panel .event-button {
+    min-height: 40px;
+    padding: var(--event-space-sm) var(--event-space-md);
+    border: 1px solid var(--event-rule);
+    border-radius: 6px;
+    background: var(--event-field);
+    color: var(--event-ink);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+}
+#event-layers-panel .event-button-primary {background: var(--event-accent); color: var(--event-accent-ink); border-color: var(--event-accent);}
+#event-layers-panel .event-button-quiet {padding-inline: var(--event-space-sm); border-color: transparent; background: transparent; text-decoration: underline; text-underline-offset: 3px;}
+#event-layers-panel .event-button:active {background: var(--event-field-hover); color: var(--event-ink);}
+#event-layers-panel .event-button-primary:active {background: var(--event-focus); color: var(--event-accent-ink);}
+#event-layers-panel :is(button, select, input, textarea):focus-visible {outline: 2px solid var(--event-focus); outline-offset: 2px;}
+#event-layers-panel :is(select, textarea):focus-visible {outline-offset: -2px;}
+#event-layers-panel :is(button, select):disabled {background: var(--event-disabled); color: var(--event-muted); border-color: var(--event-rule); opacity: .6; cursor: not-allowed;}
+#event-layers-panel pre {max-height: 160px; margin: var(--event-space-md) 0 0; padding: var(--event-space-md); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--event-field); color: var(--event-ink); border: 0; border-radius: 0; font: 13px/1.6 var(--event-font-code);}
+#event-layers-panel ::selection {background: var(--event-accent); color: var(--event-accent-ink);}
+#event-layers-panel textarea {caret-color: var(--event-focus);}
+#event-layers-panel .panel-content {scrollbar-color: var(--theme-scroll-thumb) var(--theme-scroll-track);}
+@media (hover: hover) {
+    #event-layers-panel .event-button:not(:disabled):hover,
+    #event-layers-panel select:not(:disabled):hover {background: var(--event-field-hover);}
+    #event-layers-panel .event-button-primary:not(:disabled):hover {background: var(--event-focus); color: var(--event-accent-ink);}
+}
+@media (max-width: 480px) {
+    #event-layers-panel {width: calc(100% - 92px);}
+    #event-layers-panel .panel-content {padding-bottom: var(--event-mobile-clearance);}
+    #event-layers-panel .event-registration-row {align-items: flex-start; flex-direction: column; gap: 0;}
+}

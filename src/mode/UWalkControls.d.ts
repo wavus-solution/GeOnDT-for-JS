@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -14,7 +14,7 @@ import type { FirstPersonControls } from "../lib/three/controls/FirstPersonContr
 import type { UMeta } from "../meta/UMeta.js";
 import type { UControls } from "./UControls.js";
 import type { EventCallBack, WorldPosition } from "../types/global.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_UWalkControls {
@@ -178,7 +178,7 @@ declare class UWalkControls extends UWalkControls_base {
      * @returns {Promise<boolean>} 이동이 끝나면 true로 resolve되는 프로미스
      */
     flyToPosition(worldPosition: WorldPosition): Promise<boolean>;
-    flyToPositionEx(worldPosition: any, target: any): DeferredObject<unknown>;
+    flyToPositionEx(worldPosition: any, target: any): DeferredPromise<boolean>;
     /**
      * 보행 모드를 활성하는 함수
      */

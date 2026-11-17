@@ -31,24 +31,28 @@ U3dModelBIMObjLayerCO extends U3dModelLayerCO 부분 타입 명세
         layername: string
         serverurl: string
         baseurl: string
-        metaData: {files: Record<string, U3dBIMSourceFile>, cases?: Array<string>}
-        useproxy?: boolean
-            nullish이면 false를 사용한다.
-        proxyurl?: string
-            nullish이면 './proxy.jsp?url='을 사용한다.
-        name?: string
-            nullish이면 'U3dModelBIMObjLayer'를 사용한다.
+        metaData: {files: Record<string, U3dBIMSourceFile>} & Partial<{cases: Array<string>}>
+        useproxy?: boolean = false
+            undefined이면 false를 사용한다.
+        proxyurl?: string = './proxy.jsp?url='
+            undefined이면 './proxy.jsp?url='을 사용한다.
+        name?: string = 'U3dModelBIMObjLayer'
+            undefined이면 'U3dModelBIMObjLayer'를 사용한다.
         autoHeight?: boolean
-        mergeFileUrlKey?: string
-            nullish이면 'wavefrontobj_basepath'를 사용한다.
-        mergeFileKey?: string
-            nullish이면 'wavefrontobj_merge_file'을 사용한다.
-        metaFileKey?: string
-            nullish이면 'metadata_file'을 사용한다.
+        mergeFileUrlKey?: string = 'wavefrontobj_basepath'
+            undefined이면 'wavefrontobj_basepath'를 사용한다.
+        mergeFileKey?: string = 'wavefrontobj_merge_file'
+            undefined이면 'wavefrontobj_merge_file'을 사용한다.
+        metaFileKey?: string = 'metadata_file'
+            undefined이면 'metadata_file'을 사용한다.
 
 U3dBIMMetaRecord 타입 정의
     원본 메타데이터의 필드명과 값은 입력 자료가 결정한다. MetaData 생성자는 같은 사전에서 metaIdKey·metaParentKey·metaNameKey·fileNameKey·objectTypeKey·typeKey·tagKey·propertiesKey도 선택적으로 읽어 실제 데이터 키를 정한다.
     기반 타입: Record<string, unknown>
+
+U3dBIMMetaNode 타입 정의
+    getMetaById가 반환하는 MetaData에서 undefined를 제외한 노드 타입이다. 노드의 속성과 동작은 아래 MetaData 클래스에 명세한다.
+    기반 타입: NonNullable<ReturnType<import('@union3d/3dLayer/U3dModelBIMObjLayer').U3dModelBIMObjLayer['getMetaById']>>
 
 U3dBIMTreeState 부분 타입 명세
     tree는 현재 루트, list는 삽입 순서, map은 ID별 마지막 등록 노드다. 비공개 트리 조립은 이 세 참조를 직접 수정한다.
@@ -70,8 +74,8 @@ U3dBIMMesh 부분 타입 명세
     기반 타입: Mesh<BufferGeometry, U3dBIMMaterial | Array<U3dBIMMaterial>>
     이 명세에서 사용하는 필드:
         _orlMaterial?: U3dBIMMaterial | Array<U3dBIMMaterial>
-        _meta?: MetaData
-        getMeta?: () => MetaData
+        _meta?: U3dBIMMetaNode
+        getMeta?: () => U3dBIMMetaNode
         _utype?: number
         _ulayername?: string
 
@@ -103,12 +107,12 @@ U3dBIMControlData 타입 정의
     files: Record<string, U3dBIMControlFile>
 
 U3dBIMControlResponse 타입 정의
-    서버 읽기 결과 또는 신규 케이스 구성 자료다. json·time·url 누락의 처리는 ControlCase 생성자에 따르며 flag의 nullish 기본값은 update다.
+    서버 읽기 결과 또는 신규 케이스 구성 자료다. json·time·url 누락의 처리는 ControlCase 생성자에 따르며 flag가 undefined일 때 기본값은 update다.
     json: U3dBIMControlData
     time: string
     url: string
-    flag?: string
-        nullish이면 'update'를 사용한다.
+    flag?: string = 'update'
+        undefined이면 'update'를 사용한다.
 
 U3dBIMLevelEntry 타입 정의
     레벨 목록 조회가 새로 만드는 ID·시작 레벨 항목이다.
@@ -146,7 +150,7 @@ U3dModelBIMObjLayer extends U3dModelLayer 클래스 정의
             U3dLayer — 부모가 만든 그룹·주소; 속성 읽기: {_group, _baseUrl}
             UDEF — 레이어 종류; 상수: {LAYER_TYPE.MODEL}
             defined — nullish 판정; 함수: {defined()}
-            defaultValue — nullish 기본값; 함수: {defaultValue()}
+            defaultValue — undefined 기본값; 함수: {defaultValue()}
             Web API(console) — 진단 기록; 함수: {info()}
         동작:
             부모 생성 후 opt, layername, serverurl, metaData, metaData.files, baseurl 순으로 정의 여부를 검사하고 첫 누락에서 로그를 남겨 부분 초기화 상태로 종료한다.
@@ -288,7 +292,7 @@ U3dModelBIMObjLayer extends U3dModelLayer 클래스 정의
             isSetChild가 참이면 자신을 포함한 하위 트리를 선행 순회한다.
                 순회 callback에서 child의 ID를 얻는다.
                 얻은 ID와 fileName·value를 _controlCases[controlCaseName]의 setExclusion에 전달한다.
-                개별 설정 반환값과 무관하게 true를 반환한다.
+            위 순회가 끝나면 개별 설정 반환값과 무관하게 true를 반환한다.
             isSetChild가 거짓이면 조회한 meta의 ID를 얻는다.
                 그 ID와 fileName·value로 같은 케이스의 setExclusion을 실행하여 반환값을 그대로 반환한다.
 
@@ -326,15 +330,15 @@ U3dModelBIMObjLayer extends U3dModelLayer 클래스 정의
     U3dModelBIMObjLayer.exportControlCase(caseName?: string, useProxy?: boolean) -> Promise<void>
         의존:
             defined — nullish 판정; 함수: {defined()}
-            deferred — 완료 제어; 함수: {deferred()}
+            deferredPromise — 완료 제어; 함수: {deferredPromise()}
             Web API — 비동기 JSON 요청; 생성자: {new XMLHttpRequest()}; 함수: {overrideMimeType(), open(), send()}; 콜백: {onreadystatechange}; 속성 읽기: {status, readyState, responseText}
         동작:
             deferred를 만들고 caseName이 없거나 이름으로 조회한 케이스가 없으면 문자열 이유로 거부하여 반환한다.
             조회한 controlCase의 export 결과를 params로 두고 flag·lastModifyTime과 JSON으로 묶어 POST한다. _useproxy 또는 useProxy가 정확히 true이면 프록시를 붙이며 _serverUrl에 이미 붙은 프록시는 제거하지 않는다.
-            readystatechange에서 status가 200이 아니면 readyState와 무관하게 즉시 거부한다. 200이고 readyState가 4이면 controlCase의 flag를 'update'로 바꾼다. [확인 Q-003]
+            readystatechange에서 readyState가 4가 아니면 기다린다. 완료 시 status가 200이 아니면 거부하고 200이면 controlCase의 flag를 'update'로 바꾼다.
             같은 완료 callback에서 controlCase.getUrl로 재조회할 URL을 얻는다.
             얻은 URL과 새 controlList를 loadControlTask에 전달하고 결과를 기다린다.
-            성공하면 채워진 controlList를 setControlCase에 전달하여 사전에 반영하고 외부 deferred를 완료한다. setControlCase 반환 deferred는 기다리지 않는다. 재조회 실패는 전달하고 요청 설정·send 중 동기 예외는 고정 문자열로 거부한다.
+            성공하면 채워진 controlList를 setControlCase에 전달하여 사전에 반영하고 외부 deferred를 완료한다. setControlCase 반환 Promise까지 기다리며 콜백 예외도 같은 완료 객체로 거부한다. 재조회 실패는 전달하고 요청 설정·send 중 동기 예외는 고정 문자열로 거부한다.
 
     U3dModelBIMObjLayer.getControlCaseByName(name: string) -> ControlCase | undefined
         동작:
@@ -403,7 +407,7 @@ U3dModelBIMObjLayer extends U3dModelLayer 클래스 정의
     U3dModelBIMObjLayer.load() -> Promise<void>
         의존:
             defined — nullish 판정; 함수: {defined()}
-            deferred — 완료 제어; 함수: {deferred()}
+            deferredPromise — 완료 제어; 함수: {deferredPromise()}
             전역 진단 — 진행·오류 기록; 함수: {__GInfo__()}
         동작:
             deferred를 만들고 _files의 값 배열을 얻는다.
@@ -430,7 +434,7 @@ ControlCase 클래스 정의
     ControlCase.constructor(opt: Partial<U3dBIMControlResponse> = {})
         의존:
             defined — nullish 판정; 함수: {defined()}
-            defaultValue — nullish 기본값; 함수: {defaultValue()}
+            defaultValue — undefined 기본값; 함수: {defaultValue()}
             Web API(console) — 진단 기록; 함수: {error()}
         동작:
             json, time, url 순서로 정의 여부를 검사하여 첫 누락이면 오류 로그 후 부분 초기화 상태로 종료한다. 정상 입력이면 url, flag(기본 'update'), json의 name·description·files 원본 참조와 time을 저장한다.
@@ -567,10 +571,10 @@ MetaData 클래스 정의
     MetaData.constructor(opt: U3dBIMMetaRecord = {})
         의존:
             defined — nullish 판정; 함수: {defined()}
-            defaultValue — nullish 기본값; 함수: {defaultValue()}
+            defaultValue — undefined 기본값; 함수: {defaultValue()}
         동작:
             키 이름은 metaIdKey='GlobalId', metaParentKey='Parent_GlobalId', metaNameKey='Name', fileNameKey='FileName', objectTypeKey='ObjectType', typeKey='Type', tagKey='Tag', propertiesKey='Properties'로 기본 설정한다.
-            rootNameKey는 opt.rootNameKey가 아니라 opt.fileNameKey를 사용하며 그 값이 nullish이면 'rootName'이다. [확인 Q-011]
+            각 키의 기본값은 대응 옵션이 undefined일 때만 적용한다. rootNameKey는 opt.rootNameKey가 아니라 opt.fileNameKey를 사용하며 그 값이 undefined이면 'rootName'이다. [확인 Q-011]
             각 키가 가리키는 원본 속성을 id·name·parentId·fileName·rootName·objectType·type·tag·properties에 저장하고 children을 빈 배열로 만든다.
             name이 정의되고 빈 문자열이 아니면 text에 name을 저장하며 아니면 'unnamed'를 저장한다.
 
@@ -648,7 +652,7 @@ MetaDataTree 클래스 정의
 
 async loadTask(metaData: U3dBIMFile) -> Promise<void>
     의존:
-        deferred — 완료 제어; 함수: {deferred()}
+        deferredPromise — 완료 제어; 함수: {deferredPromise()}
     동작:
         아래 호출은 모두 현재 레이어를 receiver로 실행하고 각 단계의 완료를 await한 뒤 다음 단계로 진행한다.
         metaData.modelUrl·materialsFile로 MTL을 읽어 materials를 얻는다.
@@ -662,7 +666,7 @@ async loadTask(metaData: U3dBIMFile) -> Promise<void>
 setControlCase(controlCaseList?: Array<U3dBIMControlResponse>) -> Promise<void>
     의존:
         defined — nullish 판정; 함수: {defined()}
-        deferred — 완료 제어; 함수: {deferred()}
+        deferredPromise — 완료 제어; 함수: {deferredPromise()}
         전역 진단 — 진행·오류 기록; 함수: {__GInfo__()}
     동작:
         목록이 없거나 비어 있으면 인수 없이 완료한 deferred를 반환한다.
@@ -674,19 +678,19 @@ setControlCase(controlCaseList?: Array<U3dBIMControlResponse>) -> Promise<void>
 loadControlTask(controlFileUrl: string, resultList: Array<U3dBIMControlResponse>) -> Promise<void>
     의존:
         defined — nullish 판정; 함수: {defined()}
-        deferred — 완료 제어; 함수: {deferred()}
+        deferredPromise — 완료 제어; 함수: {deferredPromise()}
         Web API — 비동기 JSON 요청; 생성자: {new XMLHttpRequest()}; 함수: {overrideMimeType(), open(), send()}; 콜백: {onreadystatechange}; 속성 읽기: {status, readyState, responseText}
         Web API(console) — 진단 기록; 함수: {debug()}
     동작:
         프록시, 이미 프록시를 포함할 수 있는 _serverUrl, 읽기 경로와 controlFileUrl을 결합하여 비동기 GET을 시작한다.
-        상태 변경에서 status가 200이 아니면 readyState와 무관하게 로그를 남기고 성공 완료한다. 200이고 readyState가 4이면 JSON을 해석한다. [확인 Q-003]
+        readyState가 4가 될 때까지 기다린다. 완료 시 status가 200이 아니면 로그를 남기고 성공 완료하는 기존 선택 파일 정책을 유지한다. 200이면 JSON을 해석한다.
         params.data가 없으면 로그만 남기고 완료한다. 있으면 그 객체의 url을 입력 URL로 변경해 resultList에 추가하고 완료한다.
-        요청 설정·send 중 동기 예외는 고정 문자열로 거부한다. 나중에 실행되는 callback의 JSON 예외는 이 catch가 잡지 않는다.
+        요청 설정·send 중 동기 예외는 고정 문자열로 거부한다. 나중에 실행되는 callback의 JSON 예외는 callback 안에서 잡아 같은 Promise로 거부한다.
 
 loadControlCases() -> Promise<Array<U3dBIMControlResponse> | undefined>
     의존:
         defined — nullish 판정; 함수: {defined()}
-        deferred — 완료 제어; 함수: {deferred()}
+        deferredPromise — 완료 제어; 함수: {deferredPromise()}
         전역 진단 — 진행·오류 기록; 함수: {__GInfo__()}
     동작:
         _controlFileUrlList가 없거나 비어 있으면 인수 없이 완료한 deferred를 반환한다.
@@ -698,7 +702,7 @@ setMetaDate(metaData: U3dBIMFile, object: Object3D, json: Record<string, U3dBIMM
         THREE.Object3D(object) — 메시 순회; 함수: {traverse()}
         THREE.Mesh — 메시 판별; 상수: {THREE.Mesh}
         defined — nullish 판정; 함수: {defined()}
-        deferred — 완료 제어; 함수: {deferred()}
+        deferredPromise — 완료 제어; 함수: {deferredPromise()}
         전역 진단 — 진행·오류 기록; 함수: {__GInfo__()}
     동작:
         metaData가 정의되지 않으면 인수 없이 완료한다. json이 정의되지 않으면 입력 오류 문자열로 거부한다.
@@ -712,13 +716,13 @@ setMetaDate(metaData: U3dBIMFile, object: Object3D, json: Record<string, U3dBIMM
 loadMetaFile(metaFileUrl?: string, object: Object3D) -> Promise<Record<string, U3dBIMMetaRecord> | undefined>
     의존:
         defined — nullish 판정; 함수: {defined()}
-        deferred — 완료 제어; 함수: {deferred()}
+        deferredPromise — 완료 제어; 함수: {deferredPromise()}
         전역 진단 — 진행·오류 기록; 함수: {__GInfo__()}
         Web API — 비동기 JSON 요청; 생성자: {new XMLHttpRequest()}; 함수: {overrideMimeType(), open(), send()}; 콜백: {onreadystatechange}; 속성 읽기: {status, readyState, responseText}
     동작:
         metaFileUrl이 정의되지 않으면 인수 없이 완료하고 object가 없으면 입력 오류로 거부한다.
-        시작 로그 후 비동기 GET을 요청하며 status가 200이 아니면 readyState와 무관하게 거부한다. 200이고 readyState가 4이면 완료 로그 후 JSON을 해석한 결과로 완료한다. [확인 Q-003]
-        요청 설정·send 중 동기 예외는 메시지를 붙인 문자열로 거부한다. 비동기 callback의 JSON 예외는 밖으로 전파된다.
+        시작 로그 후 비동기 GET을 요청하고 readyState가 4가 될 때까지 기다린다. 완료 시 status가 200이 아니면 거부한다. 200이면 완료 로그 후 JSON을 해석한 결과로 완료한다.
+        요청 설정·send 중 동기 예외는 메시지를 붙인 문자열로 거부한다. 비동기 callback의 JSON 예외도 같은 Promise로 거부한다.
 
 setOBJ(metaData: U3dBIMFile, object: Object3D) -> Promise<void>
     의존:
@@ -728,7 +732,7 @@ setOBJ(metaData: U3dBIMFile, object: Object3D) -> Promise<void>
         U3dApp(_app) — 높이·좌표 변환; 함수: {getHeightAtGeographicPoint(), geographicToVector3()}
         UGroup(_object) — 결과 등록; 함수: {add()}
         defined — nullish 판정; 함수: {defined()}
-        deferred — 완료 제어; 함수: {deferred()}
+        deferredPromise — 완료 제어; 함수: {deferredPromise()}
         전역 진단 — 진행·오류 기록; 함수: {__GInfo__()}
     동작:
         object, metaData, name, location 또는 boundingBox가 정의되지 않으면 입력 오류로 거부한다.
@@ -741,7 +745,7 @@ loadOBJLoader(modelUrl: string, mergeFile: string, materials: MTLLoader.Material
     의존:
         UOBJLoader — OBJ 읽기; 생성자: {new UOBJLoader()}; 함수: {setMaterials(), setPath(), load()}; 콜백: {성공, 진행, 오류}
         defined — nullish 판정; 함수: {defined()}
-        deferred — 완료 제어; 함수: {deferred()}
+        deferredPromise — 완료 제어; 함수: {deferredPromise()}
         전역 진단 — 진행·오류 기록; 함수: {__GInfo__()}
     동작:
         deferred와 UOBJLoader를 먼저 만든다. materials, modelUrl, mergeFile 중 정의되지 않은 값이 있으면 입력 오류로 거부한다.
@@ -752,11 +756,11 @@ loadMTLLoader(modelUrl: string, materialsFile: string) -> Promise<MTLLoader.Mate
         UMTLLoader — MTL 읽기; 생성자: {new UMTLLoader()}; 함수: {setPath(), setCrossOrigin(), load()}; 콜백: {성공, 진행, 오류}
         MaterialCreator — 재질 준비; 함수: {preload()}
         defined — nullish 판정; 함수: {defined()}
-        deferred — 완료 제어; 함수: {deferred()}
+        deferredPromise — 완료 제어; 함수: {deferredPromise()}
         전역 진단 — 진행·오류 기록; 함수: {__GInfo__()}
     동작:
         deferred와 UMTLLoader를 먼저 만든다. modelUrl 또는 materialsFile이 정의되지 않으면 입력 오류로 거부한다.
-        기준 경로와 crossOrigin 'anonymous'를 설정하고 '/' + materialsFile을 로드한다. 성공 callback에서 materials.preload 후 완료 로그를 남기고 재질로 완료한다. 오류 callback은 고정 문자열로 거부하고 진행 callback은 무동작이다.
+        기준 경로와 crossOrigin 'anonymous'를 설정하고 '/' + materialsFile을 로드한다. 성공 callback에서 materials.preload 후 완료 로그를 남기고 재질로 완료하며, preload·로그 중 발생한 예외는 같은 Promise로 거부한다. 오류 callback은 고정 문자열로 거부하고 진행 callback은 무동작이다.
 
 traverse(meta: MetaData, callback: function) -> void
     의존:

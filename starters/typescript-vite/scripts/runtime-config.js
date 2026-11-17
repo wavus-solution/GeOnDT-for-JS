@@ -3,7 +3,7 @@
  * worker·resource·wasm이 다른 서버에 있으면 그 디렉터리의 URL로 변경하십시오.
  */
 const config = {
-    baseUrl: new URL('.', import.meta.url).href
+    baseUrl: new URL('./', import.meta.url).href
 };
 
 export default config;

@@ -21,7 +21,40 @@
             </div>
             <p class="MapControllSetting-note" data-preset-description></p>
             <button class="MapControllSetting-reset" type="button" data-reset-preset>선택한 프리셋 값으로 복원</button>
-            <p class="MapControllSetting-note">프리셋은 설정만 바꾸며 카메라 위치는 유지합니다.<br>왼쪽 드래그: 이동 · 오른쪽 드래그: 회전 · 휠: 줌<br>지도를 클릭한 뒤 방향키로 이동할 수 있습니다.<br>API 도움말이 지도를 가리면 Esc로 닫으세요.</p>
+            <p class="MapControllSetting-note">프리셋은 감도와 이동 방식만 바꾸며 카메라 위치와 마우스·키보드 매핑은 유지합니다.<br>지도를 클릭한 뒤 설정한 키로 이동하거나 회전할 수 있습니다.<br>API 도움말이 지도를 가리면 Esc로 닫으세요.</p>
+        </section>
+
+        <section class="MapControllSetting-section" aria-labelledby="MapControllSetting-input-heading" data-api-help="control.input">
+            <h3 id="MapControllSetting-input-heading">마우스 조작 설정</h3>
+            <div class="MapControllSetting-field">
+                <label for="MapControllSetting-input-preset">조작 프리셋</label>
+                <select id="MapControllSetting-input-preset" data-input-preset>
+                    <option value="default">기본</option><option value="swapped">좌우 반전</option><option value="custom">사용자 지정</option>
+                </select>
+            </div>
+            <div data-input-buttons></div>
+            <details><summary>Ctrl/Cmd 조합 설정</summary><div data-input-modifiers></div></details>
+            <button class="MapControllSetting-reset" type="button" data-reset-input>기본 조작으로 복원</button>
+            <p class="MapControllSetting-note" data-input-help aria-live="polite"></p>
+            <p class="MapControllSetting-note">버튼을 누른 채 끌어 조작합니다. 단순 클릭은 객체 선택에 사용됩니다. 터치는 한 손가락 이동, 두 손가락 회전·줌입니다.</p>
+        </section>
+
+        <section class="MapControllSetting-section" aria-labelledby="MapControllSetting-key-heading" data-api-help="control.keyboard">
+            <h3 id="MapControllSetting-key-heading">키보드 조작 설정</h3>
+            <div class="MapControllSetting-field">
+                <label for="MapControllSetting-key-preset">방향키 프리셋</label>
+                <select id="MapControllSetting-key-preset" data-key-preset><option value="pan">팬 이동</option><option value="rotate">회전</option><option value="custom">사용자 지정</option></select>
+            </div>
+            <div class="MapControllSetting-field">
+                <label for="MapControllSetting-key-code">사용할 키 (눌러 선택)</label>
+                <input id="MapControllSetting-key-code" type="text" readonly data-key-code aria-describedby="MapControllSetting-key-note">
+                <label for="MapControllSetting-key-action">지정할 동작</label>
+                <select id="MapControllSetting-key-action" data-key-action></select>
+            </div>
+            <button class="MapControllSetting-reset" type="button" data-apply-key>선택한 키에 적용</button>
+            <button class="MapControllSetting-reset" type="button" data-reset-key>키보드 기본 복원</button>
+            <p class="MapControllSetting-note" id="MapControllSetting-key-note">키 입력란을 선택하고 사용할 키를 누른 뒤 동작을 적용하세요. Tab·Esc는 화면 탐색에 사용합니다. Shift 임시 일인칭 전환은 유지하며 입력·편집 중에는 지도를 조작하지 않습니다.</p>
+            <pre class="MapControllSetting-key-help" data-key-help aria-live="polite"></pre>
         </section>
 
         <section class="MapControllSetting-section" aria-labelledby="MapControllSetting-inertia-heading">

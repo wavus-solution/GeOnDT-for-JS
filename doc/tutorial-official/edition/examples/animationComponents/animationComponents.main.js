@@ -27,7 +27,7 @@ export async function initialize(context) {
         // 실시간 추적 helper의 애니메이션 갱신 주기와는 별개다.
         const LAND_NORMAL_HELPER_UPDATE_INTERVAL = 7000;
         const FUTURE_POSITION_UPDATE_INTERVAL = 500; // 0.5초마다 예측
-        const FUTURE_POSITION_COUNT = 100; // 최대 100개 히스토리 추출 가능
+        const FUTURE_POSITION_COUNT = 100; // 반환할 미래 예측점의 최대 개수
         const FUTURE_POSITION_HELPER_STEP = 10; // 예측점 중 단계가 이 값의 배수인 지점에만 Helper를 그려 부하를 줄인다
 
         // 이 값이 비행 이동의 기본 보폭이 된다.

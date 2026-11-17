@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,7 +8,7 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../../dist/types/thre
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 
 /**
- * Terrain WFS 요청의 전역 동시 실행 수와 중복 요청을 제어합니다.
+ * Terrain WFS 요청·결과 후처리의 전역 동시 실행 수와 중복 요청을 제어합니다.
  */
 declare class UTerrainWfsRequestQueue {
     /**
@@ -43,7 +43,7 @@ declare class UTerrainWfsRequestQueue {
      */
     setMaxConcurrency(maxConcurrency: number): void;
     /**
-     * 요청을 큐에 추가합니다. 같은 requestKey가 진행 중이면 기존 Promise를 공유합니다.
+     * 요청과 결과 후처리를 큐에 추가합니다. 같은 requestKey가 진행 중이면 기존 Promise를 공유합니다.
      *
      * @param {string} requestKey 중복 판별에 사용할 요청 키입니다.
      * @param {function} task AbortSignal을 받아 실제 WFS 요청을 수행하는 함수입니다.
@@ -52,13 +52,15 @@ declare class UTerrainWfsRequestQueue {
      * @param {string} [option.ownerKey] 레이어별 통계를 구분할 키입니다.
      * @param {function} [option.cancel] 실행 중인 실제 요청을 취소하는 함수입니다.
      * @param {number} [option.cacheTtlMs=0] 완료 결과를 재사용할 시간입니다. 0이면 캐시하지 않습니다.
-     * @returns {Promise<*>} 요청 결과 Promise입니다.
+     * @param {function(*, AbortSignal): (void | Promise<void>)} [option.onResult] 원본 응답 또는 캐시를 받아 같은 슬롯에서 완료할 후처리입니다. 중복 요청은 처음 등록한 후처리를 공유합니다.
+     * @returns {Promise<*>} 요청과 후처리가 끝난 뒤 원본 응답으로 완료되는 Promise입니다.
      */
     enqueue(requestKey: string, task: Function, option?: {
         priority?: number;
         ownerKey?: string;
         cancel?: Function;
         cacheTtlMs?: number;
+        onResult?: (arg0: any, arg1: AbortSignal) => (void | Promise<void>);
     }): Promise<any>;
     /**
      * 대기 또는 실행 중인 요청을 취소합니다.

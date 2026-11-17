@@ -282,14 +282,15 @@ U3dVectorLayer extends U3dLayer 클래스 정의
             defined — 복사된 항목 존재 판정; 함수: {defined()}
             callback — 항목 복원 실행; 콜백: {callback()}
             UEventDispatcher — 항목 완료 알림; 함수: {dispatchEvent()}
-            Web API — 중복 이름 안내; 함수: {console.warn()}
+            Web API — 중복 이름 안내와 LOAD 알림 실패 기록; 함수: {console.warn(), console.error()}
         동작:
             단일 항목을 배열로 감싸고 항목마다 최상위만 복사한다. param 등 중첩 참조는 원본과 공유한다.
             복사본이 정의되지 않았으면 건너뛴다.
             param.name이 truthy이고 같은 이름의 도형이 있으면 경고하고 건너뛴다.
             callback을 즉시 호출하여 결과를 Promise.resolve로 감싼다. 동기 예외는 호출 자체에서 전파되어 Promise.all에 도달하지 않는다.
             각 Promise의 성공 후 별도 then에서 LOAD 이벤트에 {object: 완료값, save: 복사본}을 전달한다.
-            원본 Promise 목록의 Promise.all을 반환하므로 콜백 Promise 거절은 전체 결과를 거절한다. LOAD 리스너 예외는 별도 then의 거절이며 이 반환 Promise의 거절로 합쳐지지 않는다.
+            원본 Promise 목록의 Promise.all을 반환하므로 콜백 Promise 거절은 원래 실패값으로 전체 결과를 거절한다. 알림 전용 then의 거절 경로는 종료하여 별도 미처리 거부를 만들지 않는다.
+            LOAD 리스너의 동기 예외는 원래 실패값과 함께 콘솔에 기록하고 복원 결과와 반환 Promise의 완료는 유지한다.
 
     getBoundingBox() -> Box3
         의존: THREE — 전체 도형 경계 생성·확장; 생성자: {new Box3()}; 함수: {expandByObject()}
@@ -364,6 +365,7 @@ U3dVectorLayer extends U3dLayer 클래스 정의
 
     #vertexChanged(e: Event & {data: Object3D | undefined}) -> void
         동작:
+            needsTransform=false인 스타일 변경 이벤트는 좌표 변환·형상 재생성 없이 종료한다. 그 외 change 이벤트는 기존 변환 경로를 유지한다.
             e.data가 있고 현재 유효한 등록일 때만 변환한다.
 
     #removeTileIndex(object: Object3D) -> void

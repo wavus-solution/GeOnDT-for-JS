@@ -14,11 +14,11 @@ Feature 식별자 정규화, 같은 식별자의 합성 metadata 일관성 검�
 
 ### 1.3 주요 동작 방식
 
-입력을 한 번 순회하며 group과 atomic Feature를 모으고, 같은 `compositionFeatureKey`의 여러 part는 하나의 Feature로 합치면서 tile-local 범위도 합친다. group은 `compositionRenderOrder`와 `compositionGroupOrder`로, group 안의 Feature는 `featureCompositionOrdinal`과 `renderOrder`로, Feature 안의 part는 hole 여부와 `featureId`로 정렬한다. 확정된 stream에서 raster 유형 순서가 `path`, `area`, `circle`를 지키는지, 앞선 area를 지울 수 있는 polygon hole이 있는지 보고, 어긋나는 쌍이 tile-local 범위에서 실제로 겹칠 때만 direct 합성을 포기한다. 모든 Feature가 `static`이나 `dynamic`으로 분류된 입력은 두 집합의 범위가 합성 번짐 여유를 포함해도 겹치지 않고 dynamic 부분집합만으로 direct 계약을 지킬 때 `hybrid`로 계획하고, 증명할 수 없는 조합은 전체를 `precomposed`로 되돌린다. 결과는 중첩 구조까지 얼려 반환한다.
+입력을 한 번 순회하며 group과 atomic Feature를 모으고, 같은 `compositionFeatureKey`의 여러 part는 하나의 Feature로 합치면서 tile-local 범위도 합친다. group은 `compositionRenderOrder`와 `compositionGroupOrder`로, group 안의 Feature는 `featureCompositionOrdinal`과 `renderOrder`로, Feature 안의 part는 hole 여부와 `featureId`로 정렬한다. 확정된 stream에서 raster 유형 순서가 `path`, `area`, `circle`를 지키는지, 앞선 area를 지울 수 있는 polygon hole이 있는지 본다. 기존 순서가 어긋나도 관련 범위가 겹치지 않으면 기본 순서의 direct 합성을 유지한다. 전체 stream에서 각 유형이 한 연속 구간에만 나타나고 모든 범위가 유효하면 원래 유형 순열을 선택해 겹치는 역순도 direct로 그린다. hole erase 위험은 이 경우에도 별도로 검증한다. 모든 Feature가 `static`이나 `dynamic`으로 분류되고 dynamic 부분집합이 direct 계약을 지키는 입력은, 정적 구간 뒤에 동적 구간이 오는 총순서가 보장되거나 두 집합의 범위가 합성 번짐 여유를 포함해도 겹치지 않을 때 `hybrid`로 계획한다. 증명할 수 없는 조합은 전체를 `precomposed`로 되돌린다. 결과는 중첩 구조까지 얼려 반환한다.
 
 ### 1.4 주요 사용처와 연계 대상
 
-`UShaderTerrainDecalTileStateManager`의 `buildTerrainTileCompositionInputs`가 tile별 Feature를 정규화해 이 함수를 호출하고, 반환한 계획으로 batch 순번 표와 tile 상태의 `compositionMode`·`modeReason`·`orderSignature`를 채운다. `UShaderTerrainDecalManager`는 `compositionMode`가 `precomposed`인 계획만 합성 예약으로 보내고, `UTerrainDecalCompositeComposer`는 `precomposed`가 아닌 계획을 입력으로 받으면 거절한다. `isExactTerrainCompositionBatchIndex`는 batch 순번을 packed 채널로 보내는 경로에서 왕복 정확성을 확인한다. `buildTerrainCompositionTargetKey`는 합성 대상 목록의 식별자를 만드는 공개 함수이며, 소비자가 tile 상태 모듈을 가져오지 않고도 같은 규약으로 조회 key 를 만들 수 있게 한다.
+`UShaderTerrainDecalTileStateManager`의 `buildTerrainTileCompositionInputs`가 tile별 Feature를 정규화해 이 함수를 호출하고, 반환한 계획으로 batch 순번 표와 tile 상태의 `compositionMode`·`modeReason`·`orderSignature`를 채운다. `UShaderTerrainDecalManager`는 `precomposed`·`hybrid` 계획을 기존 합성 경로로 연결하되 검증된 정적 RTT 재사용 결과는 표시 큐로 직접 편입한다. `UTerrainDecalCompositeComposer`는 `precomposed`·`hybrid` 계획을 입력으로 받는다. `isExactTerrainCompositionBatchIndex`는 batch 순번을 packed 채널로 보내는 경로에서 왕복 정확성을 확인한다. `buildTerrainCompositionTargetKey`는 합성 대상 목록의 식별자를 만드는 공개 함수이며, 소비자가 tile 상태 모듈을 가져오지 않고도 같은 규약으로 조회 key 를 만들 수 있게 한다.
 
 ## 2. 요구사항과 품질 기준
 
@@ -28,14 +28,17 @@ stable Feature 식별자가 없는 입력은 배열 index 를 식별자로 대�
 같은 compositionFeatureKey 의 합성 metadata 가 서로 다르면 조용히 하나를 채택하지 않고 거절해야 한다.
 같은 compositionRenderOrder 안에서 compositionGroupOrder 가 겹치거나 같은 group 안에서 renderOrder 와 featureCompositionOrdinal 이 모두 겹치면 거절해야 한다.
 polygon outer 와 hole 은 하나의 atomic Feature 로 계획해야 하며 서로 다른 batch 로 나뉘지 않아야 한다.
-direct 합성 동등성은 raster 유형 순서와 hole erase 위험이 tile-local 범위에서 실제로 겹칠 때만 부정해야 한다.
+기본 direct 합성 동등성은 raster 유형 순서와 hole erase 위험이 tile-local 범위에서 실제로 겹칠 때만 부정해야 한다.
+전체 stream에서 각 raster 유형이 한 연속 구간에만 나타나고 모든 범위가 유효하면 원래 유형 순열로 직접 합성할 수 있어야 한다. 이 확장은 hybrid 의 dynamic 부분집합에 적용하지 않아야 한다.
+타입이 재등장하거나 범위를 알 수 없는 역순은 새 순열로 승격하지 않아야 하며 기존 비교차 증명과 hole erase 안전 조건을 유지해야 한다.
+계획의 directTypeOrder 는 최종 direct 실행에만 선택한 순열을 담아야 하며 hybrid 와 precomposed 는 기본 순서 0 이어야 한다.
 tile-local 범위를 알 수 없으면 겹친다고 보수적으로 판정해야 한다.
 반환한 계획과 그 안의 group·Feature·part·batch 는 모두 얼려 반환해야 하며 입력 배열과 입력 객체는 바꾸지 않아야 한다.
 batch 순번으로 쓸 Feature 수가 packed Float32 채널로 왕복할 수 있는 범위를 넘으면 거절해야 한다.
-안정성이 하나도 분류되지 않은 입력은 안정성 도입 전과 같은 mode, 같은 direct 동등성, 같은 선택 이유, 같은 batch 와 같은 순서 서명을 만들어야 한다.
+안정성이 하나도 분류되지 않은 입력은 전체 stream 의 direct 동등성만으로 실행 방식을 결정하고 안정성 분리 정책을 적용하지 않아야 한다. batch 와 순서 서명은 안정성 분류 여부로 바뀌지 않아야 한다.
 안정성이 일부만 분류된 입력은 안전한 분리를 증명할 수 없으므로 전체를 precompose 해야 한다.
 같은 atomic Feature 의 part 사이 안정성이 다르면 outer 와 hole 을 분리하지 않고 거절해야 한다.
-static 과 dynamic 을 함께 실행하는 계획은 두 집합의 모든 범위가 겹치지 않고 dynamic 부분집합이 direct 계약을 지킬 때만 선택해야 한다.
+static 과 dynamic 을 함께 실행하는 계획은 dynamic 부분집합이 direct 계약을 지키고, 모든 static 이 모든 dynamic 앞에 오는 총순서 또는 두 집합의 비교차를 증명할 때만 선택해야 한다.
 static 과 dynamic 의 비교차 판정은 합성 결과가 자기 범위 밖으로 번지는 폭을 포함해야 한다. 그 폭을 계산할 수 없으면 수치상 비교차여도 전체를 precompose 해야 한다.
 번짐 여유는 두 집합 사이 판정에만 써야 하며 전체 stream 의 direct 동등성이나 dynamic 부분집합 내부 판정을 바꾸어서는 안 된다.
 두 합성 대상 목록은 전체 stream 순서를 그대로 투영해야 하며 같은 Feature 가 두 목록에 함께 있거나 어느 목록에도 없어서는 안 된다.
@@ -64,7 +67,7 @@ TERRAIN_COMPOSITION_DIRECT_BATCH_INDEX: number = -1
     hybrid 계획에서 direct 대상 Feature 를 표시하는 batch 순번. 합성기는 0 이상인 순번만 실행하므로 이 값을 가진 Feature 는 정적 합성에서 구조적으로 제외되고, material 의 hybrid 경로는 반대로 이 값만 direct 로 평가한다. shader 의 floor(value + 0.5) 복원 규칙에서 정확히 왕복한다.
 
 TERRAIN_COMPOSITION_TYPE_ORDER: Record<TerrainDecalRasterType, number> = {path: 0, area: 1, circle: 2}
-    기존 direct 합성이 raster 를 그리는 geometry 종류 순서. 전체 stream 과 dynamic 부분집합 판정이 같은 순서를 쓴다.
+    기본 direct 합성이 raster 를 그리는 geometry 종류 순서. 기존 비교차 증명과 hybrid 의 dynamic 부분집합은 이 순서를 유지한다.
 
 TerrainDecalCompositionFeatureInput 타입 정의
     featureId?: string | number
@@ -91,7 +94,7 @@ TerrainDecalCompositionFeatureInput 타입 정의
         원본 source 식별자이며 계획에서는 part 정보로만 보관한다.
     isHole?: boolean
         polygon hole 여부
-    bounds?: Array<number>
+    bounds?: ReadonlyArray<number>
         stroke 를 포함한 tile-local [minX, minY, maxX, maxY] 범위이며 없으면 겹친다고 보수적으로 판정한다.
     compositionStability?: TerrainDecalCompositionStability
         호출부가 정규화한 Feature 변경 안정성이며 값이 없으면 미분류다.
@@ -106,7 +109,7 @@ TerrainDecalCompositionPlanOption 타입 정의
 
 TerrainDecalRasterType 타입 정의
     'path' | 'area' | 'circle'
-        terrain raster 유형이며 direct 합성의 pass 순서와 같은 순서다.
+        terrain raster 유형이며 기본 direct 합성은 나열된 순서를 따른다.
 
 TerrainDecalCompositionPartState 타입 정의
     featureId: string
@@ -141,6 +144,9 @@ TerrainDecalCompositionFeatureState 타입 정의
         atomic Feature 를 구성하는 geometry part 목록
     compositionStability: TerrainDecalCompositionStability | undefined
         Feature 변경 안정성이며 미분류면 undefined 다.
+
+    bounds?: ReadonlyArray<number>
+        각 part와 구멍의 stroke 포함 경계를 합친 tile-local 범위. 이미 계산한 네 값을 동결해 보존하고 구간 계획 재결합에서도 비교차 판정의 근거로 재사용한다. 별도 경계 Map은 보관하지 않는다.
 
 TerrainDecalCompositionFeature 타입 정의
     Readonly<TerrainDecalCompositionFeatureState>
@@ -186,10 +192,12 @@ TerrainDecalCompositionPlanState 타입 정의
     batches: Array<TerrainDecalCompositionBatchState>
         최대 연속 합성 batch 목록
     directCompatible: boolean
-        전체 Feature stream 을 기존 path, area, circle 직접 합성으로 그대로 재현할 수 있는지 여부이며 안정성 정책과 무관한 stream 속성이다.
+        전체 Feature stream 을 기본 순서 또는 타입별 연속 구간 순서의 직접 합성으로 재현할 수 있는지 여부이며 안정성 정책과 무관한 stream 속성이다.
+    directTypeOrder: 0 | 1 | 2 | 3 | 4 | 5
+        최종 direct 실행의 유형 순열이다. 0 은 path-area-circle, 1 은 path-circle-area, 2 는 area-path-circle, 3 은 area-circle-path, 4 는 circle-path-area, 5 는 circle-area-path 다. hybrid 와 precomposed 는 0 이다.
     compositionMode: 'direct' | 'precomposed' | 'hybrid'
         합성 실행 방식
-    modeReason: 'type-stream-compatible' | 'type-stream-requires-precompose' | 'polygon-local-hole-requires-precompose' | 'order-inversion-disjoint-geometry' | 'stability-metadata-incomplete' | 'stability-static-only-precomposed' | 'stability-hybrid-disjoint' | 'stability-cross-intersects-precomposed' | 'stability-separation-unverifiable-precomposed' | 'stability-dynamic-subset-requires-precompose'
+    modeReason: 'type-stream-compatible' | 'type-block-order-compatible' | 'type-stream-requires-precompose' | 'polygon-local-hole-requires-precompose' | 'order-inversion-disjoint-geometry' | 'stability-metadata-incomplete' | 'stability-static-only-precomposed' | 'stability-hybrid-disjoint' | 'stability-hybrid-ordered' | 'stability-cross-intersects-precomposed' | 'stability-separation-unverifiable-precomposed' | 'stability-dynamic-subset-requires-precompose'
         합성 방식 선택 이유
     orderSignature: string
         source 경계를 제외한 canonical 합성 순서 식별자
@@ -222,7 +230,7 @@ MutableTerrainDecalCompositionBatch 타입 정의
     Omit<TerrainDecalCompositionBatchState, 'compositionFeatureKeys'> & {compositionFeatureKeys: Array<string>}
         계획 생성 중 Feature 범위를 넓힐 수 있는 batch 이며 반환 직전에 얼린다.
 
-normalizeOrder(value) -> number
+normalizeOrder(value: unknown) -> number
     역할: 정렬에 쓸 숫자를 유한한 값으로 정규화한다.
 
     인터페이스:
@@ -233,9 +241,9 @@ normalizeOrder(value) -> number
         유한하지 않은 값을 0 으로 바꿔 정렬 비교가 NaN 으로 무너지지 않게 한다.
 
     동작:
-        유한한 값이면 수로 바꿔 반환하고 아니면 0 을 반환한다.
+        변환 전 value에 Number.isFinite를 적용한다. 참이면 Number(value)를 반환하고 문자열·NaN·Infinity 등은 0을 반환한다.
 
-normalizeKey(value, fallback) -> string
+normalizeKey(value: unknown, fallback: string) -> string
     역할: 문자열 식별자를 비교 가능한 값으로 정규화한다.
 
     인터페이스:
@@ -249,7 +257,7 @@ normalizeKey(value, fallback) -> string
     동작:
         없는 값이면 fallback 을 반환하고 아니면 문자열로 바꿔 반환한다.
 
-normalizeCompositionStability(value, compositionFeatureKey) -> TerrainDecalCompositionStability | undefined
+normalizeCompositionStability(value: unknown, compositionFeatureKey: string) -> TerrainDecalCompositionStability | undefined
     역할: Feature 변경 안정성 입력을 정규화한다.
 
     인터페이스:
@@ -265,7 +273,7 @@ normalizeCompositionStability(value, compositionFeatureKey) -> TerrainDecalCompo
     동작:
         없는 값이면 undefined 를 반환하고 두 값 중 하나면 그 값을 반환하며 나머지는 거절한다.
 
-compareKey(left, right) -> number
+compareKey(left: string, right: string) -> number
     역할: 문자열 두 개를 실행 환경의 locale 설정과 무관하게 비교한다.
 
     인터페이스:
@@ -279,7 +287,7 @@ compareKey(left, right) -> number
     동작:
         같으면 0 을 반환하고 아니면 코드 포인트 크기 비교 결과를 반환한다.
 
-selectCompositionIdentity(values) -> unknown | undefined
+selectCompositionIdentity(values: Array<unknown>) -> unknown | undefined
     역할: 우선순위 순서의 식별자 후보에서 값이 있는 첫 번째를 고른다.
 
     인터페이스:
@@ -292,7 +300,7 @@ selectCompositionIdentity(values) -> unknown | undefined
     동작:
         앞에서부터 훑어 값이 있는 첫 후보를 반환하고 없으면 undefined 를 반환한다.
 
-isExactTerrainCompositionBatchIndex(batchIndex) -> boolean
+isExactTerrainCompositionBatchIndex(batchIndex: number) -> boolean
     역할: batch 순번이 packed Float32 채널에서 오차 없이 복원되는 범위인지 확인한다.
 
     인터페이스:
@@ -306,7 +314,7 @@ isExactTerrainCompositionBatchIndex(batchIndex) -> boolean
     동작:
         정수·범위를 확인하고 Float32 로 내린 값에 shader 복원 규칙을 적용해 원래 값과 같은지 반환한다.
 
-buildTerrainCompositionTargetKey(compositionGroupKey, compositionFeatureKey) -> string
+buildTerrainCompositionTargetKey(compositionGroupKey: string, compositionFeatureKey: string) -> string
     역할: group 범위를 보존하는 합성 대상 식별자를 만든다.
 
     인터페이스:
@@ -322,7 +330,7 @@ buildTerrainCompositionTargetKey(compositionGroupKey, compositionFeatureKey) -> 
     동작:
         두 값을 문자열로 바꿔 두 원소 JSON 배열로 직렬화해 반환한다.
 
-normalizeCompositionBounds(bounds) -> Array<number> | undefined
+normalizeCompositionBounds(bounds: unknown) -> Array<number> | undefined
     역할: 입력 범위를 교차 판정에 쓸 수 있는 형태로 정규화한다.
 
     인터페이스:
@@ -336,7 +344,7 @@ normalizeCompositionBounds(bounds) -> Array<number> | undefined
     동작:
         앞 네 값을 수로 바꿔 유한성과 min·max 관계를 확인하고 통과하면 그 배열을 반환한다.
 
-normalizeStabilitySeparationMargin(value) -> {margin: number, verifiable: boolean}
+normalizeStabilitySeparationMargin(value: unknown) -> {margin: number, verifiable: boolean}
     역할: static 과 dynamic 집합을 떼어 놓아야 하는 여유 거리를 정규화한다.
 
     인터페이스:
@@ -352,7 +360,7 @@ normalizeStabilitySeparationMargin(value) -> {margin: number, verifiable: boolea
     동작:
         없는 값이면 여유 0 과 보장 가능을, 유한한 0 이상이면 그 값과 보장 가능을, 나머지는 여유 0 과 보장 불가를 반환한다.
 
-inflateCompositionBounds(bounds, margin) -> Array<number> | undefined
+inflateCompositionBounds(bounds: Array<number> | undefined, margin: number) -> Array<number> | undefined
     역할: 범위를 모든 방향으로 같은 거리만큼 넓힌다.
 
     인터페이스:
@@ -365,9 +373,9 @@ inflateCompositionBounds(bounds, margin) -> Array<number> | undefined
         여유가 0 이하면 원본을 그대로 돌려준다.
 
     동작:
-        최소값에서 여유를 빼고 최대값에 여유를 더한 새 배열을 반환한다.
+        배열이 아니거나 길이가 4 미만이면 undefined다. margin > 0이 아니면 원본 배열을 그대로 반환하며, 양수이면 최소값에서 빼고 최대값에 더한 새 배열을 반환한다.
 
-mergeCompositionBounds(left, right) -> Array<number> | undefined
+mergeCompositionBounds(left: Array<number> | undefined, right: Array<number> | undefined) -> Array<number> | undefined
     역할: 같은 atomic Feature 를 구성하는 part 범위를 하나로 합친다.
 
     인터페이스:
@@ -381,7 +389,7 @@ mergeCompositionBounds(left, right) -> Array<number> | undefined
     동작:
         두 범위의 최소·최대를 각각 골라 새 배열로 반환한다.
 
-doTerrainCompositionBoundsIntersect(left, right) -> boolean
+doTerrainCompositionBoundsIntersect(left: Array<number> | undefined, right: Array<number> | undefined) -> boolean
     역할: 두 tile-local 범위가 실제로 겹치는지 확인한다.
 
     인터페이스:
@@ -396,7 +404,7 @@ doTerrainCompositionBoundsIntersect(left, right) -> boolean
     동작:
         판정할 수 없으면 true 를 반환하고 아니면 두 축의 구간 겹침 여부를 함께 반환한다.
 
-hasIntersectingTerrainOrderInversion(orderedFeatures, featureBoundsList, typeOrder) -> boolean
+hasIntersectingTerrainOrderInversion(orderedFeatures: Array<MutableTerrainDecalCompositionFeature>, featureBoundsList: Array<Array<number> | undefined>, typeOrder: Record<string, number>) -> boolean
     역할: raster 유형 순서가 뒤집힌 Feature 쌍이 실제로 겹치는지 확인한다.
 
     인터페이스:
@@ -411,10 +419,10 @@ hasIntersectingTerrainOrderInversion(orderedFeatures, featureBoundsList, typeOrd
         비교 횟수가 TERRAIN_COMPOSITION_INTERSECTION_CHECK_LIMIT 를 넘으면 더 비교하지 않고 true 를 반환한다.
 
     동작:
-        각 Feature 를 앞선 모든 Feature 와 견주어 역전 쌍의 범위 겹침을 확인한다.
+        앞선 Feature 를 유형 순서별로 묶어 현재보다 순서가 높은 유형의 Feature 만 범위를 비교한다. 같은 유형과 더 낮은 유형의 피처 방문은 생략하고 역전 쌍의 비교 상한은 유지한다.
         겹치는 쌍을 찾으면 즉시 true 를 반환하고 끝까지 없으면 false 를 반환한다.
 
-hasIntersectingTerrainHoleErase(orderedFeatures, featureBoundsList, holeAreaFeatures) -> boolean
+hasIntersectingTerrainHoleErase(orderedFeatures: Array<MutableTerrainDecalCompositionFeature>, featureBoundsList: Array<Array<number> | undefined>, holeAreaFeatures: Array<{index: number}>) -> boolean
     역할: polygon hole 이 앞선 area 를 지울 수 있는지 확인한다.
 
     인터페이스:
@@ -431,7 +439,7 @@ hasIntersectingTerrainHoleErase(orderedFeatures, featureBoundsList, holeAreaFeat
         hole 을 가진 각 area 를 앞선 area 들과 견주어 범위 겹침을 확인한다.
         겹치는 앞선 area 를 찾으면 즉시 true 를 반환하고 끝까지 없으면 false 를 반환한다.
 
-hasIntersectingTerrainStabilityCross(staticBoundsList, dynamicBoundsList, separationMargin = 0) -> boolean
+hasIntersectingTerrainStabilityCross(staticBoundsList: Array<Array<number> | undefined>, dynamicBoundsList: Array<Array<number> | undefined>, separationMargin: number = 0) -> boolean
     역할: static 집합과 dynamic 집합에 서로 겹치는 쌍이 있는지 확인한다.
 
     인터페이스:
@@ -450,26 +458,47 @@ hasIntersectingTerrainStabilityCross(staticBoundsList, dynamicBoundsList, separa
         여유가 있으면 static 범위 목록을 미리 넓힌다.
         두 집합의 모든 쌍을 견주어 겹침을 확인하고 하나라도 겹치면 즉시 true 를 반환한다.
 
-evaluateTerrainDirectCompatibility(orderedFeatures, featureBoundsList) -> {directCompatible: boolean, modeReason: 'type-stream-compatible' | 'type-stream-requires-precompose' | 'polygon-local-hole-requires-precompose' | 'order-inversion-disjoint-geometry'}
-    역할: Feature stream 하나가 기존 direct 합성과 순서가 동등한지 판정한다.
+resolveTerrainDirectTypeBlockOrder(orderedFeatures: Array<MutableTerrainDecalCompositionFeature>, featureBoundsList: Array<Array<number> | undefined>) -> TerrainDecalCompositionPlanState['directTypeOrder'] | undefined
+    역할: 각 유형이 한 연속 구간에만 등장하는 전체 stream 의 유형 순열을 선택한다.
 
     인터페이스:
         orderedFeatures: 총정렬된 Feature 목록
         featureBoundsList: Feature index 별 tile-local 범위
-        반환: 동등성 판정과 그 이유
+        반환: 직접 합성 순열이며 증명할 수 없으면 undefined 다.
 
     처리 기준:
-        전체 stream 과 dynamic 부분집합에 같은 규칙을 적용하기 위해 분리한 함수이며 두 호출 모두 같은 유형 순서를 쓴다.
-        유형 순서가 어긋나거나 hole erase 위험이 있어도 관련 쌍이 실제로 겹치지 않으면 동등하다고 본다.
-        첫 area 뒤에 오는 hole 을 가진 area 만 hole erase 위험으로 본다.
+        모든 Feature 의 범위가 정규화된 유효 범위여야 한다.
+        이미 끝난 유형이 다시 나오면 하나의 유형 순열로 총순서를 재현할 수 없으므로 거절한다.
+        등장하지 않은 유형은 기본 순서대로 뒤에 붙인다.
+        유형 방문 여부는 비트 값으로, 처음 두 유형은 숫자로만 보관해 Feature 별 배열이나 Map 을 추가하지 않는다.
+
+    동작:
+        Feature 를 한 번 순회하며 유효 범위와 유형 재등장을 검사한다.
+        처음 두 유형에서 여섯 순열 중 하나를 선택한다.
+
+evaluateTerrainDirectCompatibility(orderedFeatures: Array<MutableTerrainDecalCompositionFeature>, featureBoundsList: Array<Array<number> | undefined>, allowTypeBlockOrder: boolean = false) -> {directCompatible: boolean, directTypeOrder: TerrainDecalCompositionPlanState['directTypeOrder'], modeReason: 'type-stream-compatible' | 'type-block-order-compatible' | 'type-stream-requires-precompose' | 'polygon-local-hole-requires-precompose' | 'order-inversion-disjoint-geometry'}
+    역할: Feature stream 하나가 직접 합성과 순서가 동등한지 판정한다.
+
+    인터페이스:
+        orderedFeatures: 총정렬된 Feature 목록
+        featureBoundsList: Feature index 별 tile-local 범위
+        allowTypeBlockOrder: 전체 stream 의 유형별 연속 구간 순서를 허용할지 여부이며 기본값은 false 다.
+        반환: 동등성 판정, 직접 합성 순열과 그 이유
+
+    처리 기준:
+        전체 stream 호출만 유형별 연속 구간 순서를 허용하며 hybrid 의 dynamic 부분집합은 기본 유형 순서를 유지한다.
+        기본 순서가 어긋나거나 hole erase 위험이 있어도 관련 쌍이 실제로 겹치지 않으면 기본 순서로 동등하다고 본다.
+        기존 기본 순서와 비교차 증명으로 동등하면 순열은 0 을 유지한다.
+        첫 area 뒤에 오는 hole 을 가진 area 만 hole erase 위험으로 본다. 새 유형 순열도 이 위험이 안전하다고 증명돼야 한다.
 
     동작:
         유형 순서가 path, area, circle 순서를 지키는지 확인한다.
         hole 을 가진 area 가 앞선 area 뒤에 있는지 모아 둔다.
         어긋난 유형 쌍과 hole erase 쌍이 실제로 겹치는지 확인한다.
-        동등성과 선택 이유를 함께 반환한다.
+        기존 기본 순서로 동등하지 않고 확장이 허용됐으면 유형별 연속 구간 순열을 선택한다.
+        hole 안전성을 함께 적용해 동등성, 직접 합성 순열과 선택 이유를 반환한다.
 
-buildTerrainCompositionOrderSignature(features) -> string
+buildTerrainCompositionOrderSignature(features: Array<MutableTerrainDecalCompositionFeature>) -> string
     역할: Feature 목록을 실행 환경과 무관한 membership·순서 서명으로 만든다.
 
     인터페이스:
@@ -494,7 +523,7 @@ buildTerrainDecalCompositionPlan(features: Array<TerrainDecalCompositionFeatureI
 
     처리 기준:
         배열이 아닌 입력과 비어 있는 원소는 건너뛴다.
-        Feature 식별자는 compositionFeatureKey, featureId, id, uid 순서로 고르고 하나도 없으면 거절한다. 배열 도착 순서를 식별자로 대체하면 같은 집합이 순서에 따라 다른 계획을 만들기 때문이다.
+        Feature 식별자는 compositionFeatureKey, featureId, id, uid 순서에서 undefined·null이 아닌 첫 값으로 고른다. 선택한 값이 빈 문자열이면 다음 후보로 넘어가지 않고 거절하며 수치 0은 보존한다. 하나도 없으면 거절한다. 배열 도착 순서를 식별자로 대체하면 같은 집합이 순서에 따라 다른 계획을 만들기 때문이다.
         같은 group 과 compositionFeatureKey 로 다시 들어온 입력의 순서 metadata 와 유형이 처음과 다르면 거절한다.
         같은 compositionRenderOrder 안에서 compositionGroupOrder 를 다른 group 이 이미 쓰고 있으면 거절한다.
         같은 group 안에서 renderOrder 와 featureCompositionOrdinal 조합을 다른 Feature 가 이미 쓰고 있으면 거절한다.
@@ -503,22 +532,23 @@ buildTerrainDecalCompositionPlan(features: Array<TerrainDecalCompositionFeatureI
         part 순서는 outer 를 먼저 두고 hole 을 뒤에 두며 같은 종류 안에서는 featureId 로 정렬한다.
         Feature 수가 TERRAIN_COMPOSITION_MAX_BATCH_INDEX + 1 을 넘으면 거절한다. batch 순번을 packed Float32 채널로 전달하기 때문이다.
         batch 는 같은 group 과 유형의 최대 연속 구간으로 묶되 hole 을 가진 area Feature 는 raster contract 를 보존해야 하므로 그 경계에서 나누고 사유를 남긴다.
-        raster 유형 순서와 hole erase 위험 판정은 전체 stream 과 dynamic 부분집합에 같은 함수를 쓴다.
-        directCompatible 은 전체 stream 을 direct 로 재현할 수 있는지만 뜻하며 안정성 정책과 분리한다. 안정성 도입 전과 같은 값이 나오도록 계산을 바꾸지 않는다.
-        안정성이 하나도 분류되지 않은 입력은 mode, 선택 이유, batch, 순서 서명이 안정성 도입 전과 같다.
+        raster 유형 순서와 hole erase 위험 판정은 전체 stream 과 dynamic 부분집합에 같은 함수를 쓰되 유형별 연속 구간 순열은 전체 stream 에서만 허용한다.
+        directCompatible 은 전체 stream 을 direct 로 재현할 수 있는지만 뜻하며 안정성 정책과 분리한다.
+        안정성이 하나도 분류되지 않은 입력은 전체 stream 의 direct 동등성만으로 mode 와 선택 이유를 결정하며 안정성 분리 정책을 적용하지 않는다.
         안정성이 일부만 분류된 입력은 전체를 precompose 하고 사유를 stability-metadata-incomplete 로 남긴다.
         모두 분류됐고 static 만 있으면 전체를 precompose 한다.
-        모두 분류됐고 dynamic 만 있으면 dynamic 부분집합이 전체 stream 과 같으므로 기존 판정과 사유를 그대로 쓴다.
+        모두 분류됐고 dynamic 만 있으면 전체 stream 의 판정과 직접 합성 순열을 그대로 쓴다.
         모두 분류됐고 두 집합이 함께 있으면 먼저 번짐 여유를 확인한다. 여유를 보장할 수 없으면 수치상 비교차여도 전체를 precompose 하고 사유를 stability-separation-unverifiable-precomposed 로 남긴다.
-        다음으로 여유를 포함한 두 집합의 범위 교차를 보고, 겹치면 전체를 precompose 한다. 교차 집합의 재귀적 부분 승격은 실행 파이프라인까지 검증하기 전이라 이 단계에서 하지 않는다.
+        총순서에서 모든 static 뒤에 dynamic 이 이어지고 dynamic 부분집합이 direct 계약을 지키면 hybrid 로 계획하고 사유를 stability-hybrid-ordered 로 남긴다. 정적 texture 를 먼저 놓고 동적 색을 그 위에 합성하므로 두 집합의 교차 자체가 거절 이유는 아니다.
+        이 순서가 아니면 여유를 포함한 두 집합의 범위 교차를 보고, 겹치면 전체를 precompose 한다. 임의의 교차 부분집합을 재귀적으로 승격하지 않는다.
         번짐 여유는 두 집합 사이 판정에만 쓴다. 전체 stream 의 direct 동등성과 dynamic 부분집합 내부 판정은 여유 없이 그대로 본다.
         두 집합이 겹치지 않아도 dynamic 부분집합 자체가 direct 계약을 지키지 못하면 전체를 precompose 한다.
-        두 조건을 모두 만족할 때만 hybrid 로 계획하고 static 은 precomposed 대상, dynamic 은 direct 대상으로 나눈다.
+        정적 구간 우선 순서 또는 비교차 조건을 만족한 hybrid 계획은 static 을 precomposed 대상, dynamic 을 direct 대상으로 나눈다.
         두 대상 목록은 전체 stream 을 한 번 순회해 만들므로 같은 Feature 가 두 목록에 함께 들어가지 않는다. 같은 atomic Feature 의 part 는 하나의 Feature 이므로 outer 와 hole 도 함께 움직인다.
         대상 목록의 각 값은 group key 와 feature key 를 함께 담은 식별자다. 같은 생성 함수를 내부 정의 key 에도 써서 한 모듈 안에 직렬화 규약을 하나만 둔다.
         precomposed 대상이 하나 이상 있는 batch 순번만 실행 목록으로 투영한다. batch 는 같은 group 과 유형의 연속 구간이라 hybrid 에서는 정적·동적 대상이 한 batch 에 함께 있을 수 있으므로, 실행 목록만으로 대상을 가르지 않고 packed batch 순번의 direct sentinel 이 함께 작용한다.
-        batch 는 이번 단계에서 전체 stream 의 기존 의미를 유지한다. hybrid 실행용 대상별 batch 분리는 다음 단계에서 설계한다.
-        반환 직전에 part, Feature, group, batch, 계획 객체를 모두 얼려 소비자가 계획을 바꾸지 못하게 한다.
+        batch는 전체 stream의 group·type 연속 구간을 유지한다. hybrid의 실제 실행 대상은 precomposedBatchIndices와 대상 key 목록으로 구분한다.
+        반환 직전에 part, Feature, group, batch, 계획 객체를 모두 얼린다. batches의 공개 가변 타입과 런타임 불변성 차이는 남아 있다. [확인 Q-001]
         입력 배열과 입력 객체는 바꾸지 않고 새 객체만 만든다.
 
     동작:
@@ -526,9 +556,16 @@ buildTerrainDecalCompositionPlan(features: Array<TerrainDecalCompositionFeatureI
         group 을 합성 순서로 정렬하고 group 안 Feature 와 Feature 안 part 를 정렬해 전체 stream 을 만든다.
         Feature index 별 범위 목록을 만들고 batch 순번 한계를 확인한다.
         같은 group 과 유형의 최대 연속 batch 를 만들되 필수 raster contract 전이에서 나눈다.
-        전체 stream 의 direct 동등성을 판정한다.
-        안정성별 Feature 와 범위를 나누고 전체가 분류됐는지 센다.
-        분류 상태와 번짐 여유, 두 집합의 교차, dynamic 부분집합 동등성으로 합성 방식과 선택 이유를 정한다.
+        유형별 연속 구간 순열을 허용해 전체 stream 의 direct 동등성을 판정한다.
+        안정성별 Feature 와 범위를 나누고 전체가 분류됐는지 세며 dynamic 뒤에 static 이 오는지 확인한다.
+        전체 stream의 직접 동등성으로 기본 mode를 정한다. 일부만 분류됐으면 precomposed로, 완전 분류된 정적 전용이면 precomposed로 바꾼다.
+        stabilityClassified && staticFeatures.length > 0 && dynamicFeatures.length > 0인 혼합 입력에서는 다음 순서로 mode를 결정한다.
+            번짐 여유의 보장 가능 여부를 정규화하고 dynamic 부분집합의 직접 동등성을 계산한다.
+            separation.verifiable가 false이면 precomposed로 끝낸다.
+            그 밖에 staticBeforeDynamic && dynamicDirectCompatible이 true이면 범위 교차와 무관하게 정적 우선 hybrid를 선택한다.
+            separation.verifiable가 true이고 정적 우선 hybrid를 선택하지 않은 경우에는 static·dynamic 범위를 번짐 여유와 함께 교차 비교하고, 교차하면 precomposed로 끝낸다.
+            비교차라도 dynamicDirectCompatible이 false이면 precomposed이고 나머지는 비교차 hybrid다.
+        최종 mode 가 direct 일 때만 전체 stream 에서 선택한 유형 순열을 directTypeOrder 에 담고 나머지는 0 을 사용한다.
         전체 stream 순서를 그대로 투영해 precomposed 대상과 direct 대상 목록을 만든다.
         precomposed 대상을 가진 batch 순번을 모아 합성 실행 목록을 만든다.
         전체·static·dynamic 순서 서명을 만든다.

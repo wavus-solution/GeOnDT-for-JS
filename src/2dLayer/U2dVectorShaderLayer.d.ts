@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -21,8 +21,7 @@ import type { UMercator } from "../math/UMercator.js";
 import type { UMeasureFeature } from "../ol/UMeasureFeature.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { KeyValue } from "../types/global.js";
-import type { OLFeature } from "../types/ol.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { OLFeature, OLGeometry } from "../types/ol.js";
 
 /**
  * Debug JSON 에 담는, tile 캐시에 들어 있는 mesh 하나의 상태입니다.
@@ -229,19 +228,6 @@ type DebugTileState = {
      */
     visibleTile: boolean;
     /**
-     * LOD 전환 판단과 작업 상태입니다.
-     */
-    lodTransition: {
-        refineRequested: boolean;
-        lodPresentPending: boolean;
-        blockingLayerNames: Array<string>;
-        runtimeBlocked: boolean;
-        processed: number;
-        worked: number;
-        waitWorkNames: Array<string>;
-        endWorkNames: Array<string>;
-    } | undefined;
-    /**
      * 이 tile 의 캐시 mesh 상태이며 캐시 mesh 가 없으면 `undefined` 입니다.
      */
     cacheMesh: DebugTileStateCacheMesh | undefined;
@@ -325,13 +311,19 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * U2dVectorShaderLayer 클래스 생성자입니다.
      *
      * @param {U2dVectorShaderLayerCO} opt 생성자 옵션입니다. <br>
-     * 옵션 키는 대소문자를 구분하지 않고 정규화하며, `terrainWfsMaxConcurrency` 를 주면 모든 벡터 레이어가 공유하는 WFS 요청 큐의 동시 요청 수를 즉시 바꿉니다.
+     * 옵션 키는 대소문자를 구분하지 않고 정규화하며, `terrainWfsMaxConcurrency` 를 주면 모든 벡터 레이어가 공유하는 WFS 요청·피처 준비 큐의 동시 처리 수를 즉시 바꿉니다.
      */
     constructor(opt: U2dVectorShaderLayerCO);
     /** @type {Map<string, FeatureEntry>} */
     _featureEntries: Map<string, FeatureEntry>;
     /** @type {WeakMap<import('@UMeasureFeature').UMeasureFeature, U2dVectorShaderTileRangeState>} */
     _featureTileRanges: WeakMap<UMeasureFeature, U2dVectorShaderTileRangeState>;
+    /**
+     * 확정 입력과 runtime 등록 수명이 바뀔 때 연결 준비를 무효화합니다.
+     *
+     * @type {number}
+     */
+    _terrainRuntimeBindingRevision: number;
     /** @type {Record<string, Record<string, boolean>>} */
     _drawFeatureIds: Record<string, Record<string, boolean>>;
     /** @type {import('@union3d/manager/terrain/UTerrainDecalCompositionOrderRegistry').UTerrainDecalCompositionOrderRegistry} */
@@ -340,13 +332,8 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     _styleRevision: number;
     /** @type {WeakMap<import('@UMeasureFeature').UMeasureFeature | U2dVectorRenderPart, TerrainFeaturePayloadCacheEntry | null>} */
     _terrainFeaturePayloadCache: WeakMap<UMeasureFeature | U2dVectorRenderPart, TerrainFeaturePayloadCacheEntry | null>;
-    /** @type {Map<string, {mesh: object, sourceRevision: number, styleRevision: number, payloads: Array<object>}>} */
-    _terrainTilePayloadCache: Map<string, {
-        mesh: object;
-        sourceRevision: number;
-        styleRevision: number;
-        payloads: Array<object>;
-    }>;
+    /** @type {Map<string, TerrainTilePayloadCacheEntry>} */
+    _terrainTilePayloadCache: Map<string, TerrainTilePayloadCacheEntry>;
     /** @type {Map<string, number>} */
     _terrainRuntimeSourceRevision: Map<string, number>;
     /** @type {false | Promise<Array<boolean>>} */
@@ -392,8 +379,8 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     _fullFeatureLoader: (arg0: object, arg1: U2dVectorFeatureIdentity) => (object | Promise<object | undefined> | undefined);
     /** @type {Map<string, U2dVectorSourceEntry>} */
     _sourceFeatures: Map<string, U2dVectorSourceEntry>;
-    /** @type {WeakMap<object, UMeasureFeature>} */
-    _runtimeFeatureBySource: WeakMap<object, UMeasureFeature>;
+    /** @type {Map<object, import('@union3d/ol/UMeasureFeature.js').UMeasureFeature>} */
+    _runtimeFeatureBySource: Map<object, UMeasureFeature>;
     /** @type {Array<import('@U3dPOI').U3dPOI>} */
     _label: Array<U3dPOI>;
     /** @type {import('three').ColorRepresentation} */
@@ -484,7 +471,20 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     _terrainPayloadBuildInFlight: Set<any>;
     _terrainTextureBuildInFlight: Set<any>;
     _terrainTexturePreparedState: Map<any, any>;
-    _terrainRuntimePreparedState: Map<any, any>;
+    /**
+     * runtime 입력 준비와 타일 연결 검사를 각각 재사용하며 GPU 적용 이력과 구분합니다.
+     *
+     * @type {Map<string, {signature?: string, mesh?: object, bindings?: {signature: string, ids: Array<string>}}>}
+     *
+     */
+    _terrainRuntimePreparedState: Map<string, {
+        signature?: string;
+        mesh?: object;
+        bindings?: {
+            signature: string;
+            ids: Array<string>;
+        };
+    }>;
     _terrainWfsRetryState: Map<any, any>;
     /**
      * 편집 시작 호출을 호환용으로 유지합니다. <br>
@@ -556,13 +556,13 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      */
     setTerrainLodQuery(query: undefined | TerrainLodQuery): this;
     /**
-     * 공용 Terrain WFS 큐의 최대 동시 요청 수를 반환합니다.
+     * 공용 Terrain WFS 큐의 최대 동시 처리 수를 반환합니다.
      *
      * @returns {number} 최대 동시 요청 수입니다.
      */
     getTerrainWfsMaxConcurrency(): number;
     /**
-     * 모든 Terrain vector 레이어가 공유하는 WFS 큐의 최대 동시 요청 수를 변경합니다. <br>
+     * 모든 Terrain vector 레이어가 공유하는 WFS 큐의 최대 동시 처리 수를 변경합니다. <br>
      * 이 레이어뿐 아니라 같은 큐를 쓰는 다른 벡터 레이어의 요청 처리 속도도 함께 달라집니다.
      *
      * @param {number} maxConcurrency 최대 동시 요청 수이며 큐가 유효한 양의 정수로 보정합니다.
@@ -570,7 +570,8 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      */
     setTerrainWfsMaxConcurrency(maxConcurrency: number): this;
     /**
-     * 이 레이어와 공용 큐의 Terrain WFS 요청 통계를 반환합니다.
+     * 이 레이어와 공용 큐의 Terrain WFS 요청 통계를 반환합니다. <br>
+     * 실행 수에는 원본 캐시를 재사용하는 피처 준비 작업도 포함하며 완료는 후처리가 끝난 시점입니다.
      *
      * @returns {TerrainLodPerformanceStats} Terrain WFS 요청 통계입니다.
      */
@@ -616,7 +617,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     /**
      * 점(circle) 도형의 반경과 테두리를 화면 픽셀 크기로 유지할지 설정합니다.
      *
-     * @param {boolean} value `true` 면 카메라 거리에 비례해 반경을 바꾸고, `false` 면 도형에 지정한 고정 반경으로 되돌립니다.
+     * @param {boolean} value 개별 `isDynamicRadius`를 생략한 도형에 적용합니다. `true` 면 카메라 거리에 비례해 반경을 바꾸고, `false` 면 도형에 지정한 고정 반경으로 되돌립니다.
      * @param {number} [radius=8] 렌더 버퍼 픽셀 기준 반경이며 유한수가 아니면 8을 사용합니다. 동적 원의 `strokeWidth`도 같은 픽셀 기준입니다.
      * @returns {this} 메서드를 이어 호출할 수 있도록 돌려주는 이 레이어 자신입니다.
      */
@@ -626,7 +627,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      *
      * @param {object} [opt={}] 반경 갱신 옵션입니다.
      * @param {number} [opt.radius] 화면 기준 반경(픽셀)이며 생략하면 `setDynamicRadius()` 또는 생성 옵션 `dynamicRadius` 로 정한 값을 사용합니다.
-     * @param {boolean} [opt.reset=false] 원래 geometry 반경으로 복원할지 여부입니다.
+     * @param {boolean} [opt.reset=false] 표시 반경 캐시를 지우고 원본 반경 또는 레이어 기본 동적 반경으로 복원할지 여부입니다. 명시적으로 동적 반경을 사용하는 점은 개별 설정을 유지합니다.
      * @param {boolean} [opt.deferFlush=true] 자동 갱신 시점까지 반영을 미룰지 여부입니다. `false`여도 진행 중인 갱신은 먼저 완료합니다.
      * @returns {boolean} 하나 이상의 원형 도형 갱신을 예약했으면 `true`입니다.
      */
@@ -639,6 +640,8 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * 이 레이어가 그린 벡터 도형과 진행 중인 서버 요청을 모두 비웁니다. <br>
      * 보류 중인 Feature 변경, 취소되지 않은 tile 요청, WFS 응답 캐시, 화면에 올린 도형과 라벨이 함께 정리되며 레이어 자체는 계속 사용할 수 있습니다. <br>
      * 도형 전체 범위(getVectorExtent)도 빈 상태로 되돌리므로 이후 추가한 도형만으로 fitLayerExtent 가 계산됩니다.
+     *
+     * @throws {unknown} 원본 해제 오류가 있으면 나머지 원본과 캐시를 정리한 뒤 원래 오류 또는 모은 오류를 전달합니다.
      */
     clear(): void;
     /**
@@ -676,14 +679,16 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * 준비한 입력과 승인된 revision이 같으면 GPU 적용을 기다리며 같은 작업을 다시 등록하지 않습니다.
      * 실제 GPU 준비와 장면 부착은 기존 표시 전환 훅에서 확인하며, 현재 GPU 실패와 무효화된 입력은 다시 평가합니다.
      * 원격 입력의 반복 완료 확인은 준비 시 저장한 원본 목록·설정·세대와 승인된 Source 상태만 비교합니다.
-     * 준비 이력이 없는 기존 경로와 원격 요청 실패 대체는 종전 표시 준비 판정을 유지합니다.
+     * 준비 이력이 없는 원격 실패·요청 대기 대체는 입력 작업을 완료하며 실제 표시 준비와 분리합니다.
+     * 그 밖의 준비 이력이 없는 기존 경로는 종전 표시 준비 판정을 유지합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 확인할 타일입니다.
-     * @returns {boolean} 현재 입력의 Source 승인이 끝났거나 기존 완료 조건을 만족하면 `true`입니다.
+     * @returns {boolean} 현재 Source 입력 준비가 끝났거나 기존 완료 조건을 만족하면 `true`입니다.
      */
     isTileWorkComplete(tile: U3dQuadTile): boolean;
     /**
      * 현재 tile의 scene 제거가 terrain handoff로 보류되었는지 반환합니다.
+     * 이 레이어가 참여하지 않는 자식에는 벡터 표시 완료를 요구하지 않습니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 확인할 tile입니다.
      * @returns {boolean} Parent fallback 유지가 필요하면 `true`입니다.
@@ -795,10 +800,11 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * @param {object} style 적용할 스타일입니다.
      * @param {boolean} [writeSource=true] 개별 편집값을 원본에 반영할지 여부입니다.
      * @param {boolean} [refreshTiles=true] 표시 타일을 즉시 갱신할지 여부이며 전체 스타일 변경은 한 번에 갱신합니다.
+     * @returns {undefined} 원본이 없거나 해제되었으면 변경하지 않습니다.
      *
      * @ignore
      */
-    _setSourceFeatureStyle(binding: UMeasureFeature, style: object, writeSource?: boolean, refreshTiles?: boolean): void;
+    _setSourceFeatureStyle(binding: UMeasureFeature, style: object, writeSource?: boolean, refreshTiles?: boolean): undefined;
     /**
      * 원본의 편집 스타일과 일시적인 선택 강조를 분리하여 모든 표시 조각에 반영합니다.
      * @param {UMeasureFeature} binding 원본 연결입니다.
@@ -863,11 +869,12 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.
      * 이미 적용한 빈 source는 같은 준비 서명에서 외부 host의 표시를 다시 기다리지 않습니다.
      * 준비된 payload의 재적용은 예약 후 종료하고, 실제 표시 준비는 LOD 표시 훅에서 확인합니다.
+     * 기본 WFS 입력은 백그라운드에서 준비하며 지형·영상은 응답을 기다리지 않고 목표 LOD로 전환합니다.
      *
      * @override
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 타일
-     * @returns {Promise<import('@U3dQuadTile').U3dQuadTile>} 작업이 끝나면 타일로 완료되는 Promise. 준비 조건을 만족하지 않아 일찍 끝나도 타일로 완료합니다
+     * @returns {Promise<import('@U3dQuadTile').U3dQuadTile>} 로컬 준비 또는 기본 WFS 요청 연결 뒤 타일로 완료되는 Promise입니다. 기본 WFS 응답과 벡터 표시는 이후 반영하며 사용자 어댑터의 완료는 기다립니다.
      */
     override createTexture(tile: U3dQuadTile): Promise<U3dQuadTile>;
     /**
@@ -902,7 +909,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     removeGeometry(geom: U2dGeometry): void;
     /**
      * 레이어의 전체 2D 객체 스타일을 갱신합니다. <br>
-     * 외곽선 굵기가 바뀌면 인접 terrain tile 바인딩도 함께 다시 계산합니다.
+     * 타일 폐기 후 보존된 원본도 갱신하며, 외곽선 굵기가 바뀌면 인접 terrain tile 바인딩을 다시 계산합니다.
      *
      * @param {U2dVectorShaderLayer_Style_Option} opt 적용할 스타일 옵션입니다.
      * @returns {Promise<void>} 스타일 적용과 필요한 terrain 및 WFS 갱신 예약 완료 결과입니다.
@@ -1046,7 +1053,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     hide(refresh?: boolean): void;
     _preserveTileRequestsOnHide: boolean;
     /**
-     * 폐기된 tile의 WFS 요청과 이 레이어가 소유한 terrain source, feature cache를 정리합니다.
+     * 폐기된 tile의 WFS 요청·재요청 예약과 이 레이어가 소유한 terrain source, feature cache를 정리합니다.
      *
      * @override
      *
@@ -1056,6 +1063,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     override disposeTile(tile: U3dQuadTile): undefined;
     /**
      * 레이어가 소유한 입력 연결과 장면 표시 의도만 읽습니다.
+     * runtime 참여 조회는 공통 facts 계산 없이 필요한 연결을 실제 질의 시점에 읽습니다.
      *
      * @param {TerrainRuntimeTile} tile 입력을 조회할 지형 타일입니다.
      * @param {TerrainLayerTilePresentationQuery} [query='all'] 필요한 표시 판정입니다.
@@ -1069,10 +1077,10 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      *
      * @override
      *
-     * @returns {DeferredObject<boolean>} 정리가 끝나면 true로 완료되는 Deferred 객체
+     * @returns {Promise<boolean>} 정리가 끝나면 true로 완료되는 Deferred 객체
      * @throws {Error} 원본 해제에 실패해도 남은 등록·구독·동적 원과 부모 자원을 정리한 뒤 원래 오류 또는 모은 오류를 전달합니다.
      */
-    override dispose(): DeferredObject<boolean>;
+    override dispose(): Promise<boolean>;
     /**
      * 위경도 좌표계(EPSG:4326) 위치를 받아 그 지점에 걸치는 Feature 를 모두 찾아 목록으로 반환합니다. <br>
      * WFS 타일 캐시와 직접 추가한 도형에서 검색하며 `excludeSearch` 도형은 제외합니다. <br>
@@ -1129,7 +1137,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     updateFeatures(): void;
     /**
      * 지금까지 쌓인 terrain 전환 디버그 로그를 조건에 맞게 걸러 반환합니다. <br>
-     * 로그 저장소는 이 클래스의 모든 인스턴스가 함께 쓰며 최근 1,000건만 남습니다. <br>
+     * 기존 공유 저장소를 조회하며 레이어와 관리자의 자동 수집은 수행하지 않습니다. <br>
      * 반환 배열은 저장소의 사본이라 배열을 바꾸어도 저장소는 달라지지 않습니다.
      *
      * @param {Partial<{tileKey: string, event: string, layerName: string}>} [filter={}] 지정한 항목을 모두 만족하는 로그만 남기며, 생략하면 전부 반환합니다.
@@ -1291,7 +1299,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     };
 
 /**
-     * 한 번의 runtime 타일 후보 검사에서 공유하고 즉시 버리는 입력입니다.
+     * runtime 타일 후보 검사 입력이며 확정 원형 payload가 유지되는 동안 재사용할 수 있습니다.
      */
     type U2dVectorRuntimeBindingInput = {
         /**
@@ -1303,9 +1311,9 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
          */
         searchParts?: Array<U2dVectorSearchPart>;
         /**
-         * 확정 payload의 강조 배율을 포함한 최대 테두리 폭입니다.
+         * 확정 payload의 강조·좌표 축척을 반영한 타일 교차 여유값입니다.
          */
-        maxStrokeWidth?: number;
+        strokeWorldPadding?: number;
     };
 
 /**
@@ -1425,7 +1433,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
          */
         terrainLodQuery?: TerrainLodQuery;
         /**
-         * 모든 Terrain vector 레이어가 공유하는 WFS 큐의 최대 동시 요청 수입니다.
+         * 모든 Terrain vector 레이어가 공유하는 WFS 큐의 최대 동시 처리 수입니다. 응답 수신부터 피처 준비·등록까지 한 슬롯을 사용합니다.
          */
         terrainWfsMaxConcurrency?: number;
         /**
@@ -1509,7 +1517,8 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     };
 
 /**
-     * 레이어별 Terrain WFS 요청 통계와 공용 큐 통계입니다.
+     * 레이어별 Terrain WFS 요청 통계와 공용 큐 통계입니다. <br>
+     * 캐시 응답의 후처리도 대기·시작·완료 수에 포함하며 동시 실행은 피처 준비·등록까지 셉니다.
      */
     type TerrainLodPerformanceStats = TerrainWfsRequestStats & {
         sharedRequestQueue: TerrainWfsRequestStats;
@@ -1558,6 +1567,14 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
          * 타일 위에서 도형을 표시할지 여부입니다.
          */
         visible?: boolean;
+        /**
+         * 점의 개별 화면 반경 사용 여부입니다. 생략하면 레이어 설정을 따릅니다.
+         */
+        isDynamicRadius?: boolean;
+        /**
+         * 원본 원형 이미지에서 확정한 화면 반경입니다. <hidden>
+         */
+        dynamicRadius?: number;
     };
 
 /**
@@ -1739,13 +1756,19 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
          */
         strokeColorState: TerrainPayloadColorState;
         /**
-         * 원본 좌표 배열입니다.
+         * 원본 좌표 객체 또는 평탄 좌표의 동일성 판정에 사용하는 배열입니다.
          */
-        vectors: Array<three.Vector3>;
+        vectors: Array<three.Vector3> | Float64Array;
         /**
          * 재사용할 terrain payload입니다.
          */
         payload: TerrainFeature;
+        /**
+         * 같은 확정 원형 payload 묶음에서만 재사용할 타일 연결 입력입니다.
+         */
+        bindingInput?: U2dVectorRuntimeBindingInput & {
+            payloads: Array<TerrainFeature>;
+        };
     };
 
 /**
@@ -1766,6 +1789,15 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
          * 현재 등록된 표시 조각이며 대표 자신은 포함하지 않습니다.
          */
         parts: Set<UMeasureFeature>;
+        /**
+         * 같은 출처·LOD의 전체 응답끼리 비교할 읽기용 검색 형상입니다.
+         */
+        fetchedSearchGeometry?: {
+            geometry: OLGeometry;
+            level: number | undefined;
+            revision: number;
+            geometryRevision: number | undefined;
+        };
         /**
          * 레이어가 원본 도형의 해제를 담당하는지 여부입니다.
          */
@@ -1796,4 +1828,34 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
         dirtyTileKeys?: Set<string>;
     };
 
-export type { DebugImageBindingState, DebugTerrainTileState, DebugTileState, DebugTileStateCacheMesh, FeatureEntry, FeatureOrigin, RuntimeFeatureUpdate, TerrainFeaturePayloadCacheEntry, TerrainLodPerformanceStats, TerrainPayloadColorState, TerrainWfsRequestStats, U2dVectorFeatureIdentity, U2dVectorRenderPart, U2dVectorRuntimeBindingInput, U2dVectorSearchPart, U2dVectorShaderLayer, U2dVectorShaderLayerCO, U2dVectorShaderLayerCO_Content, U2dVectorShaderLayer_SimplifyInfo, U2dVectorShaderLayer_SimplifyInfo_Content, U2dVectorShaderLayer_Style_Option, U2dVectorShaderTileRangeState, U2dVectorSourceEntry, U2dVectorTexturePreparationResult };
+/**
+     * 하나의 tile/source가 소유하는 payload와 같은 문맥에서 재사용할 불변 base의 약한 연결입니다.
+     */
+    type TerrainTilePayloadCacheEntry = {
+        /**
+         * 좌표 원점을 소유한 타일 mesh입니다.
+         */
+        mesh: object | undefined;
+        /**
+         * 원본 목록의 변경 번호입니다.
+         */
+        sourceRevision: number;
+        /**
+         * 레이어 스타일의 변경 번호입니다.
+         */
+        styleRevision: number;
+        /**
+         * 원점·타일 좌표·LOD·단순화·배율·세대·레이어를 결합한 문맥입니다.
+         */
+        contextKey: string;
+        /**
+         * 현재 타일이 사용하는 payload 목록입니다.
+         */
+        payloads: Array<TerrainFeature>;
+        /**
+         * 불변 피처 base와 같은 타일 문맥의 payload 연결입니다.
+         */
+        reusablePayloads: WeakMap<TerrainFeature, TerrainFeature>;
+    };
+
+export type { DebugImageBindingState, DebugTerrainTileState, DebugTileState, DebugTileStateCacheMesh, FeatureEntry, FeatureOrigin, RuntimeFeatureUpdate, TerrainFeaturePayloadCacheEntry, TerrainLodPerformanceStats, TerrainPayloadColorState, TerrainTilePayloadCacheEntry, TerrainWfsRequestStats, U2dVectorFeatureIdentity, U2dVectorRenderPart, U2dVectorRuntimeBindingInput, U2dVectorSearchPart, U2dVectorShaderLayer, U2dVectorShaderLayerCO, U2dVectorShaderLayerCO_Content, U2dVectorShaderLayer_SimplifyInfo, U2dVectorShaderLayer_SimplifyInfo_Content, U2dVectorShaderLayer_Style_Option, U2dVectorShaderTileRangeState, U2dVectorSourceEntry, U2dVectorTexturePreparationResult };

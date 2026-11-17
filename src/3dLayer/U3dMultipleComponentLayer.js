@@ -13,7 +13,7 @@ import {UBox3} from '@union3d/core/UBox3';
 import {URaycaster} from '@union3d/core/URaycaster';
 import {USpotLight} from '@union3d/view/USpotLight';
 import {UMathEngine} from '@union3d/math/UMathEngine';
-import {deferred} from "@union3d/util/deferred";
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import {UInstancedMesh} from "@union3d/core/mesh/UInstancedMesh";
 import {UInstancedBatchedSkinnedMesh} from "@union3d/core/mesh/UInstancedBatchedSkinnedMesh";
 import {INTERNAL} from '@union3d/3dLayer/U3dMultipleComponentLayer.internal';
@@ -424,7 +424,7 @@ class U3dMultipleComponentLayer extends U3dModelBasicLayer {
 
     /**
      * 원본 모델을 제외하고 레이어에 배치된 컴포넌트를 한꺼번에 화면에 나타내는 메서드입니다. <br>
-     * 개별 컴포넌트를 hideComponent로 숨겨 둔 경우 그 컴포넌트는 숨겨진 상태로 남습니다.
+     * 모든 등록 컴포넌트에 표시를 요청하며 개별 비동기 실패는 엔진 오류로 보고합니다.
      *
      * @override
      */
@@ -436,7 +436,10 @@ class U3dMultipleComponentLayer extends U3dModelBasicLayer {
         const components = this._componentList ?? [];
         for (let i = 0; i < components.length; i++) {
             const component = components[i];
-            component?.show();
+            // 전체 표시는 즉시 반환하므로 개별 컴포넌트의 실패를 여기서 관찰합니다.
+            Promise.resolve(component?.show()).catch(error => {
+                __GError__(component, '컴포넌트 표시에 실패했습니다. ' + error, '306011');
+            });
         }
 
         this.startAnimation();
@@ -445,6 +448,7 @@ class U3dMultipleComponentLayer extends U3dModelBasicLayer {
     /**
      * 레이어에 배치된 컴포넌트를 한꺼번에 화면에서 숨기는 메서드입니다. <br>
      * 컴포넌트는 그대로 남아 있으므로 show로 다시 나타낼 수 있습니다.
+     * 개별 숨김의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
      */
     hide() {
         super.show(false);
@@ -452,7 +456,9 @@ class U3dMultipleComponentLayer extends U3dModelBasicLayer {
         const components = this._componentList ?? [];
         for (let i = 0; i < components.length; i++) {
             const component = components[i];
-            component.hide();
+            Promise.resolve(component.hide()).catch(error => {
+                __GError__(component, '컴포넌트 숨김에 실패했습니다. ' + error, '306011');
+            });
         }
 
         this.stopAnimation();
@@ -462,6 +468,7 @@ class U3dMultipleComponentLayer extends U3dModelBasicLayer {
      * 현재 레이어에 배치된 모든 컴포넌트의 스타일을 한꺼번에 변경합니다. <br>
      * option에 지정한 속성만 적용하며 생략하거나 null로 지정한 속성은 기존 값을 유지합니다. <br>
      * 이 설정은 호출 시점에 등록된 컴포넌트에만 적용되고 이후 추가하는 컴포넌트의 기본 스타일은 바꾸지 않습니다.
+     * 가시성 변경의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
      *
      * @param {U3dMultipleComponentLayerStyle} option 적용할 색상, 불투명도, 가시성, 밝기와 대비 <br>
      */
@@ -499,8 +506,9 @@ class U3dMultipleComponentLayer extends U3dModelBasicLayer {
             if (defined(color)) component.setColor(color);
             if (defined(opacity)) component.setOpacity(opacity);
             if (defined(visible)) {
-                if (visible) component.show();
-                else component.hide();
+                Promise.resolve(visible ? component.show() : component.hide()).catch(error => {
+                    __GError__(component, '스타일의 컴포넌트 가시성 적용에 실패했습니다. ' + error, '306011');
+                });
             }
             if (defined(brightness)) component.setBrightness(brightness);
             if (defined(contrast)) component.setContrast(contrast);
@@ -912,6 +920,7 @@ class U3dMultipleComponentLayer extends U3dModelBasicLayer {
     /**
      * 지정한 위치에 컴포넌트 하나를 만들어 레이어에 배치하는 메서드입니다. <br>
      * 만들어진 컴포넌트는 곧바로 화면에 올라가고 레이어의 컴포넌트 목록에 등록되며 CREATE 이벤트가 발생합니다. <br>
+     * 초기 가시성 변경의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다. <br>
      * opt에 movepointlist나 pathgeometry를 넣으면 그 경로를 따라 달리는 주행 애니메이션이 함께 준비됩니다. <br>
      * 레이어가 이미 주행 중이면 새로 만든 컴포넌트도 바로 달리기 시작하고, 일시정지 상태이면 멈춘 상태로 배치됩니다. <br>
      * 이름이 이미 등록된 컴포넌트와 같으면 화면에는 올라가지만 목록에는 등록되지 않으므로 이름은 서로 다르게 지으십시오. <br>
@@ -969,8 +978,9 @@ class U3dMultipleComponentLayer extends U3dModelBasicLayer {
 
         //가시성 성정  (LOD off 일 때만 직접 제어)
         if (defined(opt.visible)) {
-            if (opt.visible) component.show();
-            else component.hide();
+            Promise.resolve(opt.visible ? component.show() : component.hide()).catch(error => {
+                __GError__(component, '배치한 컴포넌트의 가시성 적용에 실패했습니다. ' + error, '306011');
+            });
         }
 
         if (defined(opt.drawPolygon)) {
@@ -1110,11 +1120,11 @@ class U3dMultipleComponentLayer extends U3dModelBasicLayer {
             const savedDataRecord = /** @type {Record<string, any>} */ (savedData_);
             if(defined(savedDataRecord.worldPos)) delete savedDataRecord.worldPos;
 
-            const promise = this.#loadComponent(savedData_);
-            promise.then(component=>{
+            const promise = this.#loadComponent(savedData_).then(component=>{
                 this.dispatchEvent({type: 'load', data: {object: component, save: savedData_ }});
                 if (component) self.#setHierarchyFromSavedData(component, savedData_);
-            })
+                return component;
+            });
 
             promiseList.push(promise);
         }
@@ -1427,16 +1437,9 @@ U3dMultipleComponentLayer.prototype.restartAnimation = function () {
  * @returns {Promise<void>} 표시를 마치면 값 없이 완료되고 컴포넌트를 넣지 않으면 거부되는 Promise <br>
  */
 U3dMultipleComponentLayer.prototype.showComponent = function (component) {
-    /** @type {DeferredObject<void>} */
-    let promise = deferred();
-    if(!defined(component)) return promise.reject();
-
-    component.show()?.then(function () {
-        promise.resolve();
-    }).catch(function () {
-        promise.reject();
-    });
-    return promise;
+    if (!defined(component)) return Promise.reject();
+    // 이미 목표 상태이면 show/hide가 undefined를 반환합니다. 이 경우도 대기를 남기지 않습니다.
+    return Promise.resolve(component.show()).then(() => {});
 };
 
 /**
@@ -1447,15 +1450,9 @@ U3dMultipleComponentLayer.prototype.showComponent = function (component) {
  * @returns {Promise<void>} 숨김을 마치면 값 없이 완료되고, 컴포넌트를 넣지 않으면 거부되는 Promise <br>
  */
 U3dMultipleComponentLayer.prototype.hideComponent = function (component) {
-    /** @type {DeferredObject<void>} */
-    let promise = deferred();
-    if(!defined(component)) return promise.reject();
-    component.hide()?.then(function () {
-        promise.resolve();
-    }).catch(function () {
-        promise.reject();
-    });
-    return promise;
+    if (!defined(component)) return Promise.reject();
+    // 이미 목표 상태이면 show/hide가 undefined를 반환합니다. 이 경우도 대기를 남기지 않습니다.
+    return Promise.resolve(component.hide()).then(() => {});
 };
 
 /**
@@ -1503,23 +1500,8 @@ U3dMultipleComponentLayer.prototype.getRenderPosition = function () {
  * layer.loadModel(model);
  */
 U3dMultipleComponentLayer.prototype.loadModel = function (modelInfo) {
-    let self = this;
-    /** @type {DeferredObject<void | ModelObject3D>} */
-    let promise = deferred();
-    if (modelInfo) {
-        self.load(modelInfo).then((object) => {
-            promise.resolve(object);
-        }, (error) => {
-            // 지원하지 않는 확장자, 잘못된 경로, 네트워크 오류 등 로드 실패를 호출자에게 전달합니다.
-            promise.reject(error);
-        });
-    } else {
-        U3dModelBasicLayer.prototype.reLoad.call(this).then(function () {
-            promise.resolve();
-        });
-    }
-
-    return promise;
+    // 완료값·오류를 그대로 전달하여 중간 완료 객체가 실패 연결을 놓치지 않게 합니다.
+    return modelInfo ? this.load(modelInfo) : U3dModelBasicLayer.prototype.reLoad.call(this);
 }
 
 
@@ -1967,8 +1949,8 @@ U3dMultipleComponentLayer.prototype.getMetaData = function () {
  * @returns {Promise<boolean>} 처리가 끝나면 항상 true로 완료되는 Promise <br>
  */
 U3dMultipleComponentLayer.prototype.showLabel = function () {
-    /** @type {DeferredObject<boolean>} */
-    const promise = deferred();
+    /** @type {DeferredPromise<boolean>} */
+    const promise = deferredPromise();
     if( this.labelVisible ) { // 이미 show면 조기 탈출
         promise.resolve(true);
         return promise;
@@ -1991,8 +1973,8 @@ U3dMultipleComponentLayer.prototype.showLabel = function () {
  * @returns {Promise<boolean>} 처리가 끝나면 항상 true로 완료되는 Promise <br>
  */
 U3dMultipleComponentLayer.prototype.hideLabel = function () {
-    /** @type {DeferredObject<boolean>} */
-    let promise = deferred();
+    /** @type {DeferredPromise<boolean>} */
+    let promise = deferredPromise();
     const self = this;
     if(!this.labelVisible) { // 이미 hide면 조기 탈출
         promise.resolve(true);
@@ -2019,8 +2001,8 @@ U3dMultipleComponentLayer.prototype.hideLabel = function () {
  * @returns {Promise<boolean>} 이름표를 하나라도 지우면 true로 완료되고, 첫 컴포넌트부터 이름표가 없으면 값 없이 거부되는 Promise <br>
  */
 U3dMultipleComponentLayer.prototype.removeLabel = function () {
-    /** @type {DeferredObject<boolean>} */
-    let promise = deferred();
+    /** @type {DeferredPromise<boolean>} */
+    let promise = deferredPromise();
     const self = this;
     for (let i = 0; i < self._componentList.length; i++) {
         if (!defined(self._componentList[i].poi)) {

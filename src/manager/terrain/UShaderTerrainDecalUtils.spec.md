@@ -16,6 +16,8 @@ terrain decal 기능이 여러 객체에 흩어져 반복 구현하기 쉬운 �
 
 ### 1.3 주요 동작 방식
 
+PBF 내부 입력의 _flatCoordinates는 월드 좌표의 불변 평탄 배열이며 정규화·Base 생성에서 유지한다. 점 개수·추정 크기·형상 해시는 이 배열을 사용하고, 신뢰할 형상 버전이 있으면 기존처럼 정점 순회를 생략한다. UTerrainPayloadBuilder는 타일 기준 Float32 전송 배열에 바로 기록하며 중첩 좌표나 정점 객체를 만들지 않는다. 즉시 계산의 기존 알고리즘이 필요한 경우에만 점 객체를 복원한다. 선의 스타일 전용 재사용은 평탄 배열의 동일성도 검사하여 같은 형상·버킷을 유지하고 배열 교체 시 재계산한다.
+
 feature 입력은 `normalizeTerrainFeatureRequest()`로 유형·좌표·스타일·revision이 확정된 정규 feature가 되고, 여기서 계산된 immutable hash와 tile별 hash가 이후 cache key와 signature의 기준이 된다. tile 단위 처리는 정규 feature에서 Worker와 공유할 `buildTerrainFeatureBase()` 결과를 만들고, feature 수와 좌표 수가 한도 안이면 `shouldUseImmediateTerrainBuild()`가 즉시 경로를 허용한다. 즉시 경로에서는 feature마다 `prepareTerrainFeatureEntryImmediate()`가 tile-local 좌표와 평면 범위를 확정하고, 유형별로 path·area·circle packed 상태를 만들어 `buildImmediateTerrainWorkerResult()`가 Worker 결과와 같은 모양으로 묶는다. 마지막으로 `createTerrainMaterialStateFromWorkerResult()`가 packed 배열을 float data texture와 uniform으로 옮기고 어떤 도형 define을 켜야 하는지 결정한다.
 
 관찰된 실행 특성: path는 polyline이 아니라 선분 하나를 texture 한 texel로 펼친 선형 레이아웃을 사용하고, 선분 수가 `TERRAIN_DECAL_PATH_BUCKET_THRESHOLD`를 넘을 때만 bucket index를 만든다. area는 행 header texel 뒤에 점 목록을 한 번만 기록하는 선형 레이아웃을 사용한다.
@@ -23,8 +25,6 @@ feature 입력은 `normalizeTerrainFeatureRequest()`로 유형·좌표·스타�
 ### 1.4 주요 사용처와 연계 대상
 
 `UShaderTerrainDecalManager`는 작업 우선순위, source identity 판정, 즉시 경로 build, material 상태 생성, bucket 상수를 가져다 쓴다. `UShaderTerrainDecalTileStateManager`는 feature base 생성과 cache key, tile signature, cache 복제, byte 추정, uniform texture 해제를 가져다 쓴다. `UTerrainDecalComposeScheduler`는 `resolveTerrainTileMesh()`만 사용한다. `U2dVectorShaderLayer`는 LOD 선별과 hash, 작업 우선순위를 사용하고, `U3dShaderMeasureLayer`는 hash 계산 두 개를 사용한다. `union3d/worker/task/model/vector/UTerrainDecalPrepareTask.js`의 `packAreaEntries()`는 이 단위의 area 선형 레이아웃과 같은 계약을 Worker 쪽에서 구현한다.
-
-`test/terrain-decal-area-layout.test.mjs`, `test/terrain-decal-composition-contract.test.mjs`, `test/terrain-decal-manager.test.mjs`, `test/terrain-decal-lod.test.mjs`, `test/terrain-payload-performance.test.mjs`가 이 단위의 export를 직접 불러 사용한다. 테스트의 존재만 확인했고 실행 결과는 확인하지 않았다.
 
 ## 2. 요구사항과 품질 기준
 
@@ -734,6 +734,9 @@ TERRAIN_DECAL_PATH_BUCKET_THRESHOLD: number = 64
 TERRAIN_DECAL_PATH_STYLE_TEXELS: number = 2
     path 스타일 하나가 사용하는 packed texture texel 수
 
+TERRAIN_DECAL_AREA_STYLE_TEXELS: number = 3
+    area·circle의 논리 스타일 한 행이 사용하는 texel 수이며 채움·외곽선·옵션 순서다.
+
 TERRAIN_DECAL_IMMEDIATE_MAX_FEATURES: number = 16
     즉시 경로를 허용하는 최대 feature 수
 
@@ -908,7 +911,7 @@ resolveTerrainDecalLodFeatureValue(feature: TerrainFeature, propertyName: string
     동작:
         feature 가 없으면 undefined 를 반환한다.
         직접 속성, `get(name)`, `getProperties()[name]` 을 차례로 확인하여 undefined 가 아닌 값을 반환한다.
-        중첩 후보 목록을 순서대로 순회하며 후보의 직접 속성과 properties 에서 값을 찾아 반환한다.
+        중첩 후보의 getter를 기존 순서대로 먼저 평가한 뒤 지역 변수로 보관한다. 후보 배열을 만들지 않고 같은 우선순위로 직접 속성과 properties에서 값을 찾아 반환한다. null·0·false·빈 문자열은 기존처럼 유효한 값이며 getter 오류도 그대로 전달한다.
         끝까지 찾지 못하면 undefined 를 반환한다.
 
 resolveTerrainDecalParentUvTransform(quadrant: string) -> TerrainDecalUvTransform | undefined
@@ -1067,6 +1070,7 @@ resolveTerrainTileOrigin(tileEntry: TerrainTileEntry, features: Array<TerrainFea
         opt.origin 이 있으면 세 성분을 숫자로 확정해 반환한다.
         terrain mesh 를 조회하여 위치가 있으면 그 위치를 기준점으로 반환한다.
         남은 경우 첫 feature 의 origin 성분을 숫자로 확정해 반환한다.
+        opt.origin이 falsy인 경우에만 resolveTerrainTileMesh()로 mesh를 조회하여 위치를 기준점으로 복사한다.
 
 resolveTerrainTileMesh(tileEntry: TerrainTileEntry | undefined) -> Mesh | null | undefined
     역할: layer cache, tile 내부 mesh, registry mesh가 섞여 있어도 같은 우선순위로 terrain mesh를 찾는다.
@@ -1466,7 +1470,7 @@ createTerrainImmediatePathSegmentState(entries: Array<TerrainPreparedLocalPathEn
     인터페이스: 반환: 선분 데이터, 선분 메타, path 스타일, bucket index를 모두 담은 packed 상태이며 count 는 선분 수다.
 
     처리 기준:
-        항목이 없거나 평탄화 결과 선분이 없으면 빈 상태를 복제해 반환하며, 선 도형은 별도 bounds texture 를 만들지 않으므로 bounds 와 bucket 메타 배열을 포함하지 않는다.
+        항목이 없거나 평탄화 결과 선분이 없으면 새 빈 상태를 반환하며, 선 도형은 별도 bounds texture 를 만들지 않으므로 bounds 와 bucket 메타 배열을 포함하지 않는다.
         선분 데이터 texel 은 vec4(x1, y1, x2, y2) 이고 선분 메타 texel 은 vec4(pathStyleIndex, strokeWidth, visible, shaderLayerRenderOrder) 다. 두 texture 는 같은 배치 크기를 쓴다.
         path 스타일 하나는 TERRAIN_DECAL_PATH_STYLE_TEXELS 개 texel 을 쓰며 첫 texel 은 vec4(strokeColor.rgb, strokeOpacity), 둘째 texel 의 첫 성분은 합성 batch 순번이다.
         스타일이 없어도 스타일 texture 는 최소 한 스타일 분량을 확보한다.
@@ -1475,7 +1479,7 @@ createTerrainImmediatePathSegmentState(entries: Array<TerrainPreparedLocalPathEn
         bucket index texture 는 앞쪽에 bucket 메타 texel 을 그대로 싣고 그 뒤에 선분 index 를 이어 붙이므로, shader 가 메타와 index 를 한 texture 에서 읽는다.
 
     동작:
-        항목이 없으면 bounds 와 bucket 메타 없는 빈 상태 복제본을 반환한다.
+        항목이 없으면 bounds 와 bucket 메타 없는 새 빈 상태를 반환한다.
 
         polyline 을 선분과 스타일 목록으로 평탄화하고 선분이 없으면 같은 빈 상태를 반환한다.
 
@@ -1487,6 +1491,7 @@ createTerrainImmediatePathSegmentState(entries: Array<TerrainPreparedLocalPathEn
 
         bucket 메타 texel 과 선분 index 를 한 배열에 이어 담아 bucket index texture 배치를 확정한다.
         선분 수, 세 texture 배치와 배열, 전체 범위, bucket 격자, bucket 사용 여부를 담은 상태를 반환한다.
+        entries.length가 falsy인 경우 createEmptyImmediateTerrainBucketState()의 빈 상태를 반환한다. entries.length가 truthy인 경우에만 flattenTerrainImmediatePathSegments()로 선분을 생성한다. 이때 segments.length가 falsy이면 같은 빈 상태를 반환한다. entries.length가 truthy이고 segments.length도 truthy인 경우에만 createTerrainLinearTextureLayout()과 createTerrainImmediatePathSegmentBucketIndexState()로 선형 texture와 선분 bucket index를 생성한다.
 
 simplifyTerrainPathPoints(points: Array<TerrainPoint>, tolerance: number) -> Array<TerrainPoint>
     역할: 화면 축척에 따른 허용 거리보다 가까운 중간점을 제거해 선분 수를 줄인다.
@@ -1675,7 +1680,7 @@ createTerrainImmediateAreaState(entries: Array<TerrainPreparedLocalAreaEntry> = 
     인터페이스: 반환: 행 header와 점 목록을 담은 데이터 배열, 항목별 스타일과 bounds 배열을 담은 packed 상태다.
 
     처리 기준:
-        항목이 없으면 bounds 를 포함한 빈 상태를 복제해 반환한다.
+        항목이 없으면 bounds 를 포함한 새 빈 상태를 반환한다.
         데이터 texture 는 Worker 의 `packAreaEntries()` 와 같은 선형 레이아웃이며, 앞쪽 rowCount texel 은 행 header vec4(pointCount, shaderLayerRenderOrder, compositionBatchIndex, pointStart) 이고 그 뒤에 항목별 점 목록이 이어진다.
         같은 항목 객체가 여러 행에 나타나면 점 시작 위치를 공유하고 점 목록은 한 번만 기록한다. 즉시 경로는 bucket 정렬을 하지 않아 행마다 항목이 하나씩이지만 같은 계약을 유지해 shader 와 합성기가 두 경로를 구분하지 않고 읽는다.
         점 texel 에는 x, y 만 기록하고 남은 두 성분은 0 으로 둔다.
@@ -1685,7 +1690,7 @@ createTerrainImmediateAreaState(entries: Array<TerrainPreparedLocalAreaEntry> = 
         bounds texture 는 항목마다 1 texel 이고 bucket 메타는 모든 bucket 이 전체 항목을 후보로 보는 형태다.
 
     동작:
-        항목이 없으면 bounds 를 포함한 빈 상태 복제본을 반환한다.
+        항목이 없으면 bounds 를 포함한 새 빈 상태를 반환한다.
 
         항목별 점 시작 위치를 정하고 전체 점 texel 수를 누적한다.
         행 header 와 점 목록을 합친 texel 수로 선형 texture 배치를 정하고 데이터·스타일·bounds 배열을 할당한다.
@@ -1696,25 +1701,29 @@ createTerrainImmediateAreaState(entries: Array<TerrainPreparedLocalAreaEntry> = 
         항목 bounds 를 bounds 배열에 기록한다.
         항목 수, texture 배치와 배열, 점 texel 수, 전체 범위, bucket 메타와 격자를 담은 상태를 반환한다.
 
+        entries.length가 falsy인 경우에만 createEmptyImmediateTerrainBucketState()로 빈 상태를 반환하고 truthy인 경우에만 texture 배치·clip 덮기·전체 bounds·bucket 메타를 계산한다. entries.length가 truthy인 경우에만 createTerrainLinearTextureLayout(), doesTerrainAreaCoverClipBounds(), computeTerrainImmediateFullBounds(), createTerrainImmediateBucketMeta()를 사용해 면의 packed 자료를 만든다.
+
 createTerrainImmediateCircleState(entries: Array<TerrainPreparedLocalCircleEntry> = []) -> TerrainBucketState
     역할: 원 항목을 GPU 한 변 제한을 피하는 2차원 texture 배치의 packed 상태로 만든다.
 
     인터페이스: 반환: 중심·반경 데이터 배열과 항목별 스타일 배열을 담은 packed 상태다.
 
     처리 기준:
-        항목이 없으면 bounds 없는 빈 상태를 복제해 반환한다.
+        항목이 없으면 bounds 없는 새 빈 상태를 반환한다.
         데이터 texel 은 vec4(centerX, centerY, radius, shaderLayerRenderOrder) 로 항목마다 하나다.
         스타일은 항목마다 3 texel 을 쓰며 순서는 면 색상과 면 투명도, 선 색상과 선 투명도, 그리고 선 두께·표시 여부·표시 순서·합성 batch 순번이다.
         원은 별도 bounds texture 를 만들지 않고 bucket 메타는 모든 bucket 이 전체 항목을 후보로 보는 형태다.
 
     동작:
-        항목이 없으면 bounds 없는 빈 상태 복제본을 반환한다.
+        항목이 없으면 bounds 없는 새 빈 상태를 반환한다.
 
         항목 수와 항목 수의 3배로 각각 데이터와 스타일 선형 texture 배치를 정하고 배열을 할당한다.
 
         항목마다 중심, 반경, shader layer 순서를 데이터 배열에 기록한다.
         항목마다 두 색상과 투명도, 선 두께, 표시 여부, 표시 순서, 합성 batch 순번을 스타일 배열에 기록한다.
         항목 수, texture 배치와 배열, 전체 범위, bucket 메타와 격자를 담은 상태를 반환한다.
+
+        entries.length가 falsy인 경우에만 createEmptyImmediateTerrainBucketState()로 빈 상태를 반환하고 truthy인 경우에만 texture 배치·전체 bounds·bucket 메타를 계산한다. entries.length가 truthy인 경우에만 createTerrainLinearTextureLayout(), computeTerrainImmediateFullBounds(), createTerrainImmediateBucketMeta()를 사용해 원의 packed 자료를 만든다.
 
 createEmptyImmediateTerrainBucketState(withBounds: boolean = true, withBucketMeta: boolean = true) -> TerrainBucketState
     역할: 적용할 항목이 없을 때도 shader가 uniform 구조를 유지할 수 있는 최소 packed 상태를 만든다.
@@ -1781,6 +1790,7 @@ buildImmediateTerrainWorkerResult(tileKey: string, revision: number, featureSign
     처리 기준:
         준비에 실패한 feature 는 건너뛰므로 결과 항목 수가 입력 feature 수보다 적을 수 있다.
         유형 분류는 path, area, circle 만 인정하고 그 밖의 유형은 어느 목록에도 넣지 않는다.
+        전체 빌드에서 면·원 목록이 비었으면 count 0과 기존 빈 texture·범위를 유지하고 선택 속성 bucketMeta는 생성하지 않는다. 개별 면·원 및 빈 상태 생성 함수의 기본 반환은 바꾸지 않는다.
         featureCount 는 세 packed 상태의 count 합이며, 선 도형은 항목 수가 아니라 선분 수가 더해진다.
 
     동작:
@@ -1791,7 +1801,21 @@ buildImmediateTerrainWorkerResult(tileKey: string, revision: number, featureSign
         packing 에 쓴 기준점의 값 사본을 만든다.
         tile key, revision, 서명, 기준점 사본, 항목 수 합, 임계값, 투명도, 세 packed 상태와 즉시 생성 표식을 담아 반환한다.
 
-cloneCachedTerrainWorkerResult(cached: TerrainWorkerResult, tileKey: string, revision: number) -> TerrainWorkerResult | undefined
+reuseTerrainPathStyleResult(cached: Omit<TerrainWorkerResult, 'revision'> | undefined, preparedBuild: TerrainPreparedBuild, revision: number) -> TerrainWorkerResult | undefined
+    역할: 색상·투명도 변경 시 선분 형상과 버킷을 유지하고 스타일 배열만 갱신한다.
+
+    처리 기준:
+        이전 결과에 확정 입력이 남아 있고, 현재·이전 입력이 같은 기준점과 피처 순서의 선 전용 빌드일 때만 후보로 삼는다. 구간 합성, 빈 선분 결과, 면·원이 포함된 결과는 재사용하지 않는다.
+        각 피처는 같은 원본·범위 식별자와 유한한 형상 버전, 같은 점 배열 참조여야 한다. 폭·강조·표시·순서·반경·임계값·clip·단순화·합성 batch·shader host 순서가 달라지거나 입력 대응이 불명확하면 undefined를 반환한다.
+        유효 점 두 개 이상인 선마다 기존 순서의 스타일 슬롯을 하나 사용한다. 빈 점은 건너뛰고, clip 밖이라 선분이 없어도 슬롯은 유지한다.
+        색상·투명도는 공통 스타일 정규화 규칙을 적용한다. 기존 스타일 배열만 복사하고 형상·선분 메타·버킷 배열은 변경하지 않는다.
+
+    동작:
+        이전 결과와 이번 확정 입력의 기준점·식별·형상·배치 조건을 검사한다.
+        새 스타일 배열의 슬롯마다 최신 선 색상·투명도를 기록한다.
+        현재 서명·버전·기준점 사본·임계값·투명도·확정 입력을 붙이고 기존 형상·버킷을 공유한 결과를 반환한다. Source·피처 적용 버전은 현재 preparedBuild가 가진 이력을 따른다.
+
+cloneCachedTerrainWorkerResult(cached: Omit<TerrainWorkerResult, 'revision'>, tileKey: string, revision: number) -> TerrainWorkerResult | undefined
     역할: cache에 보관한 worker 결과를 다른 tile key와 revision으로 재사용할 수 있게 다시 묶는다.
 
     처리 기준:
@@ -1806,6 +1830,7 @@ cloneCachedTerrainWorkerResult(cached: TerrainWorkerResult, tileKey: string, rev
         cache 값의 기준점을 값 사본으로 만든다.
         세 packed 상태를 각각 bounds 포함 여부를 달리해 복제한다.
         새 tile key 와 revision, 기준점 사본을 담은 결과 객체를 반환한다.
+        cached가 truthy인 경우에만 cloneTerrainOrigin()과 cloneCachedTerrainBucketState()로 기준점과 packed 상태를 복제하고 없으면 undefined다.
 
 cloneCachedTerrainBucketState(state: TerrainBucketState | undefined, withBounds: boolean) -> TerrainBucketState | undefined
     역할: packed 상태를 다른 tile에 다시 붙일 수 있도록 얕게 복제하고 빠진 크기 값을 보충한다.
@@ -1928,6 +1953,7 @@ normalizeTerrainFeatureRequest(feature: TerrainFeature, opt: TerrainManagerOptio
         준비된 payload 를 소비하는 요청이면 입력 feature 의 필드를 직접 덮어쓰고, 아니면 같은 필드를 담은 새 객체를 만든다.
         immutableFeatureHash 가 없으면 계산해 채운다.
         tile별 featureHash 를 계산해 채운 뒤 정규 feature 를 반환한다.
+        식별자는 feature.featureId, feature.uid, feature.id 순으로 우선한다. 기준점은 feature.origin 다음 opt.origin, source는 opt.sourceKey 다음 feature.sourceKey, source identity는 opt.sourceIdentityKey 다음 feature.sourceIdentityKey 순이다. 점 성분은 value.x 다음 value[0], value.y 다음 value[1], value.z 다음 value[2]를 우선한다. group은 feature.compositionGroupKey 다음 opt.compositionGroupKey이고 원본 유형은 feature.sourceType, feature.type, normalizedType 순이다. feature가 truthy이고 featureId가 유효하며 feature.scopedFeatureKey가 nullish인 경우에만 buildTerrainScopedFeatureKey()로 범위 key를 만든다. feature가 truthy이고 featureId가 유효하며 normalized.immutableFeatureHash가 nullish인 경우에만 buildTerrainImmutableFeatureHash()로 계산한다. feature가 truthy이고 featureId가 유효한 경우 buildTerrainNormalizedFeatureHash()는 매번 실행한다.
 
 normalizeTerrainFeatureBatch(features: Array<TerrainFeature> = [], opt: TerrainManagerOption = {}) -> Array<TerrainFeature>
     역할: feature 목록을 정규화하면서 같은 식별자가 두 번 들어오지 않게 한다.
@@ -1982,7 +2008,7 @@ convertLegacyTerrainPayloadToFeatures(payload: TerrainLegacyPayload = {}, opt: T
         기준 좌표는 opt.origin 이 없으면 세 성분 0 을 쓰고 모든 feature 가 같은 객체를 공유한다.
         feature 식별자는 `유형_현재까지 만든 개수` 형식이므로 payload 안 순서에만 의존하고 원본 식별자를 보존하지 않는다.
         모든 feature 의 revision 은 0 이고 임계값과 투명도는 payload 전체 값을 그대로 쓴다.
-        좌표는 원본 배열을 그대로 넘기며 점 객체로 변환하지 않는다.
+        좌표는 원본 배열을 그대로 넘기며 점 객체로 변환하지 않는다. 내부의 mapPoint 보조 함수는 x·y·z 속성을 배열 성분보다 우선하도록 정의되어 있지만 실제 변환 경로에서 호출하지 않는다.
         변환 순서는 선 목록, 복합 선 목록, 면 목록과 복합 면 목록을 이은 목록, 원 목록이다.
         선은 원본 유형을 `lineString` 과 `multiLineString` 으로 구분하고 선 투명도는 색상 배열의 알파를 먼저 보고 없으면 도형의 opacity 를 쓴다.
         면은 원본 유형을 `polygon` 으로 두고 면 투명도는 색상 알파를 먼저 보고 없으면 payload 의 opacity 를 쓰며, 그 값이 음수이면 구멍으로 판정한다.
@@ -1998,6 +2024,7 @@ convertLegacyTerrainPayloadToFeatures(payload: TerrainLegacyPayload = {}, opt: T
         면 목록과 복합 면 목록을 이어 순회하며 면 투명도로 구멍 여부까지 판정한 면 feature 를 넣는다.
         원 목록을 순회하며 중심과 반경으로 두 좌표를 만든 원 feature 를 넣는다.
         만들어진 feature 목록을 반환한다.
+        실제 경로에서 사용하지 않는 mapPoint 내부의 우선순위는 value.x 다음 value[0], value.y 다음 value[1], value.z 다음 value[2]이며 각 성분이 모두 nullish이면 0으로 대체한다.
 
 decodeLegacyTerrainColor(colorValue: unknown) -> Color
     역할: 구버전 색상 표현을 Color 객체로 확정한다.
@@ -2036,15 +2063,17 @@ createTerrainMaterialStateFromWorkerResult(tileEntry: TerrainTileEntry, workerRe
         worker 결과의 featureCount 가 0 보다 크면 terrain decal 전체 define 을 켠다.
         적용된 항목 수는 선, 면, 원 적용 결과의 합이며 선 도형은 선분 수가 더해진다.
         적용된 항목이 하나도 없으면 define 을 모두 버린 빈 define 과 base uniform 만 담아 반환하므로, worker 결과의 featureCount 만 0 보다 컸던 경우 terrain decal define 도 함께 사라진다.
+        항목이 있는 전체 direct 계획만 preparedBuild 의 directTypeOrder 정수 1~5 를 TERRAIN_DECAL_TYPE_ORDER define 으로 전달한다. 기본값 0 과 hybrid·precomposed·계획 없는 구간 결과는 기존 순서를 사용하며 Worker 전송 형식은 바꾸지 않는다.
         어느 경로든 적용된 항목 수를 `featureCount` 로 상태에 남긴다. 빈 상태의 0 은 "decal define 없이 적용이 끝난 정상 상태" 의 근거가 되어 presentation 조회(`getTerrainTilePresentationState`)가 material 상태 없음으로 오판하지 않게 한다.
         적용된 항목이 있으면 합성기가 batch 범위를 다시 계산할 때 packed 원본을 재생성하지 않도록 세 packed 상태 참조를 그대로 보관한다.
-        어느 경로든 material 강제 갱신을 요청하고 revision 은 worker 결과 값이며 없으면 0 이다.
+        어느 경로든 material 강제 갱신을 요청하고 revision 은 worker 결과 값이며 없으면 0 이다. featureSignature, sourceRevisions, featureRevisions는 worker 결과의 값을 빈 상태와 일반 상태에 모두 전달하여 적용된 입력 이력을 보존한다.
         어느 경로든 worker 결과가 packing 된 기준점을 값 사본으로 buffer 상태에 남긴다. packed 좌표와 이후 합성 bounds 는 이 기준점에 묶여 있으므로, GPU 상태 재사용 판정이 현재 tile 기준점과 대조할 근거가 된다. worker 결과에 기준점이 없으면 상태에도 없다.
 
     동작:
         base uniform 을 만든다.
         worker 결과 항목 수가 0 보다 크면 terrain decal define 을 켠다.
         선과 면 packed 상태를 uniform 과 define 에 적용하고 적용 수를 누적한다.
+        생성 중 오류가 나면 새 후보 uniform texture를 정리하고 오류를 다시 던진다. 반환 pool에서 이번 결과가 채택한 동일 Texture를 제외한 뒤 나머지를 finally에서 정리한다.
         원 packed 상태를 적용하고 적용 수를 누적한다.
         worker 결과의 기준점을 값 사본으로 만든다.
         적용 수가 0 이하이면 빈 define 과 uniform, 반투명 없음, 강제 갱신, revision, 기준점 사본, featureCount 0 을 담아 반환한다.
@@ -2076,19 +2105,18 @@ hasTranslucentTerrainPathStyle(state: TerrainBucketState | undefined) -> boolean
         선분 메타가 없으면 스타일 행을 훑어 같은 조건을 확인해 반환한다.
 
 hasTranslucentTerrainAreaStyle(state: TerrainBucketState | undefined) -> boolean
-    역할: 면 또는 원 도형 스타일 중 반투명 항목이 있는지 판정한다. [확인 Q-005]
+    역할: 면 또는 원 도형의 논리 스타일 행에서 표시되는 반투명 항목을 판정한다.
 
     처리 기준:
-        스타일 배열이 없거나 두 texel 보다 작으면 반투명이 없다고 본다.
-        행 간격은 스타일 texture 너비로 계산하고 너비가 없으면 3 을 대체로 쓴다. 행 수는 state.styleHeight 를 먼저 쓰고 없으면 state.count, 둘 다 없으면 0 을 대체로 쓴다.
-        스타일 너비가 3 이상일 때만 표시 여부 성분을 읽고, 그보다 작으면 항상 표시로 본다.
-        표시 여부가 0.5 이하인 행은 건너뛴다.
-        면 알파와 선 알파를 각각 검사하며 0 이상 1 미만일 때만 반투명으로 보므로 hole 표식인 음수 알파는 제외된다.
+        스타일 배열이 없거나 성분이 8개보다 적으면 false다.
+        물리 texture 너비·높이를 행 간격으로 사용하지 않는다. 논리 행 간격은 TERRAIN_DECAL_AREA_STYLE_TEXELS × 4인 12성분이다.
+        행 수는 state.count와 배열 길이를 12로 나눈 정수 중 작은 값을 0 이상으로 보정한 값이다.
+        행의 offset+9에 있는 visible이 0.5 이하이면 건너뛴다.
+        offset+3의 fill 알파와 offset+7의 stroke 알파 중 하나라도 0 이상 1 미만이면 true다. 음수 hole 표식은 반투명으로 보지 않는다.
 
     동작:
-        스타일 배열 유효성을 확인하고 없으면 false 를 반환한다.
-        행마다 표시 여부를 확인해 숨김이면 건너뛴다.
-        면 알파와 선 알파가 0 이상 1 미만인지 확인해 하나라도 맞으면 true 를 반환하고, 끝까지 없으면 false 를 반환한다.
+        배열과 논리 행 수를 확정하고 표시되는 행만 순회한다.
+        채움 또는 외곽선 알파가 반투명 범위에 있으면 즉시 true를 반환하며 끝까지 없으면 false다.
 
 createTerrainBaseUniforms(tileEntry: TerrainTileEntry, workerResult: TerrainWorkerResult, opt: TerrainManagerOption = {}) -> Record<string, IUniform>
     역할: 도형 종류와 무관하게 항상 필요한 uniform 세 개를 만든다. [확인 Q-003]
@@ -2137,6 +2165,7 @@ applyTerrainBucketState(uniforms: Record<string, IUniform>, defines: Record<stri
         선 도형이면 bucket 사용 여부에 따라 실제 index 또는 무효 index 로 bucket index texture 와 크기를 만들고 선분 수를 반환한다.
         선 도형이 아니면 접두어를 붙인 데이터·스타일·bounds texture 와 크기, 전체 범위, 항목 수를 uniform 에 넣는다.
         bucket 메타를 고정 길이 벡터 배열로 바꾸고 bucket 격자를 uniform 에 넣은 뒤 항목 수를 반환한다.
+        state가 truthy이고 count > 0인 경우에만 createFloatDataTexture()와 toVector4Array()로 texture·메타를 만들며 path일 때 선분 전용 자료도 만든다.
 
 applyTerrainCircleState(uniforms: Record<string, IUniform>, defines: Record<string, number>, state: TerrainBucketState | undefined, reusableUniforms: Record<string, IUniform> | undefined) -> number
     역할: 원 packed 상태를 uniform으로 옮기고 원 도형 define을 켠다.
@@ -2155,6 +2184,7 @@ applyTerrainCircleState(uniforms: Record<string, IUniform>, defines: Record<stri
         원 도형 define 을 켜고 데이터·스타일 texture 와 크기 uniform 을 만든다.
         전체 범위와 항목 수를 uniform 에 넣는다.
         bucket 메타를 고정 길이 벡터 배열로 바꾸고 격자를 uniform 에 넣은 뒤 항목 수를 반환한다.
+        state가 truthy이고 count > 0인 경우에만 createFloatDataTexture()와 toVector4Array()로 원 texture·메타를 만들어 적용 수를 반환한다.
 
 toVector4Array(source: Array<unknown> = [], count: number = 0) -> Array<Vector4>
     역할: bucket 메타를 shader uniform 배열이 요구하는 고정 길이 벡터 목록으로 바꾼다.
@@ -2173,8 +2203,9 @@ toVector4Array(source: Array<unknown> = [], count: number = 0) -> Array<Vector4>
         요청 개수만큼 0 벡터 목록을 만든다.
         원본 항목 수와 요청 개수 중 작은 수만큼 네 성분을 읽어 벡터에 설정한다.
         벡터 목록을 반환한다.
+        각 채널은 value[0] 다음 value.x, value[1] 다음 value.y, value[2] 다음 value.z, value[3] 다음 value.w를 우선하고 모두 nullish이면 0으로 대체한다.
 
-createFloatDataTexture(arrayLike: ArrayLike<number>, width: number, height: number, previousTexture: unknown = undefined) -> DataTexture
+createFloatDataTexture(arrayLike: ArrayLike<number>, width: number, height: number, previousTexture: unknown) -> DataTexture
     역할: packed 배열을 값 그대로 읽히는 float data texture로 만든다.
 
     처리 기준:

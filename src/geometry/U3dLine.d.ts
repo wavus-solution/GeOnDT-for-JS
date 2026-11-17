@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -9,12 +9,13 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
-import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam } from "./U3dGeometry.js";
+import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineCO } from "./U3dGeometry.js";
 import type { LineMaterial } from "../lib/three/lines/LineMaterial.js";
 import type { EventCallBack, GeoPositionVector3, KeyValue, WorldPositionVector3 } from "../types/global.js";
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dLine {
+"outline": boolean;
 "name": string;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -22,7 +23,6 @@ interface GeOnDTMixedInstance_U3dLine {
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<string, (arg0: three.WebGLRenderer, arg1: three.Scene<three.Object3DEventMap>, arg2: three.Camera, arg3: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, arg4: three.Material<three.MaterialEventMap>, arg5: three.Group<three.Object3DEventMap>) => void>;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -52,24 +52,40 @@ interface GeOnDTMixedInstance_U3dLine {
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: number): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): number | undefined;
-"_getGeometryOpacity"(): number;
 "setBrightness"(brightness?: number | undefined): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -224,15 +240,38 @@ declare const U3dLine_base: Omit<typeof U3dGeometry, "prototype"> & {
  */
 declare class U3dLine extends U3dLine_base {
     /**
+     * 일반 Three.js renderer에서 선 AA의 렌더 직전 갱신을 연결합니다.
+     * GeOnDT 앱에서는 자동 연결되므로 별도 호출이 필요하지 않습니다.
+     * 사용자 onBeforeRender를 클래스 필드로 선언해도 AA 갱신을 유지하며,
+     * renderer.dispose() 시 연결을 자동으로 해제합니다.
+     *
+     * @param {import('three').WebGLRenderer} renderer 선을 그릴 renderer
+     */
+    static attachRenderer(renderer: three.WebGLRenderer): void;
+    /**
+     * renderer의 선 AA 연결을 해제하고 연결이 소유한 함수를 복원합니다.
+     * renderer 자체와 장면의 geometry·material은 해제하지 않습니다.
+     *
+     * @param {import('three').WebGLRenderer} renderer 연결을 해제할 renderer
+     */
+    static detachRenderer(renderer: three.WebGLRenderer): void;
+    /**
      * 선 도형을 생성합니다. <br>
      * 생성 옵션 `vertices`에 월드 좌표(EPSG:3857)가 2개 이상 있으면 생성 시 형상을 생성합니다. <br>
      * 위경도 좌표(`coordinates`)만 지정한 경우 생성 시 형상을 생성하지 않으므로, <br>
      * 레이어에 추가한 후 `setPositions`로 좌표를 지정하십시오. <br>
-     * 생성 옵션 `opacity`는 선 재질에 적용되지 않으므로, 투명도는 `setOpacity` 또는 `setParam`으로 지정하십시오. <br>
+     * 생성 옵션 `opacity`와 `setOpacity`·`setParam`으로 선 재질의 불투명도를 지정합니다. <br>
      *
      * @param {U3dLineCO} [opt={}] 색상(또는 그라디언트 색상 배열)·두께·두께 단위·표본 간격과 좌표를 지정하는 생성 옵션 <br>
      */
     constructor(opt?: U3dLineCO);
+    /**
+     * 도형의 외곽선으로 생성된 선인지 나타냅니다. <br>
+     * 일반 선은 false이며, 도형이 자동 생성한 외곽선은 true입니다. <br>
+     *
+     * @type {boolean}
+     */
+    isOutline: boolean;
     /**
      * 도형 표시 여부입니다. 기본값은 true입니다. <br>
      *
@@ -350,20 +389,54 @@ declare class U3dLine extends U3dLine_base {
      */
     computeLineDistances(): this;
     /**
+     * 곡선 장력을 설정합니다. 0이면 원본 정점을 직선으로 연결합니다. <br>
+     * @param {number} tension 0 이상의 유한수. 연속 경로의 기본값은 0.01이며 독립 선분은 0만 허용합니다 <br>
+     */
+    setTension(tension: number): void;
+    /** @returns {number} 현재 곡선 장력 <br> */
+    getTension(): number;
+    /**
+     * 공유 정점 인덱스 쌍으로 독립 선분을 지정합니다. 지정 시 tension은 0이 됩니다. <br>
+     * @param {Array<U3dLineSegment> | null} segments 인덱스 쌍. 빈 배열은 모든 선분을 숨기며 null은 연속 경로로 복귀합니다 <br>
+     */
+    setSegments(segments: Array<U3dLineSegment> | null): void;
+    /** @returns {Array<U3dLineSegment> | undefined} 인덱스 쌍의 복사본. 연속 경로는 undefined <br> */
+    getSegments(): Array<U3dLineSegment> | undefined;
+    /** @param {boolean} dashed 점선 표시 여부 <br> */
+    setDashed(dashed: boolean): void;
+    /** @returns {boolean} 점선 표시 여부 <br> */
+    getDashed(): boolean;
+    /** @param {number} dashSize 대시 길이. 형상 좌표 길이 기준의 0보다 큰 유한수 <br> */
+    setDashSize(dashSize: number): void;
+    /** @returns {number} 대시 길이 <br> */
+    getDashSize(): number;
+    /** @param {number} gapSize 대시 사이 간격. 형상 좌표 길이 기준의 0 이상 유한수 <br> */
+    setGapSize(gapSize: number): void;
+    /** @returns {number} 대시 사이 간격 <br> */
+    getGapSize(): number;
+    /**
+     * 공유 정점 목록을 변경하고 현재 선분 인덱스의 범위를 먼저 검증합니다. <br>
+     * @override
+     * @param {Array<WorldPositionVector3>} vertex 월드 정점 목록 <br>
+     */
+    override setVertex(vertex: Array<WorldPositionVector3>): void;
+    /**
      * 재질에 적용된 선 두께를 반환합니다. <br>
      * `worldUnits`가 `true`이고 위경도 좌표가 있으면 위도 환산 배율이 곱해진 값이므로 `linewidth`와 다를 수 있습니다. <br>
      *
+     * @override
      * @returns {number} 재질에 적용된 선 두께. 단위는 `worldUnits`에 따라 월드 좌표(EPSG:3857) 길이 또는 화면 픽셀 <br>
      */
-    getLineWidth(): number;
+    override getLineWidth(): number;
     /**
      * 선 두께를 설정하고 재질에 즉시 반영합니다. <br>
      * `worldUnits`가 `true`이면 미터 값에 위도 환산 배율을 곱해 적용하고, `false`이면 화면 픽셀 값을 그대로 적용합니다. <br>
      * 전달한 값은 요청값으로 `linewidth` 필드에 보관되며, 재질에는 배율을 적용한 두께가 들어갑니다. <br>
      *
+     * @override
      * @param {number} width 선 두께. `worldUnits`가 `true`이면 미터, `false`이면 화면 픽셀 <br>
      */
-    setLineWidth(width: number): void;
+    override setLineWidth(width: number): void;
     /**
      * 선 재질 셰이더의 투명도 값을 반환합니다. <br>
      * 0이면 완전 투명, 1이면 불투명입니다. <br>
@@ -377,7 +450,7 @@ declare class U3dLine extends U3dLine_base {
      * 선 재질 셰이더의 투명도 값을 설정합니다. <br>
      * 0이면 완전 투명, 1이면 불투명입니다. <br>
      * 재질의 투명 처리 설정(`transparent`)과 도형의 `opacity` 속성은 변경하지 않습니다. <br>
-     * 선 재질은 투명 처리가 꺼진 상태로 만들어지므로, 투명도를 화면에 나타내려면 `setTransparent(true)`를 함께 호출하십시오. <br>
+     * 색상 선 재질은 경계 AA를 위해 항상 블렌딩하며, `transparent` 요청값과 관계없이 이 투명도를 반영합니다. `1`이면 선 내부는 불투명하게 유지됩니다. <br>
      *
      * @override
      *
@@ -438,13 +511,14 @@ declare class U3dLine extends U3dLine_base {
      *
      * @override
      *
-     * @param {U3dLineSetParam} [param] 변경할 속성. 도형 공통 속성과 `linewidth`(또는 `lineWidth`)·`divisions`·`closed`·`worldUnits` <br>
+     * 정점과 선분 인덱스를 함께 변경하면 적용 전에 새 정점 목록 기준으로 인덱스를 검사합니다. <br>
+     * @param {U3dLineSetParam} [param] 공통 속성과 `vertices`·`coordinates`·`segments`·`tension`·`dashed`·`dashSize`·`gapSize`·`linewidth`(또는 `lineWidth`)·`divisions`·`closed`·`worldUnits` <br>
      */
     override setParam(param?: U3dLineSetParam): void;
     /**
      * 현재 도형 공통 속성과 선 고유 속성을 반환합니다. <br>
-     * `linewidth`는 재질에 적용된 두께(`getLineWidth` 값)이므로, `worldUnits`가 `true`이고 위경도 좌표가 있으면 지정한 두께에 위도 환산 배율이 곱해진 값입니다. <br>
-     * 반환값을 그대로 `setParam`에 넘기면 이미 배율이 적용된 두께에 배율이 다시 곱해지므로, 되돌려 넣을 때는 `linewidth`를 원하는 두께로 다시 지정하거나 제외하십시오. <br>
+     * `linewidth`는 입력한 두께이며 위도 보정 전 값입니다. 실제 재질 두께는 `getLineWidth`로 조회합니다. <br>
+     * 정점·인덱스·곡선·점선 설정과 위경도 좌표를 복사해 반환하므로 JSON 저장 후 생성 옵션이나 `setParam`으로 복원할 수 있습니다. <br>
      * 그라디언트 색상 사용 중에는 공통 속성의 `color`가 흰색으로 반환됩니다. <br>
      *
      * @override
@@ -463,10 +537,11 @@ declare class U3dLine extends U3dLine_base {
      * geometry position의 좌표를 중심점 기준 상대 좌표로 변환 <br>
      *
      * @param {Array<number>} positions 좌표 배열 <br>
+     * @param {Array<U3dLineSegment>} [pairs] 독립 선분의 정점 인덱스 쌍 <br>
      *
      * @ignore
      */
-    _setRelativePosition(positions: Array<number>): void;
+    _setRelativePosition(positions: Array<number>, pairs?: Array<U3dLineSegment>): void;
     #private;
 }
 
@@ -475,6 +550,7 @@ declare class U3dLine extends U3dLine_base {
      *
      * `U3dLine` 생성자에 전달하는 옵션입니다. <br>
      * 도형 공통 옵션은 `U3dGeometryCO`에 정의되어 있으며, 이 타입은 선 고유 옵션과 주요 공통 옵션을 함께 설명합니다. <br>
+     * 선 자체를 표시하므로 별도 `outline`은 지원하지 않습니다. 선의 두께·색상은 `linewidth`·`color`로 지정합니다. <br>
      */
     type U3dLineCO_Content = {
         /**
@@ -487,7 +563,7 @@ declare class U3dLine extends U3dLine_base {
          */
         color?: three.ColorRepresentation | Array<three.ColorRepresentation>;
         /**
-         * 불투명도 (0~1). 생성 옵션으로 지정한 값은 선 재질에 적용되지 않으며, `setOpacity` 또는 `setParam`으로 지정한 값이 적용됩니다 <br>
+         * 선 재질의 불투명도 (0~1). 생성 옵션·setOpacity·setParam에 동일하게 적용됩니다 <br>
          */
         opacity?: number;
         /**
@@ -502,6 +578,26 @@ declare class U3dLine extends U3dLine_base {
          * 곡선 표본 간격 (월드 좌표(EPSG:3857) 길이, 0 초과). 값이 작을수록 곡선이 매끄러워지고 정점 수가 증가합니다 <br>
          */
         divisions?: number;
+        /**
+         * 0이면 원본 정점을 직선으로 연결하고 양수이면 Catmull-Rom 곡선으로 보간합니다. 0 이상 유한수이며 segments 지정 시 기본값은 0이고 양수는 허용하지 않습니다 <br>
+         */
+        tension?: number;
+        /**
+         * vertices를 참조하는 독립 선분의 인덱스 쌍. 각 쌍은 범위 안의 서로 다른 정수 두 개입니다. []는 선분 없음, 생략·null은 연속 경로입니다 <br>
+         */
+        segments?: Array<U3dLineSegment> | null;
+        /**
+         * 점선 표시 여부. 연속 경로는 누적 거리, 독립 선분은 각 선분 시작점부터 패턴을 계산합니다 <br>
+         */
+        dashed?: boolean;
+        /**
+         * 대시 길이. 형상 좌표(EPSG:3857) 길이 기준의 0보다 큰 유한수 <br>
+         */
+        dashSize?: number;
+        /**
+         * 대시 사이 간격. 형상 좌표(EPSG:3857) 길이 기준의 0 이상 유한수 <br>
+         */
+        gapSize?: number;
         /**
          * 닫힘 설정값. `getParam`으로 반환되지만 선 형상 생성에는 사용되지 않습니다 <br>
          */
@@ -537,8 +633,9 @@ declare class U3dLine extends U3dLine_base {
      *
      * `U3dLine` 생성자에 전달하는 옵션입니다. <br>
      * 도형 공통 옵션은 `U3dGeometryCO`에 정의되어 있으며, 이 타입은 선 고유 옵션과 주요 공통 옵션을 함께 설명합니다. <br>
+     * 선 자체를 표시하므로 별도 `outline`은 지원하지 않습니다. 선의 두께·색상은 `linewidth`·`color`로 지정합니다. <br>
      */
-    type U3dLineCO = Omit<U3dGeometryCO, keyof U3dLineCO_Content> & U3dLineCO_Content;
+    type U3dLineCO = Omit<U3dGeometryCO, keyof U3dLineCO_Content | keyof U3dOutlineCO | "lineWidth" | "lineOpacity" | "lineColor" | "outlineColor" | "outlineWidth" | "outlineOpacity"> & U3dLineCO_Content;
 
 /**
      * ~extends U3dGeometryStyleParam <br>
@@ -548,7 +645,7 @@ declare class U3dLine extends U3dLine_base {
      */
     type U3dLineParam_Content = {
         /**
-         * 재질에 적용된 선 두께. `worldUnits`가 `true`이고 위경도 좌표가 있으면 지정한 두께에 위도 환산 배율이 곱해진 값 <br>
+         * 입력한 선 두께. 위도 보정 전 값이므로 저장 후 복원해도 중복 보정되지 않습니다 <br>
          */
         linewidth: number;
         /**
@@ -563,6 +660,34 @@ declare class U3dLine extends U3dLine_base {
          * 선 두께 단위. `true`이면 미터, `false`이면 화면 픽셀 <br>
          */
         worldUnits: boolean;
+        /**
+         * 곡선 장력. 0이면 직선 연결 <br>
+         */
+        tension: number;
+        /**
+         * 독립 선분 인덱스의 복사본. 연속 경로는 null <br>
+         */
+        segments: Array<U3dLineSegment> | null;
+        /**
+         * 점선 표시 여부 <br>
+         */
+        dashed: boolean;
+        /**
+         * 대시 길이 <br>
+         */
+        dashSize: number;
+        /**
+         * 대시 사이 간격 <br>
+         */
+        gapSize: number;
+        /**
+         * 원본 월드 정점의 복사본 <br>
+         */
+        vertices: Array<WorldPositionVector3>;
+        /**
+         * 원본 위경도 좌표의 복사본 <br>
+         */
+        coordinates: Array<GeoPositionVector3>;
     };
 
 /**
@@ -571,11 +696,11 @@ declare class U3dLine extends U3dLine_base {
      * `U3dLine.getParam`이 반환하는 현재 속성입니다. <br>
      * 도형 공통 속성(`U3dGeometryStyleParam`)에 선 고유 속성을 더한 형식입니다. <br>
      */
-    type U3dLineParam = U3dLineParam_Content & U3dGeometryStyleParam;
+    type U3dLineParam = U3dLineParam_Content & Omit<U3dGeometryStyleParam, keyof U3dOutlineCO | "lineWidth" | "lineOpacity" | "lineColor" | "outlineColor" | "outlineWidth" | "outlineOpacity">;
 
 /**
      * `U3dLine.drapeOnSurface`에 전달하는 옵션입니다. <br>
-     * 드레이프는 선의 원본 좌표를 유지한 채 곡선 표본별로 아래쪽 모델·지형 표면의 높이를 조회해 선의 높이를 표면에 맞추는 처리입니다. <br>
+     * 원본 좌표를 유지한 채 표본별로 아래쪽 모델·지형 표면의 높이를 조회합니다. tension이 0이면 코너를 보존하며 독립 선분은 각각 표본화합니다. <br>
      */
     type U3dLineDrapeOnSurfaceOptions = {
         /**
@@ -618,6 +743,41 @@ declare class U3dLine extends U3dLine_base {
      * 선의 변경 파라미터입니다. 공통 스타일은 생성 옵션보다 변경 API의 계약을 우선합니다. <br>
      * depthOffset의 null 해제를 지원하며, 색상 배열 변경은 setColor를 사용합니다. <br>
      */
-    type U3dLineSetParam = Omit<U3dLineCO, keyof U3dGeometryStyleParam> & U3dGeometryStyleParam;
+    type U3dLineSetParam = Omit<U3dLineCO, keyof U3dGeometryStyleParam> & Omit<U3dGeometryStyleParam, keyof U3dOutlineCO | "lineWidth" | "lineOpacity" | "lineColor" | "outlineColor" | "outlineWidth" | "outlineOpacity"> & {
+        lineWidth?: number;
+    };
 
-export type { GeOnDTMixedInstance_U3dLine, U3dLine, U3dLineCO, U3dLineCO_Content, U3dLineDrapeOnSurfaceOptions, U3dLineDrapeOnSurfaceResult, U3dLineParam, U3dLineParam_Content, U3dLineSetParam, U3dLine_base };
+/**
+     * 공유 정점 목록의 [시작 인덱스, 끝 인덱스]입니다. <br>
+     */
+    type U3dLineSegment = [number, number];
+
+/**
+     * 드레이프 요청의 원본 상태입니다.
+     */
+    type U3dLineDrapeSource = {
+        vertices: Array<three.Vector3>;
+        divisions: number;
+        closed: boolean;
+        tension: number;
+        segments?: Array<U3dLineSegment>;
+    };
+
+/**
+     * 곡선 또는 코너를 보존하는 직선 구간의 표본 계획입니다.
+     */
+    type U3dLineDrapePlan = {
+        kind: "curve";
+        spline: three.CatmullRomCurve3;
+        curveLength: number;
+        segmentCount: number;
+    } | {
+        kind: "linear";
+        sections: Array<{
+            start: number;
+            end: number;
+            count: number;
+        }>;
+    };
+
+export type { GeOnDTMixedInstance_U3dLine, U3dLine, U3dLineCO, U3dLineCO_Content, U3dLineDrapeOnSurfaceOptions, U3dLineDrapeOnSurfaceResult, U3dLineDrapePlan, U3dLineDrapeSource, U3dLineParam, U3dLineParam_Content, U3dLineSegment, U3dLineSetParam, U3dLine_base };

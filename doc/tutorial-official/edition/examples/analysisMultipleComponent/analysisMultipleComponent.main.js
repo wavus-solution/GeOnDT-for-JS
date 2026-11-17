@@ -750,10 +750,10 @@ export async function initialize(context) {
                         analy.readyModel(modelInfo.name, modelInfo.baseurl);
                         promise.resolve();
                     } else {
-                        loadedModelInfo.then(() => {
+                        loadedModelInfo.ready.then(() => {
                             analy.readyModel(modelInfo.name, modelInfo.baseurl);
                             promise.resolve();
-                        })
+                        }).catch(error => { promise.reject(error); })
                     }
                 } else {
                     // 컴포넌트로 사용할 모델을 최초 불러오기
@@ -995,9 +995,11 @@ export async function initialize(context) {
                 const option = {
                     name: 'ComponentLayer',
                     type: "model",
-                    needxml: false, //준비된 xml이 없으면 false를 입력합니다!!!
-                    listmodel: [], //컴포넌트 레이어를 구성할 모델 데이터 리스트
-                    drawline: false,
+                    needXml: false, //준비된 xml이 없으면 false를 입력합니다!!!
+                    // 클릭 좌표로 배치하므로 원본 3DS 청크의 위치를 사용하지 않습니다.
+                    geoLocation: {x: 0, y: 0, z: 0},
+                    listModel: [], //컴포넌트 레이어를 구성할 모델 데이터 리스트
+                    drawLine: false,
                 }
 
                 let componentLayer = app.createMultipleComponentLayer(option);
@@ -1073,9 +1075,9 @@ export async function initialize(context) {
                     if (analy.isLoadModel(modelInfo.name, modelInfo.baseurl)) {
                         promise.resolve();
                     } else {
-                        loadedModelInfo.then(() => {
+                        loadedModelInfo.ready.then(() => {
                             promise.resolve();
-                        })
+                        }).catch(error => { promise.reject(error); })
                     }
                 } else {
                     // 컴포넌트로 사용할 모델을 최초 불러오기

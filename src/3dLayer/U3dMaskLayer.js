@@ -13,6 +13,7 @@ import {CSG} from '@union3d/lib/CSGMesh/CSGMesh';
 import {U3dGroupLayer} from '@union3d/3dLayer/U3dGroupLayer';
 import {U3dMessage} from '@union3d/message/U3dMessage';
 import {UCheckTime} from '@union3d/core/UCheckTime';
+import {UErrorCollector} from '@union3d/util/UErrorCollector';
 import {UMercator} from '@union3d/math/UMercator';
 
 const FIRST_X_POS = -492134.011;
@@ -23,6 +24,8 @@ const MASK_GRID_NAME = "MaskGrid_";
 const MASK_GRID_HELPER_NAME = "MaskGridHelper_";
 const MASK_BOX_NAME = "MaskBox_";
 const SIZE = new THREE.Vector3();
+// 성공한 지역 벡터의 참조로 다른 레이어의 중첩 반영까지 구분합니다.
+let sizeCommit = SIZE;
 const tempBBox = new THREE.Box3();
 const SOUTH_WEST = "southWest";
 const SOUTH_EAST = "southEast";
@@ -330,17 +333,45 @@ class U3dMaskLayer extends U3dModelLayer {
 
     /**
      * 타일 키에 대응하는 마스크 격자가 없을 때만 생성합니다.
-     * 기존 격자는 다시 초기화하지 않습니다.
+     * 중첩 생성의 최신 크기를 보존하며, 실패한 격자의 등록과 자원을 되돌려 같은 키의 재시도를 허용합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 마스크를 생성할 타일
+     * @throws {unknown} 격자 생성 실패. 정리도 실패하면 원래 오류와 정리 오류를 errors에 담아 전달합니다.
      */
     createMask(tile) {
         const self = this;
         if (!defined(tile)) return;
         let key = tile.getKey();
         if (!defined(self._masks[key])) {
-            self._masks[key] = {}
-            createMaskGrid.call(self, tile);
+            const groupName = MASK_GRID_NAME + key;
+            const previousGroup = self._group?.children.find(child => child.name === groupName);
+            const previousLayerSize = self._size;
+            const previousSizeCommit = sizeCommit;
+            const grid = self._masks[key] = {};
+            try {
+                createMaskGrid.call(self, tile);
+                if (self._size === grid.size && sizeCommit === previousSizeCommit) {
+                    SIZE.copy(grid.size);
+                    sizeCommit = grid.size;
+                }
+                grid.size = self._size = SIZE;
+            } catch (error) {
+                const errors = new UErrorCollector('마스크 격자 생성 및 자원 정리에 실패했습니다.');
+                errors.add(error);
+                const group = self._group?.children.find(child => child.name === groupName);
+                // 실패한 격자 등록을 먼저 되돌려 정리 콜백의 같은 키 재시도를 막지 않습니다.
+                delete self._masks[key];
+                if (self._size === grid.size) self._size = previousLayerSize;
+                if (group && group !== previousGroup) {
+                    delete self._boxGeometryList[groupName];
+                    errors.attempt(() => group.removeFromParent());
+                }
+                errors.attempt(() => grid.gridHelper?.removeFromParent());
+                errors.attempt(() => grid.gridHelper?.geometry.dispose());
+                errors.attempt(() => grid.gridHelper?.material.dispose());
+                errors.attempt(() => grid.planeGeometry?.dispose());
+                errors.finish();
+            }
         }
     }
 
@@ -456,7 +487,7 @@ class U3dMaskLayer extends U3dModelLayer {
     /**
      * 참조 레이어의 모델 높이를 격자 셀에 반영하고 요청 타일의 박스를 표시합니다.
      * 공유 메시와 이미 처리한 메시를 제외하고, 모든 점 검사 이후 타일 상 태와 완료 객체를 갱신합니다.
-     * infoLayer가 없으면 완료되지 않는 기존 경로도 유지합니다.
+     * infoLayer가 없으면 값을 변경하지 않고 완료합니다.
      *
      * @param {string} tileKey 높이를 반영할 타일 키
      * @param {AbortSignal} [signal] 모델 작업의 취소 신호
@@ -566,6 +597,8 @@ class U3dMaskLayer extends U3dModelLayer {
                     }else{
                         resolve();
                     }
+                } else {
+                    resolve();
                 }
             } catch (e) {
                 U3dMessage.info(self._classtype, U3dMessage.CNT.MASK.ERROR_ADD_MASK_2, '2214833');
@@ -577,16 +610,17 @@ class U3dMaskLayer extends U3dModelLayer {
 
 /**
  * 타일의 마스크 저장소와 표시 격자를 초기화합니다.
- * 셀의 초기 값 객체와 격자 크기 벡터의 기존 참조 공유를 유지합니다.
+ * 셀의 초기 값 객체는 공유하되 격자 크기는 생성 성공 전까지 다른 격자와 분리합니다.
  *
  * @this {U3dMaskLayer}
  * @param {import('@U3dQuadTile').U3dQuadTile} tile 초기화할 타일
+ * @throws {unknown} 셀 배열 또는 표시 격자 생성 중 발생한 오류
  *
  * @ignore
  */
 function createMaskGrid(tile) {
     const self = this;
-    let size = SIZE;
+    const size = new THREE.Vector3();
     const tileKey = tile.getKey();
     const grid = self._masks[tileKey];
     const xLength = self._segments;
@@ -596,13 +630,13 @@ function createMaskGrid(tile) {
 
     tile._boundingbox.getSize(size);
     size.multiplyScalar(1 / xLength);
-    self._size = size;
     //let firstPosition = tile.getFirstPosition(tile._mesh.geometry);
     let firstPosition = new THREE.Vector3(tile._minx, tile._maxy, 0);
     grid.mask = arr; // maskValue의 값을 담는 배열
 
     grid.name = MASK_GRID_NAME + tileKey; // tileKey로 이름 지정
     grid.size = size; // mask 간격
+    self._size = size;
     grid.xLength = xLength; // mask 가로 타일 갯수
     grid.yLength = yLength; // mask 새로 타일 갯수
     grid.startPosition = firstPosition; // tile의 시작점
@@ -641,6 +675,7 @@ function getIntersectTile(bbox) {
  *
  * @this {U3dMaskLayer}
  * @param {import('@U3dQuadTile').U3dQuadTile} tile 격자를 표시할 타일
+ * @throws {unknown} 표시 격자 또는 그룹 생성 중 발생한 오류
  *
  * @ignore
  */
@@ -653,6 +688,7 @@ function createGridHelper(tile) {
     let avgLength = Math.ceil((xLength + yLength) / 2);
 
     const gridHelper = new THREE.GridHelper(self._size.x * xLength, avgLength);
+    grid.gridHelper = gridHelper;
     gridHelper.geometry.applyMatrix4(gridHelper.matrix);
     gridHelper.position.copy(tile._center);
     gridHelper.position.z += self._height;
@@ -660,7 +696,6 @@ function createGridHelper(tile) {
     gridHelper.name = MASK_GRID_HELPER_NAME + tileKey;
     gridHelper._layername = self._name;
     gridHelper.updateMatrix();
-    grid.gridHelper = gridHelper;
     grid.planeGeometry = new THREE.PlaneGeometry(self._size.x * xLength, self._size.y * yLength, xLength, xLength);
     const group = getGroupByName.call(self, grid.name);
     if(group)

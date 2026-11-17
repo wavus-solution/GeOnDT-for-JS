@@ -1,0 +1,32 @@
+<nav class="landscape-rail" data-example-rail aria-label="landscape 도구">
+    <button id="analy-bnt" class="rail-button" type="button" data-legacy-toggle-state aria-pressed="false">
+        <span class="rail-icon">▦</span><span>분석</span>
+    </button>
+</nav>
+
+<div id="analy-popup" oncontextmenu="return false" class="legacy-floating-panel legacy-main-feature-panel legacy-migration-panel" style="display:none;">
+        <div class="div-popup">
+            <div class="div-popup-control">
+                <label class="label-popup-control btn btn-default btn-sm popup-exit">닫기</label>
+            </div>
+            <div class="div-popup-content" style="margin:0 10px;">
+                <div class="radio">
+                    <label>
+                        <input type="radio" name="landscape" value="landscape" checked>
+                        경관분석
+                    </label>
+                </div>
+                <div class="radio">
+                    <label>
+                        <input type="radio" name="landscape" value="close">
+                        경관분석 종료
+                    </label>
+                </div>
+                <aside class="landscape-control-hint" role="note" aria-label="경관 분석 조작 안내">
+                    <strong>임시 일인칭 전환</strong>
+                    <p><kbd>Shift</kbd>를 누른 채 마우스를 드래그하면 일인칭으로 이동·회전할 수 있습니다.</p>
+                    <span>Shift를 놓으면 기존 조작으로 돌아갑니다.</span>
+                </aside>
+            </div>
+        </div>
+    </div>

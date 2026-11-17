@@ -39,6 +39,7 @@ Worker가 준비한 packed terrain 도형 texture를 Layer와 Feature의 총순�
 예외를 밖으로 전달하기 전에는 해당 job의 자원을 회수해야 한다.
 sourceState.compositionLayers가 있으면 목록의 총순서를 보존한 구간 합성을 수행한다. 각 구간은 독립된 precomposed 계획과 packed 또는 완성 RTT 상태를 갖고, 중첩된 구간 입력은 거절한다.
 정적 A, 동적 B, 정적 C가 교차해도 그 순서를 바꾸지 않으며, 구간의 완성 RTT를 premultiplied source-over로 결합한다. 최종 결과는 기존처럼 host별 단일 composite texture를 제공한다.
+완성된 구간이 두 개이고 샘플링 여유를 포함한 두 픽셀 사각형을 함께 감싸는 사각형 면적이 개별 면적 합보다 크지 않으면 두 texture를 한 draw에서 순서대로 합성한다. 그 외에는 기존 구간별 복사를 유지한다. 두 번째 texture의 범위 밖은 투명값이며, 두 번째 범위가 비어 있으면 단일 복사로 동작하여 같은 프로그램의 예열을 공유한다.
 정적 구간 cache.gpuState와 이번 요청의 구간 상태는 서로 다른 wrapper를 소유하며, 공유 RTT는 참조 수로 관리한다. 이미 정리된 cache에는 늦게 완성된 RTT를 저장하지 않는다.
 구간 결과를 읽을 때 host render order, 다음 host render order, host 식별자와 texture 준비 revision이 모두 맞아야 한다. 구간들의 tile-local 원점도 전체 입력과 같아야 한다.
 ```
@@ -54,6 +55,7 @@ sourceState.compositionLayers가 있으면 목록의 총순서를 보존한 구�
 제한 조건: 비동기 예열 실패와 compileAsync 미지원은 기존 첫 draw 준비 경로를 유지하며, 동기 compose와 무제한 step은 기존 동기 compile 계약을 유지한다.
 제한 조건: 준비 단계의 packed row 순회는 일정 row 수마다 deadline을 확인하여 한 프레임을 독점하지 않는다.
 제한 조건: 자식 구간 raster와 최종 texture draw는 하나의 draw 상한, deadline, 가중 픽셀 예산을 나눠 쓴다. 구간 경계에서 최소 진행 보장을 다시 시작하지 않는다. 최종 구간 copy는 기존 draw 사각형 계산 함수의 정수화·샘플링 여유·target 제한을 재사용해 실제 구간 범위만 그린다. 예산에는 copy의 부분 면적을 계상하되 각 host의 첫 clear는 scissor를 끄고 전체 target을 초기화하며 전체 clear 면적으로 계상한다. 전체 viewport·UV·원래 구간 순서·해상도·마지막 구간의 밉 생성은 유지한다. 예산 승인은 최종 target 할당 전에 수행하며 재개 시 이미 끝난 clear를 반복하지 않는다.
+제한 조건: 두 구간 단일 draw도 각 host별 전체 clear와 현재 descriptor에 맞는 두 RTT 조회를 유지한다. 복사 픽셀 예산에는 두 사각형을 함께 감싸는 사각형을, clear에는 전체 target을 계상하고 마지막 draw에서 밉을 생성한다. 입력 RTT와 표시 중 결과는 변경하지 않으며 모든 host 완료 후 결과 소유권을 이전한다.
 제한 조건: 최종 texture 배치는 구간 RTT의 texel 밀도를 보존하되 renderer texture 상한으로 제한한다. 도형의 외곽선·AA·hole 평가는 기존 구간 raster 경로를 재사용한다.
 검증 기준: 합성기가 보유한 program anchor 수는 진단용 접근자로 확인한다.
 ```
@@ -78,6 +80,43 @@ TERRAIN_COMPOSITE_SETUP_CHECK_INTERVAL: number = 32
 
 TERRAIN_COMPOSITE_PATH_STYLE_TEXELS: number = 2
     path style 하나가 차지하는 texel 수. packed style 배열에서 style 순번을 offset으로 바꿀 때 사용한다.
+
+TerrainCompositionLayer 타입 정의
+    state: TerrainBufferState
+        이번 요청이 소유한 packed 또는 별도 참조를 보유한 RTT 상태. 자식 작업이 완료되면 같은 구간 객체의 state가 결과 RTT 상태로 교체된다.
+    compositionPlan: TerrainDecalCompositionPlan
+        구간 하나의 precomposed 계획
+    cache?: TerrainCompositionRun
+        정적 RTT를 별도 wrapper와 참조 수로 소유하는 재사용 항목
+
+TerrainCompositeLayersJob 타입 정의
+    composer: UTerrainDecalCompositeComposer
+    input: TerrainCompositeInput
+    layers: Array<TerrainCompositionLayer>
+        입력 구간 목록 참조이며 기존 표시 순서를 유지한다.
+    layerIndex: number
+    layerJob: TerrainCompositeRasterJob | TerrainCompositeLayersJob | undefined
+        준비 중인 자식 job. 구간의 중첩 compositionLayers 입력 자체는 거절한다.
+    material: ShaderMaterial
+    scene: Scene
+    programAnchorKey: string
+        texture 복사 프로그램의 고정 식별자
+    bounds: Vector4
+    targetWidth, targetHeight: number
+    compositeVariants: Array<TerrainCompositeVariant>
+    variantIndex, batchIndex: number
+        최종 복사 중인 host 순번과 구간 순번
+    done, disposed, materialReleased, targetsTransferred: boolean
+    state: TerrainBufferState | undefined
+        완료 결과와 최종 RTT 소유권만 이전하며 입력 구간 상태는 흡수하지 않는다.
+
+TerrainCompositeLayerServices 타입 정의
+    createTarget: function(number, number, string, boolean, number): WebGLRenderTarget
+    resolveLayout: function(Vector4, number, number, number, number=): {bounds: Vector4, width: number, height: number, coverageFallbackEnabled: boolean}
+    weightedMp: function(number, boolean=): number
+    readDrawRect: function({x: number, y: number, width: number, height: number}, Vector4 | null, Vector4, number, number): boolean
+    ensureAnchor: function(UTerrainDecalCompositeComposer, WebGLRenderer, TerrainCompositeRasterJob | TerrainCompositeLayersJob, boolean=): boolean
+        구간 합성이 일반 합성기의 target·해상도·픽셀 비용·범위·program 수명 규칙을 재사용하는 함수 집합
 
 TerrainCompositeRasterJob 타입 정의
     composer: UTerrainDecalCompositeComposer
@@ -117,7 +156,9 @@ TerrainCompositeRasterJob 타입 정의
     variantIndex: number = 0
         현재 host 구간 순번
     batchIndex: number = 0
-        현재 합성 batch 순번
+        실행 목록 안에서 현재 합성 중인 batch 순번
+    batchSliceIndex: number = 0
+        현재 batch의 재개 조각 순번이며 마지막 조각을 그린 뒤 0으로 돌아간다.
     variantCleared: boolean = false
         현재 host 구간 target을 이미 비웠는지 여부
     done: boolean = false
@@ -174,9 +215,9 @@ TerrainCompositeInput 부분 타입 명세
         tileLocalBounds?: Array<number>
             tile mesh가 덮는 tile-local 범위이며 `[minX, minY, maxX, maxY]` 형식이다. 생략하면 packed 도형 범위를 그대로 쓴다.
         sourceState: TerrainBufferState
-            packed DataTexture와 uniform을 담은 입력 상태이며 호출자가 소유한다.
+            packed DataTexture와 uniform을 담은 입력 상태이며 호출자가 소유한다. 구간 입력이면 compositionLayers의 각 구간 상태를 소유한다.
         compositionPlan?: TerrainDecalCompositionPlan
-            batch 목록을 담은 합성 계획이며 `compositionMode`가 `precomposed`여야 한다.
+            batch 목록을 담은 합성 계획이며 `compositionMode`가 `precomposed` 또는 `hybrid`여야 한다. 구간 입력의 개별 계획은 `precomposed`여야 한다.
         variants: Array<TerrainCompositeVariant>
             합성할 host 구간 목록이며 하나 이상이어야 한다.
         renderer?: WebGLRenderer
@@ -190,6 +231,12 @@ TerrainBufferState 부분 타입 명세
             입력에서는 packed 도형 평가에 필요한 define이고, 결과에서는 composite sampling 경로를 켜는 define이다.
         uniforms?: Record<string, IUniform>
             입력에서는 packed texture와 tileScale을 담고, 결과에서는 tileScale과 합성 범위를 담는다.
+        compositionLayers?: Array<TerrainCompositionLayer>
+            원래 표시 순서의 구간 목록. 구간의 state는 자식 완료 후 RTT 상태로 교체된다.
+        tileOrigin?: {x: number, y: number, z: number}
+            packed 상태의 좌표 기준점이며 결과로 값 사본을 전달한다.
+        sourceStateAbsorbed?: boolean
+            단일 hybrid 완료에서 원본 packed 상태를 결과가 흡수했는지 알린다.
         packedStates?: Partial<{path: TerrainBucketState, area: TerrainBucketState, circle: TerrainBucketState}>
             batch 범위를 계산할 때 참조하는 packed 원본
         compositeVariants?: Array<TerrainCompositeVariant>
@@ -232,7 +279,7 @@ UTerrainDecalCompositeComposer 클래스 정의
     _camera: Camera
         matrix 자동 갱신을 끈 fullscreen 전용 camera
 
-    _jobs: Set<TerrainCompositeRasterJob> = 빈 Set
+    _jobs: Set<TerrainCompositeRasterJob | TerrainCompositeLayersJob> = 빈 Set
         아직 완료하거나 정리하지 않은 합성 job
 
     _programAnchors: Map<WebGLRenderer, Map<string, TerrainCompositeProgramAnchor>> = 빈 Map
@@ -241,12 +288,19 @@ UTerrainDecalCompositeComposer 클래스 정의
     _disposed: boolean = false
         합성기 정리 여부
 
-    constructor(opt: Partial<{resolution: number, maxResolutionScale: number}> = {})
+    _batchSplitMaxEdgeTexels: number = 0
+        유한 양수인 경우 batch draw를 나누는 변 길이 상한
+
+    _stats: {stepCalls: number, drawCalls: number, sliceDraws: number, batchUnits: number, clearCalls: number}
+        각 횟수는 0에서 시작하며 실제 진행·발행에 따라 누적한다.
+
+    constructor(opt: Partial<{resolution: number, maxResolutionScale: number, batchSplitMaxEdgeTexels: number}> = {})
         역할: 해상도 정책을 확정하고 모든 job이 공유할 geometry와 camera를 만든다.
 
         인터페이스:
             opt.resolution: 기본 content 해상도이며 숫자로 바꿀 수 없거나 0이면 기본값 512를 쓴다.
             opt.maxResolutionScale: 기본 해상도 대비 content 해상도 배율 상한이며 숫자로 바꿀 수 없거나 0이면 기본값 8을 쓴다.
+            opt.batchSplitMaxEdgeTexels: batch draw 한 조각의 변 길이 상한이며 정수화한 유한 양수일 때만 켜진다. 생략하면 분할하지 않는다.
 
         처리 기준:
             두 설정은 소수점을 버린 뒤 1 미만이면 1로 올린다. 음수를 주면 기본값이 아니라 1이 된다.
@@ -303,10 +357,11 @@ UTerrainDecalCompositeComposer 클래스 정의
             _disposed 이면 TypeError 를 던진다.
             입력 계약을 확인한다.
             input.signal 이 이미 중단 상태이면 TypeError 를 던진다.
+            sourceState.compositionLayers가 배열이면 비공개 구간 작업을 만들고 등록하여 반환한다.
             packed 도형 범위와 tile 범위로 content 범위를 정하고, 같은 값을 복제해 합성 범위 초기값으로 삼는다.
             합성 범위를 uniform 으로 갖는 공용 batch raster material 을 만든다.
             공용 geometry 와 그 material 로 fullscreen mesh 를 만들어 frustum culling 과 matrix 자동 갱신을 끄고 matrix 를 한 번 갱신한 뒤 새 scene 에 넣는다.
-            material defines 의 key 를 정렬하여 key 와 값의 쌍을 직렬화한 program anchor key 를 만든다.
+            material defines의 이름·값 쌍으로 program anchor key를 만든다.
             계획이 투영한 정적 대상 batch 순번으로 실행 목록을 만든다.
             진행 상태와 결과 자리를 초기값으로 채운 job 을 만들어 _jobs 에 등록하고 반환한다.
 
@@ -337,12 +392,13 @@ UTerrainDecalCompositeComposer 클래스 정의
             job 이 이 합성기의 것이고 실행 가능한지, renderer 가 합성 명령을 실행할 수 있는지 확인한다.
             job.done 이면 보관한 결과 상태와 함께 완료 결과를 돌려준다.
             job.input.signal 이 중단 상태이면 job 을 정리하고 진행 없음 결과를 돌려준다.
-            유한 deadline이 남고 같은 renderer·program key의 anchor가 예열 중이면 새 target 생성·연결 없이 shader-prewarm을 반환한다.
+            유한 deadline을 현재 시각과 대조한다. 시간이 남고 같은 renderer·program key의 anchor가 예열 중이면 새 target 생성·연결 없이 shader-prewarm을 반환한다.
             이번 진행에서 바꿀 renderer 상태를 저장한다.
-            단일 raster 작업이면 기존 경로로 진행하고, 구간 작업이면 같은 예산으로 구간 합성을 진행한다. 예외는 실패로 보관한다.
+            구간 job이면 비공개 구간 합성에 target 생성·layout·가중 픽셀·복사 범위·anchor 준비 어댑터와 같은 예산을 넘긴다.
+            단일 raster job이면 기존 batch 진행 상태를 재개한다. 두 경로의 예외는 실패로 보관한다.
             진행 성공·실패와 무관하게 저장한 renderer 상태를 되돌리고, 복구 실패는 보관한 실패가 없을 때만 실패로 삼는다.
-            실패가 있으면 job 을 정리한 뒤 그 실패를 던진다.
-            진행 결과가 완료이면 완성 target 소유권을 결과 상태로 이전하고, 이전이 실패하면 job 을 정리한 뒤 예외를 던진다.
+            failure가 undefined가 아니면 job을 정리한 뒤 그 실패를 던진다.
+            진행 결과가 완료이면 완성 target 소유권을 결과 상태로 이전한다. 이 단계에서 예외가 발생한 경우만 job을 정리한 뒤 다시 던진다.
             진행 결과를 반환한다.
 
     disposeJob(job: TerrainCompositeRasterJob | TerrainCompositeLayersJob) -> void
@@ -360,8 +416,9 @@ UTerrainDecalCompositeComposer 클래스 정의
 
         동작:
             job 이 없거나 이 합성기의 job 이 아니거나 이미 정리되었으면 아무것도 하지 않는다.
+            구간 작업이면 진행 중인 자식 raster 작업부터 정리한다. 구간 입력은 호출자가 보유하므로 여기서 다시 해제하지 않는다.
             임시 raster material 을 정리한다.
-            target 소유권을 이전하지 않았으면 host 구간별 RenderTarget 을 순회하여 해제하고 결과 목록을 비운다.
+            job이 있고 job.composer가 현재 합성기이며 job.disposed가 false인 상태에서 job.targetsTransferred도 false일 때만 host 구간별 RenderTarget을 해제하고 결과 목록을 비운다.
             job 을 정리 상태로 표시하고 _jobs 에서 제거한다.
 
     dispose() -> void
@@ -373,7 +430,7 @@ UTerrainDecalCompositeComposer 클래스 정의
             camera 는 해제할 자원을 갖지 않으므로 그대로 둔다.
 
         동작:
-            _jobs 의 현재 목록을 복제하여 각 job 을 정리한다.
+            _disposed가 false인 경우에만 _jobs의 현재 목록을 복제하여 각 job을 정리한다.
             _disposed 를 true 로 만들어 이후 job 생성을 막는다.
             보유한 program anchor 를 모두 정리하여 program 참조를 놓는다.
             공용 geometry 를 해제한다.
@@ -395,7 +452,7 @@ UTerrainDecalCompositeComposer 클래스 정의
 
         동작:
             정리 상태와 입력 형식, renderer 상한을 확인하고 하나라도 어긋나면 NaN 을 반환한다.
-            content 크기를 clamp 와 함께 구하고 최소 content 해상도를 계산한다.
+            _disposed가 false이고 contentBounds가 4개 이상의 배열이며 Number로 바꾼 첫 4개 값과 양수 hardwareLimit이 모두 유한할 때만 content 크기를 최소 1로 구하고 최소 content 해상도를 계산한다.
             texel 상한에 sampling footprint texel 수를 곱해 반환한다.
 
     get programAnchorCount() -> number
@@ -428,7 +485,7 @@ UTerrainDecalCompositeComposer 클래스 정의
 
         인터페이스:
             compositionPlan: 실행할 합성 계획
-            반환: 오름차순 계획 batch 순번 목록
+            반환: 투영 입력 순서를 유지한 계획 batch 순번 목록. 중복 순번을 제거하거나 정렬하지 않는다.
 
         처리 기준:
             계획이 정적 대상 batch 순번을 투영해 주면 그 목록만 실행한다. 전체 batch 를 돌면서 batch 별 필터만 켜면 정적 대상이 없는 batch 에 빈 draw 가 발행되므로 실행 목록 자체를 걸러 낸다.
@@ -501,6 +558,7 @@ UTerrainDecalCompositeComposer 클래스 정의
             target 크기를 확인하고 batch 범위가 없으면 전면 비용을 돌려준다.
             합성 범위와 batch 범위의 유한성을 확인하고 어긋나면 전면 비용을 돌려준다.
             batch 범위를 target 픽셀 사각형으로 환산하고 여백을 더해 잘라낸 뒤 그 면적의 가중 비용을 돌려준다.
+            batch 범위를 target의 scissor 사각형으로 구하여 실제 draw 비용을 계산하며 범위를 구할 수 없으면 전체 target 비용을 사용한다.
 
     drawTerrainCompositeBatch(job: TerrainCompositeRasterJob, renderer: WebGLRenderer, camera: Camera, variant: TerrainCompositeVariant, batchCount: number) -> void
         역할: 현재 실행 순서의 batch 하나를 scissor와 계획 batch 순번을 적용해 그리고 다음 batch·host 구간으로 진행한다.
@@ -515,15 +573,20 @@ UTerrainDecalCompositeComposer 클래스 정의
         처리 기준:
             예산 판단과 발행을 분리하려고 떼어낸 것이며 진행 규칙은 예산 도입 전과 같다.
             batch 범위 계약이 유효하면 그 batch 의 local 범위로, 아니면 전체 target 으로 scissor 를 정한다.
+            계획 batch 의 type 이 path·area·circle 중 하나면 해당 타입 count 만 원래 값으로 두고 다른 두 count 를 0 으로 둔다. 타입별로 묶인 정식 계획과 packed row 의 batch 순번이 일치하는 입력 계약을 따른다.
+            type 이 없거나 알 수 없으면 세 count 를 원본 값으로 복구하여 기존 수동 입력을 보존한다. 매 draw 는 직전 batch 값이 아닌 packed 원본 count 에서 시작한다.
             batch 순번을 늘리고 batch 수를 채우면 다음 host 구간으로 넘어가 batch 순번과 비움 표시를 초기화한다.
 
         의존:
             THREE — batch draw 실행; 함수: {WebGLRenderer.render()}; 속성 쓰기: {ShaderMaterial.uniformsNeedUpdate}
 
         동작:
-            이번 batch 의 scissor 를 정한다.
-            batch 순번 uniform 을 갱신하고 갱신 표시를 세운 뒤 fullscreen scene 을 한 번 그린다.
-            batch 순번을 늘리고 batch 수를 채웠으면 다음 host 구간으로 넘어간다.
+            조각 제한이 켜져 있으면 batch의 draw 사각형과 격자, 현재 batchSliceIndex의 조각을 구한다. 둘 이상의 조각이면 그 사각형으로 scissor를 설정하고 마지막 조각인지 기록한다.
+            조각을 나누지 않는 경우에는 batch 범위로 scissor를 설정한다.
+            실행 목록에서 실제 계획 batch 순번을 구하고 타입별 count를 원본 값에서 선택한다. batch 순번 uniform과 갱신 표시를 기록한다.
+            mipmap 필터를 쓰는 target에서 마지막 batch의 마지막 조각일 때만 mipmap 생성을 켠 뒤 fullscreen scene을 한 번 그린다.
+            draw·조각·batch 통계를 갱신한다. 마지막 조각이 아니면 조각 순번만 늘리고 반환한다.
+            마지막 조각이면 job.batchSliceIndex를 0으로 되돌리고 job.batchIndex를 1 늘린다. job.batchIndex가 batchCount 이상이면 job.variantIndex를 1 늘리고 job.batchIndex는 0, job.variantCleared는 false로 바꾼다.
 
     advanceTerrainCompositeRasterJob(job: TerrainCompositeRasterJob, renderer: WebGLRenderer, camera: Camera, opt: Partial<{maxDrawCalls: number, deadlineMs: number, remainingWeightedMp: number, frameAdmitted: boolean}>) -> {done: boolean, drawCalls: number, progressed: boolean, weightedMpUsed: number, stopReason?: TerrainCompositeStepStopReason}
         역할: 프레임 제한 안에서 host 구간과 batch 순서를 진행한다.
@@ -533,7 +596,7 @@ UTerrainDecalCompositeComposer 클래스 정의
             반환: done 은 모든 host 구간을 끝냈는지 여부, drawCalls 는 이번 진행의 draw 수, progressed 는 준비 또는 draw 가 한 번이라도 진행했는지 여부, weightedMpUsed 는 이번 진행이 소비한 가중 픽셀, stopReason 은 더 진행하지 못한 사유다.
 
         처리 기준:
-            draw 수 상한은 유한한 값일 때만 적용하며 소수점을 버린 뒤 1 미만이면 1 로 올린다. 따라서 상한을 0 으로 주어도 매 진행마다 최소 한 번은 draw 한다.
+            draw 수 상한은 유한한 값일 때만 적용하며 소수점을 버린 뒤 1 미만이면 1로 올린다. 0을 주어도 상한은 1이지만, deadline·예열·픽셀 예산으로 draw 없이 돌아갈 수 있다.
             deadline 은 유한한 값일 때만 적용하고 보정하지 않는다.
             픽셀 예산은 유한한 0 이상일 때만 적용하고, 음수·숫자 아님·무한이면 예산을 쓰지 않는 것으로 본다.
             예산을 쓰지 않으면 발행 전 면적을 계산하지 않고 곧바로 그린다. 채택되지 않은 예산 기능이 기본 경로에 좌표 계산 비용을 더하지 않게 하기 위해서다.
@@ -545,7 +608,7 @@ UTerrainDecalCompositeComposer 클래스 정의
             가중 픽셀은 draw 가 덮는 실제 target 픽셀에 1 을, clear 가 덮는 전면 픽셀에 0.16 을 곱해 메가픽셀 단위로 센다. 0.16 은 특정 GPU 와 장면에서 GPU 시간을 재 얻은 실험값이며 장비 일반값이 아니다.
             draw 의 실제 픽셀은 scissor 를 정하는 것과 같은 규칙으로 발행 전에 계산하며, batch 범위 계약이 유효하지 않거나 target 크기가 유효하지 않으면 target 전면으로 본다. 계산한 사각형이 비면 0 이다.
             deadline 은 host 구간을 다루기 전에도 확인해 이미 지났으면 발행하지 않는다.
-            batch 수는 합성 계획의 batch 목록 길이이며 계획이 없으면 0 이다. batch 수가 0 이면 host 구간마다 target 을 비우기만 하고 완료로 끝난다. [확인 Q-001]
+            batch 수는 job.batchExecutionList의 길이다. 투영이 없으면 전체 계획 batch 목록에서 만들고, 투영이 있으면 유효 순번만 입력 순서대로 남긴다. 실행 목록이 비면 host 구간마다 target을 비우기만 하고 완료로 끝난다. [확인 Q-001]
             준비 단계가 끝나지 않았으면 이번 진행에서는 draw 를 하지 않는다. 준비가 끝났더라도 그 시점에 deadline 을 넘었으면 draw 없이 미완료로 돌아간다.
             host 구간의 target 은 그 구간을 처음 다룰 때 한 번만 비운다. 유한 deadline이면 비우기 전 program anchor의 비동기 예열을 시작·조회하고, 미완료면 clear·draw 없이 shader-prewarm으로 양보한다. 무제한 step은 동기 compile 경로를 사용한다.
             batch 범위 계약이 유효하지 않으면 모든 batch 가 전체 target 을 대상으로 그린다.
@@ -556,8 +619,8 @@ UTerrainDecalCompositeComposer 클래스 정의
             Web API — 프레임 deadline 비교용 monotonic 시각 조회; 함수: {performance.now()}
 
         동작:
-            합성 계획의 batch 수를 확인하고 draw 수 상한과 deadline 을 유한 여부에 따라 확정한다.
-            준비가 끝나지 않았으면 준비 단계를 진행하고, 여전히 끝나지 않았거나 준비 직후 deadline 을 넘었으면 미완료로 돌아간다.
+            job의 실행 목록 길이를 batch 수로 정하고 draw 수 상한과 deadline을 유한 여부에 따라 확정한다.
+            job.setupDone이 false인 경우만 준비 단계를 진행한다. 여전히 완료되지 않았거나 준비 직후 deadline을 넘었으면 미완료로 돌아간다.
             남은 host 구간마다 deadline 을 먼저 확인하고 그 구간의 합성 결과와 target 을 확보해 renderer 에 연결한다.
             아직 비우지 않은 구간이면 같은 program을 붙잡는 anchor가 준비됐는지 확인하고, 기다려야 하면 픽셀 예산 차감 없이 미완료로 돌아간다.
             anchor가 준비되면 예산이 켜져 있을 때만 clear 비용과 첫 batch draw 비용을 더한 입장 단위를 계산해 판단하고, 거절되면 clear·draw 없이 미완료로 돌아간다. 비용 계산은 예산이 켜져 있을 때만 실행하도록 함수로 넘긴다.
@@ -567,6 +630,7 @@ UTerrainDecalCompositeComposer 클래스 정의
             이미 비운 구간의 다음 batch 는 예산이 켜져 있을 때만 그 batch 의 scissor 비용으로 판단하고, 거절되면 발행하지 않고 미완료로 돌아간다. 이 비용 계산도 같은 이유로 함수로 넘긴다.
             판단을 통과한 batch 를 그리고 draw 수를 늘린다.
             모든 host 구간을 끝냈으면 완료로 돌아가고, 그렇지 않으면 draw 수 상한이나 deadline 을 넘긴 경우 그 사유와 함께 미완료로 돌아간다.
+            준비·host 진입·draw 뒤의 deadline 판정은 고해상도 현재 시각을 사용한다.
 
     advanceTerrainCompositeRasterSetup(job: TerrainCompositeRasterJob, renderer: WebGLRenderer, deadlineMs: number) -> boolean
         역할: packed row를 프레임 deadline 안에서 점진적으로 순회해 batch 범위, 최소 외곽선 두께와 target 배치를 확정한다.
@@ -590,13 +654,14 @@ UTerrainDecalCompositeComposer 클래스 정의
         동작:
             packed 입력에서 path, area, circle 순서의 상태 목록을 만든다.
             남은 상태의 row 수를 확인하여 계약 위반이면 batch 범위 계약을 무효로 표시하고 순회를 끝낸다.
-            현재 상태의 row 를 다 처리했으면 다음 상태로 넘어가 row 순번을 초기화한다.
+            job.setupRowIndex가 count 이상이면 job.setupStateIndex를 1 늘리고 job.setupRowIndex를 0으로 바꾼 뒤 다음 상태로 넘어간다.
             row 하나를 batch 범위에 합치고, 실패하면 batch 범위 계약을 무효로 표시하고 순회를 끝낸다.
-            처리한 row 가 확인 간격에 이르면 deadline 을 확인하고 넘었으면 준비 미완료로 돌아간다.
+            row 합치기가 성공한 경우에만 job.setupRowIndex를 1 늘린다. 처리한 row가 확인 간격에 이르면 deadline을 확인하고 넘었으면 준비 미완료로 돌아간다.
             content 범위, 모은 최소 외곽선 두께, 기본 해상도, renderer texture 상한과 배율 상한으로 target 배치를 계산한다.
             계산한 gutter 포함 범위를 job 의 합성 범위에 복사하고 target 해상도와 coverage 보정 필요 여부를 저장한다.
             합성 범위 uniform 을 갱신하고, coverage 보정이 필요하면 합성 범위를 target 해상도로 나눈 texel 크기를, 아니면 0 을 texel 크기 uniform 에 넣는다.
             uniform 갱신 표시를 세우고 준비 완료로 표시한다.
+            상태의 row 수는 undefined이면 0, 유효한 정수가 아니면 -1로 구한다. deadline은 현재 시각과 대조한다.
 
 packed row 범위 수집 책임 그룹
     역할: packed texture의 도형 종류별 레이아웃을 shader와 같은 규칙으로 해석해 batch 순번별 local 범위와 최소 외곽선 두께를 모은다.
@@ -624,7 +689,9 @@ packed row 범위 수집 책임 그룹
         동작:
             packed 상태가 없으면 false 를 반환한다.
             packed 입력의 threshold uniform 으로 기본 외곽선 두께를 정한다.
-            종류 순번이 0 이면 path, 1 이면 area, 그 밖이면 circle 해석기로 row 를 처리한 결과를 반환한다.
+            state가 있고 stateIndex가 0이면 path 해석 결과를 즉시 반환한다.
+            state가 있고 stateIndex가 0이 아니고 1이면 area 해석 결과를 즉시 반환한다.
+            state가 있고 stateIndex가 0도 1도 아니면 circle 해석 결과를 반환한다.
 
     appendTerrainCompositePathBatchBoundsRow(job: TerrainCompositeRasterJob, state: TerrainBucketState, segmentIndex: number, fallbackStrokeWidth: number) -> boolean
         역할: path segment 하나의 양 끝점과 두께로 batch 범위를 넓힌다.
@@ -828,11 +895,12 @@ GPU 자원 생성 책임 그룹
         역할: 실제 terrain decal 평가기를 공유하면서 premultiplied alpha로 출력하는 batch raster material을 만든다.
 
         인터페이스:
-            sourceState: packed texture 와 define 이 연결된 상태이며 define 과 uniform 을 그대로 물려받는다.
+            sourceState: packed texture 와 define 이 연결된 상태이며 define 과 uniform 을 물려받되 도형 count wrapper 는 job 별로 분리한다.
             bounds: 합성 local 범위이며 uniform 으로 참조를 공유하므로 준비 단계에서 값을 바꾸면 그대로 반영된다.
 
         처리 기준:
             packed 상태의 define 에 합성 batch 경로와 raster 경로 define 을 더해 job material 의 program 을 가른다.
+            pathSegmentCount·areaCount·circleCount 의 wrapper 만 값으로 복사하여 batch 선택이 원본 표시·다른 job 에 영향을 주지 않게 한다. 값이 없으면 0 을 사용하고 packed texture 와 style uniform 은 복제하지 않는다.
             vertex 단계는 fullscreen quad 의 NDC 좌표를 합성 범위 안의 tile-local 좌표로 환산하여 decal 평가에 넘기고, decal world 좌표는 사용하지 않으므로 0 으로 둔다.
             fragment 단계는 decal 평가 결과 색을 알파로 미리 곱해 출력하고, 알파가 0 이하이면 픽셀을 버린다.
             이미 premultiplied 로 출력하므로 source 계수는 One 을, destination 계수는 1 에서 source 알파를 뺀 값을 사용한다.
@@ -927,6 +995,7 @@ renderer 연결과 복구 책임 그룹
             batch 범위를 합성 범위 대비 비율로 바꾸어 최소는 내림하고 여유 texel 을 뺀 뒤 0 이상으로, 최대는 올림하고 여유 texel 을 더한 뒤 해상도 이하로 자른다.
             범위가 비면 폭과 높이가 0 인 scissor 를, 아니면 그 픽셀 범위를 target 에 기록한다.
             scissor 판정을 켜고 target 을 다시 연결한다.
+            batch scissor를 계산하고 적용할 사각형 또는 null을 renderer target에 기록한다.
 
     captureTerrainCompositeRendererState(renderer: WebGLRenderer) -> TerrainCompositeRendererState
         역할: 합성 중 변경할 renderer 상태를 복구용으로 저장한다.
@@ -935,14 +1004,14 @@ renderer 연결과 복구 책임 그룹
             반환: 이번 진행이 끝난 뒤 되돌릴 renderer 상태이며 viewport, scissor 와 clear 색상은 복제한 값이다.
 
         처리 기준:
-            renderer 가 돌려주는 값 객체는 이후 renderer 내부에서 다시 쓰일 수 있으므로 복제하여 보관한다.
+            viewport, scissor 와 clear 색상은 호출마다 새 객체를 전달해 getter 가 복사한 값을 보관하며, 중첩 호출의 상태 객체와 공유하지 않는다.
 
         의존:
             THREE — 현재 renderer 상태 조회; 생성자: {new THREE.Vector4(), new THREE.Color()}; 함수: {getRenderTarget(), getActiveCubeFace(), getActiveMipmapLevel(), getViewport(), getScissor(), getScissorTest(), getClearColor(), getClearAlpha()}; 속성 읽기: {WebGLRenderer.autoClear}
 
         동작:
             현재 render target, cube face 와 mipmap level 을 읽는다.
-            viewport, scissor 와 clear 색상을 새 값 객체로 받아 복제하고 scissor 판정, clear alpha 와 자동 비움 설정을 함께 담아 반환한다.
+            viewport, scissor 와 clear 색상을 각각 새 값 객체에 복사해 받고 scissor 판정, clear alpha 와 자동 비움 설정을 함께 담아 반환한다.
 
     restoreTerrainCompositeRendererState(renderer: WebGLRenderer, state: TerrainCompositeRendererState) -> void
         역할: 저장한 renderer 상태를 되돌려 다음 scene 렌더가 같은 조건에서 시작하게 한다.
@@ -985,7 +1054,7 @@ program anchor 유지 책임 그룹
         동작:
             renderer 가 compile 을 제공하지 않으면 true를 반환한다.
             해당 renderer의 anchor 보관소를 찾거나 새로 만든다. 같은 key가 준비되었으면 true, 비동기 준비 중이면 false를 반환한다. 동기 요청은 진행 중인 anchor도 compile로 마치고 true를 반환한다.
-            job material 의 define 만 복제하고 uniform 은 비운 상태로 anchor material 을 만든다.
+            구간 job은 비공개 구간 재질을, packed job은 일반 raster 재질을 만든다. job의 defines만 복제하고 anchor uniform은 비운다.
             공용 geometry 와 그 material 로 mesh 를 만들어 frustum culling 과 matrix 자동 갱신을 끄고 matrix 를 한 번 갱신한 뒤 anchor scene 에 넣는다.
             anchor key로 material과 scene을 먼저 보관한다. 비동기 준비가 가능하면 compileAsync를 시작하고 pending으로 compile과 reflection을 기다리며 false를 반환한다.
             비동기 완료 시 아직 등록된 anchor일 때만 program의 uniform·attribute를 준비하고 pending을 비운다. 실패도 pending을 비워 기존 draw 경로를 허용하며, 등록이 제거됐으면 material을 해제한다.
@@ -1036,7 +1105,9 @@ program anchor 유지 책임 그룹
             추정 바이트 크기는 각 target의 기본 픽셀 바이트와 생성된 모든 밉 레벨의 픽셀 바이트에 부가 비용을 더한다. 가로·세로를 각각 내림 절반으로 줄여 1×1까지 계산하므로 가늘고 긴 target도 누락하지 않는다. hybrid는 물려받은 packed 입력의 추정 크기도 더한다.
             합성 target 만의 크기는 전체 크기와 별도로 기록한다. 다음 revision 이 이 target 을 그대로 물려받을 때 전체 크기를 더하면 그 안에 이미 들어 있는 packed 크기가 revision 마다 겹쳐 쌓이므로, 물려받을 쪽이 target 크기만 골라 쓸 수 있어야 한다.
             결과 상태의 tile 기준점은 packed 입력 상태의 기준점을 값 사본으로 옮긴다. 합성 범위는 packed 입력의 tile-local 좌표에서 나오므로 그 기준점이 결과의 좌표계이며, 예약 옵션의 기준점은 예약 시점의 tile 값이라 이 입력이 packing 된 기준점과 다를 수 있어 쓰지 않는다. 입력에 기준점이 없으면 결과에도 없다.
-            소유권을 이전한 뒤에는 임시 material 을 해제하고 job 을 완료로 표시하여 합성기 등록에서 제거한다.
+            임시 material을 해제한 뒤 결과 상태의 소유권 이전과 완료를 확정하고 합성기 등록에서 job을 제거한다.
+
+        의존: cloneTerrainOrigin — 결과 좌표계의 기준점 값 사본; 함수: {cloneTerrainOrigin()}
 
         동작:
             결과 상태가 이미 있으면 그것을 반환한다.
@@ -1048,6 +1119,53 @@ program anchor 유지 책임 그룹
             두 경우 모두 합성 target 만의 추정 크기를 결과 상태에 함께 기록한다.
             임시 raster material 을 해제한다.
             결과 상태를 job 에 보관하고 소유권 이전과 완료를 표시한 뒤 합성기 등록에서 job 을 제거하고 결과 상태를 반환한다.
+buildTerrainCompositeProgramAnchorKey(defines: Record<string, unknown> | undefined) -> string
+    동작: 정의 이름을 정렬하고 이름·값 쌍을 JSON으로 직렬화하여 순서와 무관한 anchor key를 반환한다.
+
+disposeTerrainCompositeRenderTargets(variants: Array<TerrainCompositeVariant>) -> void
+    의존: THREE.WebGLRenderTarget — 소유 결과 회수; 함수: {dispose()}
+    동작: 각 variant의 renderTarget에 dispose가 있으면 호출한 뒤 입력 배열의 길이를 0으로 만든다.
+
+getTerrainCompositeNow() -> number
+    의존: Web API — 고해상도 현재 시각; 함수: {performance.now()}
+    동작: performance.now를 사용할 수 있으면 그 값을 반환하고 없으면 Date.now를 반환한다.
+
+terrainCompositeDrawUnitWeightedMp(job: TerrainCompositeRasterJob, variant: TerrainCompositeVariant, batchIndex: number) -> number
+    동작:
+        조각 크기 제한이 꺼져 있으면 batch 전체 비용을 반환한다.
+        target 가로·세로가 유한한 양수가 아니면 0을 반환한다.
+        확정 batch 범위가 있으면 사용하고 없으면 전체 target의 draw 사각형을 구한다. 구할 수 없으면 전체 target 비용을 반환한다.
+        두 조각 이상 필요한지 판정하여 필요 없으면 사각형 전체 비용을 반환한다.
+        현재 batchSliceIndex의 사각형을 구하고 그 픽셀 수를 메가픽셀 비용으로 반환한다.
+
+readTerrainCompositeBatchScissorRect(out: {x: number, y: number, width: number, height: number}, batchBounds: THREE.Vector4 | null, compositeBounds: THREE.Vector4, width: number, height: number) -> boolean
+    동작:
+        batch 범위가 null이거나 좌표·해상도가 유한하지 않거나 합성 폭·높이와 target 해상도가 양수가 아니면 false를 반환한다.
+        batch 범위를 target 픽셀로 환산하여 최소는 floor·최대는 ceil로 구하고 scissor 여유를 더한 뒤 target 안으로 제한한다.
+        교차 폭 또는 높이가 0 이하이면 out을 빈 사각형으로 바꾸고 true를 반환한다.
+        그 밖에는 out에 계산한 사각형을 기록하고 true를 반환한다.
+
+readTerrainCompositeDrawRect(out: {x: number, y: number, width: number, height: number}, batchBounds: THREE.Vector4 | null, compositeBounds: THREE.Vector4, width: number, height: number) -> boolean
+    동작:
+        batch scissor를 구할 수 있으면 out의 결과를 유지하고 true를 반환한다.
+        target 폭·높이가 양수가 아니면 false를 반환한다. 나머지는 out에 전체 target 사각형을 기록하고 true를 반환한다.
+
+readTerrainCompositeSliceGrid(out: {columns: number, rows: number, count: number}, rect: {x: number, y: number, width: number, height: number}, maxEdgeTexels: number) -> boolean
+    동작:
+        조각 상한이 양수가 아니거나 사각형 폭·높이가 0 이하이면 false를 반환한다.
+        각 변을 상한으로 나눈 ceil을 열·행 수로 구한다. 둘 다 1 이하이면 out을 바꾸지 않고 false를 반환한다.
+        out에 열·행과 두 값의 곱을 기록하고 true를 반환한다.
+
+readTerrainCompositeSliceRect(out: {x: number, y: number, width: number, height: number}, rect: {x: number, y: number, width: number, height: number}, grid: {columns: number, rows: number, count: number}, sliceIndex: number) -> void
+    동작: 순번의 열·행을 구하고 각 격자 경계를 같은 floor 비율식으로 나누어 out에 기록한다. 이웃 조각은 경계를 공유하며 원래 사각형을 덮는다.
+
+resolveTerrainCompositePackedCount(state: TerrainBucketState | undefined) -> number
+    동작: state가 undefined이면 0이다. 그 밖에는 count를 Number로 바꿔 0 이상의 정수이면 그 수를 반환하고 아니면 -1을 반환한다.
+
+applyTerrainCompositeScissorRect(renderer: THREE.WebGLRenderer, variant: TerrainCompositeVariant, rect: {x: number, y: number, width: number, height: number} | null, width: number, height: number) -> void
+    의존: THREE.WebGLRenderer — scissor를 설정한 target 연결; 함수: {setRenderTarget()}
+    동작: rect가 null이면 target에 전체 크기의 scissor를 기록하고 scissorTest를 끈다. 그 밖에는 전달한 사각형을 기록하고 scissorTest를 켠다. 설정한 target을 renderer에 연결한다.
+
 ```
 
 ## 4. 공통 처리 기준과 제약
@@ -1060,7 +1178,7 @@ hybrid 계획은 정적 대상 batch만 실행하고 direct 대상은 음수 bat
 renderer의 viewport·scissor 설정자는 canvas pixelRatio를 곱하므로, target 픽셀 단위 지정에는 RenderTarget의 viewport와 scissor만 사용한다.
 합성 batch 순번과 packed index·두께 해석은 shader의 같은 계약을 따르므로 한쪽만 바꾸지 않는다.
 공개 진입점이 예외를 밖으로 전달할 때는 그 전에 해당 job의 자원을 회수한다. 다만 renderer 상태 저장 단계의 실패는 이 보장에서 벗어난다.
-batch draw 분할(_batchSplitMaxEdgeTexels)은 개발 옵션이며 기본은 비활성이다. 켜져 있어도 target·viewport·quad·uniform texel 크기와 최종 출력 해상도는 바꾸지 않고 scissor 사각형만 정수 격자 조각으로 나눈다. 조각은 서로 겹치지 않고 원래 scissor를 정확히 덮으며, 한 batch의 모든 조각을 끝낸 뒤에만 다음 batch로 넘어가 variant→batch 실행 순서와 hole·alpha 계약을 그대로 유지한다. 조각마다 draw 한 번으로 예산에 계상하고 픽셀 예산에는 조각의 실제 면적을 반영한다. target 전면 clear는 host 구간마다 한 번뿐이며 조각마다 다시 지우지 않는다. 분할은 draw 하나의 크기만 줄이므로 전면 clear·첫 texture 업로드·program link 비용은 줄지 않는다.
+batch draw 분할(_batchSplitMaxEdgeTexels)은 직접 생성 시 기본 비활성이며, 엔진 스케줄러가 기본 합성기를 생성할 때는 한 변 상한을 576 텍셀로 지정한다. 정적·동적·미분류 입력은 합성 계획의 선택 이유와 관계없이 같은 분할 설정을 따른다. 연속 runtime 편집은 기존 Layer 표시 완료 대기와 Manager의 소유자별 진행 Promise·최종 편집 Map에서 병합하여, 진행 중인 합성을 완료한 뒤 최신 입력으로 이어간다. 합성기는 별도 입력 큐나 재시도 상태를 추가하지 않는다. 켜져 있어도 target·viewport·quad·uniform texel 크기와 최종 출력 해상도는 바꾸지 않고 scissor 사각형만 정수 격자 조각으로 나눈다. 조각은 서로 겹치지 않고 원래 scissor를 정확히 덮으며, 한 batch의 모든 조각을 끝낸 뒤에만 다음 batch로 넘어가 variant→batch 실행 순서와 hole·alpha 계약을 그대로 유지한다. 조각마다 draw 한 번으로 예산에 계상하고 픽셀 예산에는 조각의 실제 면적을 반영한다. target 전면 clear는 host 구간마다 한 번뿐이며 조각마다 다시 지우지 않는다. 분할은 batch raster draw 하나의 면적만 줄이므로 전면 clear·RenderTarget 할당·첫 texture 업로드·program link·마지막 밉 생성 비용은 줄지 않는다. CPU 대역에서 센 발행 면적과 완료 프레임 수는 실제 GPU 시간이나 프리즈 해소를 증명하지 않는다.
 batch 범위를 확정하지 못한 draw(batchBounds가 없거나 범위 계산이 무효인 경우)는 원래 전체 target을 덮으므로, 분할이 켜져 있으면 그 전체 사각형을 같은 규칙으로 나눈다. 그래야 가장 큰 발행이 분할에서 빠지지 않는다. 분할이 꺼져 있으면 기존대로 scissor를 끄고 전체 target을 한 번에 그린다. 조각 한 변 상한보다 작아 격자가 1×1이 되는 draw는 나누지 않으며, 이때도 기존 경로와 같은 scissor를 쓴다.
 ```
 

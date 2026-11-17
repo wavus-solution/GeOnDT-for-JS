@@ -193,7 +193,8 @@
     font-size: 12px;
 }
 
-.vector-form-grid input {
+.vector-form-grid input,
+.vector-form-grid select {
     width: 100%;
     min-height: 32px;
     padding: 5px 8px;
@@ -205,6 +206,25 @@
 
 .vector-form-grid input[type="color"] {
     padding: 3px;
+}
+
+.vector-outline-tension .vector-field-label {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.vector-outline-tension output {
+    color: #a9d2ff;
+    font-variant-numeric: tabular-nums;
+}
+
+.vector-outline-tension input[type="range"] {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    accent-color: #76b6ff;
+    cursor: pointer;
 }
 
 .vector-form-grid label.vector-check {
@@ -635,6 +655,159 @@
     gap: 9px;
 }
 
+/* 선택 도형 설정: 탭과 삭제 버튼은 고정하고 입력 영역만 스크롤합니다. */
+#geometry-detail-panel > :not(.vector-detail-content) {
+    flex-shrink: 0;
+}
+
+.vector-detail-summary {
+    display: grid;
+    gap: 6px;
+    padding: 12px 16px 0;
+}
+
+.vector-detail-summary .vector-info-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+}
+
+.vector-detail-summary .vector-info-list > div {
+    display: flex;
+    gap: 8px;
+    padding: 0;
+    border: 0;
+}
+
+.vector-detail-summary .vector-hint {
+    margin: 0;
+}
+
+.vector-detail-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--theme-line);
+}
+
+.vector-detail-tabs {
+    display: flex;
+    flex-shrink: 0;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 9px;
+    background: rgba(3, 15, 31, .32);
+}
+
+.vector-detail-tabs button {
+    min-height: 30px;
+    padding: 5px 16px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--theme-muted);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.vector-detail-tabs button[aria-selected="true"] {
+    border-color: rgba(172, 223, 240, .3);
+    background: var(--theme-surface-hover);
+    color: #eff9fd;
+}
+
+.vector-detail-tabs button:disabled {
+    opacity: .4;
+    cursor: default;
+}
+
+.vector-detail-tabs button:focus-visible {
+    outline: 2px solid var(--theme-accent);
+    outline-offset: 1px;
+}
+
+.vector-detail-content {
+    min-height: 0;
+    padding: 16px;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+}
+
+.vector-detail-form [role="tabpanel"] {
+    display: grid;
+    gap: 20px;
+}
+
+.vector-setting-group {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.vector-setting-group + .vector-setting-group {
+    padding-top: 16px;
+    border-top: 1px solid var(--theme-line);
+}
+
+.vector-setting-group legend {
+    width: auto;
+    margin-bottom: 12px;
+    padding: 0;
+    border: 0;
+    color: #eff9fd;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.vector-setting-group .vector-form-grid {
+    gap: 14px 12px;
+}
+
+.vector-setting-group label {
+    min-width: 0;
+    gap: 6px;
+}
+
+.vector-field-label {
+    display: block;
+    line-height: 1.5;
+}
+
+.vector-setting-group input,
+.vector-setting-group select {
+    min-width: 0;
+    height: 36px;
+    min-height: 36px;
+    box-sizing: border-box;
+}
+
+.vector-setting-group .vector-check {
+    min-height: 30px;
+    align-content: center;
+}
+
+.vector-setting-group .vector-check input {
+    height: 16px;
+    accent-color: var(--theme-accent);
+}
+
+.vector-field-hint {
+    color: var(--theme-muted);
+    font-size: 10px;
+    font-weight: 400;
+}
+
+.vector-detail-footer {
+    display: grid;
+    padding: 12px 16px;
+    border-top: 1px solid var(--theme-line);
+}
+
 .vector-side-action {
     min-height: 30px;
     padding: 5px 10px;
@@ -692,7 +865,7 @@
 @media (max-width: 1100px) {
     .vector-side-panels {
         right: auto;
-        width: min(var(--theme-side-panel-width), calc(100vw - min(430px, calc(100vw - 96px)) - 120px));
+        width: min(var(--theme-side-panel-width), calc(100vw - 32px));
         flex-direction: column;
         align-items: stretch;
     }
@@ -700,7 +873,11 @@
     .vector-side-panel {
         flex: none;
         max-width: none;
-        max-height: calc((100dvh - 132px) / 2);
+        max-height: calc(100dvh - 100px);
+    }
+
+    .vector-side-panels:has(#geometry-json-panel:not([hidden])) .vector-side-panel {
+        max-height: calc((100dvh - 112px) / 2);
     }
 }
 
@@ -712,7 +889,7 @@
     }
 
     .vector-side-panel {
-        max-height: 30dvh;
+        max-height: calc(100dvh - 96px);
     }
 }
 
@@ -730,7 +907,11 @@
     .example-editor-open .vector-side-panel {
         flex: none;
         max-width: none;
-        max-height: calc((100dvh - 132px) / 2);
+        max-height: calc(100dvh - 100px);
+    }
+
+    .example-editor-open .vector-side-panels:has(#geometry-json-panel:not([hidden])) .vector-side-panel {
+        max-height: calc((100dvh - 112px) / 2);
     }
 }
 

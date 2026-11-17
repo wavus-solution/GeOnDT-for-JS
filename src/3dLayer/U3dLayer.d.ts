@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -25,7 +25,7 @@ import type { UGeoRect } from "../math/UGeoRect.js";
 import type { U3dQuadSet } from "../quadtree/U3dQuadSet.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { GeoPositionVector3, GooglePositionVector3 } from "../types/global.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /**
  * ~extends import('@U3dObject').U3dObject <br>
@@ -136,9 +136,21 @@ declare class U3dLayer extends U3dObject {
      * @type {boolean}
      */
     _initialized: boolean;
-    /** 사용 중인 공유 파서 풀입니다. @type {Set<import('@union3d/core/UTaskProcessor').UTaskProcessor>} @ignore */
+    /**
+     * 사용 중인 공유 파서 풀입니다.
+     *
+     * @type {Set<import('@union3d/core/UTaskProcessor').UTaskProcessor>}
+     *
+     * @ignore
+     */
     _taskProcessors: Set<UTaskProcessor>;
-    /** 해제 중 지연 콜백의 새 풀 사용을 차단합니다. @type {boolean} @ignore */
+    /**
+     * 해제 중 지연 콜백의 새 풀 사용을 차단합니다.
+     *
+     * @type {boolean}
+     *
+     * @ignore
+     */
     _taskProcessorDisposing: boolean;
     /**
      * 첫 실제 요청에서 공유 파서 풀의 소유권을 등록합니다.
@@ -172,7 +184,13 @@ declare class U3dLayer extends U3dObject {
      * @ignore
      */
     _workCheckId: number | null;
-    /** 재시작 전 로딩 완료 예약과 준비 콜백을 구분합니다. @type {number} @ignore */
+    /**
+     * 재시작 전 로딩 완료 예약과 준비 콜백을 구분합니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
     _workCheckGeneration: number;
     /**
      * 레이어의 기존 바운드 디버그 상태와 성능 로그 공통 설정을 함께 보관합니다. <br>
@@ -652,16 +670,16 @@ declare class U3dLayer extends U3dObject {
      * 타일을 입력받아 해당 타일의 취소(cancel) 작업 객체를 등록합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 대상 타일
-     * @param {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} value 타일 작업을 취소할 때 `reject`(또는 `cancel`)가 호출되는 대기 객체. 같은 타일에 다시 등록하면 이전 값을 덮어씁니다
+     * @param {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} value 타일 작업을 취소할 때 `reject`(또는 `cancel`)가 호출되는 대기 객체. 같은 타일에 다시 등록하면 이전 값을 덮어씁니다
      */
-    setCancelByTile(tile: U3dQuadTile, value: DeferredObject<U3dQuadTile>): void;
+    setCancelByTile(tile: U3dQuadTile, value: DeferredPromise<U3dQuadTile>): void;
     /**
      * 타일을 입력받아 등록된 취소(cancel) 작업 객체를 반환합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 대상 타일
-     * @returns {DeferredObject<import('@U3dQuadTile').U3dQuadTile> | undefined} `setCancelByTile` 로 등록한 취소 작업 객체. 등록된 것이 없으면 `undefined` 입니다
+     * @returns {Promise<import('@U3dQuadTile').U3dQuadTile> | undefined} `setCancelByTile` 로 등록한 취소 작업 객체. 등록된 것이 없으면 `undefined` 입니다
      */
-    getCancelByTile(tile: U3dQuadTile): DeferredObject<U3dQuadTile> | undefined;
+    getCancelByTile(tile: U3dQuadTile): Promise<U3dQuadTile> | undefined;
     /**
      * 키 값으로 명시한 이벤트 리스너를 제거합니다.
      *

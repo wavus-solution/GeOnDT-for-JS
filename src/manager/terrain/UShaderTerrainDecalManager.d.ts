@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -15,14 +15,14 @@ import type { UMesh } from "../../core/mesh/UMesh.js";
 import type { UTerrainMesh } from "../../core/mesh/UTerrainMesh.js";
 import type { U2dGeometry } from "../../geometry/U2dGeometry.js";
 import type { TerrainDecalConfig } from "./UShaderTerrainDecalConfig.js";
-import type { TerrainPresentationState, TerrainRuntimeTile, TerrainTileReadinessSelector, TerrainTileReadinessSnapshot } from "./UShaderTerrainDecalTileStateManager.js";
-import type { TerrainAtomicPresentationGroup, TerrainAtomicPresentationOutcome, TerrainBufferState, TerrainCompositeVariant, TerrainDecalComposer, TerrainDynamicRadiusEntry, TerrainFeature, TerrainManagerOption, TerrainMaterial, TerrainPendingWorkerJob, TerrainPreparedBuild, TerrainPresentEntry, TerrainSwapWaiter, TerrainTileEntry, TerrainWorkerResult } from "./UShaderTerrainDecalUtils.js";
+import type { TerrainPresentationOption, TerrainPresentationState, TerrainRuntimeTile, TerrainTileReadinessSelector, TerrainTileReadinessSnapshot } from "./UShaderTerrainDecalTileStateManager.js";
+import type { TerrainAtomicPresentationGroup, TerrainAtomicPresentationOutcome, TerrainBufferState, TerrainCompositeVariant, TerrainDecalComposer, TerrainDynamicRadiusEntry, TerrainFeature, TerrainManagerOption, TerrainMaterial, TerrainPendingWorkerJob, TerrainPoint, TerrainPreparedBuild, TerrainPresentEntry, TerrainSwapWaiter, TerrainTileEntry, TerrainWorkerResult } from "./UShaderTerrainDecalUtils.js";
 import type { TerrainComposeSchedulerState, TerrainCompositeJob } from "./UTerrainDecalComposeScheduler.js";
 import type { UTerrainDecalCompositionOrderRegistry } from "./UTerrainDecalCompositionOrderRegistry.js";
-import type { TerrainDecalCompositionStability } from "./UTerrainDecalCompositionPlan.js";
+import type { TerrainDecalCompositionFeatureInput, TerrainDecalCompositionStability } from "./UTerrainDecalCompositionPlan.js";
 import type { UTerrainFrameScheduler } from "./UTerrainFrameScheduler.js";
 import type { UTerrainPayloadBuilder } from "./UTerrainPayload.js";
-import type { TerrainShaderProgramDiagnosticBinding, UTerrainShaderPrewarm } from "./UTerrainShaderPrewarm.js";
+import type { UTerrainShaderPrewarm } from "./UTerrainShaderPrewarm.js";
 import type { UTerrainWorkerScheduler } from "./UTerrainWorkerScheduler.js";
 import type { UMeasureFeature } from "../../ol/UMeasureFeature.js";
 import type { U3dQuadTile } from "../../quadtree/U3dQuadTile.js";
@@ -178,22 +178,9 @@ type TerrainManagerDiagnosticsState = {
         fastSkipRejectCounts: Record<string, number>;
     };
     /**
-     * Worker 실행 경과 시간과 dispatch 왕복 표본의 기록·미측정 개수입니다.
-     */
-    workerExecutionStatistics: {
-        recordedCount: number;
-        unmeasuredCount: number;
-        roundTripCount: number;
-        roundTripUnmeasuredCount: number;
-    };
-    /**
      * presentation 명령 생성·병합·적용 통계입니다.
      */
     presentationStatistics: Record<string, number>;
-    /**
-     * 벤치마크 실행 유형입니다.
-     */
-    benchmarkRunType: "unspecified" | "cold" | "warm";
     /**
      * tile entry별로 false-complete 복구를 계측한 revision입니다.
      */
@@ -253,9 +240,7 @@ type TerrainManagerDiagnosticsState = {
  * @typedef {object} TerrainManagerDiagnosticsState
  * @property {Record<string, number>} stabilityCounters Coverage 공백·handoff 복구 누적 계수입니다.
  * @property {{snapshotFastSkipCount:number,fastSkipRejectCounts:Record<string,number>}} payloadSyncStatistics payload 동기화 fast-skip 계측입니다.
- * @property {{recordedCount:number,unmeasuredCount:number,roundTripCount:number,roundTripUnmeasuredCount:number}} workerExecutionStatistics Worker 실행 경과 시간과 dispatch 왕복 표본의 기록·미측정 개수입니다.
  * @property {Record<string, number>} presentationStatistics presentation 명령 생성·병합·적용 통계입니다.
- * @property {'unspecified'|'cold'|'warm'} benchmarkRunType 벤치마크 실행 유형입니다.
  * @property {WeakMap<TerrainTileEntry, number>} falseCompleteRecoveredRevisions tile entry별로 false-complete 복구를 계측한 revision입니다.
  */
 /**
@@ -421,10 +406,6 @@ declare class UShaderTerrainDecalManager {
     set TERRAIN_SHADER_TEMPLATE_CACHE(value: Map<string, UTerrainMaterial>);
     /** @returns {Map<string, import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>} `shaderPrewarm.templateCache` 입니다. */
     get TERRAIN_SHADER_TEMPLATE_CACHE(): Map<string, UTerrainMaterial>;
-    /** @param {Map<import('three').Mesh, import('@union3d/manager/terrain/UTerrainShaderPrewarm').TerrainShaderProgramDiagnosticBinding>} value 새 값입니다. */
-    set TERRAIN_SHADER_PROGRAM_DIAGNOSTIC_BINDINGS(value: Map<three.Mesh, TerrainShaderProgramDiagnosticBinding>);
-    /** @returns {Map<import('three').Mesh, import('@union3d/manager/terrain/UTerrainShaderPrewarm').TerrainShaderProgramDiagnosticBinding>} `shaderPrewarm.programDiagnosticBindings` 입니다. */
-    get TERRAIN_SHADER_PROGRAM_DIAGNOSTIC_BINDINGS(): Map<three.Mesh, TerrainShaderProgramDiagnosticBinding>;
     /** @param {number} value 새 값입니다. */
     set TERRAIN_SHADER_WARMUP_PENDING_COUNT(value: number);
     /** @returns {number} `shaderPrewarm.warmupPendingCount` 입니다. */
@@ -553,6 +534,18 @@ declare class UShaderTerrainDecalManager {
      */
     registerTerrainMaterial(tileKey: string, material: TerrainMaterial, opt?: TerrainManagerOption): boolean;
     /**
+     * 등록된 같은 메시의 표시 조건만 갱신하고 필요한 합성·재적용을 예약합니다.
+     * 소유자와 해제 요청은 유지하며 피처 재수집과 즉시 빌드를 수행하지 않습니다.
+     *
+     * @param {string} tileKey 표시 조건을 갱신할 타일 키
+     * @param {TerrainMaterial} material 기존에 등록된 재질
+     * @param {TerrainManagerOption} [opt={}] 같은 메시와 현재 표시·순서·준비 조건
+     * @returns {boolean} 기존 binding을 갱신했으면 참
+     *
+     * @ignore
+     */
+    _refreshTerrainMaterialPresentation(tileKey: string, material: TerrainMaterial, opt?: TerrainManagerOption): boolean;
+    /**
      * terrain tile의 live mesh와 material을 같은 registry entry에 연결합니다.
      *
      * @param {string} tileKey 등록할 terrain tile key입니다.
@@ -619,10 +612,10 @@ declare class UShaderTerrainDecalManager {
      * 특정 source의 최신 revision이 현재 terrain material에 반영됐는지 반환합니다.
      *
      * @param {string} tileKey 상태를 확인할 terrain tile key 입니다.
-     * @param {TerrainManagerOption} [opt={}] sourceKey, sourceRevision, mesh 등 확인 조건입니다.
+     * @param {TerrainPresentationOption} [opt={}] Source·mesh 확인 조건과 합성 진단 자료 포함 여부입니다.
      * @returns {TerrainPresentationState | undefined} TerrainPresentationState presentation 조회 결과입니다.
      */
-    getTerrainTilePresentationState(tileKey: string, opt?: TerrainManagerOption): TerrainPresentationState | undefined;
+    getTerrainTilePresentationState(tileKey: string, opt?: TerrainPresentationOption): TerrainPresentationState | undefined;
     /**
      * terrain tile readiness snapshot을 반환합니다.
      *
@@ -834,6 +827,26 @@ declare class UShaderTerrainDecalManager {
      */
     _unobserveTerrainSource(owner: object, entry: Pick<U2dVectorSourceEntry, "changeListener">): void;
     /**
+     * 등록에서 분리한 원본 자원을 기존 결과 큐로 나누어 회수합니다.
+     *
+     * @param {object} owner 자원 해제를 책임지는 등록 소유자입니다.
+     * @param {string} key 대기 작업의 고유 진단 식별자입니다.
+     * @param {function():void} cleanup 구독과 소유 도형을 회수하는 작업입니다.
+     * @throws {unknown} 예약할 수 없어 동기 회수할 때 발생한 오류를 전달합니다.
+     *
+     * @ignore
+     */
+    _deferTerrainSourceCleanup(owner: object, key: string, cleanup: () => void): void;
+    /**
+     * 소유자의 남은 물리 해제를 모두 완료하며 실패한 작업 뒤의 자원도 회수합니다.
+     *
+     * @param {object} owner 정리할 등록 소유자입니다.
+     * @throws {unknown} 한 작업의 원래 오류 또는 여러 작업의 오류를 모아 전달합니다.
+     *
+     * @ignore
+     */
+    _flushTerrainSourceCleanups(owner: object): void;
+    /**
      * 같은 원본의 마지막 편집만 보관하고 같은 실행 구간의 변경을 합칩니다.
      *
      * @param {object} owner 등록 소유자
@@ -968,6 +981,8 @@ declare class UShaderTerrainDecalManager {
      * `sourceKeys`가 지정되면 각 source의 revision뿐 아니라 표시 feature가 선택한 target material의
      * active commit까지 확인합니다. 빈 source는 target material 적용 대신 최신 clear 적용을 기다립니다.
      * 연속 편집의 적용본 재사용은 해당 source의 첫 성공 snapshot 이후에 허용하며 숨긴 source는 차단하지 않습니다.
+     * 기본 이미지도 해당 표시 프로그램의 예열이 진행 중이면 완료까지 기다리며, 다른 프로그램의 대기는 차단하지 않습니다.
+     * 타일 전체도 실제 표시 개수를 사용하며, 표시 개수가 없는 이전 상태만 원본 개수로 판정합니다.
      *
      * @param {string} tileKey 준비 상태를 확인할 terrain tile key 입니다.
      * @param {TerrainManagerOption} [opt={}] source, mesh 또는 material binding 조회 옵션입니다.
@@ -1034,6 +1049,7 @@ declare class UShaderTerrainDecalManager {
     _updateTerrainTileSource(tileKey: string, updateSource: () => boolean, opt?: TerrainManagerOption): boolean;
     /**
      * 한 tile/source의 feature 전체를 최신 revision 기준으로 동기화합니다.
+     * 빈 Source 확정만 바뀌면 같은 원점에서 진행 중인 합성의 입력을 유지하고 최신 revision으로 이어갑니다.
      *
      * @param {string} tileKey 동기화할 terrain tile key입니다.
      * @param {Array<TerrainFeature>} [features=[]] source의 최신 feature 목록입니다.
@@ -1093,6 +1109,7 @@ declare class UShaderTerrainDecalManager {
     swapTileBuffer(tileKey: string, workerResult: TerrainWorkerResult, opt?: TerrainManagerOption): boolean;
     /**
      * tile mesh 기준 local origin이 준비된 뒤에만 terrain decal buffer build를 수행합니다.
+     * 중복되거나 취소된 요청은 피처 수집·정렬 전에 종료하고, 지연 요청은 처리 차례가 온 뒤 한 번만 수집합니다.
      *
      * @param {string} tileKey rebuild 대상 terrain tile key 입니다.
      * @param {TerrainManagerOption} [opt={}] origin, forceMaterialUpdate 등 build 옵션입니다.
@@ -1126,6 +1143,22 @@ declare class UShaderTerrainDecalManager {
      * @returns {Promise<TerrainAtomicPresentationOutcome>} 표시 완료 또는 종료 원인입니다.
      */
     waitForAtomicPresentationOutcome(ownerKey: string): Promise<TerrainAtomicPresentationOutcome>;
+    /**
+     * 숨은 정적 합성 캐시의 반환을 기존 결과 처리 예산으로 나눕니다.
+     * 큐에는 키와 세대만 보관하고 실행 시 가시성·대체 표면을 다시 확인합니다.
+     * @param {string} tileKey 반환 후보 타일입니다.
+     * @returns {boolean} 반환 검사를 예약했으면 참입니다.
+     * @ignore
+     */
+    _scheduleTerrainGpuCacheRelease(tileKey: string): boolean;
+    /**
+     * 캐시에서 반환한 GPU 상태를 표시 재진입 때만 기존 입력으로 복원합니다.
+     * @param {string} tileKey 다시 표시할 타일입니다.
+     * @param {TerrainPoint} [origin] 현재 타일 원점입니다.
+     * @returns {boolean} 복원을 시작했으면 참입니다.
+     * @ignore
+     */
+    _restoreTerrainTileGpuState(tileKey: string, origin?: TerrainPoint): boolean;
     /**
      * parent/child handoff 상태를 고려해 tile dispose를 요청합니다.
      *
@@ -1201,21 +1234,6 @@ declare class UShaderTerrainDecalManager {
      */
     shouldDeferTerrainSceneRemoval(tileKey: string): boolean;
     /**
-     * Terrain profiler의 상세 기록 수준을 변경합니다.
-     * `off`로 전환할 때는 누적 Summary를 Performance Timeline에 먼저 기록합니다.
-     *
-     * @param {'off'|'counter'|'sampled'|'verbose'} mode 적용할 계측 모드입니다.
-     * @returns {UShaderTerrainDecalManager} 현재 Manager입니다.
-     */
-    setTerrainPerformanceMode(mode: "off" | "counter" | "sampled" | "verbose"): UShaderTerrainDecalManager;
-    /**
-     * 현재 Trace가 cold 또는 warm 실행인지 지정합니다.
-     *
-     * @param {'unspecified'|'cold'|'warm'} runType 실행 구분입니다.
-     * @returns {UShaderTerrainDecalManager} 현재 Manager입니다.
-     */
-    setTerrainBenchmarkRunType(runType: "unspecified" | "cold" | "warm"): UShaderTerrainDecalManager;
-    /**
      * 안정성 Counter를 증가시킵니다.
      *
      * @param {string} name 증가시킬 Counter 이름입니다.
@@ -1230,19 +1248,6 @@ declare class UShaderTerrainDecalManager {
      * @returns {Record<string, unknown>} 성능 통계입니다.
      */
     getTerrainPerformanceStatistics(): Record<string, unknown>;
-    /**
-     * 현재 누적 성능 통계를 정확한 5개 Trace Summary 마커로 기록합니다.
-     * Trace 종료 직전에 호출하면 sampled 이벤트만으로 비율을 추정하는 오류를 피할 수 있습니다.
-     *
-     * @returns {{payload:Record<string,unknown>,cache:Record<string,unknown>,scheduler:Record<string,unknown>,presentation:Record<string,unknown>,stability:Record<string,unknown>}} 기록한 Summary입니다.
-     */
-    emitTerrainPerformanceSummary(): {
-        payload: Record<string, unknown>;
-        cache: Record<string, unknown>;
-        scheduler: Record<string, unknown>;
-        presentation: Record<string, unknown>;
-        stability: Record<string, unknown>;
-    };
     /** Terrain 성능 통계를 초기화합니다. */
     resetTerrainPerformanceStatistics(): void;
     /**
@@ -1289,6 +1294,17 @@ declare class UShaderTerrainDecalManager {
          * 같은 구간의 합성이 진행 중일 때 재사용할 Worker 결과입니다.
          */
         workerResult: TerrainWorkerResult | undefined;
+        /**
+         * 해시·배열을 다시 만들지 않고 비교할 확정 입력의 값과 렌더러 정체성입니다.
+         */
+        inputState?: {
+            featureCount: number;
+            values: Array<unknown>;
+        };
+        /**
+         * 전체 계획에 재사용할 구간별 불변 표시 조각입니다.
+         */
+        compositionInputs?: Array<TerrainDecalCompositionFeatureInput>;
     };
 
 /**
@@ -1489,6 +1505,10 @@ declare class UShaderTerrainDecalManager {
          * 표시 변경 전에 동기화할 원본
          */
         sourceUpdates: Set<object>;
+        /**
+         * 등록에서 분리했지만 물리 해제가 남은 자원의 정리 작업
+         */
+        cleanups: Set<() => void>;
         /**
          * 현재 적용 완료
          */

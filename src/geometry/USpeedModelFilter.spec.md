@@ -157,7 +157,7 @@ USpeedModelFilter extends U3dGeometry 클래스 정의
 
     async #createFilter() -> Promise<USpeedModelFilterMesh | undefined>
         의존:
-            deferred — 완료 전달 객체; 함수: {deferred()}
+            deferredPromise — 완료 전달 객체; 함수: {deferredPromise()}
             THREE — 세분화 평면; 생성자: {PlaneGeometry()}
         동작:
             입력 버퍼·출력 버퍼·워커 중 하나라도 없으면 undefined로 완료한다.
@@ -364,24 +364,24 @@ USpeedModelFilter extends U3dGeometry 클래스 정의
 
     async createFilterByCoordinate(startPosition: Vector3 | {x: number, y: number, z: number}, endPosition: Vector3 | {x: number, y: number, z: number}) -> Promise<USpeedModelFilterMesh | undefined>
         의존:
-            deferred — 완료 전달 객체; 함수: {deferred()}
+            deferredPromise — 완료 전달 객체; 함수: {deferredPromise()}
             THREE — 기준축과 회전; 생성자: {Vector3(), Matrix4()}
             __GSError__ — 생성 오류 기록; 함수: {__GSError__()}
         동작:
-            버퍼·워커·양 끝점이 없거나 데이터가 비었으면 deferred.reject() 결과를 반환한다.
+            버퍼·워커·양 끝점이 없거나 데이터가 비었으면 deferredPromise를 거부한 뒤 그 Promise를 반환한다.
             Vector3 인스턴스가 아닌 입력만 복사한다. 양 끝점의 평균을 dummy 위치로 저장한 후 두 입력 벡터의 z를 0으로 바꾼다. 따라서 Vector3 원본도 변경된다.
             끝점 차이를 정규화한 x축의 길이 제곱이 0이면 reject하지만 후속 실행은 계속된다. [확인 Q-003]
             위쪽 축 (0,0,1)과 교차곱으로 직교축을 만들어 dummy 회전을 설정한다. 메시 생성 완료 시 filter로 resolve하며 실패 시 오류 기록 후 reject한다.
 
     #getDensityValueWebWorker(array: ArrayLike<number>, offset?: number) -> Promise<{densityList: Array<number>, currentPosition: Array<number>}>
         의존:
-            deferred — 계산 완료 전달; 함수: {deferred()}
+            deferredPromise — 계산 완료 전달; 함수: {deferredPromise()}
             UTaskProcessor — 비동기 계산; 함수: {scheduleTask()}
             UWorkerParameter — 계산 요청; 생성자: {new UWorkerParameter()}
         동작:
-            워커가 없으면 deferred.reject() 결과를 반환한다. dummy 월드 행렬을 갱신하고 복사하며 작업 중 상태를 true로 바꾼다.
+            워커가 없으면 deferredPromise를 거부한 뒤 그 Promise를 반환한다. dummy 월드 행렬을 갱신하고 복사하며 작업 중 상태를 true로 바꾼다.
             calculateDensities 요청에 정점 배열, 행렬 성분, maxDistance, dummy 위치 배열, 성분 오프셋과 updateTime을 넣어 예약한다.
-            성공·실패를 deferred의 resolve·reject로 전달한다. 이 함수 자체는 작업 중 상태를 해제하지 않는다.
+            성공·실패를 deferredPromise의 resolve·reject로 전달한다. 이 함수 자체는 작업 중 상태를 해제하지 않는다.
 
     #setDataBuffer(...dataList: Array<number>) -> USpeedModelFilterDensityBuffer | undefined
         동작:

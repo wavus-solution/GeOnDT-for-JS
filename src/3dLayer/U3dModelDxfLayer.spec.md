@@ -52,7 +52,7 @@ U3dModelDxfLayerCO 타입 정의
     부모 옵션과 DXF 전용 입력 계약을 합성하며 생성자는 Partial을 받는다.
 
 U3dModelDxfLayerCO_Content 부분 타입 명세
-    DXF 생성자가 직접 읽는 옵션이다. 소문자 minlevel·dxfinfo를 읽고 옵션 기본값은 생성자의 nullish 처리에 따른다.
+    DXF 생성자가 직접 읽는 옵션이다. 소문자 minlevel·dxfinfo를 읽으며 기본값은 생성자의 undefined 전용 처리와 세 boolean 옵션의 nullish 처리를 구분한다. [확인 Q-006]
     이 명세에서 사용하는 필드:
         name?: string
         drawLine?: boolean
@@ -110,16 +110,16 @@ U3dModelDxfLayer extends U3dModelLayer 클래스 정의
             U3dLayer — 준비 완료; 함수: {_resolveReady()}
             UDEF — 레이어 종류; 상수: {LAYER_TYPE.MODEL}
             Guid — 기본 이름 생성; 함수: {Guid()}
-            defaultValue — nullish 기본값; 함수: {defaultValue()}
+            defaultValue — undefined일 때 기본값 선택; 함수: {defaultValue()}
             defined — 정의 여부; 함수: {defined()}
         동작:
-            부모를 같은 opt로 초기화한 뒤 클래스 종류와 이름을 설정한다. name 유무와 관계없이 Guid를 먼저 실행하고 name이 nullish일 때 그 결과를 사용한다.
-            drawLine·crs·sourceCRS·소문자 minlevel이 nullish이면 각각 false·'EPSG:3857'·'EPSG:5179'·17을 사용하고, 입력값이 있으면 그대로 저장한다. maxlevel은 minlevel과 같게 둔다. type은 nullish이면 MODEL이며 startlevel·transparent는 이 생성자가 직접 읽지 않는다.
-            properties·entity를 각각 빈 배열로, 2dLayer·layerLabel을 undefined로 시작한다. url·소문자 dxfinfo는 nullish이면 undefined이고 labelInfo는 nullish이면 빈 배열이다. dxfinfo를 저장만 하며 여기서 형상을 만들지 않는다.
-            useEdge·useExtrude·setAutoHeight는 nullish일 때 true이고 extrudeHeight=2, heightOffset=0이다. style 전체가 nullish일 때만 기본 객체를 만들고 부분 스타일은 보충하지 않는다.
+            부모를 같은 opt로 초기화한 뒤 클래스 종류와 이름을 설정한다. name 유무와 관계없이 Guid를 먼저 실행하고 name이 undefined일 때 그 결과를 사용한다.
+            drawLine·crs·sourceCRS·소문자 minlevel이 undefined이면 각각 false·'EPSG:3857'·'EPSG:5179'·17을 사용하며 null 등 나머지 값은 그대로 저장한다. maxlevel은 minlevel과 같게 둔다. type은 undefined이면 MODEL이며 startlevel·transparent는 이 생성자가 직접 읽지 않는다.
+            properties·entity를 각각 빈 배열로, 2dLayer·layerLabel을 undefined로 시작한다. url·소문자 dxfinfo는 그대로 보관하고 labelInfo가 undefined일 때만 빈 배열을 사용한다. dxfinfo를 저장만 하며 여기서 형상을 만들지 않는다.
+            useEdge·useExtrude·setAutoHeight는 nullish일 때 true다. extrudeHeight와 heightOffset은 undefined일 때만 각각 2와 0이며, style 전체가 undefined일 때만 기본 객체를 만든다. 부분 스타일을 보충하거나 명시적 null을 기본 스타일로 바꾸지 않는다. [확인 Q-006]
             styleFunction을 저장하고 상속 _resolveReady가 정의되어 있으면 레이어 자체로 준비 상태를 완료한다. 이 완료는 DXF 객체 생성 완료가 아니다.
 
-    override U3dModelDxfLayer.dispose() -> void
+    override U3dModelDxfLayer.dispose() -> Promise<boolean>
         의존:
             UGroup — 기존 객체 순회; 함수: {traverse()}
             THREE.Mesh — 메시 판별; 상수: {THREE.Mesh}
@@ -131,7 +131,7 @@ U3dModelDxfLayer extends U3dModelLayer 클래스 정의
         동작:
             _group이 정의되면 순회한다. Mesh이고 userData.label이 정의되며 _drawArg·그 앱·그 주석 장면이 모두 정의된 경우에만 라벨을 해제하고 장면에서 제거한 뒤 userData.label을 undefined로 둔다.
             레이어 경계 라벨을 제거한다.
-            부모 dispose를 호출하되 그 반환 Promise를 기다리거나 반환하지 않는다. [확인 Q-002]
+            부모 dispose를 호출하고 그 반환 Promise를 호출자에게 그대로 반환한다. 메시·경계 라벨 정리는 이 호출 전에 수행된다. [확인 Q-002]
 
     override U3dModelDxfLayer.createModel() -> undefined
         동작: 아무 객체도 생성하지 않고 undefined를 반환한다.
@@ -172,7 +172,7 @@ U3dModelDxfLayer extends U3dModelLayer 클래스 정의
             defaultValue — 좌표계 기본값; 함수: {defaultValue()}
             전역 진단 — 모델 누락 로그; 함수: {__GError__()}
         동작:
-            data를 _dxfInfo에 저장하고 loadEntities(data)의 결과 info를 얻은 뒤 sourceCRS가 nullish이면 기존 좌표계를 사용하여 _sourceCRS에 저장한다.
+            data를 _dxfInfo에 저장하고 loadEntities(data)의 결과 info를 얻은 뒤 sourceCRS가 undefined이면 기존 좌표계를 사용하여 _sourceCRS에 저장한다. null은 그대로 저장한다.
             info.entity가 falsy이면 오류를 기록하고 종료한다. info 자체나 개별 child의 geometry·material은 추가 검사하지 않는다.
             _group 직계 자식에서 이름이 faceGroup인 첫 그룹을 찾고 없으면 생성하여 등록한다. 같은 방법으로 polyGroup을 준비한다.
             _scene에 _group을 등록하고 polyGroup.position.z에 _heightOffset을 누적한다. 반복 입력은 기존 그룹·entity를 비우지 않는다.
@@ -244,7 +244,10 @@ U3dModelDxfLayer extends U3dModelLayer 클래스 정의
             U2dDxfLayer — 연결된 2D 표시; 함수: {show()}
             U3dModelLayer — 부모 표시; 함수: {prototype.show.call()}
             defined — 정의 여부; 함수: {defined()}
-        동작: _drawArg 또는 그 앱이 정의되지 않으면 종료한다. _2dLayer가 정의되면 먼저 표시 상태를 전달하고 부모 show를 호출한다. bShow가 falsy일 때만 라벨을 숨긴다. 부모가 그룹을 정리한 뒤 라벨 순회가 실행되는 순서를 유지한다.
+        동작:
+            _drawArg가 defined이고 _drawArg._app이 defined인 경우에만 표시 처리를 진행하며, 아니면 종료한다.
+                _2dLayer가 정의되면 먼저 표시 상태를 전달하고 부모 show를 호출한다.
+                bShow가 falsy일 때만 라벨을 숨긴다. 부모가 그룹을 정리한 뒤 라벨 순회가 실행되는 순서를 유지한다.
 
     U3dModelDxfLayer.showLabel(show: boolean) -> void
         의존:
@@ -347,13 +350,12 @@ setLabel(mesh: UMesh) -> void
         UMesh — 메시 경계; 함수: {getBBox()}
         THREE.Box3 — 중심; 함수: {getCenter()}
         THREE.Vector3 — 중심 계산; 생성자: {new THREE.Vector3()}
-        UDrawArg — 식별용 좌표; 함수: {getWorldToGoogle()}
-        UDEF — 객체 식별·종류; 함수: {createGoogleKey()}; 상수: {UMESH_TYPE._building}
+        UDEF — 객체 종류; 상수: {UMESH_TYPE._building}
         U3dPOI — 라벨; 생성자: {new U3dPOI()}; 함수: {setLabel(), setPosition(), show()}
         U3dLayer — 그리기 인자·앱; 속성 읽기: {_drawArg, _app}
         UScene — 라벨 등록; 함수: {add()}
     동작:
-        메시 경계 중심을 구하고 그 XY를 Google 좌표로 바꿔 createGoogleKey 결과와 mesh.id를 '_'로 연결하여 userData.id에 저장한다. _utype은 building, _ulayername은 레이어 이름이다.
+        메시 경계 중심을 구한다. _utype은 building, _ulayername은 레이어 이름으로 설정하며 userData에 엔진용 ID를 생성하지 않는다.
         userData.label이 falsy이면 style.label이 undefined일 때만 빈 문구로 POI를 생성하여 메시와 주석 장면에 등록한다. 기존 라벨이 있으면 style.label이 빈 문자열·undefined일 때 poi.label을 재사용하고 문구·위치를 바꾼다. 이후 라벨을 표시한다.
 regenerateExtrudeMesh(mesh: UMesh, depth: number) -> UMesh | undefined
     동작: mesh·geometry·material·geometry.parameters 중 falsy 값이 있으면 undefined를 반환한다.
@@ -383,7 +385,7 @@ setLineTypePrototype(line: U3dDxfObject) -> void
 ## 4. 공통 처리 기준과 제약
 
 ```spec
-defined와 defaultValue는 null·undefined를 누락으로 취급한다. truthy 조건이 명시된 스타일·라벨·형상 분기와 혼동하지 않는다.
+defined는 null·undefined를 누락으로 취급하지만 defaultValue는 undefined에만 기본값을 적용한다. truthy 조건이 명시된 스타일·라벨·형상 분기와도 구분한다.
 스타일·원본 entity·라벨 참조와 geometry 생성 options의 공유는 각 메서드의 제자리 변경 및 후속 형상 전환에 영향을 준다. 조회 결과를 일괄 읽기 전용 또는 복사본으로 보지 않는다.
 모듈의 materialIndex는 인스턴스별 상태가 아니다. 돌출 형상 생성 순서에 따라 다섯 기본 색을 모든 레이어가 함께 순환한다.
 ```

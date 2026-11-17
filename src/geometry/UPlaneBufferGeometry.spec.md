@@ -42,6 +42,9 @@
 정점 배열을 제자리에서 고친 뒤 GPU에 다시 올릴 때는 attribute의 needsUpdate를 사용해야 하며 dispose()를 재업로드 수단으로 사용해서는 안 된다.
 ```
 
+```spec
+```
+
 ## 3. 정규 자연어 수도코드
 
 ```spec
@@ -94,6 +97,21 @@ UPlaneBufferGeometry extends UBufferGeometry 클래스 정의
     parameters: {width: number, height: number, widthSegments: number, heightSegments: number} | undefined
         initialize()가 기록하는 생성 크기와 분할 수
 
+    _editedVertexMask: Uint8Array = new Uint8Array()
+        스커트를 포함한 정점 순서의 편집 선택 표시이며 0은 미선택, 1은 평탄화·사면 선택이다.
+    get editedVertexMask() -> Uint8Array
+        동작: _editedVertexMask 참조를 반환한다.
+    set editedVertexMask(value: Uint8Array) -> void
+        동작: _editedVertexMask에 입력 참조를 저장한다.
+    markEditedVertex(vertexIndex: number) -> boolean
+        입력: 스커트를 포함한 0 기반 정수 정점 인덱스
+        의존: UBufferGeometry — 현재 정점 수; 속성 읽기: {attributes.position}
+        동작:
+            position 정점 수를 읽고 속성이 없으면 0을 사용한다.
+            정수가 아니거나 0 미만이거나 정점 수 이상이면 false를 반환한다.
+            표시 배열 길이가 현재 정점 수와 다르면 그 크기의 빈 Uint8Array로 교체한다.
+            해당 정점 표시를 1로 두고 true를 반환한다. 높이와 노멀은 변경하지 않는다.
+
     index: Three.js BufferAttribute | null
         기반 클래스가 소유하는 인덱스 attribute이며 change()가 대상 geometry의 인덱스 객체로 교체한다.
 
@@ -114,7 +132,7 @@ UPlaneBufferGeometry extends UBufferGeometry 클래스 정의
 
         의존:
             UBufferGeometry — 기반 geometry 초기화; 함수: {constructor()}
-            Three.js — 오프셋 벡터 생성; 생성자: {new Vector3()}
+            THREE — Three.js 오프셋 벡터 생성; 생성자: {new Vector3()}
             defined — width·height 존재 여부 판정; 함수: {defined()}
             UDEF — 기본 높이 기본값 제공; 상수: {TERRAIN_NO_DATA}
 
@@ -161,6 +179,7 @@ UPlaneBufferGeometry extends UBufferGeometry 클래스 정의
         처리 기준:
             attribute는 새로 만들거나 복사하지 않고 targetGeometry의 position·normal·uv·index 객체를 그대로 참조하며, 이 객체가 이전에 갖던 attribute 객체의 GL 버퍼는 이 메서드가 해제하지 않는다. [확인 Q-003]
             _customBox는 targetGeometry의 Map 객체를 그대로 참조한다. [확인 Q-004]
+            편집 선택 표시는 targetGeometry.editedVertexMask와 같은 배열을 참조한다.
             _maxHeight와 _minHeight 값 자체는 복사하지 않고 이 객체의 boundingBox z 범위에만 반영한다.
             이 객체의 boundingBox 또는 boundingSphere가 없으면 바운딩 갱신과 #ratio·#skirtIndex·#defaultHeight 복사를 건너뛰고 반환한다. [확인 Q-003]
             _offsetX, _offsetY, _offset은 바꾸지 않는다.
@@ -171,6 +190,7 @@ UPlaneBufferGeometry extends UBufferGeometry 클래스 정의
         동작:
             attributes.position, attributes.normal, attributes.uv와 index를 targetGeometry의 같은 객체로 바꾼다.
             parameters, _uwidth, _uheight, _segmentWidth, _segmentHeight, _customBox와 _skirt를 targetGeometry 값으로 덮어쓴다.
+            _editedVertexMask에 targetGeometry.editedVertexMask 참조를 저장한다.
             boundingBox와 boundingSphere가 모두 있으면 boundingBox의 max.z·min.z를 targetGeometry의 _maxHeight·_minHeight로 바꾸고 boundingSphere를 다시 계산한다.
             #ratio, #skirtIndex와 기본 높이를 targetGeometry에서 가져와 기록하고 this를 반환한다.
 
@@ -180,6 +200,7 @@ UPlaneBufferGeometry extends UBufferGeometry 클래스 정의
         처리 기준:
             attribute와 인덱스는 기반 클래스가 복제하여 이 객체가 독립 소유한다.
             _offset, parameters와 _customBox는 source의 같은 객체를 참조한다. [확인 Q-004]
+            편집 선택 표시는 source.editedVertexMask를 새 Uint8Array로 복제하여 독립 소유한다.
             소유자 수는 복사하지 않아 이 객체의 값이 유지된다.
 
         의존:
@@ -253,28 +274,38 @@ UPlaneBufferGeometry extends UBufferGeometry 클래스 정의
             스커트 보정(includeSkirt이면 0, 아니면 #skirtIndex)과 #ratio로 정점 배열 위치를 계산한다.
             해당 위치의 x, y, z를 객체로 반환한다.
 
-    override computeVertexNormals(ratio: number = this.getRatio()) -> void
-        역할: 현재 정점 위치로 정점 노멀을 계산하고 스커트 정점에 인접 내부 노멀을 복사한다.
-
-        인터페이스: ratio는 기본값으로 현재 비율을 받지만 현재 구현은 본문에서 사용하지 않는다. [확인 Q-001]
-
+    override computeVertexNormals() -> void
+        역할: 현재 전체 표면의 법선을 재계산하고 인접 표면 값을 스커트에 복사한다.
         처리 기준:
-            스커트가 없으면 기반 클래스의 노멀 계산에 위임하고 종료한다.
-            _uwidth 또는 _uheight가 undefined이면 노멀을 바꾸지 않는다.
-            내부 격자의 노멀은 기존 normal 배열 값에 삼각형 노멀을 더하므로 호출 전 초기화 여부에 따라 결과가 달라진다. [확인 Q-002]
-            normal attribute에 GPU 재업로드 표시를 하지 않는다.
-
-        의존:
-            UBufferGeometry — 스커트 없는 격자의 노멀 계산, attribute 접근과 노멀 정규화; 함수: {computeVertexNormals(), normalizeNormals()}; 속성 읽기: {attributes.position.array, attributes.normal.array}
-            Three.js — 임시 벡터 연산; 함수: {Vector3.set(), Vector3.subVectors(), Vector3.cross(), Vector3.addVectors()}
-
+            스커트가 없으면 기반 클래스에 위임한다. 스커트가 있으면 이전 전체 XYZ를 초기화하여 법선이 누적되지 않게 한다.
+            position·normal 속성 및 배열, 높이와 bounds를 교체하거나 GPU 재업로드 표시를 하지 않는다.
+        의존: UBufferGeometry — 스커트 없는 전체 계산과 정규화; 함수: {computeVertexNormals(), normalizeNormals()}; 속성 읽기: {attributes.position.array, attributes.normal.array}
         동작:
-            ratio 기본값으로 현재 비율을 읽지만 이후 계산에는 쓰지 않는다.
-            _skirt가 false이면 기반 클래스의 노멀 계산을 실행하고 종료한다.
-            스커트를 제외한 내부 격자의 각 칸에서 A(좌상)-B(좌하)-D(우상)와 B-C(우하)-D 두 삼각형의 외적을 구한다.
-            첫 삼각형의 노멀을 A에, 둘째 삼각형의 노멀을 C에, 두 노멀의 합을 B와 D의 normal 배열에 더한다.
-            위·아래 스커트 줄에는 바로 안쪽 줄의 노멀을, 왼쪽·오른쪽 스커트 열에는 바로 안쪽 열의 노멀을 복사한다.
-            전체 노멀을 단위 벡터로 정규화한다.
+            _skirt가 false이면 UBufferGeometry.computeVertexNormals()를 호출하고 종료한다.
+            position·normal 배열을 읽고 _uwidth 또는 _uheight가 undefined이면 종료한다.
+            법선 배열을 모두 0으로 채우고 실제 스커트 인덱스에서 전체 셀을 누적한다.
+            위·아래·왼쪽·오른쪽 순서로 스커트에 인접 표면의 정규화 전 법선을 복사한 뒤 전체 법선을 정규화한다.
+
+    computeBoundaryVertexNormals() -> void
+        역할: 실제 표면 경계 높이 한 줄만 바뀐 뒤 영향받는 표면 두 줄과 스커트의 법선을 갱신한다.
+        처리 기준:
+            나머지 내부 법선은 현재 정점에 대해 유효해야 한다. 원본·품질 변경과 미확정 내부 법선은 호출자가 전체 계산으로 처리한다.
+            position·normal 속성 및 배열, 높이와 bounds를 교체하거나 GPU 재업로드 표시를 하지 않는다.
+        의존: UBufferGeometry — 공유 속성; 속성 읽기: {attributes.position, attributes.normal}
+        동작:
+            공통 지원 판정이 false이면 기존 전체 계산을 호출하고 종료한다. 비표준 격자는 전체 계산을 사용한다.
+            스커트를 포함한 바깥 세 줄의 XYZ만 0으로 초기화한다.
+            대상 정점에 기여하는 인접 셀 전체를 기존 행·열 순서로 계산하여 대상 법선만 누적한다.
+            기존 순서로 스커트에 인접 표면의 정규화 전 법선을 복사하고 바깥 세 줄만 정규화한다. 대상 밖 내부 성분은 다시 정규화하지 않는다.
+
+    _supportsBoundaryVertexNormals() -> boolean
+        역할: 부분 법선 계산과 경계 실행기의 부모 법선 부분 상속에서 같은 격자 지원 조건을 제공한다.
+        처리 기준: 배열·상태를 변경하지 않는다.
+        의존: UBufferGeometry — 공유 속성 조회; 속성 읽기: {attributes.position, attributes.normal}
+        동작:
+            _skirt가 참이며 스커트 인덱스와 ratio가 1이어야 한다.
+            가로·세로는 4보다 큰 정수이고 position·normal의 itemSize는 3이며 normalized는 false이어야 한다.
+            두 배열이 Float32Array이고 각 정점 수가 가로×세로와 같으면 true이며 나머지는 false이다.
 
     템플릿 캐시 책임 그룹
         역할: 같은 크기·분할의 격자 자료를 한 번만 계산해 재사용한다.
@@ -291,9 +322,11 @@ UPlaneBufferGeometry extends UBufferGeometry 클래스 정의
     initialize(width: number, height: number, widthSegments: number, heightSegments: number, defaultHeight: number) -> boolean
         역할: 생성 매개변수를 기록하고 격자 자료 생성을 시작한다.
         인터페이스: 반환: 항상 true
+        의존: UBufferGeometry — 새 격자의 정점 수; 속성 읽기: {attributes.position}
         동작:
             parameters에 width, height, widthSegments, heightSegments를 기록한다.
             격자 자료를 생성한다.
+            현재 position 정점 수와 같은 길이의 빈 Uint8Array를 _editedVertexMask에 기록한다.
             true를 반환한다.
 
     _createMesh(width: number, height: number, widthSegments: number, heightSegments: number, defaultHeight: number = UDEF.TERRAIN_NO_DATA) -> void
@@ -315,7 +348,7 @@ UPlaneBufferGeometry extends UBufferGeometry 클래스 정의
         의존:
             defined — 캐시 항목 존재 여부 판정; 함수: {defined()}
             UDEF — 기본 높이 기본값 제공; 상수: {TERRAIN_NO_DATA}
-            Three.js — 인덱스·정점·노멀·UV attribute와 바운딩 볼륨 생성; 생성자: {new Uint16BufferAttribute(), new Float32BufferAttribute(), new Box3(), new Vector3(), new Sphere()}; 함수: {Box3.clone(), Box3.getBoundingSphere()}
+            THREE — Three.js 인덱스·정점·노멀·UV attribute와 바운딩 볼륨 생성; 생성자: {new Uint16BufferAttribute(), new Float32BufferAttribute(), new Box3(), new Vector3(), new Sphere()}; 함수: {Box3.clone(), Box3.getBoundingSphere()}
             UFloat16BufferAttribute — Float16 지원 판정과 UV attribute 생성; 정적 함수: {isAvailable()}; 생성자: {new UFloat16BufferAttribute()}
             UBufferGeometry — attribute 등록과 바운딩 볼륨 기록; 함수: {setIndex(), setAttribute()}; 속성 쓰기: {boundingBox, boundingSphere}
 
@@ -335,7 +368,7 @@ UPlaneBufferGeometry extends UBufferGeometry 클래스 정의
             동작: _customBox에 id로 범위와 높이를 저장하거나 교체한다.
 
         clearCustomBox() -> void
-            동작: _customBox를 비운다.
+            동작: _customBox를 비우고 _editedVertexMask의 모든 값을 0으로 채운다. 정점 높이와 노멀은 변경하지 않는다. 편집 삭제 후에는 원본 고도와 남은 편집을 다시 적용해야 한다.
 
         getCustomBox(id?: string) -> UPlaneCustomBox | Map<string, UPlaneCustomBox> | undefined
             인터페이스: id가 falsy이면 전체 Map을, 있으면 해당 항목 또는 undefined를 반환한다.
@@ -355,7 +388,7 @@ UPlaneBufferGeometry extends UBufferGeometry 클래스 정의
 
         의존:
             UBufferGeometry — 바운딩 박스 접근; 속성 읽기: {boundingBox}
-            Three.js — 박스 복제와 이동, 빈 박스 생성; 함수: {Box3.clone(), Vector3.add()}; 생성자: {new Box3()}
+            THREE — Three.js 박스 복제와 이동, 빈 박스 생성; 함수: {Box3.clone(), Vector3.add()}; 생성자: {new Box3()}
 
         동작:
             boundingBox를 복제하고 _offset이 있으면 min과 max에 더하여 반환한다.
@@ -375,6 +408,34 @@ UPlaneCustomBox 타입 정의
         편집 지형 영역의 평면 범위
     height: number
         영역에 적용할 높이
+
+accumulatePlaneNormals(vertices: Float32Array, normals: Float32Array, width: number, height: number, skirtIndex: number, boundaryOnly: boolean) -> void
+    동작:
+        기존과 같은 행·열 오름차순으로 실제 표면 셀을 순회한다.
+        부분 계산이면 가운데 행에서 열 3에 도달할 때 width-4까지 건너뛴다. 경계 두 줄에 기여하는 셀과 그 안쪽 한 셀의 기여를 포함하며 작은 격자는 중복 순회하지 않는다.
+        각 셀을 누적한다.
+
+accumulatePlaneNormalCell(vertices: Float32Array, normals: Float32Array, width: number, height: number, x: number, y: number, boundaryOnly: boolean) -> void
+    의존: Three.js — 기존 공유 Vector3 연산; 함수: {Vector3.set(), Vector3.subVectors(), Vector3.cross(), Vector3.addVectors()}
+    동작:
+        현재 셀의 A·B·D·C 위치를 기존 공유 벡터에 읽는다.
+        A-B-D와 B-C-D 삼각형 외적 및 두 외적의 합을 공유 임시 벡터에 계산한다.
+        boundaryOnly가 거짓이면 링 판정 없이 A·C에 각각의 외적을, B·D에 합을 누적한 뒤 반환한다. 정점별 Float32 반올림과 기존 누적 순서를 보존한다.
+        전체 경로의 조기 반환을 지난 나머지 실행에서 각 정점의 대상 링 여부를 검사한다.
+        검사 결과가 참인 정점의 XYZ에만 A·C·B·D 순서로 누적하고 대상 밖 정점은 유지한다.
+
+isPlaneNormalRing(width: number, height: number, x: number, y: number) -> boolean
+    동작: x 또는 y가 3 미만이거나 x가 width-3 이상 또는 y가 height-3 이상이면 true를 반환한다.
+
+processPlaneNormalRing(normals: Float32Array, width: number, height: number, normalize: boolean) -> void
+    의존: Three.js — 기존 공유 Vector3의 초기화와 정규화; 함수: {Vector3.set(), Vector3.normalize()}
+    동작:
+        바깥 세 줄을 행·열 순서로 순회하고 가운데 영역은 건너뛴다. 작은 격자의 띠가 겹쳐도 정점을 중복 처리하지 않는다.
+        normalize가 false이면 대상 XYZ를 0으로 쓰고 true이면 기존 Three.js와 같은 Vector3 정규화 결과를 Float32 성분으로 쓴다.
+
+copyPlaneSkirtNormals(normals: Float32Array, width: number, height: number) -> void
+    동작: 위·아래·왼쪽·오른쪽 순서로 바로 안쪽 표면의 XYZ를 스커트에 복사한다. 모서리도 같은 복사 순서로 확정하며 정규화는 호출자가 수행한다.
+
 ```
 
 ## 4. 공통 처리 기준과 제약

@@ -45,8 +45,6 @@ U3dGroupLayerChild_Content 타입 정의
         추가 시 누적할 자식의 경계 상자를 반환한다.
     setEmissiveColor: function(number, number, number) -> boolean
         자식의 자체 발광 색상 설정 함수다.
-    ready: Promise<U3dLayer>
-        기반 레이어에서 상속한 초기화 완료 Promise다.
 
 U3dGroupLayerChild 타입 정의
     U3dLayer & U3dGroupLayerChild_Content 별칭
@@ -89,11 +87,12 @@ U3dGroupLayer extends U3dLayer 클래스 정의
         인터페이스: 반환의 true는 자식 해제 호출과 그룹 상태 반영의 완료이며 자식 비동기 작업의 완료가 아니다.
         처리 기준: 자식 호출에서 동기 예외가 발생하면 그 예외를 전달하고 이후 자식 호출·그룹 상태 반영을 수행하지 않는다.
         의존:
-            deferred — 직접 완료 가능한 반환 객체; 함수: {deferred()}
+            deferredPromise — 직접 완료 가능한 반환 객체; 함수: {deferredPromise()}
             U3dGroupLayerChild(layer) — 자식 해제; 함수: {dispose()}
             U3dLayer — 해제 상태; 속성 쓰기: {_disposed}
+            __GError__ — 자식 비동기 해제 실패 보고; 함수: {__GError__()}
         동작:
-            deferred 객체를 만들고 자식을 배열 반복자 순서로 순회하며 dispose를 호출한다. 자식 반환값은 기다리지 않는다.
+            deferred 객체를 만들고 자식을 배열 반복자 순서로 순회하며 dispose를 호출한다. 자식 반환값은 기다리지 않으며, 비동기 실패는 해당 자식을 대상으로 엔진 오류로 보고한다. 동기 예외는 변환하지 않고 그대로 전달한다.
             _disposed를 true로 설정하고 _listlayer를 새 빈 배열로 교체한다.
             반환 객체를 true로 resolve하고 그 객체를 반환한다. 기존 배열과 경계 상자, 부모 연결은 별도로 지우지 않는다.
 
@@ -154,7 +153,6 @@ U3dGroupLayer extends U3dLayer 클래스 정의
             defined — 비동기 진입점과 경계 존재 판정; 함수: {defined()}
             U3dLayer — 그룹 이름·표시·해제 상태; 함수: {isDisposed()}; 속성 읽기: {_name, _visible}
             U3dGroupLayerChild(layer) — 부모 연결·준비·표시·경계·해제 조회; 함수: {setGroupLayer(), getBoundingBox(), show(), isDisposed()}; 속성 읽기: {_name, ready}
-            반환된 준비 객체 — 실패 연결; 함수: {catch()}
             U3dMessage — 준비 실패 로그; 정적 함수: {error()}; 상수: {CNT.LAYER.ERROR_ADD_GROUP_1}
         동작:
             목록 indexOf 결과가 느슨한 비교로 -1이 아니거나 자식 _name과 그룹 _name이 느슨하게 같으면 false를 반환한다. 다른 자식의 이름은 비교하지 않는다.

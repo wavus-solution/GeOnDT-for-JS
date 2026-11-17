@@ -1,10 +1,10 @@
 //@ts-check
 import {defined} from "@util/defined";
 import {defaultValue} from "@util/defaultValue";
-import {deferred} from "@util/deferred";
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import {UDEF} from "@union3d/core/UDEF";
 import {U3dLayer} from "@union3d/3dLayer/U3dLayer";
-import {U3dMessage} from "@union3d/message/U3dMessage";
+import {U3dMessage, __GError__} from "@union3d/message/U3dMessage";
 import {INTERNAL} from "@union3d/3dLayer/U3dGroupLayer.internal";
 
 /**
@@ -88,20 +88,24 @@ class U3dGroupLayer extends U3dLayer {
     }
 
     /**
-     * 자식의 해제를 순서대로 요청한 뒤 그룹을 해제 상태로 표시한다. <br>
-     * 자식이 반환한 비동기 작업은 기다리지 않는다. 동기 예외가 발생하면 이후 처리를 중단하며,
-     * 기존 배열을 비우는 대신 그룹의 목록을 새 배열로 교체한다. 경계와 부모 연결은 별도로 지우지 않는다.
+     * 자식의 해제를 순서대로 요청한 뒤 그룹을 해제 상태로 표시합니다. <br>
+     * 자식이 반환한 비동기 작업은 기다리지 않으며 실패는 엔진 오류로 보고합니다. 동기 예외가 발생하면 이후 처리를 중단합니다.
+     * 기존 배열을 비우는 대신 그룹의 목록을 새 배열로 교체합니다. 경계와 부모 연결은 별도로 지우지 않습니다.
      *
      * @override
      *
      * @returns {Promise<boolean>} 자식 해제 호출과 그룹 상태 반영이 끝나면 true로 완료되는 객체. 자식의 비동기 완료는 포함하지 않는다
      */
     dispose() {
-        /** @type {DeferredObject<boolean>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<boolean>} */
+        const promise = deferredPromise();
 
         for (const layer of this._listlayer) {
-            layer.dispose();
+            // 그룹의 즉시 완료 계약은 유지하되, 나중에 실패하는 자식 정리도 방치하지 않습니다.
+            // dispose 호출은 Promise 바깥에서 실행하므로 기존 동기 예외는 호출자에게 전달됩니다.
+            Promise.resolve(layer.dispose()).catch(error => {
+                __GError__(layer, '그룹 자식 레이어의 비동기 해제에 실패했습니다. ' + error, '306009');
+            });
         }
 
         this._disposed = true;

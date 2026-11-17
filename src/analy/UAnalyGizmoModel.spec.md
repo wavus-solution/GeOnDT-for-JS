@@ -131,7 +131,7 @@ UAnalyGizmoModel extends UAnaly 클래스 정의
             THREE — 색 생성과 투명도 제한; 생성자: {new Color()}; 함수: {MathUtils.clamp()}
             defined — 설정·재질의 존재 판정; 함수: {defined()}
         동작:
-            인수에서 color·opacity·radius를 읽으며 레이저가 없으면 종료한다.
+            인수에서 color·opacity·radius를 읽으며 레이저가 없으면 종료한다. 설정을 따로 보관하지 않으므로 나중에 생성·재생성한 레이저에는 이 스타일이 적용되지 않는다.
             material이 있는 각 레이저에 정의된 색상과 0~1로 제한한 투명도를 적용한다.
             정의된 radius를 숫자로 변환하고 falsy이면 1을 사용한 뒤 0.001 이상으로 제한한다.
             길이 축은 유지하고 x·z 배율과 userData.radius에 반영한다.
@@ -240,7 +240,7 @@ UAnalyGizmoModel extends UAnaly 클래스 정의
         의존:
             편집 대상(obj) — 위치 변경; 함수: {setPosition(), updateMatrixWorld()}
             defined — 대상 존재 판정; 함수: {defined()}
-        동작: obj가 정의되지 않았으면 종료하고 setPosition이 truthy이면 호출하며 아니면 position.copy가 있을 때 복사한 뒤 updateMatrixWorld(true)를 호출한다.
+        동작: obj가 정의되지 않았으면 종료하고 setPosition이 truthy이면 호출한다. 아니면 position.copy가 있을 때 복사하고, 복사 여부와 관계없이 updateMatrixWorld(true)를 호출한다.
     #setTargetRotation(obj: Object3D, rotation: Quaternion | Euler) -> void
         의존:
             편집 대상(obj) — 회전 변경; 함수: {setRotation(), updateMatrixWorld()}
@@ -248,10 +248,10 @@ UAnalyGizmoModel extends UAnaly 클래스 정의
         동작:
             obj가 falsy이면 종료한다.
             Euler는 그대로 쓰고 Quaternion은 공유 Euler로 변환하며 나머지는 0516652 오류를 기록하고 종료한다.
-            setRotation이 truthy이면 호출하고 아니면 rotation.copy가 있을 때 복사한 뒤 updateMatrixWorld(true)를 호출한다.
+            setRotation이 truthy이면 호출한다. 아니면 rotation.copy가 있을 때 복사하고, 복사 여부와 관계없이 updateMatrixWorld(true)를 호출한다.
     #setTargetScale(obj: Object3D, scale: Vector3) -> void
         의존: 편집 대상(obj) — 배율 변경; 함수: {setScale(), updateMatrixWorld()}
-        동작: obj가 falsy이면 종료하고 setScale이 truthy이면 호출하며 아니면 scale.copy가 있을 때 복사한 뒤 updateMatrixWorld(true)를 호출한다.
+        동작: obj가 falsy이면 종료하고 setScale이 truthy이면 호출한다. 아니면 scale.copy가 있을 때 복사하고, 복사 여부와 관계없이 updateMatrixWorld(true)를 호출한다.
     #updateOverlay(position: Vector3) -> void
         의존:
             UAnaly — 앱 참조; 속성 읽기: {_app}
@@ -413,6 +413,7 @@ UAnalyGizmoModel extends UAnaly 클래스 정의
                 _control이 truthy이면 리스너의 change·objectChange·mouseUp 배열을 새 빈 배열로 바꾸고 clear한다.
     onEnd() -> void
         의존:
+            UMesh — 현재 객체의 조회·편집 키; 정적 함수: {_getObjectId()}
             defined — 컨트롤·원본 변환·ID 존재 판정; 함수: {defined()}
             UAnaly — 앱 참조와 종료 알림; 함수: {dispatchEvent()}; 속성 읽기: {_app}
             UGizmoControls — 편집 정보; 함수: {getMode()}; 속성 읽기: {_offset, axis}
@@ -421,8 +422,8 @@ UAnalyGizmoModel extends UAnaly 클래스 정의
             _control이 nullish이면 생성을 시도한다.
             모드가 nullish이면 translate를 사용한다.
             각 대상의 이동량·rotation·scale 참조와 정의된 origin.position을 editData로 구성한다.
-            id는 정의된 userData.id, 정의된 _opt.id, Object3D.id 순서로 선택한다.
-            position 참조·editData·모드·nullish일 때 null인 axis를 앱의 editedMesh에 전달한 뒤 분석 end 이벤트를 알린다.
+            공통 조회 함수로 자동 재로딩 데이터의 puid 또는 현재 객체의 uuid를 얻어 id로 사용한다. 별도의 영속 키를 생성하지 않는다.
+            id가 null·undefined가 아니고 앱이 있으면 position 참조·editData·모드·nullish일 때 null인 axis를 앱의 editedMesh에 전달한다. 그 뒤 각 대상에 대해 분석 객체에서 end 이벤트를 발행하며, id·앱 존재 여부와 무관하게 userData.class를 data로 전달한다. 앞선 편집 통지나 이벤트 수신자가 던진 예외는 잡지 않는다.
     setTargetScene(scene?: Object3D) -> void
         의존: defined — 장면 존재 판정; 함수: {defined()}
         동작: scene이 정의되었으면 _targetScenes에 추가하고 아니면 새 빈 배열로 교체한다.

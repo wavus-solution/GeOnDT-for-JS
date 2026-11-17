@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -268,7 +268,8 @@ declare class UGroup extends UGroup_base {
     setColor(color: three.ColorRepresentation): void;
     /**
      * 객체를 구분하는 식별자 하나를 꺼냅니다. <br>
-     * getUid()를 제공하는 객체는 그 반환값을 쓰고, 없으면 uuid, _uuid, _id 순으로 처음 발견한 값을 사용합니다. <br>
+     * getUid()가 등록된 값을 반환하면 사용하고, 미등록이면 uuid, _uuid, _id 순으로 찾습니다. <br>
+     * 이 대체값은 실행 중 그룹 구성원 정리에만 쓰며 데이터 모델의 puid로 등록하지 않습니다. <br>
      * 직속 자식 목록과 등록 목록이 어긋났을 때 같은 객체를 다시 찾는 데 사용합니다.
      *
      * @param {import('three').Object3D & Partial<{getUid: (function(): (undefined | string | number)), _uuid: string | number, _id: string | number}>} object 식별자를 꺼낼 대상 객체

@@ -1,21 +1,21 @@
 import * as THREE from 'three';
 import {INTERNAL} from '@union3d/3dLayer/U3dLodComponentLayer.internal';
-import {defined} from '/union3d/util/defined.js';
+import {defined} from '@union3d/util/defined';
 import {U3dMultipleComponentLayer} from '@union3d/3dLayer/U3dMultipleComponentLayer';
-import {UGroup} from '/union3d/core/UGroup.js';
-import {UDEF} from '/union3d/core/UDEF.js';
-import {deferred} from "/union3d/util/deferred.js";
-import {UInstancedMesh} from "/union3d/core/mesh/UInstancedMesh.js";
-import {UTaskProcessor} from "/union3d/core/UTaskProcessor.js";
-import {USimplifyTask} from "/union3d/worker/task/model/simplify/USimplifyTask.js";
-import {UWorkerParameter} from "/union3d/worker/util/UWorkerParameter.js";
-import {KDBush} from "/union3d/lib/kdbush/kdbush.js";
-import {Guid} from "/union3d/util/Guid.js";
+import {UGroup} from '@union3d/core/UGroup';
+import {UDEF} from '@union3d/core/UDEF';
+import {deferredPromise} from "@union3d/util/deferredPromise";
+import {UInstancedMesh} from "@union3d/core/mesh/UInstancedMesh";
+import {UTaskProcessor} from "@union3d/core/UTaskProcessor";
+import {USimplifyTask} from "@union3d/worker/task/model/simplify/USimplifyTask";
+import {UWorkerParameter} from "@union3d/worker/util/UWorkerParameter";
+import {KDBush} from "@union3d/lib/kdbush/kdbush";
+import {Guid} from "@union3d/util/Guid";
 import {MeshSurfaceSampler} from "three/examples/jsm/math/MeshSurfaceSampler.js";
-import {Flatbush} from '/union3d/lib/flatbush/flatbush.js';
-import {U3dModelLayer} from "/union3d/3dLayer/U3dModelLayer.js";
-import {UFileLoader} from "/union3d/core/loader/UFileLoader.js";
-import {U3dQuadTileWork} from "/union3d/quadtree/U3dQuadTileWork.js";
+import {Flatbush} from '@union3d/lib/flatbush/flatbush';
+import {U3dModelLayer} from "@union3d/3dLayer/U3dModelLayer";
+import {UFileLoader} from "@union3d/core/loader/UFileLoader";
+import {U3dQuadTileWork} from "@union3d/quadtree/U3dQuadTileWork";
 import {U3dModelBasicLayer} from "@union3d/3dLayer/U3dModelBasicLayer.js";
 import {forceYield} from "@util/Yield.js";
 import {URaycaster} from "@URaycaster";
@@ -591,7 +591,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
     // 성공 시 json을, 실패/취소 시 false를 resolve 한다.
     #loadWfsJsonPage(tile, drawArg, tileGen, ctx, startIndex){
         const self = this;
-        const pagePromise = deferred();
+        const pagePromise = deferredPromise();
         if (!self.#isTileWfsWorkValid(tile, drawArg, tileGen)) {
             pagePromise.resolve(false);
             return pagePromise;
@@ -690,7 +690,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
             ? self.#loadWfsJsonPage(tile, drawArg, tileGen, ctx, pageInfo.nextStartIndex)
             : undefined;
 
-        const pagePromise = deferred();
+        const pagePromise = deferredPromise();
         self.parseModel(
             json,
             tile,
@@ -742,8 +742,8 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
                     return;
                 }
                 self.#processWfsJsonPage(tile, drawArg, tileGen, ctx, state, nextJson, finishWithDebug);
-            });
-        });
+            }).catch(() => { finishWithDebug(false, 'loadNextPageFailed'); });
+        }).catch(() => { finishWithDebug(false, 'parseModelFailed'); });
     }
 
     /**
@@ -2993,6 +2993,8 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
                     if(ok !== true) return;
                     if (!self._visible) return;
                     self.addTileFromScene(tile);
+                }).catch(error => {
+                    if (!self._disposed) __GInfo__(self, 'LOD 타일 갱신에 실패했습니다. ' + error, '306004');
                 });
             }else if(promise === true){
                 if (!self._visible) continue;
@@ -3133,7 +3135,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
 
 
         self._loadedModel = false;
-        self._initPromise = deferred();
+        self._initPromise = deferredPromise();
         const publicResolve = self._resolveReady.bind(self);
         const publicReject = self._rejectReady.bind(self);
 
@@ -3155,7 +3157,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
                 rejectInitialize(error);
             }
         }else{
-            const basicLoadPromise = deferred();
+            const basicLoadPromise = deferredPromise();
 
             // Basic initialize()는 완료 시 self._resolveReady()/self._rejectReady()를 호출합니다.
             // 해당 호출을 Basic 전용 deferred로 임시 연결하여 공개 layer.ready.then()이
@@ -3206,6 +3208,14 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
      */
     #createLodModels(publicResolve, publicReject){
         const self = this;
+        // Basic 완료 콜백은 나중에 실행됩니다. 그 사이 해제한 레이어를 빈 모델의
+        // 정상 완료로 취급하거나 새 LOD 생성 대상으로 사용하지 않습니다.
+        if (self._disposed) {
+            const error = new DOMException('LOD 초기화 중 레이어가 해제되었습니다.', 'AbortError');
+            self._initPromise?.reject(error);
+            publicReject?.(error);
+            return;
+        }
 
         if(!Array.isArray(self._listModel) || self._listModel.length === 0 || !self._initPromise){
             self._loadedModel = true;
@@ -3304,6 +3314,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
             const key = name+":"+level;
             const promise = self.#createLodInstancedMesh(object, name, level, options, [], {useDistanceLod})
             resultPromise.push(promise.then((result) => {
+                if (self._disposed) throw new DOMException('LOD 생성 중 레이어가 해제되었습니다.', 'AbortError');
                 const meshList = result.meshes;
                 if(meshList && meshList.length !== 0){
                     self.#state.lod.instancedMeshMap.set(key, meshList);
@@ -3315,6 +3326,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
 
         Promise.all(resultPromise)
             .then((list)=>{
+                if (self._disposed) throw new DOMException('LOD 표시 전에 레이어가 해제되었습니다.', 'AbortError');
                 self._loadedModel = true;
                 __GInfo__(self,`[ ${self.getName()} ] 레이어의 LOD 모델에 대한 정보로 객체 생성이 완료 되었습니다. `,'5546937');
 
@@ -3366,7 +3378,8 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
             self._drawArg = app._drawArg;
             self._quadtreeSet = app._quadtreeSet;
             if(self.isInitialize)
-                self.initialize();
+                // 이 경로는 공통 setApp을 거치지 않으므로 별도 초기화 작업도 여기서 관찰합니다.
+                self.initialize().catch(error => { self._rejectReady(error); });
             else{
                 U3dMultipleComponentLayer.prototype.initialize.call(self);
             }
@@ -3456,7 +3469,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
         self.#pruneTileGenerationMap();
 
         self.#state.tile.tileKeyMeshMap.set(tile._key, false); // init cacheMap
-        const endPromise = deferred();
+        const endPromise = deferredPromise();
         self.#setStateTileWithFeatureLod(tile, UDEF.TILE_STATE._loading);
 
         const baseUrl = self._baseUrl;
@@ -3497,7 +3510,10 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
             }
             self.#setStateTileWithFeatureLod(tile, UDEF.TILE_STATE._end);
             endPromise.resolve(true);
-        })
+        }).catch(error => {
+            if (self.#isTileGenValid(tile._key, tileGen)) self.#resetStateTileWithFeatureLod(tile);
+            endPromise.reject(error);
+        });
         return endPromise;
     }
 
@@ -3505,8 +3521,6 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
      * 레이어의 모델, 작업자, 캐시와 예약된 비동기 작업을 해제합니다.
      *
      * @override
-     *
-     * @returns {void} 반환값 없이 레이어가 소유한 리소스를 해제합니다.
      */
     dispose(){
         const self = this;
@@ -3519,6 +3533,9 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
         self.#state.lod.lodInfoMap.clear();
         self._listModel = {};
         self.#state.lod.lodCache.clear();
+        // 공유 Worker는 다른 레이어를 위해 계속 실행될 수 있습니다. 이 레이어의
+        // 대기만 먼저 끝내고 캐시를 비워 늦은 응답이 결과를 다시 반영하지 못하게 합니다.
+        for (const pending of self.#state.lod.cacheLodList.values()) pending.resolve();
         self.#state.lod.cacheLodList.clear();
         self.#state.lod.geometryCache.clear();
         self.#metaDataMap.clear();
@@ -3562,7 +3579,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
         self.#ensureWfsLoader();
         self.#initPagingDebug(tile, tileGen, ctx);
 
-        const promise = deferred();
+        const promise = deferredPromise();
         let finished = false;
 
         // state는 "현재 페이징 진행 상태"로, debug 표시 및 nextStartIndex 계산에 사용된다.
@@ -3592,7 +3609,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
                 return;
             }
             self.#processWfsJsonPage(tile, drawArg, tileGen, ctx, state, json, finishWithDebug);
-        });
+        }).catch(() => { finishWithDebug(false, 'loadFirstPageFailed'); });
 
         return promise;
     }
@@ -4054,6 +4071,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
 
     /**
      * 위치·회전·크기 목록으로 이름이 `name`인 모델의 인스턴스를 일괄 생성합니다.
+     * 생성 대기 중 인스턴스 전체 제거 또는 레이어 해제가 발생하면 결과를 반영하지 않고 값 없이 완료합니다.
      *
      * @param {Array<U3dLodComponentPositionInfo>} positionList 위치, 회전, 크기에 대한 내용이 담긴 목록 정보
      * @param {string} name 해당 정보로 생성하려는 모델의 이름
@@ -4062,8 +4080,13 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
     addPositionList(positionList, name) {
 
         const self = this;
+        const instanceRevision = self.#state.lifecycle.instanceRevision;
         const promises = [];
-        const resultPromise = deferred()
+        const resultPromise = deferredPromise();
+        if (self._disposed) {
+            resultPromise.resolve();
+            return resultPromise;
+        }
         if (!positionList || positionList.length === 0 || !name) {
             resultPromise.resolve();
             self.dispatchEvent({type: self.constructor.EVENT.CREATED, data: self});
@@ -4139,7 +4162,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
                     const result = child.userData.LODList;
                     const id = result.id;
                     const instancedMesh = self.#addInstancedMesh(child, id, name, infoList, result.LODList); // 인스턴스 mesh 생성
-                    const promise = deferred();
+                    const promise = deferredPromise();
                     promises.push(promise);
                     promise.resolve(instancedMesh);
                     return
@@ -4149,9 +4172,15 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
 
                 child.updateMatrixWorld();
                 if (lodPromise) {
-                    const promise = deferred();
+                    const promise = deferredPromise();
                     promises.push(promise);
                     lodPromise.then((result) => {
+                        // Worker 완료와 이 콜백 사이에도 전체 제거·해제가 가능합니다.
+                        // 기존 작업의 LOD 캐시와 메시를 새 인스턴스 세대에 반영하지 않습니다.
+                        if (self._disposed || instanceRevision !== self.#state.lifecycle.instanceRevision) {
+                            promise.resolve();
+                            return;
+                        }
                         if (!result) {
                             promise.resolve();
                             return;
@@ -4162,6 +4191,10 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
                         const instancedMesh = self.#addInstancedMesh(child, id, name, infoList, result.LODList); // 인스턴스 mesh 생성
                         promise.resolve(instancedMesh);
                     }).catch((e) => {
+                        if (self._disposed || instanceRevision !== self.#state.lifecycle.instanceRevision) {
+                            promise.resolve();
+                            return;
+                        }
                         __GInfo__(self, '생성 도중 에러가 발생하였습니다.' + e, '9229762');
                         promise.reject();
                     })
@@ -4171,9 +4204,14 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
         });
 
         Promise.all(promises).then((meshes) => {
+            // 각 메시 반영 후 집계 콜백 전에도 clear가 가능하므로 성공 이벤트 역시 보호합니다.
+            if (self._disposed || instanceRevision !== self.#state.lifecycle.instanceRevision) {
+                resultPromise.resolve();
+                return;
+            }
             resultPromise.resolve(meshes);
             self.dispatchEvent({type: self.constructor.EVENT.CREATED, data: meshes})
-        });
+        }).catch(resultPromise.reject);
 
         return resultPromise;
     }
@@ -4210,7 +4248,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
                 return promise;
             }
         }
-        const resultPromise = deferred();
+        const resultPromise = deferredPromise();
 
         let key = self.createKeyByTile(tile);
         const rawFeatures = json?.features;
@@ -4395,7 +4433,10 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
             }
             promise.resolve(true);
             return promise;
-        })
+        }).catch(error => {
+            if (self.#isTileGenValid(tile._key, tileGen)) self.#resetStateTileWithFeatureLod(tile);
+            promise.reject(error);
+        });
 
         option = {
             features:features,
@@ -5355,7 +5396,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
     /**
      * 즉시 반영이 필요한 visibility/LOD 상태를 처리한 뒤 무거운 정리 작업을 제거 큐에 등록합니다.
      * @param {string|number} tileKey 제거 대상 타일 식별자
-     * @param {Object3D[]} meshes 제거 대상 타일을 공유하는 InstancedMesh 목록
+     * @param {import('three').Object3D[]} meshes 제거 대상 타일을 공유하는 InstancedMesh 목록
      * @returns {object|undefined} 생성되어 등록된 제거 작업
      */
     #prepareTileInstanceRemoval(tileKey, meshes){
@@ -6459,8 +6500,8 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
      * @param {object} opt instance info (position, rotation, scale 등의 속성을 담고 있는 옵션)
      * @param {WorldPosition} opt.position  3D 월드 좌표
      * @param {GeoPosition} opt.geoPosition  위경도 좌표
-     * @param {Vector3} opt.rotation  회전 값
-     * @param {Vector3} opt.scale  크긱 값
+     * @param {import('three').Vector3} opt.rotation  회전 값
+     * @param {import('three').Vector3} opt.scale  크긱 값
      * @ignore
      */
     #addInstancedInfo(name, opt) {
@@ -6516,7 +6557,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
         return instanceInfo;
     }
     /** instanced mesh 생성, instanced mesh에 LOD  추가
-     * @param {Object3D} object instanced mesh 대상 객체
+     * @param {import('three').Object3D} object instanced mesh 대상 객체
      * @param {number} idx 해당 객체의 children의 생성된 순서의 id 추가
      * @param {string} name 대상 객체 이름
      * @param {Array} infoList 위치, 회전, 크기에 대한 정보 목록
@@ -7039,30 +7080,41 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
             geometry.dispose(); //simplified geometry 완료 후 제거
             simplifiedGeometry(simplifiedGeo, {ratio: U3dLodComponentLayer.optimizerRatio, error: U3dLodComponentLayer.optimizerError}).then((optimizeGeometry) =>{
                 simplifiedGeo.dispose?.(); //simplified geometry 완료 후 제거
-                optimizeGeometry.name = targetModelName + ':SIMPLIFIED';
+                try {
+                    // 최적화 대기 중 제거된 대상에는 새 LOD를 붙이지 않습니다.
+                    if (self._disposed || mesh._disposed) return;
+                    optimizeGeometry.name = targetModelName + ':SIMPLIFIED';
 
-                const requestedClusterCount = U3dLodComponentLayer.clusterCount ?? 128;
-                const requestedClusterEpsilon = U3dLodComponentLayer.pointEpsilonRatio ?? 0.0025
-                const steps = U3dLodComponentLayer.convexSteps ?? 4
-                let maxDistance = distance;
-                for (let i = 1; i < steps; i++) {
-                    const clusteredOpt = {
-                        geometry : optimizeGeometry,
-                        clusterCount : requestedClusterCount,
-                        minClusterCount : i,   // 클수록 부피감 증가
-                        pointEpsilonRatio : requestedClusterEpsilon,
+                    const requestedClusterCount = U3dLodComponentLayer.clusterCount ?? 128;
+                    const requestedClusterEpsilon = U3dLodComponentLayer.pointEpsilonRatio ?? 0.0025
+                    const steps = U3dLodComponentLayer.convexSteps ?? 4
+                    let maxDistance = distance;
+                    for (let i = 1; i < steps; i++) {
+                        const clusteredOpt = {
+                            geometry : optimizeGeometry,
+                            clusterCount : requestedClusterCount,
+                            minClusterCount : i,   // 클수록 부피감 증가
+                            pointEpsilonRatio : requestedClusterEpsilon,
+                        }
+                        const convexName = targetModelName+':CONVEX:'+i;
+                        //입력 geometry를 세분화 후 convexhull 작업하여 병합한 geoemtry를 반환합니다.
+                        const convexGeometry = createClusteredConvexGeometry(clusteredOpt);
+                        convexGeometry.name = convexName;
+                        mesh.addLOD(convexGeometry, material, distance * i ,0);
+                        maxDistance = Math.max(distance * i, maxDistance);
                     }
-                    const convexName = targetModelName+':CONVEX:'+i;
-                    //입력 geometry를 세분화 후 convexhull 작업하여 병합한 geoemtry를 반환합니다.
-                    const convexGeometry = createClusteredConvexGeometry(clusteredOpt);
-                    convexGeometry.name = convexName;
-                    mesh.addLOD(convexGeometry, material, distance * i ,0);
-                    maxDistance = Math.max(distance * i, maxDistance);
+                    self.#setAfterLodChild(mesh, maxDistance);
+                } finally {
+                    // 후처리가 실패하거나 대상이 해제되어도 미사용 최적화 결과를 한 번 정리합니다.
+                    optimizeGeometry.dispose();
                 }
-                optimizeGeometry.dispose(); //사용 후 제거
-                self.#setAfterLodChild(mesh, maxDistance);
-
-            })
+            }, error => {
+                // 최적화 자체가 실패했을 때만 입력을 정리합니다. 성공 후처리 실패와 분리해 이중 해제를 막습니다.
+                simplifiedGeo.dispose?.();
+                throw error;
+            }).catch(error => {
+                __GInfo__(self, 'LOD 최적화에 실패했습니다. ' + error, '306005');
+            });
             return true;
         }catch (e) {
             __GInfo__(self, `[${targetModelName}] 해당 모델의 압축이 정상적으로 완료되지 않았습니다.`, '3291248');
@@ -7174,18 +7226,24 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
         };
     }
     /**
-     * option setLodOption() 호출로 설정한 LOD 정보의 값을 기반으로 압축을 진행하는 함수 ( webworker 필요 )
-     * @param {THREE.BufferGeometry} geometry 압축 대상 geometry
-     * @param {THREE.Material} material 압축 대상 material ( 압축 진행시 MeshLambertMaterial 변경하여 생성 )
-     * @param {object | undefined} options setLodOption 설정시 속성값 내용, 압축정보를 담은 내용. 기본값 {}
-     * @param {number} idx 해당 객체의 children의 생성된 순서의 id 추가
-     * @return {promise} 압축된 geometry 배열 반환
+     * 설정한 LOD 단계에 따라 Worker에서 geometry를 단순화하고 같은 키의 결과를 공유합니다.
+     * 해제되었거나 캐시에서 교체된 작업은 결과를 반영하지 않고 값 없이 완료합니다.
+     *
+     * @param {import('three').BufferGeometry} geometry 단순화할 geometry
+     * @param {import('three').Material} material 호출자가 전달한 재질. 이 단계에서는 사용하지 않습니다.
+     * @param {object | undefined} options LOD 설정. undefined이면 빈 설정 객체를 사용합니다.
+     * @param {number} idx 원본 모델의 자식 순번
+     * @returns {Promise<{LODList: Array<{geometry: import('three').BufferGeometry, distance: number}>, id: number} | undefined>} 거리순 LOD 결과. 해제·교체한 작업은 undefined로 완료합니다.
+     *
      * @ignore
      */
     #generateLODs(geometry, material, options = {}, idx) {
-        // Web Worker가 지원되지 않으면 동기 버전으로 폴백
         const self = this;
-        const promise = deferred(); // webworker LOD 생성 작업 완료 promise
+        const promise = deferredPromise(); // webworker LOD 생성 작업 완료 promise
+        if (self._disposed) {
+            promise.resolve();
+            return promise;
+        }
         let option = self.#getLodInfoByGeometry(geometry, options);
         if(!option){
             __GInfo__(self, 'Lod의 정보가 올바르지 않아 LOD 생성이 불가능합니다.', '5449078');
@@ -7244,20 +7302,32 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
                     id: key
                 }
             })).then((result) => {
+                // 전체 해제는 캐시를 비우며, 같은 키의 새 작업은 다른 Promise를 갖습니다.
+                // 아직 쓸 수 있는 결과인지 먼저 확인하여 불필요한 geometry 생성도 막습니다.
+                if (self._disposed || self.#state.lod.cacheLodList.get(key) !== promise) {
+                    promise.resolve();
+                    return;
+                }
                 const lodList = result.map((lod) => ({//result.LODList
                     geometry: self.#geometryFromJSON(lod.geometry), //json 형태로 넘어와서 다시 geometry로 변환
                     distance: lod.distance,
                 }));
-                if (!self.#state.lod.cacheLodList.has(key))
-                    self.#state.lod.cacheLodList.set(key, promise);
-
                 lodList.sort((a, b) => a.distance - b.distance); // 가까운 순서로 거리 정렬
                 promise.resolve({LODList: lodList, id: idx});
+            }).catch(error => {
+                if (self._disposed || self.#state.lod.cacheLodList.get(key) !== promise) {
+                    promise.resolve();
+                    return;
+                }
+                // 실패한 회차만 제거하여 다음 요청이 다시 시도할 수 있게 합니다.
+                self.#state.lod.cacheLodList.delete(key);
+                promise.reject(error);
             });
 
             return promise;
         } catch (error) {
-            //webworker 생성 도중 실패시 메인 스레드에서 진행
+            // 전송 자체가 동기적으로 실패해도 실패한 Promise를 캐시에 남기지 않습니다.
+            if (self.#state.lod.cacheLodList.get(key) === promise) self.#state.lod.cacheLodList.delete(key);
             __GError__(' WebWorker로 LOD 및 압축된 geometry 생성 도중 에러가 발생하였습니다. ' + error, '3919915');
             promise.reject();
             return promise;
@@ -7481,7 +7551,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
 
     /**
      * 메시 수명 동안 유지할 컬링 캐시와 재사용 context를 생성합니다.
-     * @param {Object3D} mesh 컬링 상태를 소유할 UInstancedMesh
+     * @param {import('three').Object3D} mesh 컬링 상태를 소유할 UInstancedMesh
      * @param {boolean} disableSearchIndex 공간 검색 인덱스를 사용하지 않는지 여부
      * @returns {object} main/shadow 캐시와 hot loop context를 포함한 메시 컬링 상태
      */
@@ -7997,7 +8067,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
 
     /**
      * 사용 가능한 후보 구조의 우선순위에 따라 실제 인스턴스 후보를 순회합니다.
-     * @param {Object3D} mesh 후보 구조를 소유한 UInstancedMesh
+     * @param {import('three').Object3D} mesh 후보 구조를 소유한 UInstancedMesh
      * @param {object} cullingState 검색 정책을 포함한 메시 컬링 상태
      * @param {object} context 준비된 컬링 hot loop context
      * @returns {void}
@@ -8287,7 +8357,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
     #getInstancedMesh(modelName, infoList, tile){
         const self = this;
         const instancedCache = self.#state.lod.instancedMeshMap;
-        const resultPromise = deferred();
+        const resultPromise = deferredPromise();
         const instanceRevision = self.#state.lifecycle.instanceRevision;
         const level = tile._rlevel;
         const useDistanceLod = self.#shouldUseTileDistanceLod(modelName);
@@ -8392,7 +8462,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
             if (child.isMesh && child.geometry.getAttribute('position')) {
 
                 if(modelContext){
-                    const promise = deferred();
+                    const promise = deferredPromise();
                     const id = idx;
                     const mesh = self.#addInstancedDistanceLODMesh(child, id, name, level, infoList, undefined, {
                         modelContext,
@@ -8419,7 +8489,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
                     child.userData.LODList = self.#state.lod.lodCache.get(cacheKey);
                     const result = child.userData.LODList;
                     const id = result.id;
-                    const promise = deferred();
+                    const promise = deferredPromise();
                     const mesh = useDistanceLod
                         ? self.#addInstancedDistanceLODMesh(child, id, name, level, infoList, result.LODList)
                         : self.#addInstancedLODMesh(child, id, name,level, infoList, result.LODList); // 인스턴스 mesh 생성
@@ -8434,7 +8504,7 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
                 }, idx, name); //lod geometry 생성
                 child.updateMatrixWorld();
                 if (lodPromise) {
-                    const promise = deferred();
+                    const promise = deferredPromise();
                     promises.push(promise);
                     lodPromise.then((result) => {
                         if(instanceRevision !== self.#state.lifecycle.instanceRevision){
@@ -8677,11 +8747,11 @@ class U3dLodComponentLayer extends U3dMultipleComponentLayer {
 
     /**
      * 인스턴스 메시의 LOD 지오메트리를 추가하고 인스턴스를 설정합니다.
-     * @param {UInstancedMesh} mesh - LOD를 추가할 인스턴스 메시 객체.
+     * @param {import('@union3d/core/mesh/UInstancedMesh').UInstancedMesh} mesh - LOD를 추가할 인스턴스 메시 객체.
      * @param {array<object>} LODList - 각 LOD 레벨에 대한 정보(지오메트리, 거리 등)를 담은 배열.
      * @param {number} length - 인스턴스의 총 개수.
      * @param {array<Object>} infoList - 각 인스턴스의 위치, 회전, 스케일 정보를 담은 배열.
-     * @param {Object3D} child - 원본 메시의 자식 객체.
+     * @param {import('three').Object3D} child - 원본 메시의 자식 객체.
      */
     #addLodGeometry(mesh, LODList, length, infoList, child) {
         const self = this;

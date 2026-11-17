@@ -1244,7 +1244,7 @@
                     // 모델이 제대로 불러와졌는지 검사
                     const loadedModelInfo = componentLayer.getModelInfo(useModelInfo.name , useModelInfo.baseurl)
                     if( loadedModelInfo ){
-                        loadedModelInfo.then(async () => {
+                        loadedModelInfo.ready.then(async () => {
                             if (useTruePath) {
                                 await createComponent(name, list[0].x, list[0].y, list[0].z, list, pitchlist, true, false, useTruePath);
                                 addSelectOption(name);
@@ -1259,7 +1259,7 @@
                             $('.move').trigger('click');
 
                             app.endloadingBar();
-                        });
+                        }).catch(error => { console.error('모델 준비 실패', error); });
                     } else {
                         componentLayer.loadModel(useModelInfo).then(async () => {
                             if (useTruePath) {

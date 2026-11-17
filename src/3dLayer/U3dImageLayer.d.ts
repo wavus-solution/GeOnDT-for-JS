@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -15,14 +15,13 @@ import type { UTexture } from "../core/texture/UTexture.js";
 import type { UShaderTerrainDecalManager } from "../manager/terrain/UShaderTerrainDecalManager.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { LRUCache } from "../util/LRUCache.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /**
  * ~extends import('@U3dLayer').U3dLayer <br>
  * 영상 데이터를 가시화 시키는 이미지 레이어 클래스
  *
  * @group 3dLayer
- *
  * @extends {U3dLayer}
  */
 declare class U3dImageLayer extends U3dLayer {
@@ -308,11 +307,11 @@ declare class U3dImageLayer extends U3dLayer {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 텍스처를 적용할 타일
      * @param {import('@UDrawArg').UDrawArg} drawArg DrawArg
      * @param {string} url 텍스처 URL
-     * @param {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} [promise=deferred()] 작업 진행 상황을 전달할 deferred. 생략 시 내부에서 생성합니다.
+     * @param {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} [promise=deferredPromise()] 작업 진행 상황을 전달할 deferred. 생략 시 내부에서 생성합니다.
      * @param {ImageTextureProcessOptions} [options] 하위 이미지 레이어가 선택하는 요청 처리 옵션
      * @returns {Promise<import('@U3dQuadTile').U3dQuadTile>} 작업 완료 시 resolve 되는 deferred 객체
      */
-    processTexture(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise?: DeferredObject<U3dQuadTile>, options?: ImageTextureProcessOptions): Promise<U3dQuadTile>;
+    processTexture(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise?: DeferredPromise<U3dQuadTile>, options?: ImageTextureProcessOptions): Promise<U3dQuadTile>;
     /**
      * 요청별 논리 취소와 구세대 callback 차단을 적용한 이미지 타일 처리 경로입니다. <br>
      * 일반 래스터 이미지는 `UTextureLoader`의 전용 AbortController로 네트워크 요청까지 중단합니다. PBF/MVT
@@ -324,12 +323,12 @@ declare class U3dImageLayer extends U3dLayer {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 텍스처를 적용할 타일
      * @param {import('@UDrawArg').UDrawArg} drawArg DrawArg
      * @param {string} url 텍스처 URL
-     * @param {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} promise 작업 deferred
+     * @param {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} promise 작업 deferred
      * @returns {Promise<import('@U3dQuadTile').U3dQuadTile>} 작업 deferred
      *
      * @ignore
      */
-    _processTextureCancelable(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredObject<U3dQuadTile>): Promise<U3dQuadTile>;
+    _processTextureCancelable(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredPromise<U3dQuadTile>): Promise<U3dQuadTile>;
     /**
      * 요청별 실제 네트워크 취소를 사용하지 않는 기존 이미지 로딩 구현입니다. <br>
      * `processTexture(..., {abortNetwork:false})`를 명시한 특수 하위 레이어가 기존 로더와 callback 수명 규칙을
@@ -338,12 +337,12 @@ declare class U3dImageLayer extends U3dLayer {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 텍스처를 적용할 타일
      * @param {import('@UDrawArg').UDrawArg} drawArg DrawArg
      * @param {string} url 텍스처 URL
-     * @param {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} promise 작업 deferred
+     * @param {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} promise 작업 deferred
      * @return {Promise<import('@U3dQuadTile').U3dQuadTile>} 작업 deferred
      *
      * @ignore
      */
-    _processTextureLegacy(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredObject<U3dQuadTile>): Promise<U3dQuadTile>;
+    _processTextureLegacy(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredPromise<U3dQuadTile>): Promise<U3dQuadTile>;
     /**
      * 매쉬의 머터리얼과 텍스처 맵을 해제합니다. <br>
      *
@@ -387,7 +386,7 @@ declare class U3dImageLayer extends U3dLayer {
      * @override
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 타일
-     * @return {boolean} 작업 성공 여부. 성공하면 true, 실패면 false.
+     * @returns {boolean} 준비된 타일을 부착하면 true, 준비 대기 또는 부착 불가이면 false입니다.
      *
      * @ignore
      */
@@ -432,10 +431,10 @@ declare class U3dImageLayer extends U3dLayer {
      * 자식 타일의 텍스처 로드에 실패했거나, burnLevels 에 지정된 레벨일 때 사용됩니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 텍스처를 생성할 자식 타일
-     * @returns {boolean | DeferredObject<import('@U3dQuadTile').U3dQuadTile> | undefined} 생성 성공 시 `true`, 실패 시 `undefined` 를 반환합니다. <br>
-     * 하위 레이어는 성공을 그 타일로 이행되는 Promise 호환 객체(`DeferredObject`)로 알릴 수 있으며, 호출부는 반환값을 참·거짓으로만 판정합니다.
+     * @returns {boolean | Promise<import('@U3dQuadTile').U3dQuadTile> | undefined} 생성 성공 시 `true`, 실패 시 `undefined` 를 반환합니다. <br>
+     * 하위 레이어는 성공을 그 타일로 이행되는 Promise 호환 객체(`DeferredPromise`)로 알릴 수 있으며, 호출부는 반환값을 참·거짓으로만 판정합니다.
      */
-    createParentTexture(tile: U3dQuadTile): boolean | DeferredObject<U3dQuadTile> | undefined;
+    createParentTexture(tile: U3dQuadTile): boolean | Promise<U3dQuadTile> | undefined;
     /**
      * 입력 받은 타일에 텍스처를 생성/적용할지 여부를 판단하여 작업을 시작합니다. <br>
      * 가시화 여부, 레벨, BoundingBox 교차, burnLevels 등을 검사하여 텍스처 생성 흐름을 분기합니다.

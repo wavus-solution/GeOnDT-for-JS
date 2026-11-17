@@ -1,0 +1,114 @@
+.bim-sequence-panel{width:min(480px,calc(100vw - 90px));max-height:calc(100vh - 220px)}
+.bim-sequence-panel .panel-content{overflow:auto}
+.bim-sequence-panel details{margin:10px 0;border-top:1px solid #bed2df;padding-top:10px}
+.bim-sequence-panel summary{cursor:pointer;font-weight:700}
+.bim-sequence-panel label{display:block;margin:8px 0;font-size:12px}
+.bim-sequence-panel input:not([type=file]),.bim-sequence-panel select{display:block;box-sizing:border-box;width:100%;padding:6px}
+.bim-sequence-panel .bim-actions{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.bim-sequence-panel button{cursor:pointer;padding:7px 10px}
+.bim-sequence-panel button:disabled{cursor:default;opacity:.5}
+.bim-sequence-panel .bim-vector{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.bim-sequence-panel [role=status]{white-space:pre-wrap;overflow-wrap:anywhere}
+.bim-sequence-bottom{position:fixed;bottom:0;left:0;right:0;margin:0;z-index:20;background:#162232;color:#edf5ff;min-height:58px}
+.bim-sequence-bottom [data-sequence=timeline]>p{padding:12px 24px;margin:0}
+@media(max-width:650px){.bim-sequence-panel{max-height:calc(100vh - 270px)}}
+
+.bim-sequence-panel input:not([type=file]),.bim-sequence-panel select,.bim-sequence-panel button{color:#173247;background:#f4f8fc;border:1px solid #94b4c9;border-radius:4px}
+
+.bim-sequence-panel .panel-close{padding:0;color:inherit;background:transparent;border:0}
+.bim-sequence-bottom .u-sequence-toolbar button{color:#173247;background:#f4f8fc;border:1px solid #94b4c9;border-radius:4px}
+
+/* 교량 재생 페이지에서는 코드 편집 진입 버튼을 표시하지 않습니다. */
+#example-viewer:has(.bim-sequence-bottom) > .editor-mode-toggle,body:has(.bim-sequence-bottom) [data-editor-edge-toggle]{display:none!important}
+
+/* 지도는 전체 화면 크기를 유지하고 타임라인만 하단에 겹쳐 접습니다. */
+#example-viewer:has(.bim-sequence-bottom) #map-wrapper{height:100%;bottom:0}
+.bim-sequence-bottom{max-height:calc(100dvh - 120px);overflow-y:auto;overscroll-behavior:contain}
+.bim-sequence-bottom .u-sequence-timeline{padding-bottom:0}
+.bim-sequence-bottom .u-sequence-timeline [role=status]:empty{display:none}
+.bim-sequence-bottom .u-sequence-timeline .u-sequence-widgets{min-width:0;align-items:flex-end}
+.bim-sequence-bottom .u-sequence-timeline .u-sequence-time-area{min-width:0;flex:1}
+.bim-sequence-bottom .u-sequence-timeline .u-sequence-time-track{box-sizing:border-box;height:80px;padding:0 32px;overflow:hidden}
+.bim-sequence-bottom .u-timeline-range{box-sizing:border-box;height:100%;overflow:visible}
+@media(max-width:650px){.bim-sequence-bottom .u-sequence-axis{min-width:120px}.bim-sequence-bottom .u-sequence-axis input{width:125px}}
+@media(max-width:480px){.bim-sequence-bottom .u-sequence-widgets{flex-direction:column;align-items:stretch}.bim-sequence-bottom .u-sequence-animation{align-self:center}.bim-sequence-bottom .u-sequence-time-area{width:100%}}
+
+/* 속성 패널은 기존 오른쪽 레일의 표시·닫기 동작을 공유합니다. */
+.bim-property-panel{width:min(420px,calc(100vw - 90px));max-height:max(160px,calc(100dvh - var(--bim-timeline-height,250px) - 90px))}
+.bim-property-panel .panel-content{overflow:auto;min-height:0}
+.bim-property-panel .panel-close{padding:0;color:inherit;background:transparent;border:0}
+.u-sequence-property-panel{font-size:12px;color:#edf5ff;overflow-wrap:anywhere}
+.u-sequence-property-panel select{box-sizing:border-box;max-width:100%;width:100%;padding:7px;color:#173247;background:#f4f8fc;border:1px solid #94b4c9;border-radius:4px}
+.u-sequence-property-status{margin:0 0 10px;color:#c0e6ff}
+.u-sequence-property-group{margin:8px 0;border:1px solid #789bad66;border-radius:5px;padding:7px}
+.u-sequence-property-group>summary{cursor:pointer;font-weight:700;color:#d6efff}
+.u-sequence-property-row{display:grid;grid-template-columns:minmax(90px,.8fr) minmax(0,1.2fr);gap:10px;padding:6px 0;border-bottom:1px solid #abc8d533}
+.u-sequence-property-name{color:#c3d9e7}
+.u-sequence-property-value{margin:0;white-space:pre-wrap;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+/* 본문 높이만 접어 Clock·위젯·축별 값은 유지합니다. */
+.bim-timeline-toggle{display:block;position:sticky;top:0;z-index:1;width:100%;min-height:34px;padding:7px 12px;border:0;border-top:1px solid #7db3d0;border-bottom:1px solid #7db3d044;background:#233c50;color:#edf5ff;font:600 12px sans-serif;text-align:center;cursor:pointer}
+.bim-timeline-toggle:hover{background:#2c4a61}
+.bim-timeline-toggle:focus-visible{outline:2px solid #75d4ff;outline-offset:-3px}
+.bim-timeline-content{display:grid;grid-template-rows:1fr;opacity:1;transition:grid-template-rows .25s ease,opacity .2s ease}
+.bim-timeline-content>[data-sequence=timeline]{min-height:0;overflow:hidden}
+.bim-sequence-bottom[data-collapsed=true] .bim-timeline-content{grid-template-rows:0fr;opacity:0}
+@media(prefers-reduced-motion:reduce){.bim-timeline-content{transition:none}}
+
+/* 왼쪽 투명도 패널은 지도 공간 안에서 스크롤하고 선택 속성은 그 위에 표시합니다. */
+#example-viewer:has(.bim-sequence-bottom) .u-sequence-opacity-panel{max-height:max(96px,calc(100dvh - var(--bim-timeline-height,250px) - 106px));overflow-y:auto}
+.bim-property-panel{z-index:45}
+
+.bim-sequence-bottom[data-collapsed=true]{min-height:0}
+
+/* 왼쪽 설정과 부재 목록은 같은 도크에서 표시만 전환하고 위젯 수명을 유지합니다. */
+.bim-left-dock{position:absolute;z-index:35;top:90px;left:16px;width:min(320px,calc(100% - 100px));max-height:calc(100dvh - var(--bim-timeline-height,177px) - 106px);overflow:auto;background:#142331ed;color:#edf5ff;border:1px solid #688aa2;border-radius:10px;box-shadow:0 8px 24px #0004;font:13px/1.5 sans-serif;pointer-events:auto}
+.bim-left-tabs{display:flex;position:sticky;top:0;z-index:1;background:#1c3548;border-bottom:1px solid #688aa2}
+.bim-left-tabs>button{flex:1;padding:10px 8px;border:0;background:transparent;color:#d5e7f3;cursor:pointer;white-space:nowrap}
+.bim-left-tabs>button[aria-selected=true]{background:#315b72;color:#fff;box-shadow:inset 0 -3px #75d4ff}
+.bim-left-dock [role=tabpanel][hidden]{display:none!important}
+#example-viewer:has(.bim-sequence-bottom) .bim-left-dock .u-sequence-opacity-panel{position:static;width:100%;max-width:none;max-height:none;border:0;background:transparent;box-shadow:none;border-radius:0}
+.u-sequence-object-list{padding:12px;overflow-wrap:anywhere}
+.u-sequence-object-list h2{font-size:14px;margin:0 0 10px}
+.u-sequence-object-list label{display:block;font-size:12px;margin:8px 0}
+.u-sequence-object-list select,.u-sequence-object-list input{display:block;box-sizing:border-box;width:100%;margin-top:4px;padding:6px;border:1px solid #94b4c9;border-radius:4px;background:#edf5ff;color:#173247}
+.u-sequence-object-list [role=status]{font-size:11px;color:#b8d3e3;margin:8px 0}
+.u-object-list-fields{padding-bottom:8px;border-bottom:1px solid #688aa288}
+.u-object-list-tree summary,.u-object-list-fields>summary{cursor:pointer;padding:5px 0;font-weight:600}
+.u-object-list-kind>.u-object-list-group{margin-left:12px}
+.u-object-list-item{display:block;box-sizing:border-box;width:100%;padding:7px 8px;margin:3px 0;text-align:left;background:#243e50;color:#edf5ff;border:1px solid #688aa277;border-radius:4px;cursor:pointer}
+.u-object-list-item:hover,.u-object-list-item[aria-pressed=true]{background:#396981;border-color:#75d4ff}
+.u-object-list-item>span{display:block;font-variant-numeric:tabular-nums}
+.u-object-list-item>small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#bbd4e4;font-size:10px}
+.bim-left-tabs>button:focus-visible,.u-object-list-item:focus-visible{outline:2px solid #75d4ff;outline-offset:-2px}
+@media(max-height:520px){.bim-left-dock{top:60px;max-height:calc(100dvh - var(--bim-timeline-height,177px) - 70px)}}
+
+/* 미리 등록한 레이어 목록을 표시하고 주소 입력은 기본적으로 접어 둡니다. */
+.bim-layer-panel{padding:14px 12px}
+.bim-layer-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.bim-layer-heading h2{font-size:14px;margin:0}
+.bim-layer-count{padding:2px 9px;border:1px solid #78b9db66;border-radius:20px;background:#315b7266;color:#bde9ff;font-size:11px;font-variant-numeric:tabular-nums}
+.bim-layer-description{margin:8px 0 14px;color:#bfd4e3;font-size:12px}
+.bim-layer-list{list-style:none;padding:0;margin:0 0 14px}
+.bim-layer-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border:1px solid #688aa288;border-radius:7px;background:#203b4d55}
+.bim-layer-item+.bim-layer-item{margin-top:7px}
+.bim-layer-name{flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px}
+.bim-layer-add{padding:10px;border:1px solid #688aa288;border-radius:7px;background:#203b4d55}
+.bim-layer-add>summary{cursor:pointer;font-weight:600;font-size:12px}
+.bim-layer-add[open]>summary{padding-bottom:2px}
+.bim-layer-panel label{display:block;margin:10px 0 0;font-size:11px;color:#d4e7f3}
+.bim-layer-panel input{display:block;box-sizing:border-box;width:100%;min-width:0;margin-top:5px;padding:8px;border:1px solid #94b4c9;border-radius:5px;background:#edf5ff;color:#173247;font:12px sans-serif}
+.bim-layer-panel input::placeholder{color:#6a7f8e}
+.bim-layer-panel button{padding:7px 9px;border:1px solid #7499b0;border-radius:5px;background:#315b72;color:#eef8ff;font:11px sans-serif}
+.bim-layer-panel button:disabled,.bim-layer-panel input:disabled{opacity:.5;cursor:not-allowed}
+.bim-layer-panel .bim-layer-move{display:grid;place-items:center;flex:none;width:34px;height:34px;padding:6px;cursor:pointer}
+.bim-layer-move svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
+.bim-layer-move:hover{background:#427a96}
+.bim-layer-add-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:10px}
+.bim-layer-format{padding:2px 6px;border-radius:4px;background:#75d4ff1a;color:#a9def8;font-size:10px;letter-spacing:.03em}
+.bim-layer-panel .bim-layer-note{margin:9px 0 0;color:#aac5d7;font-size:11px;line-height:1.6}
+.bim-layer-panel input:focus-visible,.bim-layer-add>summary:focus-visible,.bim-layer-move:focus-visible{outline:2px solid #75d4ff;outline-offset:2px}
+
+/* 레이어 표시 토글을 이동 버튼 앞에 고정합니다. */
+.bim-layer-panel .bim-layer-visibility{flex:none;min-width:48px;padding:7px 5px;cursor:pointer}
+.bim-layer-visibility[aria-pressed=true]{background:#337b9f;border-color:#9fddff}
+.bim-layer-visibility:focus-visible{outline:2px solid #75d4ff;outline-offset:2px}

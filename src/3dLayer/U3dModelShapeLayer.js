@@ -15,7 +15,7 @@ import {UGroup} from '@union3d/core/UGroup';
 import {UMercator} from '@union3d/math/UMercator';
 import {__GError__, __GInfo__, U3dMessage} from '@union3d/message/U3dMessage';
 import {INTERNAL} from '@union3d/3dLayer/U3dModelShapeLayer.internal';
-import {deferred} from "@union3d/util/deferred";
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import {UTextureLoader} from "@union3d/core/loader/UTextureLoader";
 import {U3dPoint} from "@union3d/geometry/U3dPoint";
 import {UDefaultSource} from "@union3d/source/UDefaultSource";
@@ -254,8 +254,8 @@ class U3dModelShapeLayer extends U3dModelLayer {
         const self = this;
         if (!defined(url) || !Array.isArray(self._textureUrl) || index < 0 || index >= self._textureUrl.length) return;
 
-        /** @type {DeferredObject<void>} */
-        let promise = deferred();
+        /** @type {DeferredPromise<void>} */
+        let promise = deferredPromise();
         await loadTexture.call(self, url).then(() => {
             delete self._texture[/** @type {Array<string>} */ (self._textureUrl)[index]];
             /** @type {Array<string>} */ (self._textureUrl).splice(index, 1, url);
@@ -401,9 +401,10 @@ class U3dModelShapeLayer extends U3dModelLayer {
                     label: getLabelText_.call(self, mesh)
                 }
                 self.createLabel(mesh, labelOpt).then(()=>{
+                    if (self._disposed || !mesh.parent || !mesh.userData.label) return;
                     /** @type {import('@U3dPOI').U3dPOI} */ (mesh.userData.label).show();
                     self._drawArg._app._sceneComment.add(mesh.userData.label);
-                })
+                }).catch(error => { __GError__(self, '건물 라벨 표시 실패: ' + error, '306007'); });
             }
         }
 
@@ -475,38 +476,22 @@ class U3dModelShapeLayer extends U3dModelLayer {
      * 기존 건물은 유지하며 컬렉션과 피처에 Mesh와 연결되는 `uuid`를 기록합니다.
      *
      * @param {U3dModelShapeFeatureCollection} featureCollection 피처 정보 묶음(FeatureCollection)
-     * @returns {Promise<Array<U3dModelShapeMesh> | undefined> | undefined} 처리할 Feature가 즉시 모두 끝나면 내부 전체 건물 목록으로 완료되는 Promise. <br>
-     * 처리 중인 Feature가 남거나 예외가 나면 거부되며, 입력이 없으면 `undefined`
+     * @returns {Promise<Array<U3dModelShapeMesh> | undefined> | undefined} 모든 Feature 처리가 끝나면 내부 전체 건물 목록으로 완료되는 Promise. <br>
+     * 개별 생성 또는 경계 계산에 실패하면 거부되며, 입력이 없으면 `undefined`
      */
     addFeatureCollection(featureCollection) {
-        const self = this;
-        if (defined(featureCollection)) {
-            featureCollection.uuid =  UDEF.createUUID();
-            self._featureCollection.push(featureCollection)
-        } else {
-            return;
-        }
-        /** @type {DeferredObject<Array<U3dModelShapeMesh> | undefined>} */
-        const promise = deferred();
-
-        try{
-            //self._remainProcess = self._featureCollection.features.length;
-            for (const feature of featureCollection.features) {
-                self.addFeature(feature); // 기존 계약에 따라 개별 반환 대기 객체는 기다리지 않습니다.
-            }
-
-            if (self._remainProcess === 0) {
-                promise.resolve(self._modelList);
-                self._boundingBox = new THREE.Box3().setFromObject(self._shpGroup);
-            } else {
-                promise.reject()
-            }
-        }catch (e){
-            promise.reject();
-        }
-
-        return promise;
-
+        if (!defined(featureCollection)) return;
+        featureCollection.uuid = UDEF.createUUID();
+        this._featureCollection.push(featureCollection);
+        try {
+            // 개별 생성 실패를 수집하여 처리되지 않은 거부가 남거나 전체가 성공으로 보이지 않게 합니다.
+            const tasks = featureCollection.features.map(feature => this.addFeature(feature));
+            return Promise.all(tasks).then(() => {
+                if (this._disposed) throw new DOMException('피처 생성 중 레이어가 해제되었습니다.', 'AbortError');
+                this._boundingBox = new THREE.Box3().setFromObject(this._shpGroup);
+                return this._modelList;
+            });
+        } catch (error) { return Promise.reject(error); }
     }
 
     /**
@@ -522,8 +507,8 @@ class U3dModelShapeLayer extends U3dModelLayer {
         if (!defined(feature?.geometry) || !Array.isArray(feature.geometry.coordinates) || feature.geometry.coordinates.length === 0) {
             return;
         }
-        /** @type {DeferredObject<U3dModelShapeMesh>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<U3dModelShapeMesh>} */
+        const promise = deferredPromise();
         self._remainProcess++;
 
         try{
@@ -692,7 +677,7 @@ class U3dModelShapeLayer extends U3dModelLayer {
                             let labelOpt = {
                                 label: getLabelText_.call(this, mesh)
                             }
-                            self.createLabel(mesh, labelOpt);
+                            self.createLabel(mesh, labelOpt).catch(error => { __GError__(self, '건물 라벨 생성 실패: ' + error, '306006'); });
                         }
                         mesh.userData.landHeight = realLandHeight;
                         mesh.userData.buildHeight = depth;
@@ -716,14 +701,6 @@ class U3dModelShapeLayer extends U3dModelLayer {
                         } catch (e) {
                             console.error("make mesh land height is fail. because " + /** @type {Error} */ (e).message);
                         }
-
-                        const google = pts[0].clone();
-                        // google.add(pts[Math.floor(pts.length*(1/3))]);
-                        // google.add(pts[Math.floor(pts.length*(2/3))]);
-                        // google.subScalar(3);
-                        //
-                        // const google = self._drawArg.getWorldToGoogle(world.x, world.y);
-                        mesh.userData.id = feature.id || (UDEF.createGoogleKey(google.x, google.y) + '_' + mesh.position.z.toFixed(2));
 
                         //mesh 스타일 설정
                         setStyle.call(self, mesh);
@@ -774,6 +751,8 @@ class U3dModelShapeLayer extends U3dModelLayer {
         }
 
 
+        // 유효한 메시를 만들지 못한 퇴화 도형도 대기 상태로 남기지 않습니다.
+        if (!promise.isReady()) promise.reject(new Error('건물 메시를 생성할 수 없는 도형입니다.'));
         return promise;
     }
 
@@ -1204,7 +1183,7 @@ class U3dModelShapeLayer extends U3dModelLayer {
                 self._shpGroup.remove(model);
                 self.removeScene(model);
 
-                let modelId = model.uuid // model.userData.id
+                let modelId = model.uuid;
                 let keys = Object.keys(self._indexAtModel[modelId]);
                 for(let key of keys) {
                     let list = self._indexAtTile[key];
@@ -1743,8 +1722,8 @@ class U3dModelShapeLayer extends U3dModelLayer {
      */
     animateInterval(interval, x, y, z) {
         let self = this;
-        /** @type {DeferredObject<void>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<void>} */
+        const promise = deferredPromise();
         if (!defined(interval) || !Number.isFinite(interval) || interval <= 0) {
             return;
         }
@@ -2180,8 +2159,8 @@ class U3dModelShapeLayer extends U3dModelLayer {
      * @returns {Promise<void>} 라벨을 만들면 완료되고 mesh가 없거나 라벨을 만들지 못하면 거부되는 Promise
      */
     createLabel(mesh, opt) {
-        /** @type {DeferredObject<void>} */
-        let promise = deferred();
+        /** @type {DeferredPromise<void>} */
+        let promise = deferredPromise();
         if (!defined(mesh)) {
             promise.reject();
             return promise;
@@ -2334,16 +2313,22 @@ function setMeshHeight (mesh, height) {
  */
 function loadTexture(textureUrl) {
     let self = this;
-    /** @type {DeferredObject<void>} */
-    let promise = deferred();
+    /** @type {DeferredPromise<void>} */
+    let promise = deferredPromise();
     let resultUrl = self._proxyurl + textureUrl;
     let loader = new UTextureLoader();
 
     loader.load(resultUrl,
         function (/** @type {import('three').Texture} */ texture) {
-            UDEF.noResizeTexture(texture);
-            self._texture[resultUrl] = texture;
-            promise.resolve();
+            try {
+                if (self._disposed) {
+                    texture.dispose();
+                    throw new DOMException('텍스처 로딩 중 레이어가 해제되었습니다.', 'AbortError');
+                }
+                UDEF.noResizeTexture(texture);
+                self._texture[resultUrl] = texture;
+                promise.resolve();
+            } catch (error) { promise.reject(error); }
         },
         undefined,
         function (/** @type {unknown} */ error) {

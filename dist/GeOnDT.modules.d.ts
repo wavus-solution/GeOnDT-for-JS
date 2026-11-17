@@ -1,5 +1,5 @@
 import * as three from './types/three/build/three.module.js';
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from './types/three/build/three.module.js';
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from './types/three/build/three.module.js';
 export { three as THREE };
 import * as three_examples_jsm_lines_LineSegments2_js from './types/three/examples/jsm/lines/LineSegments2.js';
 import { LineSegments2 } from './types/three/examples/jsm/lines/LineSegments2.js';
@@ -376,6 +376,46 @@ declare class UBox3 extends three.Box3 {
     inSphere(sphere: three.Sphere): void;
 }
 
+declare class UFrameState {
+    constructor(opt: any);
+    _visibleState: any;
+    _type: any;
+    _drawArg: any;
+    _imageProcess: any;
+    _heightProcess: any;
+    _disposed: boolean;
+    dispose(): void;
+    getType(): any;
+    /**
+     * 현재 뷰에 필요한 자식 레이어 작업을 수집하고 실행합니다.
+     *
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 작업을 집계할 부모 타일
+     * @param {boolean} force 강제 갱신 여부
+     */
+    addUpdate(tile: U3dQuadTile, force: boolean): void;
+    /**
+     * 부모 Presentation을 먼저 복구한 뒤 자식 branch를 폐기합니다.
+     *
+     * @param {import('@U3dQuadTile').U3dQuadTile} targetTile 정리할 부모 타일입니다.
+     * @returns {boolean} 부모 복구와 자식 폐기를 모두 완료했으면 `true`입니다.
+     */
+    addDispose(targetTile: U3dQuadTile): boolean;
+    setWork(force: any, workInfo: any): void;
+    doWork(force: any, workInfo: any): void;
+    finishWork(tile: any, obj: any, force: any): void;
+    /**
+     * 부모와 네 자식의 Presentation Coverage를 보존하며 LOD 표시 상태를 전환합니다.
+     *
+     * 자식 표시, 부모 제거, 완료 기록을 하나의 전환으로 처리합니다. 최초 전환의 어느 단계가
+     * 보류되면 `false`를 반환하고, 이미 완료된 분기는 기존 Coverage가 온전하면 최신 합성을
+     * 기다리는 동안에도 `true`를 반환하여 하위 quadtree 순회를 계속합니다.
+     *
+     * @param {import('@U3dQuadTile').U3dQuadTile} [tile=this._rootTile] 전환할 부모 타일입니다.
+     * @returns {boolean} 전환이 완료됐거나 기존 완료 Coverage로 하위 LOD를 진행할 수 있으면 `true`입니다.
+     */
+    setVisibleTile(tile?: U3dQuadTile): boolean;
+}
+
 declare class UGPoint extends three.Vector3 {
     isGPoint: boolean;
 }
@@ -497,7 +537,7 @@ declare class UGeoRect {
 
 declare class UMeta {
     static parseXML(doc: any): UMeta;
-    static read(opt: any): DeferredObject<unknown>;
+    static read(opt: any): Promise<any>;
     constructor(name: any, value: any);
     name: any;
     value: any;
@@ -860,11 +900,70 @@ type UMeshCO = Omit<Omit<U3dObjectCO, never> & UMeshCO_Content, never>;
  */
 declare class UMesh extends three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> {
     /**
+     * 엔진이 자동 재로딩하는 원본 계층에 데이터 사용자·배치·자식 경로로 puid를 부여합니다.
+     * 일반 파일 로딩·사용자 배치·공유 렌더 묶음의 등록에는 호출하지 않습니다.
+     * 호출자는 보조 객체 추가·재부모화 전에 원본 계층을 전달해야 합니다. 같은 원본을
+     * 다른 곳에 배치하면 usageId를 달리하며, 기존 객체의 변환·스타일 변경에는 호출하지 않습니다.
+     * Mesh뿐 아니라 선택 단위로 사용되는 원본 그룹도 별도의 식별값을 받습니다.
+     *
+     * @param {string} ownerId 데이터를 관리하는 주체의 식별값
+     * @param {string | number} dataId 원본 데이터 식별값
+     * @param {import('three').Object3D} root 등록할 원본 계층
+     * @param {string | number} usageId 같은 데이터를 사용하는 배치의 식별값
+     * @throws {TypeError} 식별값이 puid 생성 조건에 맞지 않는 경우
+     *
+     * @ignore
+     */
+    static _assignPuids(ownerId: string, dataId: string | number, root: three.Object3D, usageId: string | number): void;
+    /**
+     * 현재 객체를 조회·편집하기 위한 키를 반환합니다.
+     * 자동 재로딩 데이터는 puid, 그 밖의 객체는 현재 인스턴스의 uuid를 사용합니다.
+     * uuid는 객체 교체 뒤 상태를 이어 주지 않으며 puid 속성에 저장하지 않습니다.
+     * 재로딩 구독 여부는 이 반환값이 아니라 대상의 puid 유무로 판단해야 합니다.
+     *
+     * @param {import('three').Object3D & Partial<{puid: string}>} object 식별할 현재 객체
+     * @returns {string} 영속 데이터 키 또는 현재 객체의 런타임 키
+     *
+     * @ignore
+     */
+    static _getObjectId(object: three.Object3D & Partial<{
+        puid: string;
+    }>): string;
+    /**
+     * 데이터 사용자·데이터·사용 메시 식별자로 충돌 없는 영속 키를 구성합니다.
+     * 데이터 사용자는 데이터를 로드하여 메시를 관리하는 레이어·분석 객체 등을 뜻합니다.
+     * 사용자 계정이 아니며, 이름이 같은 서로 다른 종류의 주체도 ownerId로 구분해야 합니다.
+     * 식별값은 로딩 순서나 런타임 uuid가 아닌 원본과 배치의 안정된 값을 사용합니다.
+     * 같은 데이터를 반복 배치하면 meshId에 배치와 부품을 함께 구분하는 키가 필요합니다.
+     * 숫자 0과 빈 문자열도 명시적으로 제공한 식별값이며 문자열과 숫자는 구분합니다.
+     *
+     * @param {string} ownerId 같은 앱에서 데이터 사용자 간 유일하고 재로딩 동안 유지되는 주체 식별값
+     * @param {string | number} dataId 데이터 사용자가 정한 원본 데이터 식별값
+     * @param {string | number} meshId 같은 데이터의 독립적인 배치·부품을 구분하는 안정된 사용 메시 식별값
+     * @returns {string} 데이터 사용자까지 구분하는 불투명 식별 키
+     * @throws {TypeError} 데이터 사용자 식별값이 비어 있거나 식별값이 문자열·안전 정수가 아니거나 음의 0인 경우
+     *
+     * @ignore
+     */
+    static _createPuid(ownerId: string, dataId: string | number, meshId: string | number): string;
+    /**
      * @param {import('three').BufferGeometry} geometry
      * @param {import('three').Material} material
      * @param {UMeshCO} [opt={}]
      */
     constructor(geometry: three.BufferGeometry, material: three.Material, opt?: UMeshCO);
+    /**
+     * 엔진이 자동 해제·재로딩하는 데이터 대상의 영속 식별자입니다.
+     * 같은 주체가 동일 데이터·부품을 다시 표시할 때 선택·편집 상태를 연결하는 데 사용합니다.
+     * 일반 사용자 모델·배치와 공유 렌더 자원에는 부여하지 않습니다.
+     * 기반 copy/clone은 이 값을 복사하지 않으며 자동 재로딩 대상의 관리 주체만 등록합니다.
+     * 적용 대상이 아닌 메시는 undefined이며, Three.js id·uuid를 이 속성에 넣지 않습니다.
+     * userData.oid 같은 원본 데이터 속성과 별개이며, 서로 다른 LOD의 연결은 레이어가 담당합니다.
+     * 장면에 등록된 메시의 식별자는 외부에서 변경하지 마십시오.
+     *
+     * @type {string | undefined}
+     */
+    puid: string | undefined;
     /** @type {string} */ _classtype: string;
     /** @type {boolean} */ _disposed: boolean;
     /** @type {number|undefined} */ _utype: number | undefined;
@@ -928,8 +1027,20 @@ declare class UMesh extends three.Mesh<three.BufferGeometry<three.NormalBufferAt
      */
     getBBox(): three.Box3;
     raycast(a: any, b: any): void;
-    getUid(): any;
-    getOid(): any;
+    /**
+     * 현재 메시의 조회·편집용 식별값을 반환합니다.
+     * 자동 재로딩 대상은 puid, 일반 메시는 현재 인스턴스의 uuid를 반환합니다.
+     * 반환된 uuid는 새 객체로 승계되지 않으며 영속 식별자가 아닙니다.
+     *
+     * @returns {string} puid 또는 현재 메시의 uuid
+     */
+    getUid(): string;
+    /**
+     * 원본 데이터를 추적하기 위한 피처 속성을 반환합니다. 엔진의 메시 식별에는 사용하지 않습니다.
+     *
+     * @returns {string | number | Array<number> | undefined} 원본 oid 속성 또는 속성이 없는 상태의 undefined
+     */
+    getOid(): string | number | Array<number> | undefined;
     getLayerName(): string;
     setLayerName(layername: any): void;
     getColor(): any;
@@ -1205,46 +1316,6 @@ declare class ULight {
     #private;
 }
 
-declare class UFrameState {
-    constructor(opt: any);
-    _visibleState: any;
-    _type: any;
-    _drawArg: any;
-    _imageProcess: any;
-    _heightProcess: any;
-    _disposed: boolean;
-    dispose(): void;
-    getType(): any;
-    /**
-     * 현재 뷰에 필요한 자식 레이어 작업을 수집하고 실행합니다.
-     *
-     * @param {import('@U3dQuadTile').U3dQuadTile} tile 작업을 집계할 부모 타일
-     * @param {boolean} force 강제 갱신 여부
-     */
-    addUpdate(tile: U3dQuadTile, force: boolean): void;
-    /**
-     * 부모 Presentation을 먼저 복구한 뒤 자식 branch를 폐기합니다.
-     *
-     * @param {import('@U3dQuadTile').U3dQuadTile} targetTile 정리할 부모 타일입니다.
-     * @returns {boolean} 부모 복구와 자식 폐기를 모두 완료했으면 `true`입니다.
-     */
-    addDispose(targetTile: U3dQuadTile): boolean;
-    setWork(force: any, workInfo: any): void;
-    doWork(force: any, workInfo: any): void;
-    finishWork(tile: any, obj: any, force: any): void;
-    /**
-     * 부모와 네 자식의 Presentation Coverage를 보존하며 LOD 표시 상태를 전환합니다.
-     *
-     * 자식 표시, 부모 제거, 완료 기록을 하나의 전환으로 처리합니다. 최초 전환의 어느 단계가
-     * 보류되면 `false`를 반환하고, 이미 완료된 분기는 기존 Coverage가 온전하면 최신 합성을
-     * 기다리는 동안에도 `true`를 반환하여 하위 quadtree 순회를 계속합니다.
-     *
-     * @param {import('@U3dQuadTile').U3dQuadTile} [tile=this._rootTile] 전환할 부모 타일입니다.
-     * @returns {boolean} 전환이 완료됐거나 기존 완료 Coverage로 하위 LOD를 진행할 수 있으면 `true`입니다.
-     */
-    setVisibleTile(tile?: U3dQuadTile): boolean;
-}
-
 /**
  * @extends U3dQuadTile
  */
@@ -1291,6 +1362,7 @@ declare class U3dQuadModelTile extends U3dQuadTile {
     /**
      * 갱신 가능 여부나 경계 상자 교차 여부에 따라 자식 타일을 계산해 갱신 대상으로 등록하고, 그렇지 않으면 처분 대상으로 등록합니다.
      * 강제 검색도 일반 검색과 같은 모델 상한에서 자식 생성을 중단합니다.
+     * 하위 갱신·정리가 실패해도 이 호출이 증가시킨 검색 수를 복원합니다.
      *
      * @override
      *
@@ -1298,8 +1370,10 @@ declare class U3dQuadModelTile extends U3dQuadTile {
      * @param {import('@union3d/core/UFrameState').UFrameState} frameState 갱신·처분 대상을 모으는 프레임 상태
      * @param {boolean} [force=false] 강제 갱신 여부
      * @param {import('three').Box3} [box3] 자식 검색에 쓸 경계 상자. 없으면 갱신 가능 여부만 사용합니다
+     * @returns {false | void} 그리기 인수가 없거나 해제된 타일이면 false, 갱신 후에는 반환값 없음
+     * @throws {unknown} 갱신 가능 판정·자식 갱신·정리 중 발생한 원래 오류
      */
-    override update(drawArg: UDrawArg | undefined, frameState: UFrameState, force?: boolean, box3?: three.Box3): boolean;
+    override update(drawArg: UDrawArg | undefined, frameState: UFrameState, force?: boolean, box3?: three.Box3): false | void;
     _disposeCause: number;
     createMesh(): boolean;
 }
@@ -1357,10 +1431,12 @@ declare class UScene extends three.Scene<three.Object3DEventMap> {
      */
     isChildren(Object3D: three.Object3D): boolean;
     /**
-     * 씬에 3D Object를 추가하는 함수
+     * 씬에 3D Object를 추가하며 추가 이벤트의 예외·제거 후에도 자식 등록을 실제 부모와 맞춥니다.
      * @override
      *
      * @param {import('three').Object3D} mesh 추가할 3D Object
+     * @returns {this} 현재 씬
+     * @throws {unknown} 객체 추가 이벤트에서 발생한 원래 오류
      */
     override add(mesh: three.Object3D): this;
     /**
@@ -1754,9 +1830,6 @@ declare class UFrustum extends three.Frustum {
     targetObject: UFrustumTarget | undefined;
     /** @type {Set<UFrustumChangeListener>} */
     _changeListeners: Set<UFrustumChangeListener>;
-    _previousOrientationDirection: three.Vector3;
-    _previousOrientationUp: three.Vector3;
-    _hasPreviousOrientation: boolean;
     /**
      * target 로컬 좌표계에서 "전방"으로 볼 축(정규화된 단위 벡터). target에 `lookAt` 좌표가 없을 때 target quaternion으로 이 축을 회전시켜 진행 방향을 구합니다. 기본 (0, 1, 0) = +Y.
      * @type {import('three').Vector3}
@@ -1818,19 +1891,22 @@ declare class UFrustum extends three.Frustum {
     getAxis(target?: three.Vector3): three.Vector3;
     /**
      * rotation과 독립된 항공 자세 offset을 설정합니다.
-     * pitch와 yaw는 장착 자세 기준 시선 방향을 만들고, roll만 최종 시선축을 회전시킵니다.
-     * 내부 자세는 quaternion으로 계산하므로 pitch가 ±90도를 지나도 면이 갑자기 반전되지 않습니다.
+     * [수정사항] 기존 독립 방향 합성·최단 회전 대신 장착 자세에서 Yaw → Pitch → Roll을 순서대로 적용합니다.
+     * Yaw는 장착 기준 위쪽축, Pitch는 Yaw로 돌아간 오른쪽축, Roll은 최종 시선축을 중심으로 회전합니다.
+     * 시선과 영상의 위쪽축을 함께 계산하므로 Pitch ±90°에서도 Yaw로 인해 시선이 기울어지지 않습니다.
+     * 기본 장착축에서는 Pitch 0°가 대상 전방이며 −90°는 대상 기준 수직 아래입니다.
+     * +Yaw는 장착 기준 위에서 보아 시계 방향, +Roll은 시선 방향을 바라보아 시계 방향입니다.
      * 모든 입력 단위는 degree이며 내부 계산 시 radian으로 변환합니다. NaN·Infinity 등 유한하지 않은 값은 0으로 처리됩니다.
      * target이 등록되어 있으면 즉시 `updateTarget()`으로 행렬을 다시 계산하고, 없으면 변경 리스너만 호출합니다.
      *
      * @param {number} [pitchDeg=0] 장착 방향 기준 위(+)/아래(−) 각도 (degree)
      * @param {number} [yawDeg=0] 장착 방향 기준 오른쪽(+)/왼쪽(−) 각도 (degree)
-     * @param {number} [rollDeg=0] 시선축을 중심으로 기울이는 각도 (degree). 시선 방향은 바꾸지 않습니다
+     * @param {number} [rollDeg=0] 최종 시선축 기준 시계(+)/반시계(−) 회전각 (degree). 시선 방향은 바꾸지 않습니다
      * @returns {UFrustum} 체이닝을 위한 자기 자신
      */
     setPitchYawRoll(pitchDeg?: number, yawDeg?: number, rollDeg?: number): UFrustum;
     /**
-     * 현재 독립 pitch/yaw/roll 값을 degree 단위 Vector3로 반환합니다.
+     * 현재 항공 자세 pitch/yaw/roll 값을 degree 단위 Vector3로 반환합니다.
      * x=pitch, y=yaw, z=roll입니다.
      *
      * @param {import('three').Vector3} [target] 결과를 담을 벡터. 생략하면 새 Vector3를 만듭니다
@@ -2093,25 +2169,55 @@ type UTaskProcessorScheduleOption = {
  * @property {() => boolean} [beforePostMessage] 실제 전송 직전 최신성 검사 함수입니다.
  * @property {(detail:{elapsed:number,startedAt:number,workerIndex:number,transferObjectCount:number,transferBytes:number,queueLength:number})=>void} [onPostMessage] 실제 postMessage 호출 통지 함수입니다.
  */
+/**
+ * 한 작업 모듈의 Worker 풀과 전송 대기를 관리합니다.
+ */
 declare class UTaskProcessor {
     static SOURCE_URL: any;
-    static setSourceUrl(url: any): void;
+    /**
+     * 기존 SDK 호출의 기본 소스 루트를 설정합니다. <br>
+     * 명시 경로를 가진 풀에는 영향을 주지 않습니다.
+     *
+     * @param {string | undefined} url Worker 자원을 찾는 SDK 기준 폴더, 폴더 주소는 끝 슬래시 포함
+     */
+    static setSourceUrl(url: string | undefined): void;
+    /**
+     * 기존 SDK 기본 소스 루트를 반환합니다.
+     */
     static getSourceUrl(): any;
-    constructor(workerPath: any, workerNum?: number);
-    /** 공유 풀을 실제 사용한 소유자입니다. @type {Set<object>} @ignore */
+    /**
+     * UTaskProcessor 클래스 생성자입니다. <br>
+     * 작업 상대 경로와 물리 Worker 수, 선택적 Worker 폴더를 보관합니다.
+     *
+     * @param {string} workerPath 작업 경로
+     * @param {number} [workerNum=1] 물리 Worker 수, 기본 1, 기존 호출 계약 유지
+     * @param {string | null} [workerBaseUrl=null] 끝 슬래시를 가진 절대 Worker 폴더, 기본 null은 기존 SOURCE_URL 루트 아래 worker/, 전역 변경 없음
+     */
+    constructor(workerPath: string, workerNum?: number, workerBaseUrl?: string | null);
+    /** @type {string | null} */ _workerBaseUrl: string | null;
+    /**
+     * 공유 풀을 실제 사용한 소유자입니다.
+     *
+     * @type {Set<object>}
+     *
+     * @ignore
+     */
     _owners: Set<object>;
     /**
      * 같은 소유자의 중복 등록 없이 공유 풀 사용을 유지합니다.
+     *
      * @param {object} owner 레이어 또는 변환 작업 소유자
-     * @returns {void}
+     *
      * @ignore
      */
     _retain(owner: object): void;
     /**
      * 마지막 소유자가 해제되면 응답 대기 없이 공유 풀을 종료합니다.
+     *
      * @param {object} owner 등록한 소유자
-     * @returns {void}
+     *
      * @ignore
+                                                                                                  
      */
     _release(owner: object): void;
     _classtype: string;
@@ -2129,31 +2235,199 @@ declare class UTaskProcessor {
         name: string;
     };
     /**
-     * 워커를 생성하고 준비 응답 이후 대기 작업을 전송합니다.
-     * @returns {Promise<void[]>} 워커별 준비·정리 결과
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {Set<any>} value 공유 풀을 사용하는 소유자 집합, 현재 값·참조와 동일해야 하며 소유권 이전 없음
      */
-    createWorker(): Promise<void[]>;
-    completeTask(event: any): void;
+    set owners(value: Set<any>);
+    /**
+     * 공유 풀을 사용하는 소유자 집합 값을 반환합니다.
+     *
+     * @returns {Set<any>} 공유 풀을 사용하는 소유자 집합
+     */
+    get owners(): Set<any>;
+    /**
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {string | null} value 고정 Worker 폴더 또는 SDK 기본 경로, 현재 값·참조와 동일해야 하며 소유권 이전 없음
+     */
+    set workerBaseUrl(value: string | null);
+    /**
+     * 고정 Worker 폴더 또는 SDK 기본 경로 값을 반환합니다.
+     *
+     * @returns {string | null} 고정 Worker 폴더 또는 SDK 기본 경로
+     */
+    get workerBaseUrl(): string | null;
+    /**
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {string} value SDK 작업 처리기 진단 이름, 현재 값·참조와 동일해야 하며 소유권 이전 없음
+     */
+    set classtype(value: string);
+    /**
+     * SDK 작업 처리기 진단 이름 값을 반환합니다.
+     *
+     * @returns {string} SDK 작업 처리기 진단 이름
+     */
+    get classtype(): string;
+    /**
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {Array<any>} value 이 풀이 소유한 물리 Worker 목록, 현재 값·참조와 동일해야 하며 소유권 이전 없음
+     */
+    set workers(value: Array<any>);
+    /**
+     * 이 풀이 소유한 물리 Worker 목록 값을 반환합니다.
+     *
+     * @returns {Array<any>} 이 풀이 소유한 물리 Worker 목록
+     */
+    get workers(): Array<any>;
+    /**
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {string} value SDK 루트 기준 작업 모듈 경로, 현재 값·참조와 동일해야 하며 소유권 이전 없음
+     */
+    set workerUrl(value: string);
+    /**
+     * SDK 루트 기준 작업 모듈 경로 값을 반환합니다.
+     *
+     * @returns {string} SDK 루트 기준 작업 모듈 경로
+     */
+    get workerUrl(): string;
+    /**
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {number} value 물리 Worker 수, 현재 값·참조와 동일해야 하며 소유권 이전 없음
+     */
+    set workerNum(value: number);
+    /**
+     * 물리 Worker 수 값을 반환합니다.
+     *
+     * @returns {number} 물리 Worker 수
+     */
+    get workerNum(): number;
+    /**
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {string} value SDK 루트 기준 준비 모듈 경로, 현재 값·참조와 동일해야 하며 소유권 이전 없음
+     */
+    set bootstrapperUrl(value: string);
+    /**
+     * SDK 루트 기준 준비 모듈 경로 값을 반환합니다.
+     *
+     * @returns {string} SDK 루트 기준 준비 모듈 경로
+     */
+    get bootstrapperUrl(): string;
+    /**
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {object} value 현재 getter로 받은 동일한 작업 완료 처리기 객체, 다른 참조는 거부
+     */
+    set deferreds(value: object);
+    /**
+     * 작업 ID별 성공·실패 종결 함수 값을 반환합니다.
+     */
+    get deferreds(): object;
+    /**
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {number} value 기존 작업 계수, 현재 값·참조와 동일해야 하며 소유권 이전 없음
+     */
+    set activeTasks(value: number);
+    /**
+     * 기존 작업 계수 값을 반환합니다.
+     *
+     * @returns {number} 기존 작업 계수
+     */
+    get activeTasks(): number;
+    /**
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {boolean} value 기존 준비 상태, 현재 값·참조와 동일해야 하며 소유권 이전 없음
+     */
+    set isReady(value: boolean);
+    /**
+     * 기존 준비 상태 값을 반환합니다.
+     *
+     * @returns {boolean} 기존 준비 상태
+     */
+    get isReady(): boolean;
+    /**
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {Array<any>} value 슬롯별 미전송 작업 목록, 현재 값·참조와 동일해야 하며 소유권 이전 없음
+     */
+    set standByQueue(value: Array<any>);
+    /**
+     * 슬롯별 미전송 작업 목록 값을 반환합니다.
+     *
+     * @returns {Array<any>} 슬롯별 미전송 작업 목록
+     */
+    get standByQueue(): Array<any>;
+    /**
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {string} value Worker 진단 이름, 현재 값·참조와 동일해야 하며 소유권 이전 없음
+     */
+    set workerName(value: string);
+    /**
+     * Worker 진단 이름 값을 반환합니다.
+     *
+     * @returns {string} Worker 진단 이름
+     */
+    get workerName(): string;
+    /**
+     * 운영 자원과 경로를 보호하기 위해 동일 값·참조만 허용합니다.
+     *
+     * @param {{ type: string; name: string; }} value 모듈 Worker 생성 설정, 현재 값·참조와 동일해야 하며 소유권 이전 없음
+     */
+    set workerOption(value: {
+        type: string;
+        name: string;
+    });
+    /**
+     * 모듈 Worker 생성 설정 값을 반환합니다.
+     *
+     * @returns {{ type: string; name: string; }} 모듈 Worker 생성 설정
+     */
+    get workerOption(): {
+        type: string;
+        name: string;
+    };
+    /**
+     * 워커를 생성하고 준비 응답 이후 대기 작업을 전송합니다.
+     *
+     * @returns {Promise<Array<void>>} 워커별 준비·정리 결과
+     */
+    createWorker(): Promise<Array<void>>;
+    /**
+     * 현재 Worker 작업 결과를 대응하는 Promise에 전달하고 대기 기록을 제거합니다.
+     *
+     * @param {MessageEvent<unknown>} event 작업 결과를 수신한 Worker 메시지, 작업 ID가 없는 메시지는 무시
+     */
+    completeTask(event: MessageEvent<unknown>): void;
     /**
      * 모든 워커에 같은 작업을 예약하며 종료된 풀의 취소 통지는 무시합니다.
-     * @param {UWorkerParameter} parameters 워커에 전달할 작업 정보
-     * 결과 형식은 작업별 파서 프로토콜이 달라 기존 공개 반환 타입을 유지합니다.
-     * @returns {Promise<Array<any>> | undefined} 워커별 결과. 소스 주소가 없으면 undefined
+     *
+     * @param {import('@union3d/worker/util/UWorkerParameter').UWorkerParameter} parameters 워커에 전달할 작업 정보 결과 형식은 작업별 파서 프로토콜이 달라 기존 공개 반환 타입을 유지합니다.
+     * @returns {Promise<Array<any>> | undefined} 워커별 결과. <br>
+     * 소스 주소가 없으면 undefined
      */
     allExecTask(parameters: UWorkerParameter): Promise<Array<any>> | undefined;
     /**
      * 작업을 준비된 worker에 예약합니다.
      *
-     * @param {UWorkerParameter} parameters worker에 전달할 작업 정보입니다.
+     * @param {import('@union3d/worker/util/UWorkerParameter').UWorkerParameter} parameters worker에 전달할 작업 정보입니다.
      * @param {number} [preferredWorkerIndex] 동일 상태를 공유해야 하는 작업에 사용할 worker index입니다.
-     * @param {Array<Transferable>} [transferList] 소유권을 Worker에 전달할 객체 목록입니다.
-     * @param {UTaskProcessorScheduleOption} [scheduleOption={}] 실제 Worker 전송 관측 옵션입니다.
+     * @param {Array<Transferable>} [transferList] Worker에 소유권을 이전할 객체 목록(비어 있으면 복사 전송)
+     * @param {import('@union3d/core/UTaskProcessor').UTaskProcessorScheduleOption} [scheduleOption={}] 실제 Worker 전송 관측 옵션입니다.
      * @returns {Promise<any>} 작업 종류마다 형식이 다른 기존 Worker 결과입니다.
      */
     scheduleTask(parameters: UWorkerParameter, preferredWorkerIndex?: number, transferList?: Array<Transferable>, scheduleOption?: UTaskProcessorScheduleOption): Promise<any>;
     /**
-     * 현재 워커를 즉시 종료하고 실행·대기 중 Promise를 취소합니다.
+     * 현재 워커를 즉시 종료하고 실행·대기 중 Promise를 취소합니다. <br>
      * 풀 객체는 유지하므로 이후 요청은 새 워커를 생성합니다.
+     *
      * @returns {Promise<void>} 전체 워커 종료 결과
      */
     dispose(): Promise<void>;
@@ -2269,9 +2543,21 @@ declare class U3dLayer extends U3dObject {
      * @type {boolean}
      */
     _initialized: boolean;
-    /** 사용 중인 공유 파서 풀입니다. @type {Set<import('@union3d/core/UTaskProcessor').UTaskProcessor>} @ignore */
+    /**
+     * 사용 중인 공유 파서 풀입니다.
+     *
+     * @type {Set<import('@union3d/core/UTaskProcessor').UTaskProcessor>}
+     *
+     * @ignore
+     */
     _taskProcessors: Set<UTaskProcessor>;
-    /** 해제 중 지연 콜백의 새 풀 사용을 차단합니다. @type {boolean} @ignore */
+    /**
+     * 해제 중 지연 콜백의 새 풀 사용을 차단합니다.
+     *
+     * @type {boolean}
+     *
+     * @ignore
+     */
     _taskProcessorDisposing: boolean;
     /**
      * 첫 실제 요청에서 공유 파서 풀의 소유권을 등록합니다.
@@ -2305,7 +2591,13 @@ declare class U3dLayer extends U3dObject {
      * @ignore
      */
     _workCheckId: number | null;
-    /** 재시작 전 로딩 완료 예약과 준비 콜백을 구분합니다. @type {number} @ignore */
+    /**
+     * 재시작 전 로딩 완료 예약과 준비 콜백을 구분합니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
     _workCheckGeneration: number;
     /**
      * 레이어의 기존 바운드 디버그 상태와 성능 로그 공통 설정을 함께 보관합니다. <br>
@@ -2785,16 +3077,16 @@ declare class U3dLayer extends U3dObject {
      * 타일을 입력받아 해당 타일의 취소(cancel) 작업 객체를 등록합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 대상 타일
-     * @param {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} value 타일 작업을 취소할 때 `reject`(또는 `cancel`)가 호출되는 대기 객체. 같은 타일에 다시 등록하면 이전 값을 덮어씁니다
+     * @param {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} value 타일 작업을 취소할 때 `reject`(또는 `cancel`)가 호출되는 대기 객체. 같은 타일에 다시 등록하면 이전 값을 덮어씁니다
      */
-    setCancelByTile(tile: U3dQuadTile, value: DeferredObject<U3dQuadTile>): void;
+    setCancelByTile(tile: U3dQuadTile, value: DeferredPromise<U3dQuadTile>): void;
     /**
      * 타일을 입력받아 등록된 취소(cancel) 작업 객체를 반환합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 대상 타일
-     * @returns {DeferredObject<import('@U3dQuadTile').U3dQuadTile> | undefined} `setCancelByTile` 로 등록한 취소 작업 객체. 등록된 것이 없으면 `undefined` 입니다
+     * @returns {Promise<import('@U3dQuadTile').U3dQuadTile> | undefined} `setCancelByTile` 로 등록한 취소 작업 객체. 등록된 것이 없으면 `undefined` 입니다
      */
-    getCancelByTile(tile: U3dQuadTile): DeferredObject<U3dQuadTile> | undefined;
+    getCancelByTile(tile: U3dQuadTile): Promise<U3dQuadTile> | undefined;
     /**
      * 키 값으로 명시한 이벤트 리스너를 제거합니다.
      *
@@ -3420,10 +3712,7 @@ declare class UBufferGeometry extends BufferGeometry<three.NormalBufferAttribute
 }
 
 /**
- * ~extends import('@UBufferGeometry') <br>
- *
- * 지형(terrain) 렌더링에 쓰이는 격자형 평면 Buffer Geometry 클래스입니다. <br>
- * 가장자리 스커트(skirt), 커스텀 높이 박스 등 지형 표현에 필요한 기능을 포함합니다. <br>
+ * ~extends import('@UBufferGeometry')
  *
  * @extends {UBufferGeometry}
  */
@@ -3536,6 +3825,24 @@ declare class UPlaneBufferGeometry extends UBufferGeometry {
      */
     _customBox: Map<string, UPlaneCustomBox>;
     /**
+     * 정점별 편집 선택 표시이며 1은 평탄화 또는 사면 보호 대상입니다.
+     *
+     * @type {Uint8Array}
+     */
+    _editedVertexMask: Uint8Array;
+    /**
+     * 정점별 편집 표시를 연결합니다.
+     *
+     * @param {Uint8Array} value 정점별 편집 표시 배열(1이면 편집 대상으로 선택됨)
+     */
+    set editedVertexMask(value: Uint8Array);
+    /**
+     * 평탄화·사면으로 선택한 정점의 보호 표시를 반환합니다.
+     *
+     * @returns {Uint8Array} 정점 순서의 편집 선택 표시
+     */
+    get editedVertexMask(): Uint8Array;
+    /**
      * @type {{ width: number, height: number, widthSegments: number, heightSegments: number } | undefined}
      *
      * @ignore
@@ -3565,19 +3872,20 @@ declare class UPlaneBufferGeometry extends UBufferGeometry {
      */
     getShareCount(): number;
     /**
-     * 대상 geometry의 속성을 이 geometry에 적용합니다(attributes를 재할당하지 않고 내부 속성만 교체합니다). <br>
+     * 대상 geometry의 속성을 이 geometry에 적용합니다(attributes를 재할당하지 않고 내부 속성만 교체합니다).
      *
-     * @param {UPlaneBufferGeometry} targetGeometry 속성을 가져올 대상 지오메트리 <br>
-     * @returns {this} 이 지오메트리(this) <br>
+     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} targetGeometry 속성과 배열을 공유할 원본 지오메트리
+     * @returns {this} 이 지오메트리(this)
+                                                                                   
      */
     change(targetGeometry: UPlaneBufferGeometry): this;
     /**
+     * 기반 지오메트리를 복사하고 편집 정점 표시도 독립 배열로 복제합니다.
+     *
      * @override
      *
-     * @param {UPlaneBufferGeometry} source
-     * @returns {this}
-     *
-     * @ignore
+     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} source 독립 복사할 원본 지오메트리
+     * @returns {this} 복사를 마친 이 지오메트리
      */
     override copy(source: UPlaneBufferGeometry): this;
     /**
@@ -3639,26 +3947,27 @@ declare class UPlaneBufferGeometry extends UBufferGeometry {
         z: number;
     } | undefined;
     /**
-     * 버텍스 노말 계산 <br>
-     *
-     * @override
-     *
-     * @param {number} [ratio]
-     *
-     * @ignore
+     * 표면 가장자리의 높이만 변경한 뒤 영향받는 두 줄과 스커트의 노멀을 갱신합니다. <br>
+     * 내부 표면의 노멀은 현재 정점에 대해 이미 유효해야 합니다. <br>
+     * 비표준 격자는 전체 계산을 사용합니다. <br>
+     * 공유 속성·배열·높이·bounds를 유지하며 GPU 갱신 표시는 호출자가 담당합니다.
      */
-    override computeVertexNormals(ratio?: number): void;
+    computeBoundaryVertexNormals(): void;
     /**
-     * 메쉬 초기화 <br>
+     * 부분 법선 계산과 경계 실행기에서 공유하는 표준 격자 지원 조건입니다.
      *
-     * @param {number} width
-     * @param {number} height
-     * @param {number} widthSegments
-     * @param {number} heightSegments
-     * @param {number} [defaultHeight=UDEF.TERRAIN_NO_DATA]
+     * @returns {boolean} 내부 법선을 유지한 경계 계산이 가능한지 여부입니다.
+     */
+    _supportsBoundaryVertexNormals(): boolean;
+    /**
+     * 메쉬 초기화
+     *
+     * @param {number} width 로컬 평면 너비
+     * @param {number} height 로컬 평면 높이
+     * @param {number} widthSegments 가로 분할 수(양의 정수)
+     * @param {number} heightSegments 세로 분할 수(양의 정수)
+     * @param {number} [defaultHeight=UDEF.TERRAIN_NO_DATA] 고도 미지정 정점에 쓸 로컬 Z(기본값 UDEF.TERRAIN_NO_DATA)
      * @returns {boolean}
-     *
-     * @ignore
      */
     initialize(width: number, height: number, widthSegments: number, heightSegments: number, defaultHeight?: number): boolean;
     /**
@@ -3683,11 +3992,17 @@ declare class UPlaneBufferGeometry extends UBufferGeometry {
      */
     setCustomBox(minx: number, miny: number, maxx: number, maxy: number, height: number, id: string): void;
     /**
-     * 커스텀 박스 전체 삭제 <br>
-     *
-     * @ignore
+     * 커스텀 박스와 정점별 편집 선택 표시를 비웁니다.
      */
     clearCustomBox(): void;
+    /**
+     * 실제 편집 연산이 선택한 정점을 경계 자동 보정에서 보호합니다. <br>
+     * 높이가 이미 목표값인 정점도 표시하여 이후 경계 보정이 덮어쓰지 않게 합니다.
+     *
+     * @param {number} vertexIndex 스커트를 포함한 0 기반 정점 인덱스
+     * @returns {boolean} 유효한 정점에 표시했는지 여부
+     */
+    markEditedVertex(vertexIndex: number): boolean;
     /**
      * 커스텀 박스 반환 <br>
      *
@@ -3765,6 +4080,8 @@ declare class UTileMesh extends UMesh {
 }
 
 /**
+ * ~extends U3dObject
+ *
  * @extends {U3dObject}
  */
 declare class U3dQuadTile extends U3dObject {
@@ -3787,16 +4104,30 @@ declare class U3dQuadTile extends U3dObject {
     static getStartLevel: () => number;
     constructor(minx: any, maxx: any, miny: any, maxy: any, level: any, scene: any, drawArg: any, type: any, parent: any, startlevel: any, quadname: any, quadset: any);
     /**
+     * 이 타일에 고도 지오메트리를 적용한 횟수입니다.
+     *
+     * @type {number}
+     */
+    _heightRevision: number;
+    /**
+     * 고도 적용 변경 번호를 설정합니다.
+     *
+     * @param {number} value 고도 적용 변경 번호(0 이상의 정수)
+     */
+    set heightRevision(value: number);
+    /**
+     * 이웃 스커트 비교에 사용할 고도 적용 변경 번호를 반환합니다.
+     *
+     * @returns {number} 고도 적용 변경 번호입니다.
+     */
+    get heightRevision(): number;
+    /**
      * LOD 전환 prepare는 끝났지만 commit되지 않아 노출만 보류 중인지 여부입니다.
      * 준비가 진행 중인 타일을 반복해서 숨기거나 되돌리지 않기 위한 표식입니다.
      *
      * @type {boolean}
      */
     _lodPresentPending: boolean;
-    /** @type {Array<string>} */
-    _lodBlockingLayerNames: Array<string>;
-    /** @type {boolean} */
-    _lodRuntimeBlocked: boolean;
     isU3dQuadTile: boolean;
     _classtype: string;
     _scene: any;
@@ -3874,9 +4205,13 @@ declare class U3dQuadTile extends U3dObject {
      */
     _setHeightScale(scale: number): void;
     /**
+     * 표면 경계 보정 후 공유 지오메트리·LOD·피킹 경계를 갱신합니다.
+     */
+    _refreshSurfaceBounds(): void;
+    /**
      * 고도 지오메트리의 자료를 연결하고 현재 표시 배율에 맞는 공간 경계를 갱신합니다.
      *
-     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} geometry 연결할 고도 지오메트리
+     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} geometry 타일에서 공유할 고도 지오메트리
      */
     changeGeometry(geometry: UPlaneBufferGeometry): void;
     /**
@@ -3899,20 +4234,13 @@ declare class U3dQuadTile extends U3dObject {
      */
     updatePossible(): boolean;
     /**
-     * 현재 LOD 전환 판단과 작업 상태를 반환합니다.
+     * 진단 객체 생성 없이 이번 순회의 분화 의도를 조회합니다.
      *
-     * @returns {{refineRequested:boolean, lodPresentPending:boolean, blockingLayerNames:Array<string>, runtimeBlocked:boolean, processed:number, worked:number, waitWorkNames:Array<string>, endWorkNames:Array<string>}} LOD 전환 진단 상태
+     * @returns {boolean} 직접 자식의 준비를 요청한 상태인지 여부입니다.
+     *
+     * @ignore
      */
-    getLodTransitionDebugState(): {
-        refineRequested: boolean;
-        lodPresentPending: boolean;
-        blockingLayerNames: Array<string>;
-        runtimeBlocked: boolean;
-        processed: number;
-        worked: number;
-        waitWorkNames: Array<string>;
-        endWorkNames: Array<string>;
-    };
+    _isLodRefinementRequested(): boolean;
     getMesh(): UTileMesh;
     getWaitWork(workName: any): any;
     setWaitWork(work: any): void;
@@ -3949,7 +4277,13 @@ declare class U3dQuadTile extends U3dObject {
     };
     intersect(vecx: any, vecy: any, vecz: any): boolean;
     computeChild(minX: any, maxX: any, minY: any, maxY: any, level: any, scene: any, drawArg: any, type: any, parent: any, startlevel: any, quadindex: any, quadset: any): any;
-    computeChildren(drawArg: any, type: any): void;
+    /**
+     * 네 분면의 자식을 구성하고 단독 폐기된 자식은 새 타일로 교체합니다.
+     *
+     * @param {import('@UDrawArg').UDrawArg} drawArg 기존 호출과의 호환용 프레임 인수
+     * @param {string} type 생성할 타일 종류
+     */
+    computeChildren(drawArg: UDrawArg, type: string): void;
     _childTiles: any[];
     getType(): any;
     getChildTiles(): any[];
@@ -4011,7 +4345,17 @@ declare class U3dQuadTile extends U3dObject {
     getWeight(level: any): number;
     getTileSize(): any;
     traverse(callback: any): void;
-    update(drawArg: any, frameState: any, force?: boolean): boolean;
+    /**
+     * 살아 있는 지형 타일의 분화·병합을 갱신하고 검색 계수와 LOD 호출 범위를 복원합니다.
+     * 해제된 타일은 계수 증가나 프레임 작업 등록 전에 종료합니다.
+     *
+     * @param {import('@UDrawArg').UDrawArg | undefined} drawArg 그리기 인수. 기본값 this._drawArg
+     * @param {import('@union3d/core/UFrameState').UFrameState} frameState 작업과 표시 전환을 담당하는 프레임 상태
+     * @param {boolean} [force=false] 강제 갱신 여부
+     * @returns {false | void} 그리기 인수가 없거나 해제된 타일이면 false, 갱신 후에는 반환값 없음
+     * @throws {unknown} 분화 판정·자식 준비·프레임 작업 등록 중 발생한 오류
+     */
+    update(drawArg: UDrawArg | undefined, frameState: UFrameState, force?: boolean): false | void;
     getProcessStep(): string;
     getWorkStep(): string;
     disposeDetail(): void;
@@ -4045,18 +4389,13 @@ declare class U3dQuadTile extends U3dObject {
     intersectByMesh(mesh: any): boolean;
     checkHeightLoaded(): boolean;
     /**
-     * 타일의 지오메트리에서 입력받은 x,y(google 좌표)에 해당하는 z 값을 추출하는 함수, 4점을 추출하여 mix한 값이다.(구글 스케일이 적용된 z 값)
-     * @param {number} x google 좌표 X
-     * @param {number} y google 좌표 Y
-     * @return {number} 구글 스케일이 적용된 z
-     */
-    getHeightAtPointPrev(x: number, y: number): number;
-    /**
-     * 타일의 지오메트리에서 입력받은 x,y(google 좌표)에 해당하는 z 값을 추출하는 함수, 4점을 추출하여 mix한 값이다.(구글 스케일이 적용된 z 값)
+     * 타일 지오메트리에서 입력한 Google 좌표의 표시 고도를 계산합니다.<br>
+     * 주변 네 정점의 Z를 보간한 뒤 현재 타일 메시의 Z축 배율을 적용합니다.<br>
+     * 자료 없음 값은 배율을 적용하지 않고 그대로 반환합니다.
      *
      * @param {number} x google 좌표 X
      * @param {number} y google 좌표 Y
-     * @return {number} 구글 스케일이 적용된 z
+     * @returns {number} 타일 메시의 Z축 배율이 적용된 표시 고도 또는 자료 없음 값
      */
     getHeightAtPoint(x: number, y: number): number;
     isDisposed(): boolean;
@@ -4433,7 +4772,6 @@ declare class LRUCache {
  * 영상 데이터를 가시화 시키는 이미지 레이어 클래스
  *
  * @group 3dLayer
- *
  * @extends {U3dLayer}
  */
 declare class U3dImageLayer extends U3dLayer {
@@ -4719,11 +5057,11 @@ declare class U3dImageLayer extends U3dLayer {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 텍스처를 적용할 타일
      * @param {import('@UDrawArg').UDrawArg} drawArg DrawArg
      * @param {string} url 텍스처 URL
-     * @param {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} [promise=deferred()] 작업 진행 상황을 전달할 deferred. 생략 시 내부에서 생성합니다.
+     * @param {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} [promise=deferredPromise()] 작업 진행 상황을 전달할 deferred. 생략 시 내부에서 생성합니다.
      * @param {ImageTextureProcessOptions} [options] 하위 이미지 레이어가 선택하는 요청 처리 옵션
      * @returns {Promise<import('@U3dQuadTile').U3dQuadTile>} 작업 완료 시 resolve 되는 deferred 객체
      */
-    processTexture(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise?: DeferredObject<U3dQuadTile>, options?: ImageTextureProcessOptions): Promise<U3dQuadTile>;
+    processTexture(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise?: DeferredPromise<U3dQuadTile>, options?: ImageTextureProcessOptions): Promise<U3dQuadTile>;
     /**
      * 요청별 논리 취소와 구세대 callback 차단을 적용한 이미지 타일 처리 경로입니다. <br>
      * 일반 래스터 이미지는 `UTextureLoader`의 전용 AbortController로 네트워크 요청까지 중단합니다. PBF/MVT
@@ -4735,12 +5073,12 @@ declare class U3dImageLayer extends U3dLayer {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 텍스처를 적용할 타일
      * @param {import('@UDrawArg').UDrawArg} drawArg DrawArg
      * @param {string} url 텍스처 URL
-     * @param {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} promise 작업 deferred
+     * @param {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} promise 작업 deferred
      * @returns {Promise<import('@U3dQuadTile').U3dQuadTile>} 작업 deferred
      *
      * @ignore
      */
-    _processTextureCancelable(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredObject<U3dQuadTile>): Promise<U3dQuadTile>;
+    _processTextureCancelable(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredPromise<U3dQuadTile>): Promise<U3dQuadTile>;
     /**
      * 요청별 실제 네트워크 취소를 사용하지 않는 기존 이미지 로딩 구현입니다. <br>
      * `processTexture(..., {abortNetwork:false})`를 명시한 특수 하위 레이어가 기존 로더와 callback 수명 규칙을
@@ -4749,12 +5087,12 @@ declare class U3dImageLayer extends U3dLayer {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 텍스처를 적용할 타일
      * @param {import('@UDrawArg').UDrawArg} drawArg DrawArg
      * @param {string} url 텍스처 URL
-     * @param {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} promise 작업 deferred
+     * @param {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} promise 작업 deferred
      * @return {Promise<import('@U3dQuadTile').U3dQuadTile>} 작업 deferred
      *
      * @ignore
      */
-    _processTextureLegacy(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredObject<U3dQuadTile>): Promise<U3dQuadTile>;
+    _processTextureLegacy(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredPromise<U3dQuadTile>): Promise<U3dQuadTile>;
     /**
      * 매쉬의 머터리얼과 텍스처 맵을 해제합니다. <br>
      *
@@ -4798,7 +5136,7 @@ declare class U3dImageLayer extends U3dLayer {
      * @override
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 타일
-     * @return {boolean} 작업 성공 여부. 성공하면 true, 실패면 false.
+     * @returns {boolean} 준비된 타일을 부착하면 true, 준비 대기 또는 부착 불가이면 false입니다.
      *
      * @ignore
      */
@@ -4843,10 +5181,10 @@ declare class U3dImageLayer extends U3dLayer {
      * 자식 타일의 텍스처 로드에 실패했거나, burnLevels 에 지정된 레벨일 때 사용됩니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 텍스처를 생성할 자식 타일
-     * @returns {boolean | DeferredObject<import('@U3dQuadTile').U3dQuadTile> | undefined} 생성 성공 시 `true`, 실패 시 `undefined` 를 반환합니다. <br>
-     * 하위 레이어는 성공을 그 타일로 이행되는 Promise 호환 객체(`DeferredObject`)로 알릴 수 있으며, 호출부는 반환값을 참·거짓으로만 판정합니다.
+     * @returns {boolean | Promise<import('@U3dQuadTile').U3dQuadTile> | undefined} 생성 성공 시 `true`, 실패 시 `undefined` 를 반환합니다. <br>
+     * 하위 레이어는 성공을 그 타일로 이행되는 Promise 호환 객체(`DeferredPromise`)로 알릴 수 있으며, 호출부는 반환값을 참·거짓으로만 판정합니다.
      */
-    createParentTexture(tile: U3dQuadTile): boolean | DeferredObject<U3dQuadTile> | undefined;
+    createParentTexture(tile: U3dQuadTile): boolean | Promise<U3dQuadTile> | undefined;
     /**
      * 입력 받은 타일에 텍스처를 생성/적용할지 여부를 판단하여 작업을 시작합니다. <br>
      * 가시화 여부, 레벨, BoundingBox 교차, burnLevels 등을 검사하여 텍스처 생성 흐름을 분기합니다.
@@ -4985,27 +5323,6 @@ declare class UTerrainMaterial extends three.MeshPhongMaterial {
 }
 
 /**
- * Terrain shader 실제 렌더 계측 callback 연결 상태입니다.
- */
-type TerrainShaderProgramDiagnosticBinding = {
-    /**
-     * 계측 대상 terrain tile key입니다.
-     */
-    tileKey: string;
-    /**
-     * 실제 렌더를 기다리는 prewarm cache key입니다.
-     */
-    expectedCacheKeys: Set<string>;
-    /**
-     * 기존 렌더 완료 callback입니다.
-     */
-    previousOnAfterRender: three.Object3D["onAfterRender"];
-    /**
-     * 계측을 연결한 렌더 완료 callback입니다.
-     */
-    wrapper: three.Object3D["onAfterRender"];
-};
-/**
  * Terrain Shader Prewarm 생성 옵션입니다.
  */
 type UTerrainShaderPrewarmCO = {
@@ -5020,15 +5337,6 @@ type UTerrainShaderPrewarmCO = {
  * @typedef {Partial<{getUniforms:function():unknown,getAttributes:function():unknown}>} TerrainShaderWarmupProgram
  */
 /**
- * Terrain shader 실제 렌더 계측 callback 연결 상태입니다.
- *
- * @typedef {object} TerrainShaderProgramDiagnosticBinding
- * @property {string} tileKey 계측 대상 terrain tile key입니다.
- * @property {Set<string>} expectedCacheKeys 실제 렌더를 기다리는 prewarm cache key입니다.
- * @property {import('three').Object3D['onAfterRender']} previousOnAfterRender 기존 렌더 완료 callback입니다.
- * @property {import('three').Object3D['onAfterRender']} wrapper 계측을 연결한 렌더 완료 callback입니다.
- */
-/**
  * Terrain Shader Prewarm 생성 옵션입니다.
  *
  * @memberof UTerrainShaderPrewarm
@@ -5036,9 +5344,9 @@ type UTerrainShaderPrewarmCO = {
  * @property {import('@union3d/manager/terrain/UShaderTerrainDecalManager').UShaderTerrainDecalManager} manager prewarm 대상 terrain 상태를 소유한 manager입니다.
  */
 /**
- * 실제 terrain mesh가 사용할 shader 변형만 미리 link하고, 그 결과를 실제 렌더 program과 비교 계측합니다.
+ * 실제 terrain mesh가 사용할 shader 변형을 미리 link하고 지연 정보 조회까지 준비합니다.
  *
- * prewarm template cache와 계측 callback 연결은 이 객체가 소유합니다. manager는 앱(`_app`)과
+ * prewarm template cache와 비동기 준비 자원은 이 객체가 소유합니다. manager는 앱(`_app`)과
  * tile registry만 제공하며, 소유 상태를 직접 들고 있지 않습니다.
  */
 declare class UTerrainShaderPrewarm {
@@ -5046,20 +5354,30 @@ declare class UTerrainShaderPrewarm {
     constructor(opt: UTerrainShaderPrewarmCO);
     /** @type {import('@union3d/manager/terrain/UShaderTerrainDecalManager').UShaderTerrainDecalManager} */
     _manager: UShaderTerrainDecalManager;
-    /** @type {Map<string, import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>} 앱 수명 동안 prewarm한 shader program 참조를 유지합니다. */
+    /**
+     * 앱 수명 동안 prewarm한 shader program 참조를 유지합니다.
+     *
+     * @type {Map<string, import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>}
+     */
     templateCache: Map<string, UTerrainMaterial>;
-    /** @type {WeakMap<import('three').WebGLRenderer, number>} renderer별 program 참조를 분리하는 앱 수명 식별자입니다. */
+    /**
+     * renderer별 program 참조를 분리하는 앱 수명 식별자입니다.
+     *
+     * @type {WeakMap<import('three').WebGLRenderer, number>}
+     */
     rendererIds: WeakMap<three.WebGLRenderer, number>;
-    /** @type {Set<string>} 실제 렌더 계측을 마친 prewarm cache key입니다. */
-    diagnosedWarmupCacheKeys: Set<string>;
-    /** @type {Map<import('three').Mesh, TerrainShaderProgramDiagnosticBinding>} mesh별 렌더 계측 callback 연결입니다. */
-    programDiagnosticBindings: Map<three.Mesh, TerrainShaderProgramDiagnosticBinding>;
-    /** @type {number} 비동기 컴파일과 지연 정보 조회를 기다리는 prewarm 수입니다. */
+    /**
+     * 비동기 컴파일과 지연 정보 조회를 기다리는 prewarm 수입니다.
+     *
+     * @type {number}
+     */
     warmupPendingCount: number;
     /**
-     * @type {Set<import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>} compileAsync 완료를 기다리는 warm material입니다.
+     * compileAsync 완료를 기다리는 warm material입니다.
      * 대기 중에 template을 정리하면 three.js의 준비 확인 루프가 해제된 material의 program을 읽어 예외를 내므로,
      * 정리는 cache에서만 먼저 빼고 실제 dispose는 compile이 끝난 뒤에 수행합니다.
+     *
+     * @type {Set<import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>}
      */
     pendingWarmupMaterials: Set<UTerrainMaterial>;
     /**
@@ -5075,18 +5393,12 @@ declare class UTerrainShaderPrewarm {
      */
     isProgramReady(material: TerrainMaterial, defines?: Record<string, number | undefined>, mesh?: three.Mesh): boolean;
     /**
-     * Terrain shader program 계측 callback을 원래 상태로 복원합니다.
-     *
-     * @param {import('@UTerrainMesh').UTerrainMesh | import('three').Mesh} [mesh] 복원할 mesh입니다.
-     */
-    disposeProgramDiagnostics(mesh?: UTerrainMesh | three.Mesh): void;
-    /**
-     * 실제 terrain mesh에서 사용할 shader 변형만 미리 link합니다.
+     * 실제 terrain mesh에서 사용할 shader 변형을 미리 link하고 정보 조회 뒤 대기 중인 타일의 준비를 다시 알립니다.
      *
      * @param {import('@UTerrainMesh').UTerrainMesh | import('three').Mesh} mesh 화면에 연결될 terrain mesh입니다.
      * @param {TerrainMaterial} material terrain mesh가 사용할 material입니다.
      * @param {Record<string, number|undefined>} [defines={}] 적용 예정인 terrain decal define입니다.
-     * @param {string} [tileKey=''] 실제 렌더 program을 연결할 terrain tile key입니다.
+     * @param {string} [tileKey=''] 호출부 호환을 위해 유지하는 terrain tile key입니다.
      * @returns {boolean} prewarm을 시작했으면 `true`입니다.
      */
     prewarmPrograms(mesh: UTerrainMesh | three.Mesh, material: TerrainMaterial, defines?: Record<string, number | undefined>, tileKey?: string): boolean;
@@ -5165,10 +5477,6 @@ type TerrainDecalConfig = {
      */
     foregroundPriorityMin: number;
     /**
-     * tile 상태 디버그 로그의 최대 보관 수입니다.
-     */
-    debugLogLimit: number;
-    /**
      * Worker delta 기준선인 tile payload snapshot을 보관할 최대 tile 수입니다.
      */
     payloadCacheMaxEntries: number;
@@ -5185,7 +5493,7 @@ type TerrainDecalConfig = {
      */
     payloadSnapshotCacheMaxBytes: number;
     /**
-     * 0이 아니면 hybrid 합성 실행 경로를 켭니다. Source 안정성 분류를 전달해 정적 Feature는 offscreen 합성 texture로, 비교차 동적 Feature는 direct로 같은 terrain material에서 함께 표시합니다. 기본값은 0이며 혼합 source는 기존 direct·precomposed 판정을 유지합니다. 정적 source만 있는 타일은 이 옵션과 무관하게 축소 필터를 적용하는 precomposed 경로를 사용합니다.
+     * 0이 아니면 일반 평탄 입력의 합성 계획에 Source 안정성 분류를 전달합니다. 정적 구간 뒤에 동적 구간이 오거나 두 집합이 비교차이고 동적 부분집합의 직접 평가가 가능하면 정적 texture와 동적 direct를 함께 표시합니다. 기본값은 0입니다. 정적 전용 타일의 precomposed 처리와 검증된 연속 구간의 정적 RTT 직접 재사용은 이 옵션과 별도로 적용됩니다.
      */
     hybridCompositionEnabled: number;
 };
@@ -6109,6 +6417,7 @@ declare class UTerrainPayloadBuilder {
  * @inner
  *
  * @typedef {object} TerrainPayloadData
+ * @property {string} [wasmPath] 메인에서 확정한 WASM 파일의 절대 주소입니다.
  * @property {number} formatVersion wire format version입니다.
  * @property {boolean} full 전체 상태 전송 여부입니다.
  * @property {string} tileKey terrain tile key입니다.
@@ -6554,14 +6863,6 @@ type UTerrainWorkerSchedulerTaskOption = {
      */
     resolvePriority: () => number;
     /**
-     * feature 수입니다.
-     */
-    featureCount: number;
-    /**
-     * 등록된 feature 수입니다.
-     */
-    registeredFeatureCount: number;
-    /**
      * 메인 스레드 작업권 양보 여부입니다.
      */
     defer: boolean;
@@ -6691,10 +6992,6 @@ type TerrainWorkerPhaseTiming = {
      * 실제 Worker 전송 시작 시각입니다.
      */
     workerSlotAcquiredAt?: number;
-    /**
-     * postMessage 완료 시각입니다.
-     */
-    dispatchCompletedAt?: number;
 };
 /**
  * Worker Scheduler 생성 옵션입니다.
@@ -6721,8 +7018,6 @@ type TerrainWorkerPhaseTiming = {
  * @property {number} revision 작업 revision입니다.
  * @property {number} priority 작업 우선순위입니다.
  * @property {() => number} resolvePriority 최신 우선순위 조회 함수입니다.
- * @property {number} featureCount feature 수입니다.
- * @property {number} registeredFeatureCount 등록된 feature 수입니다.
  * @property {boolean} defer 메인 스레드 작업권 양보 여부입니다.
  * @property {Array<Transferable>} transferList Worker로 이전할 객체 목록입니다.
  * @property {() => boolean} isCurrent 작업 최신 여부 조회 함수입니다.
@@ -6776,7 +7071,6 @@ type TerrainWorkerPhaseTiming = {
  * @property {number} [workerSlotRequestedAt] Worker Slot 요청 시각입니다.
  * @property {number} [workerDispatchedAt] 실제 Worker 전송 시작 시각입니다.
  * @property {number} [workerSlotAcquiredAt] 실제 Worker 전송 시작 시각입니다.
- * @property {number} [dispatchCompletedAt] postMessage 완료 시각입니다.
  */
 /**
  * Worker별 예약 순서와 UTaskProcessor 호출을 관리합니다.
@@ -6850,33 +7144,23 @@ declare class UTerrainWorkerScheduler {
      */
     enqueue(workerIndex: number, callback: (arg0: TerrainWorkerPhaseTiming) => unknown, opt?: Partial<UTerrainWorkerSchedulerTaskOption>): Promise<unknown>;
     /**
-     * Worker 단계별 대기 시간을 누적하고 Performance Timeline에 기록합니다.
+     * Worker 단계별 대기 시간 표본을 누적합니다.
      *
      * @param {'admission'|'payloadReady'|'queueResident'|'workerSlot'|'dispatch'} phase 대기 단계입니다.
      * @param {number} elapsed 대기 시간입니다.
-     * @param {Record<string, unknown>} [detail={}] Tile과 revision 정보입니다.
-     * @param {number} [startedAt] 대기 시작 시각입니다.
      * @returns {boolean} 알려진 단계를 기록했으면 `true`입니다.
      */
-    recordPhaseWait(phase: "admission" | "payloadReady" | "queueResident" | "workerSlot" | "dispatch", elapsed: number, detail?: Record<string, unknown>, startedAt?: number): boolean;
+    recordPhaseWait(phase: "admission" | "payloadReady" | "queueResident" | "workerSlot" | "dispatch", elapsed: number): boolean;
     /**
      * Manager가 폐기한 오래된 Worker 결과를 집계합니다.
-     *
-     * @param {Partial<{tileKey:string,generation:number,revision:number,latestRevision:number}>} [detail={}] 폐기한 결과 정보입니다.
      */
-    recordStaleResult(detail?: Partial<{
-        tileKey: string;
-        generation: number;
-        revision: number;
-        latestRevision: number;
-    }>): void;
+    recordStaleResult(): void;
     /**
      * 최신성 검사로 취소한 단계별 작업을 집계합니다.
      *
      * @param {'before-build'|'after-build'|'before-dispatch'} stage 취소 단계입니다.
-     * @param {object} [detail={}] Tile과 revision 정보입니다.
      */
-    recordCancellation(stage: "before-build" | "after-build" | "before-dispatch", detail?: object): void;
+    recordCancellation(stage: "before-build" | "after-build" | "before-dispatch"): void;
     /**
      * Worker 대기열과 취소 계측값을 반환합니다.
      *
@@ -6887,774 +7171,6 @@ declare class UTerrainWorkerScheduler {
     resetStatistics(): void;
     /** Worker 대기열을 취소하고 Scheduler가 보유한 참조를 해제합니다. */
     dispose(): void;
-    #private;
-}
-
-/**
- * 2D 도형(Geometry)의 추상 기반 클래스입니다. <br>
- * <br/> <br>
- * OpenLayers Feature를 기반으로 2D 도형의 생성·편집·스타일·라벨 관리 기능을 제공하며, U2dPoint·U2dLine·U2dPolygon 등이 이 클래스를 상속합니다. <br>
- *
- * 이 클래스가 다루는 좌표는 모두 지도 좌표계(EPSG:3857)입니다. <br>
- * 위경도(EPSG:4326)로 좌표를 넣으려면 `addPosition`에 좌표계를 지정하거나 `transformPoint`로 먼저 변환합니다. <br>
- *
- * 생성자가 `createGeometry`를 호출해 OpenLayers Feature를 함께 만들며, 실제 도형 형태는 하위 클래스가 `buildCoordinates`를 재정의해 결정합니다. <br>
- * `nonChanged`를 켜면 스타일과 색상·두께를 바꾸는 함수들이 값을 바꾸지 않고 넘어갑니다. <br>
- *
- * @group geometry
- *
- * @abstract
- */
-declare class U2dGeometry {
-    /**
-     * 2D 도형을 생성합니다(주로 하위 클래스에서 상속하여 사용합니다). <br>
-     * 기본 생성은 빈 Feature와 스타일을 준비하며, `sourceFeature`가 있으면 원본을 그대로 연결하고 OL 스타일은 첫 조회까지 만들지 않습니다. <br>
-     * 좌표는 만든 뒤 `setPosition`이나 `addPosition`으로 넣습니다. <br>
-     *
-     * @param {U2dGeometryCO} [opt={}] 생성 옵션 (이름·채우기색·외곽선 색·외곽선 두께·검색 제외·편집 잠금) <br>
-     */
-    constructor(opt?: U2dGeometryCO);
-    /**
-     * 도형을 구분하는 이름입니다. <br>
-     * 생성 옵션의 `name`으로 정하며, 지정하지 않거나 빈 문자열을 넣으면 무작위 GUID 문자열이 들어갑니다. <br>
-     *
-     * @type {string}
-     */
-    name: string;
-    /**
-     * 도형 내부를 채우는 색상입니다. <br>
-     * CSS 색 문자열이며 `setStyle`로 스타일을 바꾸면 그 스타일의 채우기 색으로 갱신됩니다. <br>
-     *
-     * @type {string}
-     */
-    fillColor: string;
-    /**
-     * 도형 외곽선의 색상입니다. <br>
-     * CSS 색 문자열이며 `setStyle`로 스타일을 바꾸면 그 스타일의 외곽선 색으로 갱신됩니다. <br>
-     *
-     * @type {string}
-     */
-    strokeColor: string;
-    /**
-     * 도형 외곽선의 두께입니다(픽셀). <br>
-     * `setStyle`로 스타일을 바꾸면 그 스타일의 외곽선 두께로 갱신됩니다. <br>
-     *
-     * @type {number}
-     */
-    strokeWidth: number;
-    /**
-     * 순차 입력에서 확정한 월드 좌표(EPSG:3857)입니다. 미리보기 점은 포함하지 않습니다. <br>
-     * 도형 종류에 따라 점·선·폴리곤 형태가 다르며, 자세한 형태는 {@link U2dCoordinate}에 정리되어 있습니다. <br>
-     *
-     * @type {U2dCoordinate}
-     */
-    coordinates: U2dCoordinate;
-    /**
-     * 도형과 함께 보관하는 사용자 정의 정보입니다. <br>
-     * `setMeta`로 넣으며, Feature가 있는 상태에서 넣으면 Feature의 전체 속성으로 채워집니다. <br>
-     *
-     * @type {KeyValue | undefined}
-     */
-    meta: KeyValue | undefined;
-    /**
-     * @type {OLGeometry|undefined}
-     *
-     * @ignore
-     */
-    geom: OLGeometry | undefined;
-    /**
-     * @type {OLFeature|undefined}
-     *
-     * @ignore
-     */
-    feature: OLFeature | undefined;
-    /**
-     * @type {OLFill}
-     *
-     * @ignore
-     */
-    fill: OLFill;
-    /**
-     * @type {OLStroke}
-     *
-     * @ignore
-     */
-    stroke: OLStroke;
-    /**
-     * @type {OLStyle}
-     *
-     * @ignore
-     */
-    style: OLStyle;
-    /**
-     * 현재 표시 중인 임시 마지막 좌표입니다.
-     *
-     * @type {Array<number>|undefined}
-     *
-     * @ignore
-     */
-    lastCoordinate: Array<number> | undefined;
-    /**
-     * 지도에서 도형을 찾을 때 이 도형을 검색 대상에서 뺄지 여부입니다. <br>
-     * 켜 두면 클릭이나 영역 선택으로 도형을 고를 때 후보에서 빠집니다. <br>
-     *
-     * @type {boolean}
-     */
-    excludeSearch: boolean;
-    /**
-     * 도형을 편집하지 못하게 잠갔는지 여부입니다. <br>
-     * 켜져 있으면 `setStyle`·`setFillColor`·`setStrokeColor`·`setStrokeWidth`가 값을 바꾸지 않고 그대로 넘어갑니다. <br>
-     *
-     * @type {boolean}
-     */
-    nonChanged: boolean;
-    /**
-     * @type {boolean}
-     *
-     * @ignore
-     */
-    _visible: boolean;
-    /**
-     * @type {U2dLabel|undefined}
-     *
-     * @ignore
-     */
-    _label: U2dLabel | undefined;
-    _disposed: boolean;
-    _ownsFeature: boolean;
-    /** @type {Set<function(): void>} */
-    _disposeListeners: Set<() => void>;
-    /**
-     * 입력 좌표 배열을 각 도형 종류에 맞는 좌표 형식으로 변환하는 추상 메서드입니다. <br>
-     * 하위 클래스(선·다각형 등)에서 재정의하여 사용합니다. <br>
-     * 좌표를 넣거나 바꿀 때마다 호출되어, 그 결과가 OpenLayers Geometry의 좌표로 들어갑니다. <br>
-     * 기반 클래스는 받은 좌표를 그대로 돌려주므로 재정의하지 않으면 형태가 바뀌지 않습니다. <br>
-     *
-     * @abstract
-     *
-     * @param {U2dCoordinate} [coords=[]] 변환할 좌표 (EPSG:3857) <br>
-     * @returns {U2dCoordinate | Quad_Array<number>} 도형 종류에 맞게 감싼 좌표. 폴리곤처럼 한 겹 더 필요한 도형은 배열 깊이가 늘어납니다 <br>
-     */
-    buildCoordinates(coords?: U2dCoordinate): U2dCoordinate | Quad_Array<number>;
-    /**
-     * Feature 및 Geometry를 생성하는 함수 <br>
-     *
-     * @ignore
-     */
-    createGeometry(): void;
-    /**
-     * 도형과 관련 리소스(Feature·Geometry·좌표·메타데이터)를 해제합니다. <br>
-     * 더 이상 사용하지 않는 도형은 이 함수로 정리하면 메모리 누수를 방지할 수 있습니다. <br>
-     * 좌표와 메타데이터가 비워지므로 정리한 뒤에는 다시 사용하지 않습니다. <br>
-     */
-    dispose(): void;
-    /**
-     * 도형 해제 시 연결을 정리할 함수를 등록합니다.
-     * @param {function(): void} listener 해제 통지를 받을 함수입니다.
-     * @returns {function(): void} 등록을 해제하는 함수입니다.
-     * @ignore
-     */
-    addDisposeListener(listener: () => void): () => void;
-    /**
-     * 이 도형을 검색 대상에서 제외할지 여부를 설정합니다. <br>
-     * Feature가 만들어져 있으면 Feature에도 같은 값을 함께 반영합니다. <br>
-     *
-     * @param {boolean} excludeSearch `true`면 클릭이나 영역 선택으로 도형을 찾을 때 후보에서 빠집니다 <br>
-     */
-    setExcludeSearch(excludeSearch: boolean): void;
-    /**
-     * 이 도형이 검색 대상에서 제외되어 있는지 여부를 반환합니다. <br>
-     *
-     * @returns {boolean} `true`면 도형을 찾는 검색에서 빠져 있는 상태입니다 <br>
-     */
-    getExcludeSearch(): boolean;
-    /**
-     * 이 도형을 편집하지 못하게 잠글지 여부를 설정합니다. <br>
-     * 잠그면 `setStyle`·`setFillColor`·`setStrokeColor`·`setStrokeWidth`가 값을 바꾸지 않고 넘어갑니다. <br>
-     * 잠금과 해제 모두 원본 Feature에 반영합니다. <br>
-     *
-     * @param {boolean} nonChanged `true`면 편집을 잠그고 `false`면 잠금을 풉니다 <br>
-     */
-    setNonChanged(nonChanged: boolean): void;
-    /**
-     * 이 도형이 편집 잠금 상태인지 여부를 반환합니다. <br>
-     *
-     * @returns {boolean} `true`면 스타일과 색상을 바꾸는 함수가 동작하지 않는 상태입니다 <br>
-     */
-    getNonChanged(): boolean;
-    /**
-     * 현재 원본의 스타일·표시·검색·편집·라벨 상태를 반환합니다. 좌표와 변환값은 포함하지 않습니다.
-     *
-     * @returns {U2dGeometryParam} 다른 도형의 setParam에 전달할 수 있는 현재 값입니다. 미지정 스타일은 undefined입니다.
-     */
-    getParam(): U2dGeometryParam;
-    /**
-     * 지정한 항목만 변경합니다. null·undefined는 무시하며 좌표 변환은 기존 좌표 API를 사용합니다.
-     *
-     * @param {U2dGeometryParam} [param={}] 적용할 스타일과 상태입니다.
-     * @throws {TypeError|RangeError} 값의 형식이나 범위가 잘못되면 변경 전에 발생합니다.
-     */
-    setParam(param?: U2dGeometryParam): void;
-    /**
-     * 하이라이트·숨김 중에는 보관한 편집 스타일을 반환합니다. 조회로 OL 자원을 만들지 않습니다.
-     *
-     * @returns {OLStyle|undefined} 현재 편집 대상인 단일 스타일입니다.
-     *
-     * @ignore
-     */
-    _getSourceStyle(): OLStyle | undefined;
-    /**
-     * 원본에 명시한 값만 읽어 레이어에서 상속하는 기본 스타일을 보존합니다.
-     *
-     * @returns {U2dGeometryParam & Partial<{fillColor: string, strokeColor: string}>} 현재 스타일과 표시 상태입니다.
-     *
-     * @ignore
-     */
-    _getStyleValues(): U2dGeometryParam & Partial<{
-        fillColor: string;
-        strokeColor: string;
-    }>;
-    /** @returns {string|undefined} 현재 채움 색상이며 미지정이면 undefined입니다. */
-    getFillColor(): string | undefined;
-    /** @returns {string|undefined} 현재 외곽선 색상이며 미지정이면 undefined입니다. */
-    getStrokeColor(): string | undefined;
-    /** @returns {number|undefined} 현재 외곽선 두께이며 미지정이면 undefined입니다. */
-    getStrokeWidth(): number | undefined;
-    /** @returns {number|undefined} 명시 투명도를 우선한 채움 불투명도이며 미지정이면 undefined입니다. */
-    getFillOpacity(): number | undefined;
-    /** @returns {number|undefined} 명시 투명도를 우선한 외곽선 불투명도이며 미지정이면 undefined입니다. */
-    getStrokeOpacity(): number | undefined;
-    /**
-     * 채움의 불투명도를 바꾸고 연결된 레이어에 변경을 알립니다.
-     *
-     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
-     *
-     * @param {number} opacity 불투명도입니다. 0은 투명, 1은 불투명입니다.
-     * @throws {TypeError|RangeError} 0~1 범위의 유한한 숫자가 아니면 발생합니다.
-     */
-    setFillOpacity(opacity: number): void;
-    /**
-     * 외곽선의 불투명도를 바꾸고 연결된 레이어에 변경을 알립니다.
-     *
-     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
-     *
-     * @param {number} opacity 불투명도입니다. 0은 투명, 1은 불투명입니다.
-     * @throws {TypeError|RangeError} 0~1 범위의 유한한 숫자가 아니면 발생합니다.
-     */
-    setStrokeOpacity(opacity: number): void;
-    /**
-     * 형상 속성을 제외한 사용자 속성의 얕은 복사본을 반환합니다.
-     *
-     * @returns {KeyValue} 현재 원본의 사용자 속성입니다. 해제된 도형은 빈 객체입니다.
-     */
-    getProperties(): KeyValue;
-    /**
-     * 사용자 속성을 JSON으로 깊은 복사하여 전체 교체합니다. 원본 형상과 ID는 보존합니다.
-     *
-     * @param {KeyValue|string} input 속성 객체 또는 JSON 문자열입니다. 형상 속성은 무시합니다.
-     * @throws {SyntaxError|TypeError} JSON 변환이 불가능하거나 객체 형식이 아니면 변경 전에 발생합니다.
-     */
-    setProperties(input: KeyValue | string): void;
-    /**
-     * 없는 사용자 속성만 추가합니다. 빈 키와 null·undefined는 무시합니다.
-     *
-     * @param {string} key 추가할 속성 이름입니다.
-     * @param {unknown} value JSON으로 보관할 값입니다.
-     * @throws {TypeError} JSON 변환이 불가능하거나 예약 키이면 발생합니다.
-     */
-    addProperties(key: string, value: unknown): void;
-    /**
-     * 기존 사용자 속성의 값만 변경합니다. 없는 키와 null·undefined는 무시합니다.
-     *
-     * @param {string} key 변경할 속성 이름입니다.
-     * @param {unknown} value JSON으로 보관할 새 값입니다.
-     * @throws {TypeError} JSON 변환이 불가능하면 발생합니다.
-     */
-    changeProperties(key: string, value: unknown): void;
-    /**
-     * 사용자 속성을 제거합니다. 형상과 원본 ID는 보존합니다.
-     *
-     * @param {string} key 제거할 속성 이름입니다.
-     */
-    removeProperties(key: string): void;
-    /**
-     * 도형에 저장해 둔 사용자 정의 정보를 반환합니다. <br>
-     *
-     * @returns {KeyValue|undefined} 저장해 둔 정보. `setMeta`로 넣은 적이 없으면 `undefined` <br>
-     */
-    getMeta(): KeyValue | undefined;
-    /**
-     * 도형에 사용자 정의 정보를 저장합니다. <br>
-     * 클릭한 도형의 부가 정보처럼 화면 표현과 무관한 값을 도형과 함께 보관할 때 사용합니다. <br>
-     *
-     * Feature가 만들어져 있으면 넘긴 값을 Feature 속성에 합친 뒤, `meta`에는 Feature의 전체 속성이 담깁니다. <br>
-     * 따라서 저장한 뒤 `getMeta`로 읽으면 넘긴 값 외에 Feature가 이미 갖고 있던 속성도 함께 나옵니다. <br>
-     *
-     * @param {KeyValue} meta 저장할 정보를 담은 key-value 객체 <br>
-     */
-    setMeta(meta: KeyValue): void;
-    /**
-     * 이 도형이 사용하는 OpenLayers Feature 객체를 반환합니다. <br>
-     * OpenLayers API를 직접 다뤄야 할 때 사용하며, 돌려준 객체를 고치면 이 도형에도 그대로 반영됩니다. <br>
-     *
-     * @returns {OLFeature|undefined} 이 도형이 쓰고 있는 Feature. 아직 만들어지지 않았으면 `undefined` <br>
-     */
-    getFeature(): OLFeature | undefined;
-    /**
-     * 이미 만들어져 있는 OpenLayers Feature를 이 도형에 연결합니다. <br>
-     * 외부에서 읽어 온 Feature를 이 클래스로 감싸 다룰 때 사용합니다. <br>
-     *
-     * 연결하면서 Feature가 가진 Geometry·속성·검색 제외·편집 잠금·좌표를 읽어 이 도형의 값으로 덮어씁니다. <br>
-     * 원본 스타일을 보존하며, 기본적으로 외부 Feature의 해제 책임은 원래 소유자에게 있습니다. <br>
-     * 스타일이 없는 원본에는 도형의 기본 스타일을 연결합니다. <br>
-     * 다른 Feature를 연결하면 기존 미리보기 점을 종료합니다. <br>
-     * 레이어 연결 중에는 Feature 자체를 교체하지 않습니다. 형상은 `getFeature().setGeometry()`로 교체합니다. <br>
-     * `feature`가 없으면 콘솔에 메시지를 남기고 아무것도 바꾸지 않습니다. <br>
-     *
-     * @param {OLFeature} feature 연결할 OpenLayers Feature <br>
-     * @param {boolean} [ownsFeature=false] 내부에서 생성한 원본의 해제 책임까지 넘길 때만 true입니다.
-     * @throws {TypeError} 매개체에서 원본 OpenLayers Feature를 찾을 수 없으면 발생합니다.
-     * @throws {Error} 레이어 연결이 남은 도형의 Feature를 교체하면 발생합니다.
-     */
-    setFeature(feature: OLFeature, ownsFeature?: boolean): void;
-    /**
-     * 이 도형이 사용하는 OpenLayers Geometry 객체를 반환합니다. <br>
-     * 좌표나 경계 상자를 OpenLayers API로 직접 계산할 때 사용합니다. <br>
-     * 원본 형상이 교체되었으면 순차 입력 좌표를 맞추고 이전 미리보기 점을 종료합니다. <br>
-     *
-     * @returns {OLGeometry|undefined} 이 도형이 쓰고 있는 Geometry. 하위 클래스가 만들기 전이면 `undefined` <br>
-     */
-    getGeometry(): OLGeometry | undefined;
-    /**
-     * 도형의 스타일을 통째로 바꿉니다. <br>
-     * 넘긴 스타일의 채우기 색·외곽선 색·외곽선 두께를 읽어 `fillColor`·`strokeColor`·`strokeWidth`도 함께 갱신합니다. <br>
-     *
-     * 편집이 잠겨 있으면(`nonChanged`) 아무것도 바꾸지 않고 넘어갑니다. <br>
-     * 도형이 하이라이트 상태이면 화면에 바로 적용하지 않고 하이라이트가 끝난 뒤 쓰도록 보관합니다. <br>
-     *
-     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
-     *
-     * @param {OLStyle} style 적용할 OpenLayers 스타일 객체 <br>
-     */
-    setStyle(style: OLStyle): void;
-    /**
-     * 도형에 적용된 현재 스타일을 반환합니다. <br>
-     * 첫 조회에만 필요한 OL 리소스를 만들고 이후에는 같은 객체를 반환합니다. 원본에 없던 기본 스타일을 조회만으로 원본에 지정하지 않습니다. <br>
-     * 반환 스타일을 직접 수정한 뒤 원본 Feature의 `changed()`를 호출하면 연결된 레이어에도 반영됩니다. <br>
-     * 원형 이미지가 교체되었으면 이미지의 채움·외곽선을 우선하여 편의 필드와 지연 편집값을 동기화합니다. <br>
-     * 채움·외곽선 부재로 계산하는 투명 상태는 사용자 불투명도로 저장하지 않습니다. <br>
-     *
-     * @returns {OLStyle} 지금 적용 중인 OpenLayers 스타일 객체 <br>
-     */
-    getStyle(): OLStyle;
-    /**
-     * OL 스타일이 준비되기 전의 개별 지정값을 기존 원본 상태에 기록합니다.
-     *
-     * @param {'fillColor' | 'fillOpacity' | 'strokeColor' | 'strokeOpacity' | 'strokeWidth' | 'visible'} key 변경하는 스타일 항목입니다.
-     * @param {string | number | boolean} value 개별 지정하는 값입니다.
-     * @ignore
-     */
-    _setStyleValue(key: "fillColor" | "fillOpacity" | "strokeColor" | "strokeOpacity" | "strokeWidth" | "visible", value: string | number | boolean): void;
-    /**
-     * 도형의 이름을 바꿉니다. <br>
-     * 이 클래스가 들고 있는 이름만 바뀌며, 만들 때 Feature에 넣어 둔 `name` 속성은 그대로 남습니다. <br>
-     *
-     * @param {string} name 새로 지정할 이름. 레이어에서 도형을 찾을 때 쓰는 식별자입니다 <br>
-     */
-    setGeometryName(name: string): void;
-    /**
-     * 도형의 이름을 반환합니다. <br>
-     *
-     * @returns {string} 생성 옵션으로 정했거나 자동으로 만들어진 이름 <br>
-     */
-    getName(): string;
-    /**
-     * 도형의 좌표를 통째로 바꿉니다. <br>
-     * 기존 좌표를 버리고 넘긴 좌표로 도형을 다시 그립니다. <br>
-     * 표시 중이던 미리보기 점은 종료합니다. <br>
-     * 좌표를 하나씩 이어 붙이려면 `addPosition`을 사용합니다. <br>
-     *
-     * @param {U2dCoordinate} position 새로 지정할 좌표. 기본값은 월드 좌표(EPSG:3857)이며 도형 종류에 맞는 형태로 넣습니다 <br>
-     * @param {string} [srs='EPSG:3857'] 입력 좌표계이며 월드 좌표(EPSG:3857)와 위경도 좌표계(EPSG:4326)를 지원합니다.
-     * @throws {TypeError} 지원하지 않는 좌표계를 지정하면 발생합니다.
-     */
-    setPosition(position: U2dCoordinate, srs?: string): void;
-    /**
-     * 원본 도형의 현재 좌표를 반환합니다. <br>
-     * 순차 입력의 확정 좌표는 변경하지 않습니다. 반환 배열을 수정한 결과는 `setPosition()`으로 반영합니다. <br>
-     *
-     * @returns {U2dCoordinate} 지도 좌표(EPSG:3857). 도형 종류에 따라 배열 형태가 다릅니다 <br>
-     */
-    getPosition(): U2dCoordinate;
-    /**
-     * 명시적으로 형상을 변경한 뒤 순차 입력에 사용할 확정 좌표를 맞춥니다.
-     * 미리보기 점은 변환된 위치로 따로 보관하여 다음 점 입력에 포함하지 않습니다.
-     *
-     * @ignore
-     */
-    _syncCoordinates(): void;
-    /**
-     * 지도 좌표에서 지정한 거리만큼 형상 전체를 이동합니다.
-     *
-     * @param {number} x 동서 방향의 이동량입니다.
-     * @param {number} y 남북 방향의 이동량입니다.
-     */
-    translate(x: number, y: number): void;
-    /**
-     * 지도 좌표의 기준점을 중심으로 도형을 회전합니다.
-     *
-     * @param {number} angle 반시계 방향의 회전량이며 단위는 라디안입니다.
-     * @param {Array<number>} [anchor] 지도 좌표의 기준점이며 생략하면 경계 상자 중심입니다.
-     */
-    rotate(angle: number, anchor?: Array<number>): void;
-    /**
-     * 지도 좌표의 기준점을 중심으로 도형의 크기를 변경합니다.
-     *
-     * @param {number} x 동서 방향의 배율입니다.
-     * @param {number} [y] 남북 방향의 배율입니다.
-     * @param {Array<number>} [anchor] 기준점이며 생략하면 경계 상자 중심입니다.
-     */
-    scale(x: number, y?: number, anchor?: Array<number>): void;
-    /**
-     * 도형 좌표 끝에 점을 하나 덧붙입니다. <br>
-     * 마우스로 선이나 다각형을 한 점씩 그려 나갈 때 사용하며, 덧붙일 때마다 도형이 다시 그려집니다. <br>
-     * 표시 중이던 미리보기 점을 버리고 입력한 점만 확정합니다. <br>
-     *
-     * 위경도 좌표계(EPSG:4326)로 넣으면 월드 좌표(EPSG:3857)로 변환해 저장합니다. <br>
-     * 지원하지 않는 좌표계를 넣으면 콘솔에 지원 목록을 남기고 좌표를 넣지 않습니다. <br>
-     *
-     * @param {Array<number>} position 덧붙일 좌표. `srs`가 위경도면 `[경도, 위도]`, 지도 좌표면 `[x, y]`입니다 <br>
-     * @param {string} [srs='EPSG:4326'] 넘긴 좌표의 좌표계. 위경도 좌표계(EPSG:4326) 또는 월드 좌표(EPSG:3857)만 받습니다 <br>
-     *
-     * @example
-     * geom.addPosition([126.97409864653284, 37.56407015989075], 'EPSG:4326'); // 위경도 좌표계(EPSG:4326) 입력
-     */
-    addPosition(position: Array<number>, srs?: string): void;
-    /**
-     * 좌표를 지도 좌표계(EPSG:3857)로 변환합니다. <br>
-     * 위경도로 받은 입력을 이 클래스가 다루는 좌표로 바꿀 때 사용하며, `addPosition`과 `setLastCoordinate`도 내부에서 이 함수를 씁니다. <br>
-     *
-     * @param {Array<number>} point 변환할 좌표. `sourceCRS`가 위경도면 `[경도, 위도]`입니다 <br>
-     * @param {string} [sourceCRS='EPSG:4326'] 넘긴 좌표가 어떤 좌표계인지 나타내는 코드 <br>
-     * @returns {Array<number>} 변환한 지도 좌표 `[x, y]` (EPSG:3857) <br>
-     *
-     * @example
-     * geom.transformPoint([126.97409864653284, 37.56407015989075], 'EPSG:4326');
-     */
-    transformPoint(point: Array<number>, sourceCRS?: string): Array<number>;
-    /**
-     * 도형 내부를 채우는 색상을 바꿉니다. <br>
-     * 편집이 잠겨 있으면(`nonChanged`) 아무것도 바꾸지 않고 넘어갑니다. <br>
-     * 원본 스타일과 `fillColor` 프로퍼티를 함께 변경합니다. <br>
-     *
-     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
-     *
-     * @param {string} color 적용할 채우기 색상. CSS 색 문자열로 적으며 `rgba()`로 투명도를 함께 지정할 수 있습니다 <br>
-     */
-    setFillColor(color: string): void;
-    /**
-     * 도형 외곽선의 색상을 바꿉니다. <br>
-     * 편집이 잠겨 있으면(`nonChanged`) 아무것도 바꾸지 않고 넘어갑니다. <br>
-     * 원본 스타일과 `strokeColor` 프로퍼티를 함께 변경합니다. <br>
-     *
-     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
-     *
-     * @param {string} color 적용할 외곽선 색상. CSS 색 문자열로 적습니다 <br>
-     */
-    setStrokeColor(color: string): void;
-    /**
-     * 도형 외곽선의 두께를 바꿉니다. <br>
-     * 편집이 잠겨 있으면(`nonChanged`) 아무것도 바꾸지 않고 넘어갑니다. <br>
-     * 원본 스타일과 `strokeWidth` 프로퍼티를 함께 변경합니다. <br>
-     *
-     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
-     *
-     * @param {number} width 적용할 외곽선 두께 (픽셀). 화면 배율과 무관하게 같은 굵기로 보입니다 <br>
-     */
-    setStrokeWidth(width: number): void;
-    /**
-     * 그리는 중에 마우스를 따라다니는 미리보기 점을 지정합니다. <br>
-     * 이미 찍은 좌표 뒤에 이 점을 임시로 붙여 도형을 그리므로, 다음 점을 어디에 찍게 될지 미리 보여줄 수 있습니다. <br>
-     * 도형의 좌표 배열 자체는 바뀌지 않아 확정 전까지는 되돌릴 필요가 없습니다. <br>
-     *
-     * @param {Array<number>} coord 미리보기로 표시할 위경도 좌표 `[경도, 위도]` (EPSG:4326). 내부에서 지도 좌표로 변환합니다 <br>
-     */
-    setLastCoordinate(coord: Array<number>): void;
-    /**
-     * 도형의 중심 좌표를 반환합니다. <br>
-     * 도형을 감싸는 경계 상자의 한가운데이므로, 도형 모양이 한쪽으로 치우쳐 있으면 무게중심과는 다릅니다. <br>
-     * 라벨을 놓을 자리를 정할 때 사용합니다. <br>
-     *
-     * @returns {Array<number>} 경계 상자 중심의 지도 좌표 `[x, y]` (EPSG:3857) <br>
-     */
-    getCenter(): Array<number>;
-    /**
-     * 도형에 라벨을 연결해 도형과 함께 표시합니다. <br>
-     * 라벨 객체를 연결만 하므로 화면에 놓을 위치는 라벨 쪽에서 정합니다. <br>
-     * 연결한 뒤에는 `showLabel`·`hideLabel`로 표시를 켜고 끕니다. <br>
-     *
-     * @param {U2dLabel} poi 연결할 라벨 객체. 3D 공간에 놓는 `U3dPOI` 또는 화면에 겹쳐 그리는 `UCssBilboard`입니다 <br>
-     */
-    setLabel(poi: U2dLabel): void;
-    /**
-     * 도형에 연결해 둔 라벨을 떼어냅니다. <br>
-     * 연결만 끊으므로 라벨 객체 자체가 지워지지는 않습니다. <br>
-     */
-    removeLabel(): void;
-    /**
-     * 도형에 연결된 라벨을 반환합니다. <br>
-     *
-     * @returns {U2dLabel|undefined} 연결해 둔 라벨 객체. `setLabel`로 연결한 적이 없으면 `undefined` <br>
-     */
-    getLabel(): U2dLabel | undefined;
-    /**
-     * 도형에 연결된 라벨을 화면에 표시합니다. <br>
-     * 라벨을 연결하지 않았으면 아무것도 하지 않습니다. <br>
-     */
-    showLabel(): void;
-    /**
-     * 도형에 연결된 라벨을 화면에서 숨깁니다. <br>
-     * 연결은 유지되므로 `showLabel`로 다시 표시할 수 있습니다. <br>
-     */
-    hideLabel(): void;
-    /**
-     * 현재 연결된 라벨의 표시 상태를 바꿉니다. 라벨이 없으면 아무것도 하지 않습니다.
-     *
-     * @param {boolean} visible 라벨을 표시할지 여부입니다.
-     * @throws {TypeError} 표시 여부가 boolean이 아니면 발생합니다.
-     */
-    setShowLabel(visible: boolean): void;
-    /** @returns {boolean} 현재 연결된 라벨의 표시 상태이며 라벨이 없으면 false입니다. */
-    getShowLabel(): boolean;
-    /**
-     * 도형을 지도에 다시 보이게 합니다. <br>
-     * `hide`로 감춰 둔 도형에 원래 스타일을 되돌려 표시합니다. <br>
-     */
-    show(): void;
-    /**
-     * 도형을 지도에서 감춥니다. <br>
-     * 도형을 지우지 않고 빈 스타일을 씌워 보이지 않게만 하므로, `show`로 다시 표시할 수 있습니다. <br>
-     * 숨기기 전에 원본에 적용된 최신 단일 스타일을 보관합니다. <br>
-     * 감춘 상태에서도 도형은 남아 있어 검색이나 좌표 조회에는 그대로 잡힙니다. <br>
-     */
-    hide(): void;
-    #private;
-}
-
-type UMeasureFeatureExtent = {
-    min: three.Vector3Like;
-    max: three.Vector3Like;
-    getCenter: Function;
-};
-/**
- * @memberof UMeasureFeature
- * @inner
- *
- * @typedef {object} UMeasureFeatureExtent
- * @property {import('three').Vector3Like} min
- * @property {import('three').Vector3Like} max
- * @property {function} getCenter
- */
-declare class UMeasureFeature {
-    constructor(opt?: {});
-    /**
-     * @type {UMeasureFeatureExtent | undefined}
-     */
-    _extent: UMeasureFeatureExtent | undefined;
-    _uid: string;
-    _worldExtent: any;
-    _geometry: any;
-    _srs: any;
-    _type: any;
-    _measureVectors: any;
-    _fid: any;
-    _olFeature: any;
-    _style: any;
-    _properties: any;
-    _drawArg: any;
-    _nonChanged: any;
-    _excludeSearch: any;
-    _styleRevision: any;
-    _revision: any;
-    _geometryRevision: any;
-    _propertyRevision: any;
-    _drawSequence: any;
-    _isInner: any;
-    set uid(uid: string);
-    get uid(): string;
-    set extent(box: UMeasureFeatureExtent);
-    get extent(): UMeasureFeatureExtent;
-    set worldExtent(box: any);
-    get worldExtent(): any;
-    set geometry(geometry: any);
-    get geometry(): any;
-    set geometryRevision(revision: number);
-    get geometryRevision(): number;
-    set srs(srs: any);
-    get srs(): any;
-    set type(type: any);
-    get type(): any;
-    set measureVectors(vectors: three.Vector3[]);
-    get measureVectors(): three.Vector3[];
-    set fid(id: any);
-    get fid(): any;
-    set olFeature(olFeature: any);
-    get olFeature(): any;
-    set style(style: any);
-    get style(): any;
-    set propertyRevision(revision: number);
-    get propertyRevision(): number;
-    set oriStyle(style: any);
-    get oriStyle(): any;
-    _oriStyle: any;
-    set properties(properties: any);
-    get properties(): any;
-    set drawArg(drawArg: any);
-    get drawArg(): any;
-    set nonChanged(val: any);
-    get nonChanged(): any;
-    set excludeSearch(val: boolean);
-    get excludeSearch(): boolean;
-    set styleRevision(revision: any);
-    get styleRevision(): any;
-    set revision(revision: number);
-    get revision(): number;
-    set drawSequence(sequence: any);
-    get drawSequence(): any;
-    set isInner(isInner: any);
-    get isInner(): any;
-    /**
-     * 연결된 원본 OpenLayers geometry를 반환하며 원본 메서드를 변경하지 않습니다.
-     * @returns 현재 원본 OpenLayers 형상이며, 연결된 형상이 없으면 undefined입니다.
-     */
-    getGeometry(): any;
-    /**
-     * 원본 geometry를 교체하고 표시 데이터의 변경 번호를 갱신합니다.
-     * @param {OLGeometry | null | undefined} geometry 새 원본 형상입니다.
-     */
-    setGeometry(geometry: OLGeometry | null | undefined): void;
-    getExtent(): UMeasureFeatureExtent;
-    setExtent(box: any): void;
-    getWorldExtent(): any;
-    setWorldExtent(box: any): void;
-    getGoogleCoordinates(): any[];
-    getType(): any;
-    setType(type: any): void;
-    /**
-     * 도형의 월드 좌표 목록을 반환합니다.
-     *
-     * @returns {Array<import('three').Vector3>} 내부 좌표 목록의 원본 참조입니다.
-     */
-    getMeasureVectors(): Array<three.Vector3>;
-    /**
-     * 측정 좌표를 교체하고 geometry revision을 증가시킵니다.
-     *
-     * @param {Array<import('three').Vector3>} vectors 새 측정 좌표 목록입니다.
-     */
-    setMeasureVectors(vectors: Array<three.Vector3>): void;
-    getUid(): string;
-    setUid(uid: any): void;
-    getId(): any;
-    setId(id: any): void;
-    setOLFeature(olFeature: any): void;
-    getOLFeature(): any;
-    /**
-     * 현재 레이어의 원본 대표 매개체를 반환합니다.
-     *
-     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 연결된 원본 대표 매개체이며, 연결이 없으면 undefined입니다.
-     *
-     * @ignore
-     */
-    _getSourceMeasure(): UMeasureFeature | undefined;
-    /**
-     * 연결된 원본 피처를 반환합니다. 전체 원본이 준비되면 그 피처를 우선합니다.
-     * @returns {object | undefined} 원본 피처입니다.
-     */
-    getSourceFeature(): object | undefined;
-    /**
-     * 이미 연결된 원본 도형을 반환하며 조회만으로 도형이나 요청을 생성하지 않습니다.
-     * @returns {import('@U2dGeometry').U2dGeometry | undefined} 원본 도형입니다.
-     */
-    getSourceGeometry(): U2dGeometry | undefined;
-    /**
-     * 필요한 경우 앱의 원본 제공자를 호출하고 동일 피처의 도형을 재사용합니다.
-     *
-     * @returns {Promise<import('@U2dGeometry').U2dGeometry | undefined>} 준비된 원본 도형입니다.
-     */
-    loadSourceGeometry(): Promise<U2dGeometry | undefined>;
-    getStyle(): any;
-    /**
-     * 스타일을 지정하고 등록된 원본의 편집 창구에 변경을 전달합니다.
-     *
-     * @param {object} style 적용할 스타일입니다.
-     * @param {boolean} [notify=true] 내부 표시 상태 반영에서는 변경 전달을 생략합니다.
-     * @throws {Error} 해제되었거나 안정 식별자가 없는 타일 피처를 편집하면 발생합니다.
-     */
-    setStyle(style: object, notify?: boolean): void;
-    getProperties(): any;
-    setProperties(properties: any): void;
-    updateMeasureData(opt?: {}): this;
-    applyTypedMeasureData(opt?: {}): this;
-    applyRuntimeState(opt?: {}): this;
-    /** 원본의 현재 상태를 연결된 레이어에 다시 전달합니다. */
-    changed(): void;
-    getNonChanged(): any;
-    setNonChanged(val: any): void;
-    getExcludeSearch(): boolean;
-    setExcludeSearch(val: any): void;
-    getStyleRevision(): any;
-    setStyleRevision(revision: any): void;
-    getRevision(): number;
-    setRevision(revision: any): any;
-    bumpRevision(): any;
-    /**
-     * geometry 전용 revision을 반환합니다.
-     *
-     * @returns {number} geometry revision입니다.
-     */
-    getGeometryRevision(): number;
-    /**
-     * geometry 전용 revision을 설정합니다.
-     *
-     * @param {number} revision 설정할 revision입니다.
-     * @returns {number} 설정된 revision입니다.
-     */
-    setGeometryRevision(revision: number): number;
-    /**
-     * geometry 전용 revision을 증가시킵니다.
-     *
-     * @returns {number} 증가된 revision입니다.
-     */
-    bumpGeometryRevision(): number;
-    /**
-     * property 전용 revision을 반환합니다.
-     *
-     * @returns {number} property revision입니다.
-     */
-    getPropertyRevision(): number;
-    /**
-     * property 전용 revision을 설정합니다.
-     *
-     * @param {number} revision 설정할 revision입니다.
-     * @returns {number} 설정된 revision입니다.
-     */
-    setPropertyRevision(revision: number): number;
-    /**
-     * property 전용 revision을 증가시킵니다.
-     *
-     * @returns {number} 증가된 revision입니다.
-     */
-    bumpPropertyRevision(): number;
-    /**
-     * hole 상태를 설정하고 실제 변경 시 property revision을 증가시킵니다.
-     *
-     * @param {boolean} isInner hole 여부입니다.
-     * @returns {boolean} 설정된 hole 여부입니다.
-     */
-    setInner(isInner: boolean): boolean;
-    getDrawSequence(): any;
-    setDrawSequence(sequence: any): any;
-    ensureDrawSequence(sequence: any): any;
     #private;
 }
 
@@ -7723,9 +7239,17 @@ type UFileLoaderCallback = {
  * @extends {THREE.FileLoader<any>}
  */
 declare class UFileLoader extends three.FileLoader<any> {
-    /** @type {Record<string, UFileLoaderCallback[] | undefined>} URL별로 등록된 소비자 콜백 목록 */
-    static loading: Record<string, UFileLoaderCallback[] | undefined>;
-    /** @type {Record<string, UFileLoaderCallback | undefined>} 소비자 ID로 조회하는 콜백 맵 */
+    /**
+     * URL별로 등록된 소비자 콜백 목록입니다.
+     *
+     * @type {Record<string, Array<UFileLoaderCallback> | undefined>}
+     */
+    static loading: Record<string, Array<UFileLoaderCallback> | undefined>;
+    /**
+     * 소비자 ID로 조회하는 콜백 맵입니다.
+     *
+     * @type {Record<string, UFileLoaderCallback | undefined>}
+     */
     static callbackMap: Record<string, UFileLoaderCallback | undefined>;
     constructor(manager: any);
     getLoading(url: any): UFileLoaderCallback[];
@@ -7773,7 +7297,7 @@ declare class UFileLoader extends three.FileLoader<any> {
 }
 
 /**
- * Terrain WFS 요청의 전역 동시 실행 수와 중복 요청을 제어합니다.
+ * Terrain WFS 요청·결과 후처리의 전역 동시 실행 수와 중복 요청을 제어합니다.
  */
 declare class UTerrainWfsRequestQueue {
     /**
@@ -7808,7 +7332,7 @@ declare class UTerrainWfsRequestQueue {
      */
     setMaxConcurrency(maxConcurrency: number): void;
     /**
-     * 요청을 큐에 추가합니다. 같은 requestKey가 진행 중이면 기존 Promise를 공유합니다.
+     * 요청과 결과 후처리를 큐에 추가합니다. 같은 requestKey가 진행 중이면 기존 Promise를 공유합니다.
      *
      * @param {string} requestKey 중복 판별에 사용할 요청 키입니다.
      * @param {function} task AbortSignal을 받아 실제 WFS 요청을 수행하는 함수입니다.
@@ -7817,13 +7341,15 @@ declare class UTerrainWfsRequestQueue {
      * @param {string} [option.ownerKey] 레이어별 통계를 구분할 키입니다.
      * @param {function} [option.cancel] 실행 중인 실제 요청을 취소하는 함수입니다.
      * @param {number} [option.cacheTtlMs=0] 완료 결과를 재사용할 시간입니다. 0이면 캐시하지 않습니다.
-     * @returns {Promise<*>} 요청 결과 Promise입니다.
+     * @param {function(*, AbortSignal): (void | Promise<void>)} [option.onResult] 원본 응답 또는 캐시를 받아 같은 슬롯에서 완료할 후처리입니다. 중복 요청은 처음 등록한 후처리를 공유합니다.
+     * @returns {Promise<*>} 요청과 후처리가 끝난 뒤 원본 응답으로 완료되는 Promise입니다.
      */
     enqueue(requestKey: string, task: Function, option?: {
         priority?: number;
         ownerKey?: string;
         cancel?: Function;
         cacheTtlMs?: number;
+        onResult?: (arg0: any, arg1: AbortSignal) => (void | Promise<void>);
     }): Promise<any>;
     /**
      * 대기 또는 실행 중인 요청을 취소합니다.
@@ -8422,6 +7948,827 @@ declare class U3dPOI extends U3dPOI_base {
 }
 
 /**
+ * 2D 도형(Geometry)의 추상 기반 클래스입니다. <br>
+ * <br/> <br>
+ * OpenLayers Feature를 기반으로 2D 도형의 생성·편집·스타일·라벨 관리 기능을 제공하며, U2dPoint·U2dLine·U2dPolygon 등이 이 클래스를 상속합니다. <br>
+ *
+ * 이 클래스가 다루는 좌표는 모두 지도 좌표계(EPSG:3857)입니다. <br>
+ * 위경도(EPSG:4326)로 좌표를 넣으려면 `addPosition`에 좌표계를 지정하거나 `transformPoint`로 먼저 변환합니다. <br>
+ *
+ * 생성자가 `createGeometry`를 호출해 OpenLayers Feature를 함께 만들며, 실제 도형 형태는 하위 클래스가 `buildCoordinates`를 재정의해 결정합니다. <br>
+ * `nonChanged`를 켜면 스타일과 색상·두께를 바꾸는 함수들이 값을 바꾸지 않고 넘어갑니다. <br>
+ *
+ * @group geometry
+ *
+ * @abstract
+ */
+declare class U2dGeometry {
+    /**
+     * 2D 도형을 생성합니다(주로 하위 클래스에서 상속하여 사용합니다). <br>
+     * 기본 생성은 빈 Feature와 스타일을 준비하며, `sourceFeature`가 있으면 원본을 그대로 연결하고 OL 스타일은 첫 조회까지 만들지 않습니다. <br>
+     * 좌표는 만든 뒤 `setPosition`이나 `addPosition`으로 넣습니다. <br>
+     *
+     * @param {U2dGeometryCO} [opt={}] 생성 옵션 (이름·채우기색·외곽선 색·외곽선 두께·검색 제외·편집 잠금) <br>
+     */
+    constructor(opt?: U2dGeometryCO);
+    /**
+     * 도형을 구분하는 이름입니다. <br>
+     * 생성 옵션의 `name`으로 정하며, 지정하지 않거나 빈 문자열을 넣으면 무작위 GUID 문자열이 들어갑니다. <br>
+     *
+     * @type {string}
+     */
+    name: string;
+    /**
+     * 도형 내부를 채우는 색상입니다. <br>
+     * CSS 색 문자열이며 `setStyle`로 스타일을 바꾸면 그 스타일의 채우기 색으로 갱신됩니다. <br>
+     *
+     * @type {string}
+     */
+    fillColor: string;
+    /**
+     * 도형 외곽선의 색상입니다. <br>
+     * CSS 색 문자열이며 `setStyle`로 스타일을 바꾸면 그 스타일의 외곽선 색으로 갱신됩니다. <br>
+     *
+     * @type {string}
+     */
+    strokeColor: string;
+    /**
+     * 도형 외곽선의 두께입니다(픽셀). <br>
+     * `setStyle`로 스타일을 바꾸면 그 스타일의 외곽선 두께로 갱신됩니다. <br>
+     *
+     * @type {number}
+     */
+    strokeWidth: number;
+    /**
+     * 순차 입력에서 확정한 월드 좌표(EPSG:3857)입니다. 미리보기 점은 포함하지 않습니다. <br>
+     * 도형 종류에 따라 점·선·폴리곤 형태가 다르며, 자세한 형태는 {@link U2dCoordinate}에 정리되어 있습니다. <br>
+     *
+     * @type {U2dCoordinate}
+     */
+    coordinates: U2dCoordinate;
+    /**
+     * 도형과 함께 보관하는 사용자 정의 정보입니다. <br>
+     * `setMeta`로 넣으며, Feature가 있는 상태에서 넣으면 Feature의 전체 속성으로 채워집니다. <br>
+     *
+     * @type {KeyValue | undefined}
+     */
+    meta: KeyValue | undefined;
+    /**
+     * @type {OLGeometry|undefined}
+     *
+     * @ignore
+     */
+    geom: OLGeometry | undefined;
+    /**
+     * @type {OLFeature|undefined}
+     *
+     * @ignore
+     */
+    feature: OLFeature | undefined;
+    /**
+     * @type {OLFill}
+     *
+     * @ignore
+     */
+    fill: OLFill;
+    /**
+     * @type {OLStroke}
+     *
+     * @ignore
+     */
+    stroke: OLStroke;
+    /**
+     * @type {OLStyle}
+     *
+     * @ignore
+     */
+    style: OLStyle;
+    /**
+     * 현재 표시 중인 임시 마지막 좌표입니다.
+     *
+     * @type {Array<number>|undefined}
+     *
+     * @ignore
+     */
+    lastCoordinate: Array<number> | undefined;
+    /**
+     * 지도에서 도형을 찾을 때 이 도형을 검색 대상에서 뺄지 여부입니다. <br>
+     * 켜 두면 클릭이나 영역 선택으로 도형을 고를 때 후보에서 빠집니다. <br>
+     *
+     * @type {boolean}
+     */
+    excludeSearch: boolean;
+    /**
+     * 도형을 편집하지 못하게 잠갔는지 여부입니다. <br>
+     * 켜져 있으면 `setStyle`·`setFillColor`·`setStrokeColor`·`setStrokeWidth`가 값을 바꾸지 않고 그대로 넘어갑니다. <br>
+     *
+     * @type {boolean}
+     */
+    nonChanged: boolean;
+    /**
+     * @type {boolean}
+     *
+     * @ignore
+     */
+    _visible: boolean;
+    /**
+     * @type {U2dLabel|undefined}
+     *
+     * @ignore
+     */
+    _label: U2dLabel | undefined;
+    _disposed: boolean;
+    _ownsFeature: boolean;
+    /** @type {Set<function(): void>} */
+    _disposeListeners: Set<() => void>;
+    /**
+     * 입력 좌표 배열을 각 도형 종류에 맞는 좌표 형식으로 변환하는 추상 메서드입니다. <br>
+     * 하위 클래스(선·다각형 등)에서 재정의하여 사용합니다. <br>
+     * 좌표를 넣거나 바꿀 때마다 호출되어, 그 결과가 OpenLayers Geometry의 좌표로 들어갑니다. <br>
+     * 기반 클래스는 받은 좌표를 그대로 돌려주므로 재정의하지 않으면 형태가 바뀌지 않습니다. <br>
+     *
+     * @abstract
+     *
+     * @param {U2dCoordinate} [coords=[]] 변환할 좌표 (EPSG:3857) <br>
+     * @returns {U2dCoordinate | Quad_Array<number>} 도형 종류에 맞게 감싼 좌표. 폴리곤처럼 한 겹 더 필요한 도형은 배열 깊이가 늘어납니다 <br>
+     */
+    buildCoordinates(coords?: U2dCoordinate): U2dCoordinate | Quad_Array<number>;
+    /**
+     * Feature 및 Geometry를 생성하는 함수 <br>
+     *
+     * @ignore
+     */
+    createGeometry(): void;
+    /**
+     * 도형과 관련 리소스(Feature·Geometry·좌표·메타데이터)를 해제합니다. <br>
+     * 더 이상 사용하지 않는 도형은 이 함수로 정리하면 메모리 누수를 방지할 수 있습니다. <br>
+     * 좌표와 메타데이터가 비워지므로 정리한 뒤에는 다시 사용하지 않습니다. <br>
+     */
+    dispose(): void;
+    /**
+     * 도형 해제 시 연결을 정리할 함수를 등록합니다.
+     * @param {function(): void} listener 해제 통지를 받을 함수입니다.
+     * @returns {function(): void} 등록을 해제하는 함수입니다.
+     * @ignore
+     */
+    addDisposeListener(listener: () => void): () => void;
+    /**
+     * 이 도형을 검색 대상에서 제외할지 여부를 설정합니다. <br>
+     * Feature가 만들어져 있으면 Feature에도 같은 값을 함께 반영합니다. <br>
+     *
+     * @param {boolean} excludeSearch `true`면 클릭이나 영역 선택으로 도형을 찾을 때 후보에서 빠집니다 <br>
+     */
+    setExcludeSearch(excludeSearch: boolean): void;
+    /**
+     * 이 도형이 검색 대상에서 제외되어 있는지 여부를 반환합니다. <br>
+     *
+     * @returns {boolean} `true`면 도형을 찾는 검색에서 빠져 있는 상태입니다 <br>
+     */
+    getExcludeSearch(): boolean;
+    /**
+     * 이 도형을 편집하지 못하게 잠글지 여부를 설정합니다. <br>
+     * 잠그면 `setStyle`·`setFillColor`·`setStrokeColor`·`setStrokeWidth`가 값을 바꾸지 않고 넘어갑니다. <br>
+     * 잠금과 해제 모두 원본 Feature에 반영합니다. <br>
+     *
+     * @param {boolean} nonChanged `true`면 편집을 잠그고 `false`면 잠금을 풉니다 <br>
+     */
+    setNonChanged(nonChanged: boolean): void;
+    /**
+     * 이 도형이 편집 잠금 상태인지 여부를 반환합니다. <br>
+     *
+     * @returns {boolean} `true`면 스타일과 색상을 바꾸는 함수가 동작하지 않는 상태입니다 <br>
+     */
+    getNonChanged(): boolean;
+    /**
+     * 현재 원본의 스타일·표시·검색·편집·라벨 상태를 반환합니다. 좌표와 변환값은 포함하지 않습니다.
+     *
+     * @returns {U2dGeometryParam} 다른 도형의 setParam에 전달할 수 있는 현재 값입니다. 미지정 스타일은 undefined입니다.
+     */
+    getParam(): U2dGeometryParam;
+    /**
+     * 지정한 항목만 변경합니다. null·undefined는 무시하며 좌표 변환은 기존 좌표 API를 사용합니다.
+     *
+     * @param {U2dGeometryParam} [param={}] 적용할 스타일과 상태입니다.
+     * @throws {TypeError|RangeError} 값의 형식이나 범위가 잘못되면 변경 전에 발생합니다.
+     */
+    setParam(param?: U2dGeometryParam): void;
+    /**
+     * 하이라이트·숨김 중에는 보관한 편집 스타일을 반환합니다. 조회로 OL 자원을 만들지 않습니다.
+     *
+     * @returns {OLStyle|undefined} 현재 편집 대상인 단일 스타일입니다.
+     *
+     * @ignore
+     */
+    _getSourceStyle(): OLStyle | undefined;
+    /**
+     * 원본에 명시한 값만 읽어 레이어에서 상속하는 기본 스타일을 보존합니다.
+     *
+     * @returns {U2dGeometryParam & Partial<{fillColor: string, strokeColor: string}>} 현재 스타일과 표시 상태입니다.
+     *
+     * @ignore
+     */
+    _getStyleValues(): U2dGeometryParam & Partial<{
+        fillColor: string;
+        strokeColor: string;
+    }>;
+    /** @returns {string|undefined} 현재 채움 색상이며 미지정이면 undefined입니다. */
+    getFillColor(): string | undefined;
+    /** @returns {string|undefined} 현재 외곽선 색상이며 미지정이면 undefined입니다. */
+    getStrokeColor(): string | undefined;
+    /** @returns {number|undefined} 현재 외곽선 두께이며 미지정이면 undefined입니다. */
+    getStrokeWidth(): number | undefined;
+    /** @returns {number|undefined} 명시 투명도를 우선한 채움 불투명도이며 미지정이면 undefined입니다. */
+    getFillOpacity(): number | undefined;
+    /** @returns {number|undefined} 명시 투명도를 우선한 외곽선 불투명도이며 미지정이면 undefined입니다. */
+    getStrokeOpacity(): number | undefined;
+    /**
+     * 채움의 불투명도를 바꾸고 연결된 레이어에 변경을 알립니다.
+     *
+     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
+     *
+     * @param {number} opacity 불투명도입니다. 0은 투명, 1은 불투명입니다.
+     * @throws {TypeError|RangeError} 0~1 범위의 유한한 숫자가 아니면 발생합니다.
+     */
+    setFillOpacity(opacity: number): void;
+    /**
+     * 외곽선의 불투명도를 바꾸고 연결된 레이어에 변경을 알립니다.
+     *
+     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
+     *
+     * @param {number} opacity 불투명도입니다. 0은 투명, 1은 불투명입니다.
+     * @throws {TypeError|RangeError} 0~1 범위의 유한한 숫자가 아니면 발생합니다.
+     */
+    setStrokeOpacity(opacity: number): void;
+    /**
+     * 형상 속성을 제외한 사용자 속성의 얕은 복사본을 반환합니다.
+     *
+     * @returns {KeyValue} 현재 원본의 사용자 속성입니다. 해제된 도형은 빈 객체입니다.
+     */
+    getProperties(): KeyValue;
+    /**
+     * 사용자 속성을 JSON으로 깊은 복사하여 전체 교체합니다. 원본 형상과 ID는 보존합니다.
+     *
+     * @param {KeyValue|string} input 속성 객체 또는 JSON 문자열입니다. 형상 속성은 무시합니다.
+     * @throws {SyntaxError|TypeError} JSON 변환이 불가능하거나 객체 형식이 아니면 변경 전에 발생합니다.
+     */
+    setProperties(input: KeyValue | string): void;
+    /**
+     * 없는 사용자 속성만 추가합니다. 빈 키와 null·undefined는 무시합니다.
+     *
+     * @param {string} key 추가할 속성 이름입니다.
+     * @param {unknown} value JSON으로 보관할 값입니다.
+     * @throws {TypeError} JSON 변환이 불가능하거나 예약 키이면 발생합니다.
+     */
+    addProperties(key: string, value: unknown): void;
+    /**
+     * 기존 사용자 속성의 값만 변경합니다. 없는 키와 null·undefined는 무시합니다.
+     *
+     * @param {string} key 변경할 속성 이름입니다.
+     * @param {unknown} value JSON으로 보관할 새 값입니다.
+     * @throws {TypeError} JSON 변환이 불가능하면 발생합니다.
+     */
+    changeProperties(key: string, value: unknown): void;
+    /**
+     * 사용자 속성을 제거합니다. 형상과 원본 ID는 보존합니다.
+     *
+     * @param {string} key 제거할 속성 이름입니다.
+     */
+    removeProperties(key: string): void;
+    /**
+     * 도형에 저장해 둔 사용자 정의 정보를 반환합니다. <br>
+     *
+     * @returns {KeyValue|undefined} 저장해 둔 정보. `setMeta`로 넣은 적이 없으면 `undefined` <br>
+     */
+    getMeta(): KeyValue | undefined;
+    /**
+     * 도형에 사용자 정의 정보를 저장합니다. <br>
+     * 클릭한 도형의 부가 정보처럼 화면 표현과 무관한 값을 도형과 함께 보관할 때 사용합니다. <br>
+     *
+     * Feature가 만들어져 있으면 넘긴 값을 Feature 속성에 합친 뒤, `meta`에는 Feature의 전체 속성이 담깁니다. <br>
+     * 따라서 저장한 뒤 `getMeta`로 읽으면 넘긴 값 외에 Feature가 이미 갖고 있던 속성도 함께 나옵니다. <br>
+     *
+     * @param {KeyValue} meta 저장할 정보를 담은 key-value 객체 <br>
+     */
+    setMeta(meta: KeyValue): void;
+    /**
+     * 이 도형이 사용하는 OpenLayers Feature 객체를 반환합니다. <br>
+     * OpenLayers API를 직접 다뤄야 할 때 사용하며, 돌려준 객체를 고치면 이 도형에도 그대로 반영됩니다. <br>
+     *
+     * @returns {OLFeature|undefined} 이 도형이 쓰고 있는 Feature. 아직 만들어지지 않았으면 `undefined` <br>
+     */
+    getFeature(): OLFeature | undefined;
+    /**
+     * 이미 만들어져 있는 OpenLayers Feature를 이 도형에 연결합니다. <br>
+     * 외부에서 읽어 온 Feature를 이 클래스로 감싸 다룰 때 사용합니다. <br>
+     *
+     * 연결하면서 Feature가 가진 Geometry·속성·검색 제외·편집 잠금·좌표를 읽어 이 도형의 값으로 덮어씁니다. <br>
+     * 원본 스타일을 보존하며, 기본적으로 외부 Feature의 해제 책임은 원래 소유자에게 있습니다. <br>
+     * 스타일이 없는 원본에는 도형의 기본 스타일을 연결합니다. <br>
+     * 다른 Feature를 연결하면 기존 미리보기 점을 종료합니다. <br>
+     * 레이어 연결 중에는 Feature 자체를 교체하지 않습니다. 형상은 `getFeature().setGeometry()`로 교체합니다. <br>
+     * `feature`가 없으면 콘솔에 메시지를 남기고 아무것도 바꾸지 않습니다. <br>
+     *
+     * @param {OLFeature} feature 연결할 OpenLayers Feature <br>
+     * @param {boolean} [ownsFeature=false] 내부에서 생성한 원본의 해제 책임까지 넘길 때만 true입니다.
+     * @throws {TypeError} 매개체에서 원본 OpenLayers Feature를 찾을 수 없으면 발생합니다.
+     * @throws {Error} 레이어 연결이 남은 도형의 Feature를 교체하면 발생합니다.
+     */
+    setFeature(feature: OLFeature, ownsFeature?: boolean): void;
+    /**
+     * 이 도형이 사용하는 OpenLayers Geometry 객체를 반환합니다. <br>
+     * 좌표나 경계 상자를 OpenLayers API로 직접 계산할 때 사용합니다. <br>
+     * 원본 형상이 교체되었으면 순차 입력 좌표를 맞추고 이전 미리보기 점을 종료합니다. <br>
+     *
+     * @returns {OLGeometry|undefined} 이 도형이 쓰고 있는 Geometry. 하위 클래스가 만들기 전이면 `undefined` <br>
+     */
+    getGeometry(): OLGeometry | undefined;
+    /**
+     * 도형의 스타일을 통째로 바꿉니다. <br>
+     * 넘긴 스타일의 채우기 색·외곽선 색·외곽선 두께를 읽어 `fillColor`·`strokeColor`·`strokeWidth`도 함께 갱신합니다. <br>
+     *
+     * 편집이 잠겨 있으면(`nonChanged`) 아무것도 바꾸지 않고 넘어갑니다. <br>
+     * 도형이 하이라이트 상태이면 화면에 바로 적용하지 않고 하이라이트가 끝난 뒤 쓰도록 보관합니다. <br>
+     *
+     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
+     *
+     * @param {OLStyle} style 적용할 OpenLayers 스타일 객체 <br>
+     */
+    setStyle(style: OLStyle): void;
+    /**
+     * 도형에 적용된 현재 스타일을 반환합니다. <br>
+     * 첫 조회에만 필요한 OL 리소스를 만들고 이후에는 같은 객체를 반환합니다. 원본에 없던 기본 스타일을 조회만으로 원본에 지정하지 않습니다. <br>
+     * 반환 스타일을 직접 수정한 뒤 원본 Feature의 `changed()`를 호출하면 연결된 레이어에도 반영됩니다. <br>
+     * 원형 이미지가 교체되었으면 이미지의 채움·외곽선을 우선하여 편의 필드와 지연 편집값을 동기화합니다. <br>
+     * 채움·외곽선 부재로 계산하는 투명 상태는 사용자 불투명도로 저장하지 않습니다. <br>
+     *
+     * @returns {OLStyle} 지금 적용 중인 OpenLayers 스타일 객체 <br>
+     */
+    getStyle(): OLStyle;
+    /**
+     * OL 스타일이 준비되기 전의 개별 지정값을 기존 원본 상태에 기록합니다.
+     *
+     * @param {'fillColor' | 'fillOpacity' | 'strokeColor' | 'strokeOpacity' | 'strokeWidth' | 'visible' | 'isDynamicRadius'} key 변경하는 스타일 항목입니다.
+     * @param {string | number | boolean} value 개별 지정하는 값입니다.
+     * @ignore
+     */
+    _setStyleValue(key: "fillColor" | "fillOpacity" | "strokeColor" | "strokeOpacity" | "strokeWidth" | "visible" | "isDynamicRadius", value: string | number | boolean): void;
+    /**
+     * 도형의 이름을 바꿉니다. <br>
+     * 이 클래스가 들고 있는 이름만 바뀌며, 만들 때 Feature에 넣어 둔 `name` 속성은 그대로 남습니다. <br>
+     *
+     * @param {string} name 새로 지정할 이름. 레이어에서 도형을 찾을 때 쓰는 식별자입니다 <br>
+     */
+    setGeometryName(name: string): void;
+    /**
+     * 도형의 이름을 반환합니다. <br>
+     *
+     * @returns {string} 생성 옵션으로 정했거나 자동으로 만들어진 이름 <br>
+     */
+    getName(): string;
+    /**
+     * 도형의 좌표를 통째로 바꿉니다. <br>
+     * 기존 좌표를 버리고 넘긴 좌표로 도형을 다시 그립니다. <br>
+     * 표시 중이던 미리보기 점은 종료합니다. <br>
+     * 좌표를 하나씩 이어 붙이려면 `addPosition`을 사용합니다. <br>
+     *
+     * @param {U2dCoordinate} position 새로 지정할 좌표. 기본값은 월드 좌표(EPSG:3857)이며 도형 종류에 맞는 형태로 넣습니다 <br>
+     * @param {string} [srs='EPSG:3857'] 입력 좌표계이며 월드 좌표(EPSG:3857)와 위경도 좌표계(EPSG:4326)를 지원합니다.
+     * @throws {TypeError} 지원하지 않는 좌표계를 지정하면 발생합니다.
+     */
+    setPosition(position: U2dCoordinate, srs?: string): void;
+    /**
+     * 원본 도형의 현재 좌표를 반환합니다. <br>
+     * 순차 입력의 확정 좌표는 변경하지 않습니다. 반환 배열을 수정한 결과는 `setPosition()`으로 반영합니다. <br>
+     *
+     * @returns {U2dCoordinate} 지도 좌표(EPSG:3857). 도형 종류에 따라 배열 형태가 다릅니다 <br>
+     */
+    getPosition(): U2dCoordinate;
+    /**
+     * 명시적으로 형상을 변경한 뒤 순차 입력에 사용할 확정 좌표를 맞춥니다.
+     * 미리보기 점은 변환된 위치로 따로 보관하여 다음 점 입력에 포함하지 않습니다.
+     *
+     * @ignore
+     */
+    _syncCoordinates(): void;
+    /**
+     * 지도 좌표에서 지정한 거리만큼 형상 전체를 이동합니다.
+     *
+     * @param {number} x 동서 방향의 이동량입니다.
+     * @param {number} y 남북 방향의 이동량입니다.
+     */
+    translate(x: number, y: number): void;
+    /**
+     * 지도 좌표의 기준점을 중심으로 도형을 회전합니다.
+     *
+     * @param {number} angle 반시계 방향의 회전량이며 단위는 라디안입니다.
+     * @param {Array<number>} [anchor] 지도 좌표의 기준점이며 생략하면 경계 상자 중심입니다.
+     */
+    rotate(angle: number, anchor?: Array<number>): void;
+    /**
+     * 지도 좌표의 기준점을 중심으로 도형의 크기를 변경합니다.
+     *
+     * @param {number} x 동서 방향의 배율입니다.
+     * @param {number} [y] 남북 방향의 배율입니다.
+     * @param {Array<number>} [anchor] 기준점이며 생략하면 경계 상자 중심입니다.
+     */
+    scale(x: number, y?: number, anchor?: Array<number>): void;
+    /**
+     * 도형 좌표 끝에 점을 하나 덧붙입니다. <br>
+     * 마우스로 선이나 다각형을 한 점씩 그려 나갈 때 사용하며, 덧붙일 때마다 도형이 다시 그려집니다. <br>
+     * 표시 중이던 미리보기 점을 버리고 입력한 점만 확정합니다. <br>
+     *
+     * 위경도 좌표계(EPSG:4326)로 넣으면 월드 좌표(EPSG:3857)로 변환해 저장합니다. <br>
+     * 지원하지 않는 좌표계를 넣으면 콘솔에 지원 목록을 남기고 좌표를 넣지 않습니다. <br>
+     *
+     * @param {Array<number>} position 덧붙일 좌표. `srs`가 위경도면 `[경도, 위도]`, 지도 좌표면 `[x, y]`입니다 <br>
+     * @param {string} [srs='EPSG:4326'] 넘긴 좌표의 좌표계. 위경도 좌표계(EPSG:4326) 또는 월드 좌표(EPSG:3857)만 받습니다 <br>
+     *
+     * @example
+     * geom.addPosition([126.97409864653284, 37.56407015989075], 'EPSG:4326'); // 위경도 좌표계(EPSG:4326) 입력
+     */
+    addPosition(position: Array<number>, srs?: string): void;
+    /**
+     * 좌표를 지도 좌표계(EPSG:3857)로 변환합니다. <br>
+     * 위경도로 받은 입력을 이 클래스가 다루는 좌표로 바꿀 때 사용하며, `addPosition`과 `setLastCoordinate`도 내부에서 이 함수를 씁니다. <br>
+     *
+     * @param {Array<number>} point 변환할 좌표. `sourceCRS`가 위경도면 `[경도, 위도]`입니다 <br>
+     * @param {string} [sourceCRS='EPSG:4326'] 넘긴 좌표가 어떤 좌표계인지 나타내는 코드 <br>
+     * @returns {Array<number>} 변환한 지도 좌표 `[x, y]` (EPSG:3857) <br>
+     *
+     * @example
+     * geom.transformPoint([126.97409864653284, 37.56407015989075], 'EPSG:4326');
+     */
+    transformPoint(point: Array<number>, sourceCRS?: string): Array<number>;
+    /**
+     * 도형 내부를 채우는 색상을 바꿉니다. <br>
+     * 편집이 잠겨 있으면(`nonChanged`) 아무것도 바꾸지 않고 넘어갑니다. <br>
+     * 원본 스타일과 `fillColor` 프로퍼티를 함께 변경합니다. <br>
+     *
+     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
+     *
+     * @param {string} color 적용할 채우기 색상. CSS 색 문자열로 적으며 `rgba()`로 투명도를 함께 지정할 수 있습니다 <br>
+     */
+    setFillColor(color: string): void;
+    /**
+     * 도형 외곽선의 색상을 바꿉니다. <br>
+     * 편집이 잠겨 있으면(`nonChanged`) 아무것도 바꾸지 않고 넘어갑니다. <br>
+     * 원본 스타일과 `strokeColor` 프로퍼티를 함께 변경합니다. <br>
+     *
+     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
+     *
+     * @param {string} color 적용할 외곽선 색상. CSS 색 문자열로 적습니다 <br>
+     */
+    setStrokeColor(color: string): void;
+    /**
+     * 도형 외곽선의 두께를 바꿉니다. <br>
+     * 편집이 잠겨 있으면(`nonChanged`) 아무것도 바꾸지 않고 넘어갑니다. <br>
+     * 원본 스타일과 `strokeWidth` 프로퍼티를 함께 변경합니다. <br>
+     *
+     * 이전 전역값과 같아도 명시한 편집으로 전달하며 형상 이동과 구분합니다. <br>
+     *
+     * @param {number} width 적용할 외곽선 두께 (픽셀). 화면 배율과 무관하게 같은 굵기로 보입니다 <br>
+     */
+    setStrokeWidth(width: number): void;
+    /**
+     * 그리는 중에 마우스를 따라다니는 미리보기 점을 지정합니다. <br>
+     * 이미 찍은 좌표 뒤에 이 점을 임시로 붙여 도형을 그리므로, 다음 점을 어디에 찍게 될지 미리 보여줄 수 있습니다. <br>
+     * 도형의 좌표 배열 자체는 바뀌지 않아 확정 전까지는 되돌릴 필요가 없습니다. <br>
+     *
+     * @param {Array<number>} coord 미리보기로 표시할 위경도 좌표 `[경도, 위도]` (EPSG:4326). 내부에서 지도 좌표로 변환합니다 <br>
+     */
+    setLastCoordinate(coord: Array<number>): void;
+    /**
+     * 도형의 중심 좌표를 반환합니다. <br>
+     * 도형을 감싸는 경계 상자의 한가운데이므로, 도형 모양이 한쪽으로 치우쳐 있으면 무게중심과는 다릅니다. <br>
+     * 라벨을 놓을 자리를 정할 때 사용합니다. <br>
+     *
+     * @returns {Array<number>} 경계 상자 중심의 지도 좌표 `[x, y]` (EPSG:3857) <br>
+     */
+    getCenter(): Array<number>;
+    /**
+     * 도형에 라벨을 연결해 도형과 함께 표시합니다. <br>
+     * 라벨 객체를 연결만 하므로 화면에 놓을 위치는 라벨 쪽에서 정합니다. <br>
+     * 연결한 뒤에는 `showLabel`·`hideLabel`로 표시를 켜고 끕니다. <br>
+     *
+     * @param {U2dLabel} poi 연결할 라벨 객체. 3D 공간에 놓는 `U3dPOI` 또는 화면에 겹쳐 그리는 `UCssBilboard`입니다 <br>
+     */
+    setLabel(poi: U2dLabel): void;
+    /**
+     * 도형에 연결해 둔 라벨을 떼어냅니다. <br>
+     * 연결만 끊으므로 라벨 객체 자체가 지워지지는 않습니다. <br>
+     */
+    removeLabel(): void;
+    /**
+     * 도형에 연결된 라벨을 반환합니다. <br>
+     *
+     * @returns {U2dLabel|undefined} 연결해 둔 라벨 객체. `setLabel`로 연결한 적이 없으면 `undefined` <br>
+     */
+    getLabel(): U2dLabel | undefined;
+    /**
+     * 도형에 연결된 라벨을 화면에 표시합니다. <br>
+     * 라벨을 연결하지 않았으면 아무것도 하지 않습니다. <br>
+     */
+    showLabel(): void;
+    /**
+     * 도형에 연결된 라벨을 화면에서 숨깁니다. <br>
+     * 연결은 유지되므로 `showLabel`로 다시 표시할 수 있습니다. <br>
+     */
+    hideLabel(): void;
+    /**
+     * 현재 연결된 라벨의 표시 상태를 바꿉니다. 라벨이 없으면 아무것도 하지 않습니다.
+     *
+     * @param {boolean} visible 라벨을 표시할지 여부입니다.
+     * @throws {TypeError} 표시 여부가 boolean이 아니면 발생합니다.
+     */
+    setShowLabel(visible: boolean): void;
+    /** @returns {boolean} 현재 연결된 라벨의 표시 상태이며 라벨이 없으면 false입니다. */
+    getShowLabel(): boolean;
+    /**
+     * 도형을 지도에 다시 보이게 합니다. <br>
+     * `hide`로 감춰 둔 도형에 원래 스타일을 되돌려 표시합니다. <br>
+     */
+    show(): void;
+    /**
+     * 도형을 지도에서 감춥니다. <br>
+     * 도형을 지우지 않고 빈 스타일을 씌워 보이지 않게만 하므로, `show`로 다시 표시할 수 있습니다. <br>
+     * 숨기기 전에 원본에 적용된 최신 단일 스타일을 보관합니다. <br>
+     * 감춘 상태에서도 도형은 남아 있어 검색이나 좌표 조회에는 그대로 잡힙니다. <br>
+     */
+    hide(): void;
+    #private;
+}
+
+type UMeasureFeatureExtent = {
+    min: three.Vector3Like;
+    max: three.Vector3Like;
+    getCenter: Function;
+};
+/**
+ * @memberof UMeasureFeature
+ * @inner
+ *
+ * @typedef {object} UMeasureFeatureExtent
+ * @property {import('three').Vector3Like} min
+ * @property {import('three').Vector3Like} max
+ * @property {function} getCenter
+ */
+declare class UMeasureFeature {
+    /**
+     * 평탄 좌표의 공유·복원과 타일별 교체를 관리하는 공통 입력을 만듭니다.
+     * 완성된 측정 피처는 레이어의 등록 단계에서 생성하며 여기서는 생성하지 않습니다.
+     * @template {{id: string | number}} T
+     * @param {UMeasureCoordinateSource} source 좌표와 속성을 소유한 원본입니다.
+     * @param {T} feature 표시 식별자와 메타데이터를 구성한 입력 객체입니다.
+     * @param {string} type GeoJSON 형상 종류입니다.
+     * @param {string} [styleType=type] 기존 스타일 함수가 관찰할 원본 종류입니다.
+     * @returns {T & UMeasureCoordinateFeature} 같은 입력 객체에 좌표 접근을 연결한 결과입니다.
+     *
+     * @ignore
+     */
+    static _createCoordinateFeature<T extends {
+        id: string | number;
+    }>(source: UMeasureCoordinateSource, feature: T, type: string, styleType?: string): T & UMeasureCoordinateFeature;
+    constructor(opt?: {});
+    /**
+     * 지연 좌표 상태를 교체하거나 기존 참조를 해제합니다.
+     * @param {Float64Array | undefined} value 새 내부 좌표입니다.
+     *
+     * @ignore
+     */
+    set _flatCoordinates(value: Float64Array | undefined);
+    /**
+     * 내부 데칼 입력으로 쓸 수 있는 불변 좌표를 읽으며 공개 벡터 조회 뒤에는 비어 있습니다.
+     * @returns {Float64Array | undefined} 아직 객체로 복원하지 않은 좌표입니다.
+     *
+     * @ignore
+     */
+    get _flatCoordinates(): Float64Array | undefined;
+    /**
+     * 같은 원본 대표와 표시 조각만 지연 벡터 상태를 공유합니다. 서로 다른 타일은 공유하지 않습니다.
+     * @param {UMeasureFeature} feature 승인한 표시 조각입니다.
+     *
+     * @ignore
+     */
+    _shareFlatCoordinates(feature: UMeasureFeature): void;
+    _measureVectors: any;
+    /**
+     * @type {UMeasureFeatureExtent | undefined}
+     */
+    _extent: UMeasureFeatureExtent | undefined;
+    _uid: string;
+    _worldExtent: any;
+    _geometry: any;
+    /**
+     * 공개 편집용 형상과 분리한 읽기 전용 검색 스냅샷입니다.
+     *
+     * @type {OLGeometry | undefined}
+     *
+     */
+    _searchGeometry: OLGeometry | undefined;
+    _srs: any;
+    _type: any;
+    _fid: any;
+    _olFeature: any;
+    _style: any;
+    _properties: any;
+    _drawArg: any;
+    _nonChanged: any;
+    _excludeSearch: any;
+    _styleRevision: any;
+    _revision: any;
+    _geometryRevision: any;
+    _propertyRevision: any;
+    _drawSequence: any;
+    _isInner: any;
+    set uid(uid: string);
+    get uid(): string;
+    set extent(box: UMeasureFeatureExtent);
+    get extent(): UMeasureFeatureExtent;
+    set worldExtent(box: any);
+    get worldExtent(): any;
+    set geometry(geometry: any);
+    get geometry(): any;
+    set geometryRevision(revision: number);
+    get geometryRevision(): number;
+    set srs(srs: any);
+    get srs(): any;
+    set type(type: any);
+    get type(): any;
+    set measureVectors(vectors: three.Vector3[]);
+    get measureVectors(): three.Vector3[];
+    set fid(id: any);
+    get fid(): any;
+    set olFeature(olFeature: any);
+    get olFeature(): any;
+    set style(style: any);
+    get style(): any;
+    set propertyRevision(revision: number);
+    get propertyRevision(): number;
+    set oriStyle(style: any);
+    get oriStyle(): any;
+    _oriStyle: any;
+    set properties(properties: any);
+    get properties(): any;
+    set drawArg(drawArg: any);
+    get drawArg(): any;
+    set nonChanged(val: any);
+    get nonChanged(): any;
+    set excludeSearch(val: boolean);
+    get excludeSearch(): boolean;
+    set styleRevision(revision: any);
+    get styleRevision(): any;
+    set revision(revision: number);
+    get revision(): number;
+    set drawSequence(sequence: any);
+    get drawSequence(): any;
+    set isInner(isInner: any);
+    get isInner(): any;
+    /**
+     * 연결된 원본 형상을 반환하며 공유 검색 형상은 최초 공개 조회에서 독립 복제합니다.
+     * @returns 원본 또는 이 피처만 수정할 수 있는 형상이며 없으면 undefined입니다.
+     */
+    getGeometry(): any;
+    /**
+     * 내부 검색에서는 공개 편집용 형상을 만들지 않고 현재 형상을 읽습니다.
+     * @returns 변경하지 않고 읽을 검색 형상이며 없으면 undefined입니다.
+     * @ignore
+     */
+    _getSearchGeometry(): any;
+    /**
+     * 원본 geometry를 교체하고 표시 데이터의 변경 번호를 갱신합니다.
+     * @param {OLGeometry | null | undefined} geometry 새 원본 형상입니다.
+     */
+    setGeometry(geometry: OLGeometry | null | undefined): void;
+    getExtent(): UMeasureFeatureExtent;
+    setExtent(box: any): void;
+    getWorldExtent(): any;
+    setWorldExtent(box: any): void;
+    /**
+     * 측정 좌표를 지도 좌표로 변환하며 지연 좌표가 있으면 먼저 복원합니다.
+     * @returns {Array<import('three').Vector3>} 변환한 좌표 목록입니다.
+     */
+    getGoogleCoordinates(): Array<three.Vector3>;
+    getType(): any;
+    setType(type: any): void;
+    /**
+     * 도형의 월드 좌표 목록을 반환합니다.
+     *
+     * @returns {Array<import('three').Vector3>} 내부 좌표 목록의 원본 참조입니다.
+     */
+    getMeasureVectors(): Array<three.Vector3>;
+    /**
+     * 측정 좌표를 교체하고 geometry revision을 증가시킵니다.
+     *
+     * @param {Array<import('three').Vector3>} vectors 새 측정 좌표 목록입니다.
+     */
+    setMeasureVectors(vectors: Array<three.Vector3>): void;
+    getUid(): string;
+    setUid(uid: any): void;
+    getId(): any;
+    setId(id: any): void;
+    setOLFeature(olFeature: any): void;
+    getOLFeature(): any;
+    /**
+     * 현재 레이어의 원본 대표 매개체를 반환합니다.
+     *
+     * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 연결된 원본 대표 매개체이며, 연결이 없으면 undefined입니다.
+     *
+     * @ignore
+     */
+    _getSourceMeasure(): UMeasureFeature | undefined;
+    /**
+     * 연결된 원본 피처를 반환합니다. 전체 원본이 준비되면 그 피처를 우선합니다.
+     * @returns {object | undefined} 원본 피처입니다.
+     */
+    getSourceFeature(): object | undefined;
+    /**
+     * 이미 연결된 원본 도형을 반환하며 조회만으로 도형이나 요청을 생성하지 않습니다.
+     * @returns {import('@U2dGeometry').U2dGeometry | undefined} 원본 도형입니다.
+     */
+    getSourceGeometry(): U2dGeometry | undefined;
+    /**
+     * 필요한 경우 앱의 원본 제공자를 호출하고 동일 피처의 도형을 재사용합니다.
+     *
+     * @returns {Promise<import('@U2dGeometry').U2dGeometry | undefined>} 준비된 원본 도형입니다.
+     */
+    loadSourceGeometry(): Promise<U2dGeometry | undefined>;
+    getStyle(): any;
+    /**
+     * 스타일을 지정하고 등록된 원본의 편집 창구에 변경을 전달합니다.
+     *
+     * @param {object} style 적용할 스타일입니다.
+     * @param {boolean} [notify=true] 내부 표시 상태 반영에서는 변경 전달을 생략합니다.
+     * @throws {Error} 해제되었거나 안정 식별자가 없는 타일 피처를 편집하면 발생합니다.
+     */
+    setStyle(style: object, notify?: boolean): void;
+    getProperties(): any;
+    setProperties(properties: any): void;
+    updateMeasureData(opt?: {}): this;
+    applyTypedMeasureData(opt?: {}): this;
+    applyRuntimeState(opt?: {}): this;
+    /** 원본의 현재 상태를 연결된 레이어에 다시 전달합니다. */
+    changed(): void;
+    getNonChanged(): any;
+    setNonChanged(val: any): void;
+    getExcludeSearch(): boolean;
+    setExcludeSearch(val: any): void;
+    getStyleRevision(): any;
+    setStyleRevision(revision: any): void;
+    getRevision(): number;
+    setRevision(revision: any): any;
+    bumpRevision(): any;
+    /**
+     * geometry 전용 revision을 반환합니다.
+     *
+     * @returns {number} geometry revision입니다.
+     */
+    getGeometryRevision(): number;
+    /**
+     * geometry 전용 revision을 설정합니다.
+     *
+     * @param {number} revision 설정할 revision입니다.
+     * @returns {number} 설정된 revision입니다.
+     */
+    setGeometryRevision(revision: number): number;
+    /**
+     * geometry 전용 revision을 증가시킵니다.
+     *
+     * @returns {number} 증가된 revision입니다.
+     */
+    bumpGeometryRevision(): number;
+    /**
+     * property 전용 revision을 반환합니다.
+     *
+     * @returns {number} property revision입니다.
+     */
+    getPropertyRevision(): number;
+    /**
+     * property 전용 revision을 설정합니다.
+     *
+     * @param {number} revision 설정할 revision입니다.
+     * @returns {number} 설정된 revision입니다.
+     */
+    setPropertyRevision(revision: number): number;
+    /**
+     * property 전용 revision을 증가시킵니다.
+     *
+     * @returns {number} 증가된 revision입니다.
+     */
+    bumpPropertyRevision(): number;
+    /**
+     * hole 상태를 설정하고 실제 변경 시 property revision을 증가시킵니다.
+     *
+     * @param {boolean} isInner hole 여부입니다.
+     * @returns {boolean} 설정된 hole 여부입니다.
+     */
+    setInner(isInner: boolean): boolean;
+    getDrawSequence(): any;
+    setDrawSequence(sequence: any): any;
+    ensureDrawSequence(sequence: any): any;
+    #private;
+}
+
+/**
  * Debug JSON 에 담는, tile 캐시에 들어 있는 mesh 하나의 상태입니다.
  */
 type DebugTileStateCacheMesh = {
@@ -8623,19 +8970,6 @@ type DebugTileState = {
      */
     visibleTile: boolean;
     /**
-     * LOD 전환 판단과 작업 상태입니다.
-     */
-    lodTransition: {
-        refineRequested: boolean;
-        lodPresentPending: boolean;
-        blockingLayerNames: Array<string>;
-        runtimeBlocked: boolean;
-        processed: number;
-        worked: number;
-        waitWorkNames: Array<string>;
-        endWorkNames: Array<string>;
-    } | undefined;
-    /**
      * 이 tile 의 캐시 mesh 상태이며 캐시 mesh 가 없으면 `undefined` 입니다.
      */
     cacheMesh: DebugTileStateCacheMesh | undefined;
@@ -8715,13 +9049,19 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * U2dVectorShaderLayer 클래스 생성자입니다.
      *
      * @param {U2dVectorShaderLayerCO} opt 생성자 옵션입니다. <br>
-     * 옵션 키는 대소문자를 구분하지 않고 정규화하며, `terrainWfsMaxConcurrency` 를 주면 모든 벡터 레이어가 공유하는 WFS 요청 큐의 동시 요청 수를 즉시 바꿉니다.
+     * 옵션 키는 대소문자를 구분하지 않고 정규화하며, `terrainWfsMaxConcurrency` 를 주면 모든 벡터 레이어가 공유하는 WFS 요청·피처 준비 큐의 동시 처리 수를 즉시 바꿉니다.
      */
     constructor(opt: U2dVectorShaderLayerCO);
     /** @type {Map<string, FeatureEntry>} */
     _featureEntries: Map<string, FeatureEntry>;
     /** @type {WeakMap<import('@UMeasureFeature').UMeasureFeature, U2dVectorShaderTileRangeState>} */
     _featureTileRanges: WeakMap<UMeasureFeature, U2dVectorShaderTileRangeState>;
+    /**
+     * 확정 입력과 runtime 등록 수명이 바뀔 때 연결 준비를 무효화합니다.
+     *
+     * @type {number}
+     */
+    _terrainRuntimeBindingRevision: number;
     /** @type {Record<string, Record<string, boolean>>} */
     _drawFeatureIds: Record<string, Record<string, boolean>>;
     /** @type {import('@union3d/manager/terrain/UTerrainDecalCompositionOrderRegistry').UTerrainDecalCompositionOrderRegistry} */
@@ -8730,13 +9070,8 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     _styleRevision: number;
     /** @type {WeakMap<import('@UMeasureFeature').UMeasureFeature | U2dVectorRenderPart, TerrainFeaturePayloadCacheEntry | null>} */
     _terrainFeaturePayloadCache: WeakMap<UMeasureFeature | U2dVectorRenderPart, TerrainFeaturePayloadCacheEntry | null>;
-    /** @type {Map<string, {mesh: object, sourceRevision: number, styleRevision: number, payloads: Array<object>}>} */
-    _terrainTilePayloadCache: Map<string, {
-        mesh: object;
-        sourceRevision: number;
-        styleRevision: number;
-        payloads: Array<object>;
-    }>;
+    /** @type {Map<string, TerrainTilePayloadCacheEntry>} */
+    _terrainTilePayloadCache: Map<string, TerrainTilePayloadCacheEntry>;
     /** @type {Map<string, number>} */
     _terrainRuntimeSourceRevision: Map<string, number>;
     /** @type {false | Promise<Array<boolean>>} */
@@ -8782,8 +9117,8 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     _fullFeatureLoader: (arg0: object, arg1: U2dVectorFeatureIdentity) => (object | Promise<object | undefined> | undefined);
     /** @type {Map<string, U2dVectorSourceEntry>} */
     _sourceFeatures: Map<string, U2dVectorSourceEntry>;
-    /** @type {WeakMap<object, UMeasureFeature>} */
-    _runtimeFeatureBySource: WeakMap<object, UMeasureFeature>;
+    /** @type {Map<object, import('@union3d/ol/UMeasureFeature.js').UMeasureFeature>} */
+    _runtimeFeatureBySource: Map<object, UMeasureFeature>;
     /** @type {Array<import('@U3dPOI').U3dPOI>} */
     _label: Array<U3dPOI>;
     /** @type {import('three').ColorRepresentation} */
@@ -8874,7 +9209,20 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     _terrainPayloadBuildInFlight: Set<any>;
     _terrainTextureBuildInFlight: Set<any>;
     _terrainTexturePreparedState: Map<any, any>;
-    _terrainRuntimePreparedState: Map<any, any>;
+    /**
+     * runtime 입력 준비와 타일 연결 검사를 각각 재사용하며 GPU 적용 이력과 구분합니다.
+     *
+     * @type {Map<string, {signature?: string, mesh?: object, bindings?: {signature: string, ids: Array<string>}}>}
+     *
+     */
+    _terrainRuntimePreparedState: Map<string, {
+        signature?: string;
+        mesh?: object;
+        bindings?: {
+            signature: string;
+            ids: Array<string>;
+        };
+    }>;
     _terrainWfsRetryState: Map<any, any>;
     /**
      * 편집 시작 호출을 호환용으로 유지합니다. <br>
@@ -8946,13 +9294,13 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      */
     setTerrainLodQuery(query: undefined | TerrainLodQuery): this;
     /**
-     * 공용 Terrain WFS 큐의 최대 동시 요청 수를 반환합니다.
+     * 공용 Terrain WFS 큐의 최대 동시 처리 수를 반환합니다.
      *
      * @returns {number} 최대 동시 요청 수입니다.
      */
     getTerrainWfsMaxConcurrency(): number;
     /**
-     * 모든 Terrain vector 레이어가 공유하는 WFS 큐의 최대 동시 요청 수를 변경합니다. <br>
+     * 모든 Terrain vector 레이어가 공유하는 WFS 큐의 최대 동시 처리 수를 변경합니다. <br>
      * 이 레이어뿐 아니라 같은 큐를 쓰는 다른 벡터 레이어의 요청 처리 속도도 함께 달라집니다.
      *
      * @param {number} maxConcurrency 최대 동시 요청 수이며 큐가 유효한 양의 정수로 보정합니다.
@@ -8960,7 +9308,8 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      */
     setTerrainWfsMaxConcurrency(maxConcurrency: number): this;
     /**
-     * 이 레이어와 공용 큐의 Terrain WFS 요청 통계를 반환합니다.
+     * 이 레이어와 공용 큐의 Terrain WFS 요청 통계를 반환합니다. <br>
+     * 실행 수에는 원본 캐시를 재사용하는 피처 준비 작업도 포함하며 완료는 후처리가 끝난 시점입니다.
      *
      * @returns {TerrainLodPerformanceStats} Terrain WFS 요청 통계입니다.
      */
@@ -9006,7 +9355,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     /**
      * 점(circle) 도형의 반경과 테두리를 화면 픽셀 크기로 유지할지 설정합니다.
      *
-     * @param {boolean} value `true` 면 카메라 거리에 비례해 반경을 바꾸고, `false` 면 도형에 지정한 고정 반경으로 되돌립니다.
+     * @param {boolean} value 개별 `isDynamicRadius`를 생략한 도형에 적용합니다. `true` 면 카메라 거리에 비례해 반경을 바꾸고, `false` 면 도형에 지정한 고정 반경으로 되돌립니다.
      * @param {number} [radius=8] 렌더 버퍼 픽셀 기준 반경이며 유한수가 아니면 8을 사용합니다. 동적 원의 `strokeWidth`도 같은 픽셀 기준입니다.
      * @returns {this} 메서드를 이어 호출할 수 있도록 돌려주는 이 레이어 자신입니다.
      */
@@ -9016,7 +9365,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      *
      * @param {object} [opt={}] 반경 갱신 옵션입니다.
      * @param {number} [opt.radius] 화면 기준 반경(픽셀)이며 생략하면 `setDynamicRadius()` 또는 생성 옵션 `dynamicRadius` 로 정한 값을 사용합니다.
-     * @param {boolean} [opt.reset=false] 원래 geometry 반경으로 복원할지 여부입니다.
+     * @param {boolean} [opt.reset=false] 표시 반경 캐시를 지우고 원본 반경 또는 레이어 기본 동적 반경으로 복원할지 여부입니다. 명시적으로 동적 반경을 사용하는 점은 개별 설정을 유지합니다.
      * @param {boolean} [opt.deferFlush=true] 자동 갱신 시점까지 반영을 미룰지 여부입니다. `false`여도 진행 중인 갱신은 먼저 완료합니다.
      * @returns {boolean} 하나 이상의 원형 도형 갱신을 예약했으면 `true`입니다.
      */
@@ -9029,6 +9378,8 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * 이 레이어가 그린 벡터 도형과 진행 중인 서버 요청을 모두 비웁니다. <br>
      * 보류 중인 Feature 변경, 취소되지 않은 tile 요청, WFS 응답 캐시, 화면에 올린 도형과 라벨이 함께 정리되며 레이어 자체는 계속 사용할 수 있습니다. <br>
      * 도형 전체 범위(getVectorExtent)도 빈 상태로 되돌리므로 이후 추가한 도형만으로 fitLayerExtent 가 계산됩니다.
+     *
+     * @throws {unknown} 원본 해제 오류가 있으면 나머지 원본과 캐시를 정리한 뒤 원래 오류 또는 모은 오류를 전달합니다.
      */
     clear(): void;
     /**
@@ -9066,14 +9417,16 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * 준비한 입력과 승인된 revision이 같으면 GPU 적용을 기다리며 같은 작업을 다시 등록하지 않습니다.
      * 실제 GPU 준비와 장면 부착은 기존 표시 전환 훅에서 확인하며, 현재 GPU 실패와 무효화된 입력은 다시 평가합니다.
      * 원격 입력의 반복 완료 확인은 준비 시 저장한 원본 목록·설정·세대와 승인된 Source 상태만 비교합니다.
-     * 준비 이력이 없는 기존 경로와 원격 요청 실패 대체는 종전 표시 준비 판정을 유지합니다.
+     * 준비 이력이 없는 원격 실패·요청 대기 대체는 입력 작업을 완료하며 실제 표시 준비와 분리합니다.
+     * 그 밖의 준비 이력이 없는 기존 경로는 종전 표시 준비 판정을 유지합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 확인할 타일입니다.
-     * @returns {boolean} 현재 입력의 Source 승인이 끝났거나 기존 완료 조건을 만족하면 `true`입니다.
+     * @returns {boolean} 현재 Source 입력 준비가 끝났거나 기존 완료 조건을 만족하면 `true`입니다.
      */
     isTileWorkComplete(tile: U3dQuadTile): boolean;
     /**
      * 현재 tile의 scene 제거가 terrain handoff로 보류되었는지 반환합니다.
+     * 이 레이어가 참여하지 않는 자식에는 벡터 표시 완료를 요구하지 않습니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 확인할 tile입니다.
      * @returns {boolean} Parent fallback 유지가 필요하면 `true`입니다.
@@ -9185,10 +9538,11 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * @param {object} style 적용할 스타일입니다.
      * @param {boolean} [writeSource=true] 개별 편집값을 원본에 반영할지 여부입니다.
      * @param {boolean} [refreshTiles=true] 표시 타일을 즉시 갱신할지 여부이며 전체 스타일 변경은 한 번에 갱신합니다.
+     * @returns {undefined} 원본이 없거나 해제되었으면 변경하지 않습니다.
      *
      * @ignore
      */
-    _setSourceFeatureStyle(binding: UMeasureFeature, style: object, writeSource?: boolean, refreshTiles?: boolean): void;
+    _setSourceFeatureStyle(binding: UMeasureFeature, style: object, writeSource?: boolean, refreshTiles?: boolean): undefined;
     /**
      * 원본의 편집 스타일과 일시적인 선택 강조를 분리하여 모든 표시 조각에 반영합니다.
      * @param {UMeasureFeature} binding 원본 연결입니다.
@@ -9253,11 +9607,12 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      * base texture가 없는 runtime tile은 표시 전 payload를 prewarm합니다.
      * 이미 적용한 빈 source는 같은 준비 서명에서 외부 host의 표시를 다시 기다리지 않습니다.
      * 준비된 payload의 재적용은 예약 후 종료하고, 실제 표시 준비는 LOD 표시 훅에서 확인합니다.
+     * 기본 WFS 입력은 백그라운드에서 준비하며 지형·영상은 응답을 기다리지 않고 목표 LOD로 전환합니다.
      *
      * @override
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 타일
-     * @returns {Promise<import('@U3dQuadTile').U3dQuadTile>} 작업이 끝나면 타일로 완료되는 Promise. 준비 조건을 만족하지 않아 일찍 끝나도 타일로 완료합니다
+     * @returns {Promise<import('@U3dQuadTile').U3dQuadTile>} 로컬 준비 또는 기본 WFS 요청 연결 뒤 타일로 완료되는 Promise입니다. 기본 WFS 응답과 벡터 표시는 이후 반영하며 사용자 어댑터의 완료는 기다립니다.
      */
     override createTexture(tile: U3dQuadTile): Promise<U3dQuadTile>;
     /**
@@ -9292,7 +9647,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     removeGeometry(geom: U2dGeometry): void;
     /**
      * 레이어의 전체 2D 객체 스타일을 갱신합니다. <br>
-     * 외곽선 굵기가 바뀌면 인접 terrain tile 바인딩도 함께 다시 계산합니다.
+     * 타일 폐기 후 보존된 원본도 갱신하며, 외곽선 굵기가 바뀌면 인접 terrain tile 바인딩을 다시 계산합니다.
      *
      * @param {U2dVectorShaderLayer_Style_Option} opt 적용할 스타일 옵션입니다.
      * @returns {Promise<void>} 스타일 적용과 필요한 terrain 및 WFS 갱신 예약 완료 결과입니다.
@@ -9436,7 +9791,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     hide(refresh?: boolean): void;
     _preserveTileRequestsOnHide: boolean;
     /**
-     * 폐기된 tile의 WFS 요청과 이 레이어가 소유한 terrain source, feature cache를 정리합니다.
+     * 폐기된 tile의 WFS 요청·재요청 예약과 이 레이어가 소유한 terrain source, feature cache를 정리합니다.
      *
      * @override
      *
@@ -9446,6 +9801,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     override disposeTile(tile: U3dQuadTile): undefined;
     /**
      * 레이어가 소유한 입력 연결과 장면 표시 의도만 읽습니다.
+     * runtime 참여 조회는 공통 facts 계산 없이 필요한 연결을 실제 질의 시점에 읽습니다.
      *
      * @param {TerrainRuntimeTile} tile 입력을 조회할 지형 타일입니다.
      * @param {TerrainLayerTilePresentationQuery} [query='all'] 필요한 표시 판정입니다.
@@ -9459,10 +9815,10 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
      *
      * @override
      *
-     * @returns {DeferredObject<boolean>} 정리가 끝나면 true로 완료되는 Deferred 객체
+     * @returns {Promise<boolean>} 정리가 끝나면 true로 완료되는 Deferred 객체
      * @throws {Error} 원본 해제에 실패해도 남은 등록·구독·동적 원과 부모 자원을 정리한 뒤 원래 오류 또는 모은 오류를 전달합니다.
      */
-    override dispose(): DeferredObject<boolean>;
+    override dispose(): Promise<boolean>;
     /**
      * 위경도 좌표계(EPSG:4326) 위치를 받아 그 지점에 걸치는 Feature 를 모두 찾아 목록으로 반환합니다. <br>
      * WFS 타일 캐시와 직접 추가한 도형에서 검색하며 `excludeSearch` 도형은 제외합니다. <br>
@@ -9519,7 +9875,7 @@ declare class U2dVectorShaderLayer extends U3dImageLayer {
     updateFeatures(): void;
     /**
      * 지금까지 쌓인 terrain 전환 디버그 로그를 조건에 맞게 걸러 반환합니다. <br>
-     * 로그 저장소는 이 클래스의 모든 인스턴스가 함께 쓰며 최근 1,000건만 남습니다. <br>
+     * 기존 공유 저장소를 조회하며 레이어와 관리자의 자동 수집은 수행하지 않습니다. <br>
      * 반환 배열은 저장소의 사본이라 배열을 바꾸어도 저장소는 달라지지 않습니다.
      *
      * @param {Partial<{tileKey: string, event: string, layerName: string}>} [filter={}] 지정한 항목을 모두 만족하는 로그만 남기며, 생략하면 전부 반환합니다.
@@ -9788,22 +10144,9 @@ type TerrainManagerDiagnosticsState = {
         fastSkipRejectCounts: Record<string, number>;
     };
     /**
-     * Worker 실행 경과 시간과 dispatch 왕복 표본의 기록·미측정 개수입니다.
-     */
-    workerExecutionStatistics: {
-        recordedCount: number;
-        unmeasuredCount: number;
-        roundTripCount: number;
-        roundTripUnmeasuredCount: number;
-    };
-    /**
      * presentation 명령 생성·병합·적용 통계입니다.
      */
     presentationStatistics: Record<string, number>;
-    /**
-     * 벤치마크 실행 유형입니다.
-     */
-    benchmarkRunType: "unspecified" | "cold" | "warm";
     /**
      * tile entry별로 false-complete 복구를 계측한 revision입니다.
      */
@@ -9862,9 +10205,7 @@ type TerrainManagerDiagnosticsState = {
  * @typedef {object} TerrainManagerDiagnosticsState
  * @property {Record<string, number>} stabilityCounters Coverage 공백·handoff 복구 누적 계수입니다.
  * @property {{snapshotFastSkipCount:number,fastSkipRejectCounts:Record<string,number>}} payloadSyncStatistics payload 동기화 fast-skip 계측입니다.
- * @property {{recordedCount:number,unmeasuredCount:number,roundTripCount:number,roundTripUnmeasuredCount:number}} workerExecutionStatistics Worker 실행 경과 시간과 dispatch 왕복 표본의 기록·미측정 개수입니다.
  * @property {Record<string, number>} presentationStatistics presentation 명령 생성·병합·적용 통계입니다.
- * @property {'unspecified'|'cold'|'warm'} benchmarkRunType 벤치마크 실행 유형입니다.
  * @property {WeakMap<TerrainTileEntry, number>} falseCompleteRecoveredRevisions tile entry별로 false-complete 복구를 계측한 revision입니다.
  */
 /**
@@ -10030,10 +10371,6 @@ declare class UShaderTerrainDecalManager {
     set TERRAIN_SHADER_TEMPLATE_CACHE(value: Map<string, UTerrainMaterial>);
     /** @returns {Map<string, import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>} `shaderPrewarm.templateCache` 입니다. */
     get TERRAIN_SHADER_TEMPLATE_CACHE(): Map<string, UTerrainMaterial>;
-    /** @param {Map<import('three').Mesh, import('@union3d/manager/terrain/UTerrainShaderPrewarm').TerrainShaderProgramDiagnosticBinding>} value 새 값입니다. */
-    set TERRAIN_SHADER_PROGRAM_DIAGNOSTIC_BINDINGS(value: Map<three.Mesh, TerrainShaderProgramDiagnosticBinding>);
-    /** @returns {Map<import('three').Mesh, import('@union3d/manager/terrain/UTerrainShaderPrewarm').TerrainShaderProgramDiagnosticBinding>} `shaderPrewarm.programDiagnosticBindings` 입니다. */
-    get TERRAIN_SHADER_PROGRAM_DIAGNOSTIC_BINDINGS(): Map<three.Mesh, TerrainShaderProgramDiagnosticBinding>;
     /** @param {number} value 새 값입니다. */
     set TERRAIN_SHADER_WARMUP_PENDING_COUNT(value: number);
     /** @returns {number} `shaderPrewarm.warmupPendingCount` 입니다. */
@@ -10162,6 +10499,18 @@ declare class UShaderTerrainDecalManager {
      */
     registerTerrainMaterial(tileKey: string, material: TerrainMaterial, opt?: TerrainManagerOption): boolean;
     /**
+     * 등록된 같은 메시의 표시 조건만 갱신하고 필요한 합성·재적용을 예약합니다.
+     * 소유자와 해제 요청은 유지하며 피처 재수집과 즉시 빌드를 수행하지 않습니다.
+     *
+     * @param {string} tileKey 표시 조건을 갱신할 타일 키
+     * @param {TerrainMaterial} material 기존에 등록된 재질
+     * @param {TerrainManagerOption} [opt={}] 같은 메시와 현재 표시·순서·준비 조건
+     * @returns {boolean} 기존 binding을 갱신했으면 참
+     *
+     * @ignore
+     */
+    _refreshTerrainMaterialPresentation(tileKey: string, material: TerrainMaterial, opt?: TerrainManagerOption): boolean;
+    /**
      * terrain tile의 live mesh와 material을 같은 registry entry에 연결합니다.
      *
      * @param {string} tileKey 등록할 terrain tile key입니다.
@@ -10228,10 +10577,10 @@ declare class UShaderTerrainDecalManager {
      * 특정 source의 최신 revision이 현재 terrain material에 반영됐는지 반환합니다.
      *
      * @param {string} tileKey 상태를 확인할 terrain tile key 입니다.
-     * @param {TerrainManagerOption} [opt={}] sourceKey, sourceRevision, mesh 등 확인 조건입니다.
+     * @param {TerrainPresentationOption} [opt={}] Source·mesh 확인 조건과 합성 진단 자료 포함 여부입니다.
      * @returns {TerrainPresentationState | undefined} TerrainPresentationState presentation 조회 결과입니다.
      */
-    getTerrainTilePresentationState(tileKey: string, opt?: TerrainManagerOption): TerrainPresentationState | undefined;
+    getTerrainTilePresentationState(tileKey: string, opt?: TerrainPresentationOption): TerrainPresentationState | undefined;
     /**
      * terrain tile readiness snapshot을 반환합니다.
      *
@@ -10443,6 +10792,26 @@ declare class UShaderTerrainDecalManager {
      */
     _unobserveTerrainSource(owner: object, entry: Pick<U2dVectorSourceEntry, "changeListener">): void;
     /**
+     * 등록에서 분리한 원본 자원을 기존 결과 큐로 나누어 회수합니다.
+     *
+     * @param {object} owner 자원 해제를 책임지는 등록 소유자입니다.
+     * @param {string} key 대기 작업의 고유 진단 식별자입니다.
+     * @param {function():void} cleanup 구독과 소유 도형을 회수하는 작업입니다.
+     * @throws {unknown} 예약할 수 없어 동기 회수할 때 발생한 오류를 전달합니다.
+     *
+     * @ignore
+     */
+    _deferTerrainSourceCleanup(owner: object, key: string, cleanup: () => void): void;
+    /**
+     * 소유자의 남은 물리 해제를 모두 완료하며 실패한 작업 뒤의 자원도 회수합니다.
+     *
+     * @param {object} owner 정리할 등록 소유자입니다.
+     * @throws {unknown} 한 작업의 원래 오류 또는 여러 작업의 오류를 모아 전달합니다.
+     *
+     * @ignore
+     */
+    _flushTerrainSourceCleanups(owner: object): void;
+    /**
      * 같은 원본의 마지막 편집만 보관하고 같은 실행 구간의 변경을 합칩니다.
      *
      * @param {object} owner 등록 소유자
@@ -10577,6 +10946,8 @@ declare class UShaderTerrainDecalManager {
      * `sourceKeys`가 지정되면 각 source의 revision뿐 아니라 표시 feature가 선택한 target material의
      * active commit까지 확인합니다. 빈 source는 target material 적용 대신 최신 clear 적용을 기다립니다.
      * 연속 편집의 적용본 재사용은 해당 source의 첫 성공 snapshot 이후에 허용하며 숨긴 source는 차단하지 않습니다.
+     * 기본 이미지도 해당 표시 프로그램의 예열이 진행 중이면 완료까지 기다리며, 다른 프로그램의 대기는 차단하지 않습니다.
+     * 타일 전체도 실제 표시 개수를 사용하며, 표시 개수가 없는 이전 상태만 원본 개수로 판정합니다.
      *
      * @param {string} tileKey 준비 상태를 확인할 terrain tile key 입니다.
      * @param {TerrainManagerOption} [opt={}] source, mesh 또는 material binding 조회 옵션입니다.
@@ -10643,6 +11014,7 @@ declare class UShaderTerrainDecalManager {
     _updateTerrainTileSource(tileKey: string, updateSource: () => boolean, opt?: TerrainManagerOption): boolean;
     /**
      * 한 tile/source의 feature 전체를 최신 revision 기준으로 동기화합니다.
+     * 빈 Source 확정만 바뀌면 같은 원점에서 진행 중인 합성의 입력을 유지하고 최신 revision으로 이어갑니다.
      *
      * @param {string} tileKey 동기화할 terrain tile key입니다.
      * @param {Array<TerrainFeature>} [features=[]] source의 최신 feature 목록입니다.
@@ -10702,6 +11074,7 @@ declare class UShaderTerrainDecalManager {
     swapTileBuffer(tileKey: string, workerResult: TerrainWorkerResult, opt?: TerrainManagerOption): boolean;
     /**
      * tile mesh 기준 local origin이 준비된 뒤에만 terrain decal buffer build를 수행합니다.
+     * 중복되거나 취소된 요청은 피처 수집·정렬 전에 종료하고, 지연 요청은 처리 차례가 온 뒤 한 번만 수집합니다.
      *
      * @param {string} tileKey rebuild 대상 terrain tile key 입니다.
      * @param {TerrainManagerOption} [opt={}] origin, forceMaterialUpdate 등 build 옵션입니다.
@@ -10735,6 +11108,22 @@ declare class UShaderTerrainDecalManager {
      * @returns {Promise<TerrainAtomicPresentationOutcome>} 표시 완료 또는 종료 원인입니다.
      */
     waitForAtomicPresentationOutcome(ownerKey: string): Promise<TerrainAtomicPresentationOutcome>;
+    /**
+     * 숨은 정적 합성 캐시의 반환을 기존 결과 처리 예산으로 나눕니다.
+     * 큐에는 키와 세대만 보관하고 실행 시 가시성·대체 표면을 다시 확인합니다.
+     * @param {string} tileKey 반환 후보 타일입니다.
+     * @returns {boolean} 반환 검사를 예약했으면 참입니다.
+     * @ignore
+     */
+    _scheduleTerrainGpuCacheRelease(tileKey: string): boolean;
+    /**
+     * 캐시에서 반환한 GPU 상태를 표시 재진입 때만 기존 입력으로 복원합니다.
+     * @param {string} tileKey 다시 표시할 타일입니다.
+     * @param {TerrainPoint} [origin] 현재 타일 원점입니다.
+     * @returns {boolean} 복원을 시작했으면 참입니다.
+     * @ignore
+     */
+    _restoreTerrainTileGpuState(tileKey: string, origin?: TerrainPoint): boolean;
     /**
      * parent/child handoff 상태를 고려해 tile dispose를 요청합니다.
      *
@@ -10810,21 +11199,6 @@ declare class UShaderTerrainDecalManager {
      */
     shouldDeferTerrainSceneRemoval(tileKey: string): boolean;
     /**
-     * Terrain profiler의 상세 기록 수준을 변경합니다.
-     * `off`로 전환할 때는 누적 Summary를 Performance Timeline에 먼저 기록합니다.
-     *
-     * @param {'off'|'counter'|'sampled'|'verbose'} mode 적용할 계측 모드입니다.
-     * @returns {UShaderTerrainDecalManager} 현재 Manager입니다.
-     */
-    setTerrainPerformanceMode(mode: "off" | "counter" | "sampled" | "verbose"): UShaderTerrainDecalManager;
-    /**
-     * 현재 Trace가 cold 또는 warm 실행인지 지정합니다.
-     *
-     * @param {'unspecified'|'cold'|'warm'} runType 실행 구분입니다.
-     * @returns {UShaderTerrainDecalManager} 현재 Manager입니다.
-     */
-    setTerrainBenchmarkRunType(runType: "unspecified" | "cold" | "warm"): UShaderTerrainDecalManager;
-    /**
      * 안정성 Counter를 증가시킵니다.
      *
      * @param {string} name 증가시킬 Counter 이름입니다.
@@ -10839,19 +11213,6 @@ declare class UShaderTerrainDecalManager {
      * @returns {Record<string, unknown>} 성능 통계입니다.
      */
     getTerrainPerformanceStatistics(): Record<string, unknown>;
-    /**
-     * 현재 누적 성능 통계를 정확한 5개 Trace Summary 마커로 기록합니다.
-     * Trace 종료 직전에 호출하면 sampled 이벤트만으로 비율을 추정하는 오류를 피할 수 있습니다.
-     *
-     * @returns {{payload:Record<string,unknown>,cache:Record<string,unknown>,scheduler:Record<string,unknown>,presentation:Record<string,unknown>,stability:Record<string,unknown>}} 기록한 Summary입니다.
-     */
-    emitTerrainPerformanceSummary(): {
-        payload: Record<string, unknown>;
-        cache: Record<string, unknown>;
-        scheduler: Record<string, unknown>;
-        presentation: Record<string, unknown>;
-        stability: Record<string, unknown>;
-    };
     /** Terrain 성능 통계를 초기화합니다. */
     resetTerrainPerformanceStatistics(): void;
     /**
@@ -11134,7 +11495,7 @@ declare class U3dShaderMeasureLayer extends U3dLayer {
      * @param {import('@UMeasureFeature').UMeasureFeature} feature 제거할 측정 feature입니다.
      */
     removeFeature(feature: UMeasureFeature): void;
-    /** 모든 측정 feature와 연결된 렌더링 데이터를 제거합니다. */
+    /** 모든 측정 feature와 연결된 렌더링 데이터를 제거하며 등록된 terrain 타일만 갱신합니다. */
     clearMeasure(): void;
     /**
      * 전달한 위경도 좌표로 만든 다각형과 현재 편집 중인 측정 다각형을 레이어에 함께 추가한 뒤, 두 다각형이 겹치는지 확인합니다. <br>
@@ -12879,13 +13240,13 @@ declare class UAnaly extends UEventDispatcher {
 }
 
 /**
- * ~extends import('@UAnaly').UAnaly <br>
- * `지형 편집` 분석 클래스 <br>
- * 편집영역 그리기, 편집높이 설정 등의 기능을 제공한다.
+ * ~extends import('@UAnaly').UAnaly
+ *
  * @group analysis
- * @extends UAnaly
+ * @extends {UAnaly}
  *
  * @tutorial {@link https://3d.geon.kr/doc/tutorial-official/customLand.html}
+ *
  * @example
  * let analy = app.activeAnalysis('CustomLand');
  */
@@ -12977,9 +13338,12 @@ declare class UAnalyCustomLand extends UAnaly {
      */
     stopDraw(): void;
     /**
-     * @param {import('@union3d/analy/CustomLand').CustomLand} customLand
+     * 편집 순번을 확정한 뒤 앱 편집 집합과 공간 인덱스에 등록합니다.
+     *
+     * @param {import('@union3d/analy/CustomLand').CustomLand} customLand 등록할 편집 객체
+     * @param {number} [sequence] 저장하거나 수정 전에 발급받은 순번(생략하거나 충돌하면 새 순번 발급)
      */
-    setCustomLandToApp(customLand: CustomLand): void;
+    setCustomLandToApp(customLand: CustomLand, sequence?: number): void;
     areaPoiClear(): void;
     /**
      * 경사도 추가 분석
@@ -13028,8 +13392,9 @@ declare class UAnalyCustomLand extends UAnaly {
      */
     checkHeightByLayer(box: UBox3): boolean;
     /**
-     * 편집 지형의 생성 파라미터 값을 반환하는 함수
-     * @return {Array<CustomLandCO>} 생성 파라미터
+     * 생성 파라미터와 적용 순번을 반환합니다.
+     *
+     * @returns {Array<CustomLandCO & Partial<{ heightEditOrder: number; }>>} 생성 파라미터와 앱 내 우선순위
      *
      * @example
      * param {
@@ -13037,14 +13402,19 @@ declare class UAnalyCustomLand extends UAnaly {
      *   geoVertex: [{x: 129.154, y: 35.164, z: 15}]
      * }
      */
-    getParam(): Array<CustomLandCO>;
+    getParam(): Array<CustomLandCO & Partial<{
+        heightEditOrder: number;
+    }>>;
     /**
-     * 커스텀 지형의 생성 파라미터 값을 설정하는 함수
-     * @param {Array<CustomLandCO>} param 생성 파라미터
+     * 준비된 월드 박스를 가진 생성 파라미터와 선택적 적용 순번을 복원합니다.
      *
-     *  @see CustomLandCO
+     * @param {Array<CustomLandCO & Partial<{ heightEditOrder: number; }>>} param getParam으로 저장한 편집 지형 생성 옵션과 적용 순번
+     *
+     * @see CustomLandCO
      */
-    setParam(param: Array<CustomLandCO>): void;
+    setParam(param: Array<CustomLandCO & Partial<{
+        heightEditOrder: number;
+    }>>): void;
     /**
      * 커스텀 지형을 선택 시 선택 방식을 지정하는 함수 (Polygon OR Box)
      * @param {string} type 선택 방식 `Polygon` | `Box`
@@ -13082,15 +13452,16 @@ declare class UAnalyCustomLand extends UAnaly {
      */
     addCustomLand(options: DataOPT_Input): Promise<void>;
     /**
-     * 편집한 지형을 수정하는 기능
+     * 기존 편집의 순번을 유지하면서 지형을 수정합니다.
+     *
      * @param {string} id 수정할 편집지형 ID
-     * @param {DataOPT_Input} option
-     * @returns {Promise<void> | undefined} 수정 완료 또는 입력·대상 지형이 없으면 undefined
+     * @param {DataOPT_Input} option 새 도형과 목표 높이(m)를 담은 편집 옵션
+     * @returns {undefined | Promise<void>} 수정 완료 또는 입력·대상 지형이 없으면 undefined
      *
      * @example
      * analy.editCustomLand("editLand", { id: "editLand_update", height: 55, geoVertex: [{x: 129.154, y: 35.164, z: 15}] });
      */
-    editCustomLand(id: string, option: DataOPT_Input): Promise<void> | undefined;
+    editCustomLand(id: string, option: DataOPT_Input): undefined | Promise<void>;
     /**
      * 편집된 지형 리스트를 반환하는 함수
      * @return {Array<import('@union3d/analy/CustomLand').CustomLand>}
@@ -13109,6 +13480,9 @@ declare class UAnalyCustomLand extends UAnaly {
      * @param {string} id 편집된 지형의 id
      */
     removeCustomLandById(id: string): void;
+    /**
+     * 이 분석의 편집 순번과 공간 등록을 해제하고 기존 방식으로 원본 지형을 재적용합니다.
+     */
     removeEditLandAll(): void;
     /**
      * 편집된 모든 지형을 초기화하는 함수
@@ -13254,7 +13628,13 @@ declare class UOrthographicCamera extends three.OrthographicCamera {
      * @param {Partial<UOrthographicCameraCO>} [opt={}] 화면에 담을 영역과 기본 그리기 인자를 담은 생성 옵션
      */
     constructor(opt?: Partial<UOrthographicCameraCO>);
-    /** 원근과 직교의 거리·화면 크기 변환에 사용하는 수직 화각입니다. @type {number} @ignore */
+    /**
+     * 원근과 직교의 거리·화면 크기 변환에 사용하는 수직 화각입니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
     _fov: number;
     _viewWidth: number;
     _viewHeight: number;
@@ -13551,7 +13931,11 @@ declare class UMapControlBase extends UEventDispatcher {
      * @param {HTMLElement | Document} [domElement=document] 입력 좌표와 화면 크기의 기준이 될 DOM 대상
      */
     constructor(drawarg: UDrawArg, object: UCamera | UOrthographicCamera, domElement?: HTMLElement | Document);
-    /** 진행 중인 카메라 애니메이션이며 없으면 undefined입니다. @type {UMapTween | undefined} */
+    /**
+     * 진행 중인 카메라 애니메이션이며 없으면 undefined입니다.
+     *
+     * @type {UMapTween | undefined}
+     */
     tween: UMapTween | undefined;
     /**
      * renderer 확인, 앱 mode, terrain 높이 조회와 그리기 요청을 담당하는 앱입니다.<br>
@@ -13689,6 +14073,43 @@ declare class UMapControlBase extends UEventDispatcher {
         RIGHT: number;
     };
     /**
+     * 현재 키보드 매핑의 독립 복사본을 반환합니다.
+     * 새 API 설정 전에는 기존 keys의 방향키 번호도 반영합니다.
+     *
+     * @returns {UMapKeyBindings} KeyboardEvent.code별 팬 이동·회전 동작
+     */
+    getKeyBindings(): UMapKeyBindings;
+    /**
+     * 누르는 동안 임시 일인칭으로 전환하는 키를 변경합니다.
+     * 이동·회전에 사용 중인 키는 RangeError로 거부하고 기존 설정과 입력 상태를 보존합니다.
+     * 숫자 외 입력은 TypeError, 1~255의 정수가 아닌 값은 RangeError입니다.
+     * 기본 이동 복원과 충돌하는 방향키 코드 37~40은 사용할 수 없습니다.
+     * 키 코드 13은 Enter와 NumpadEnter를 함께 예약합니다.
+     * 실제 변경 시 눌림·드래그·관성을 취소하고 inputbindingschange를 발생시킵니다.
+     *
+     * @param {number} keyCode 1 이상 255 이하의 정수 키 코드이며 16은 Shift
+     * @returns {this} 현재 컨트롤러
+     */
+    setFirstPersonModeKey(keyCode: number): this;
+    /**
+     * 지정한 키의 팬 이동·회전 동작만 변경합니다. 생략한 키는 유지하며 none으로 해제합니다.
+     * 키는 KeyboardEvent.code를 사용합니다. 예: ArrowUp은 위 방향키, KeyW는 W 키입니다.
+     * 잘못된 타입은 TypeError, 잘못된 키·동작과 임시 일인칭 키 충돌은 RangeError이며 이전 입력과 설정을 보존합니다.
+     * 실제 변경 시 눌림 상태·드래그·관성을 취소하고 inputbindingschange를 발생시킵니다.
+     * 새 API 설정 후에는 기존 keys 직접 대입보다 이 매핑을 우선합니다.
+     *
+     * @param {UMapKeyBindings} patch 변경할 키와 동작
+     * @returns {this} 현재 컨트롤러
+     */
+    setKeyBindings(patch: UMapKeyBindings): this;
+    /**
+     * 기본 방향키 팬 이동을 복원하고 눌림 상태·드래그·관성을 취소합니다.
+     * 임시 일인칭 전환 키와 마우스 매핑은 보존합니다.
+     *
+     * @returns {this} 현재 컨트롤러
+     */
+    resetKeyBindings(): this;
+    /**
      * 이동과 일인칭 전환에 사용할 keyboard key code 표입니다.
      *
      * @type {{LEFT: number, UP: number, RIGHT: number, BOTTOM: number, SHIFT: number}}
@@ -13701,12 +14122,51 @@ declare class UMapControlBase extends UEventDispatcher {
         SHIFT: number;
     };
     /**
+     * 현재 마우스 입력 매핑의 독립적인 복사본을 반환합니다.
+     * 새 API를 사용하기 전에는 기존 mouseButtons의 버튼 번호 설정도 반영합니다.
+     *
+     * @returns {UMapMouseBindings} 물리 버튼과 Ctrl/Cmd 조합의 현재 동작
+     */
+    getMouseBindings(): UMapMouseBindings;
+    /**
+     * 전달한 항목만 검증해 마우스 입력 매핑을 변경합니다.
+     * 잘못된 타입은 TypeError, 알 수 없는 항목이나 동작은 RangeError이며 입력 상태와 설정을 보존합니다.
+     * 실제 값이 바뀌면 드래그와 관성을 취소하고 다음 입력부터 적용하며 inputbindingschange를 발생시킵니다.
+     * 설정 이후에는 이 API가 우선하며 mouseButtons에 직접 대입한 값은 적용하지 않습니다.
+     *
+     * @param {UMapMouseBindingsPatch} patch 변경할 물리 버튼과 Ctrl/Cmd 조합의 동작
+     * @returns {this} 현재 컨트롤러
+     */
+    setMouseBindings(patch: UMapMouseBindingsPatch): this;
+    /**
+     * 마우스 입력을 제품 기본값으로 복원하고 드래그와 관성을 취소합니다.
+     * 복원 후에는 기존 mouseButtons 설정도 다시 적용되며 inputbindingschange를 발생시킵니다.
+     *
+     * @returns {this} 현재 컨트롤러
+     */
+    resetMouseBindings(): this;
+    /**
      * 방향 key를 눌러 이동하는 중인지 나타냅니다.<br>
      * 이 값이 true이면 앵커 고정 처리와 관성(inertia)을 사용하지 않습니다.
      *
      * @type {boolean}
      */
     isKeyMoving: boolean;
+    /**
+     * 일인칭 전환 key를 누르고 있는 동안 true가 됩니다.<br>
+     * 이 값이 true이면 제어 종류와 상관없이 일인칭 경로로 처리합니다.
+     *
+     * @type {boolean}
+     */
+    onShift: boolean;
+    /**
+     * camera가 바뀌는 중인지 외부 기능이 관찰하는 값입니다.<br>
+     * 관성(inertia)이 도는 동안과 zoom 직후 일정 시간에도 true로 유지됩니다.
+     *
+     * @type {boolean}
+     */
+    _isChanging: boolean;
+    isUpdated: boolean;
     /**
      * addEventHandler()가 등록한 listener를 원본 함수 이름별로 보관하는 표이며 removeEventHandler()가 해제할 때 사용합니다.
      *
@@ -13725,20 +14185,6 @@ declare class UMapControlBase extends UEventDispatcher {
      * @type {boolean}
      */
     enabled: boolean;
-    /**
-     * 일인칭 전환 key를 누르고 있는 동안 true가 됩니다.<br>
-     * 이 값이 true이면 제어 종류와 상관없이 일인칭 경로로 처리합니다.
-     *
-     * @type {boolean}
-     */
-    onShift: boolean;
-    /**
-     * camera가 바뀌는 중인지 외부 기능이 관찰하는 값입니다.<br>
-     * 관성(inertia)이 도는 동안과 zoom 직후 일정 시간에도 true로 유지됩니다.
-     *
-     * @type {boolean}
-     */
-    _isChanging: boolean;
     /**
      * zoom 뒤 변경 중 상태를 해제할 timeout 식별자입니다.
      *
@@ -13932,7 +14378,7 @@ declare class UMapControlBase extends UEventDispatcher {
     dispose(): void;
     /**
      * 등록한 입력 이벤트와 드래그 추적용 전역 이벤트를 모두 해제합니다.<br>
-     * 해제 전에 진행 중인 pan·회전 관성(inertia)과 속도 표본을 취소합니다.
+     * 해제 전에 드래그·관성과 속도 표본을 취소하며 종료 콜백의 새 드래그 시작을 차단합니다.
      */
     removeEvents(): void;
     /**
@@ -14091,12 +14537,14 @@ declare class UMapControlBase extends UEventDispatcher {
      * perspective camera를 지정한 위치와 target으로 곡선을 그리며 옮깁니다.<br>
      * 현재 camera가 orthographic이면 같은 인자로 flyToOrtho()에 넘깁니다.<br>
      * 출발점과 도착점 사이에 더 높은 중간 지점을 두어 두 구간으로 나눠 이동하므로 위에서 넘어가듯 움직입니다.<br>
+     * duration이 0이거나 카메라의 3차원 이동 거리가 월드 좌표 기준 1m 이하이면 첫 트윈 갱신에서 최종 위치와 방향을 적용합니다.<br>
+     * options.forceAnimation이 true이면 가까운 거리도 지정한 시간 동안 이동하며, duration이 0이면 즉시 이동합니다.<br>
      * 진행 중인 비행을 먼저 멈추며, target을 넘기지 않으면 위치가 움직인 만큼 target도 같이 옮겨 바라보는 방향을 유지합니다.<br>
      * 이동 중에는 change와 fly 이벤트가, 끝나면 flyend가, 도중에 멈추면 flystop이 발생합니다.
      *
      * @param {import("three").Vector3} position 도착할 camera 위치
      * @param {import("three").Vector3} [target] 도착 시 바라볼 지점이며 넘기지 않으면 현재 방향을 유지
-     * @param {number} [duration=3000] 이동에 사용할 시간이며 ms 단위
+     * @param {number} [duration=3000] 이동에 사용할 시간이며 ms 단위. 0이면 첫 트윈 갱신에서 이동을 마칩니다.
      * @param {Function} [interpolation=TWEEN.Interpolation.CatmullRom] 구간 보간에 사용할 함수
      * @param {object} [callbacks] 이동 중과 종료 시 실행할 사용자 콜백 모음
      * @returns {UMapTween} 시작한 이동 애니메이션
@@ -14109,9 +14557,10 @@ declare class UMapControlBase extends UEventDispatcher {
     stopFly(): void;
     /**
      * keyboard key를 누를 때 이동 또는 일인칭 전환을 처리합니다.<br>
-     * 방향키 위·아래·왼쪽·오른쪽은 그 방향으로 화면을 옮기고, 일인칭 전환 key는 누르고 있는 동안 일인칭 경로로 바꿉니다.<br>
+     * 키 매핑의 팬 이동 또는 target 중심 회전을 한 단계 적용하고, 임시 일인칭 전환 키는 누르는 동안 유지합니다.<br>
+     * 키 매핑은 KeyboardEvent.code로 구분하며 code가 없거나 비어 있을 때만 keyCode를 사용합니다.<br>
      * 처리하는 key이면 진행 중인 pan·회전 관성(inertia)을 먼저 취소합니다.<br>
-     * 입력 요소나 slider에 초점이 있거나 앱 mode가 7이거나 keyboard·이동이 꺼져 있으면 처리하지 않습니다.
+     * 입력·편집 요소, slider, Ctrl/Alt/Cmd 단축키, mode 7과 비활성 기능은 처리하지 않습니다.
      *
      * @param {KeyboardEvent | import("@U3dMouseEvent").U3dMouseEvent} event 앱이 전달한 key 누름 이벤트
      */
@@ -14125,7 +14574,8 @@ declare class UMapControlBase extends UEventDispatcher {
     /**
      * mouse 버튼을 누를 때 조작을 시작합니다.<br>
      * 진행 중인 pan·회전 관성(inertia)과 속도 표본을 취소합니다.<br>
-     * 왼쪽 버튼은 Ctrl이나 Cmd를 누르지 않았으면 이동, 눌렀으면 회전을 시작하고 오른쪽 버튼은 회전을 시작하며 가운데 버튼에는 동작이 없습니다.<br>
+     * 입력 매핑에서 선택한 이동 또는 회전을 시작하며, 사용 안 함과 비활성 동작은 시작하지 않습니다.<br>
+     * 기본값은 왼쪽 이동, Ctrl/Cmd+왼쪽과 오른쪽 회전이며 시작한 버튼을 놓을 때까지 동작을 유지합니다.<br>
      * 제어 종류가 FIX_ANCHOR이면 이 시점에 누른 지점의 월드 좌표(EPSG:3857)를 앵커(anchor)로 고릅니다.<br>
      * 조작이 시작되면 창 전체에서 mouse 이동과 뗌을 추적하고 start 이벤트를 발생시킵니다.
      *
@@ -14148,7 +14598,6 @@ declare class UMapControlBase extends UEventDispatcher {
      * @param {MouseEvent | import("@U3dMouseEvent").U3dMouseEvent} event 앱이 전달한 mouse 뗌 이벤트
      */
     onMouseUp(event: MouseEvent | U3dMouseEvent): void;
-    isUpdated: boolean;
     /**
      * wheel을 굴릴 때 확대·축소를 적용합니다.<br>
      * 진행 중인 pan·회전 관성(inertia)과 속도 표본을 취소합니다.<br>
@@ -14159,6 +14608,16 @@ declare class UMapControlBase extends UEventDispatcher {
      * @param {WheelEvent | import("@U3dMouseEvent").U3dMouseEvent} event 앱이 전달한 wheel 이벤트
      */
     onMouseWheel(event: WheelEvent | U3dMouseEvent): void;
+    /**
+     * 지형 메시의 표시 높이만 변경된 경우 현재 카메라 위치의 충돌 높이를 다시 적용합니다.<br>
+     * 일반 update()와 달리 대기 중인 이동·회전·확대 입력은 소비하지 않습니다.<br>
+     * 비활성 상태이거나 충돌을 사용하지 않거나 일인칭 모드이면 아무 작업도 하지 않습니다.
+     *
+     * @returns {boolean} 새 표시 고도로 카메라 Z를 올렸으면 true
+     *
+     * @ignore
+     */
+    _refreshCollisionHeight(): boolean;
     /**
      * 지금까지 쌓인 입력량을 camera에 실제로 적용하고 바뀌었으면 change 이벤트를 발생시킵니다.<br>
      * 현재 상태와 제어 종류에 따라 일인칭, 앵커(anchor) 고정, 앵커 없음 중 한 경로를 고릅니다.<br>
@@ -15376,7 +15835,8 @@ declare class UGroup extends UGroup_base {
     setColor(color: three.ColorRepresentation): void;
     /**
      * 객체를 구분하는 식별자 하나를 꺼냅니다. <br>
-     * getUid()를 제공하는 객체는 그 반환값을 쓰고, 없으면 uuid, _uuid, _id 순으로 처음 발견한 값을 사용합니다. <br>
+     * getUid()가 등록된 값을 반환하면 사용하고, 미등록이면 uuid, _uuid, _id 순으로 찾습니다. <br>
+     * 이 대체값은 실행 중 그룹 구성원 정리에만 쓰며 데이터 모델의 puid로 등록하지 않습니다. <br>
      * 직속 자식 목록과 등록 목록이 어긋났을 때 같은 객체를 다시 찾는 데 사용합니다.
      *
      * @param {import('three').Object3D & Partial<{getUid: (function(): (undefined | string | number)), _uuid: string | number, _id: string | number}>} object 식별자를 꺼낼 대상 객체
@@ -15605,7 +16065,7 @@ declare class UByteBuffer {
 }
 
 declare class IterableWeakMap {
-    static "__#11326@#cleanup"({ set, ref }: {
+    static "__#11501@#cleanup"({ set, ref }: {
         set: any;
         ref: any;
     }): void;
@@ -15846,7 +16306,7 @@ declare class UDEF {
     static copyright: string;
     static INVALID: number;
     /**
-     * GeOnDT 스크립트 경로, webworker 나 리소스를 불러오기 위해 사용
+     * Worker와 리소스를 불러올 제품 루트 경로입니다.
      * @type {string}
      */
     static path: string;
@@ -16176,6 +16636,10 @@ declare class UDEF {
     static TONEMAPPING_EXPOSURE: number;
     static DRACO_DECODER_PATH: string;
     static TRANS_CODER_PATH: string;
+    /** PBF 형상 WASM의 초기 상대 파일 경로이며 setPath에서 제품 루트를 반영합니다. */
+    static PBF_WASM_PATH: string;
+    /** 지형 데칼 WASM의 초기 상대 파일 경로이며 setPath에서 제품 루트를 반영합니다. */
+    static TERRAIN_DECAL_WASM_PATH: string;
     static MAX_HEIGHT: number;
     static g_TextureEncoding: "srgb";
     static g_ShadowMapType: 3;
@@ -16347,7 +16811,7 @@ declare class UDEF {
      * @ignore
      */
     static createKey(x: number | string, y: number | string, level: number | string, title?: string): string;
-    static "__#11329@#uuidStorage": any[];
+    static "__#11504@#uuidStorage": any[];
     /**
      * UUID 캐시에서 UUID를 꺼내거나 캐시가 비어 있으면 새 UUID를 생성한다.
      * 주 사용처: U3dObject, U3DTileset, UFileLoader, geometry, select, quadtree 계열 객체의 식별자 생성에 사용한다.
@@ -16445,7 +16909,7 @@ declare class UDEF {
     static createIDU3F_To_Version1_3(vertex: Array<number>, offsetX: number, offsetY: number, grRect: SimpleRect, grDataRect: SimpleRect): string | undefined;
     /**
      * Google 좌표 x, y를 고정 폭 문자열로 변환해 key를 생성한다.
-     * 주 사용처: U3dModelDxfLayer와 U3dModelShapeLayer에서 모델 userData id 생성에 사용한다.
+     * 좌표 인덱스용 문자열이며 데이터 메시의 puid 생성에는 사용하지 않는다.
      * @param {number | null | undefined} x Google x 좌표.
      * @param {number | null | undefined} y Google y 좌표.
      * @returns {string} 좌표 기반 key 문자열. 좌표가 없으면 undefined.
@@ -16462,7 +16926,7 @@ declare class UDEF {
      *
      * @ignore
      */
-    static "__#11329@#textDecoder": TextDecoder;
+    static "__#11504@#textDecoder": TextDecoder;
     /**
      * UByteBuffer에서 지정 길이만큼 byte array를 읽어 문자열로 변환한다.
      * 주 사용처: UI3FParser, U3FParser, U3FPackageParser, U3FParser2 계열에서 바이너리 헤더와 문자열 필드 파싱에 사용한다.
@@ -16526,19 +16990,19 @@ declare class UDEF {
     static FAR_NORMAL_DECREASE_RATIO: number;
     static NEAR_NORMAL_DECREASE_RATIO: number;
     /**
-     * 지형 material에 terrain normal texture와 tile level 기반 normalScale을 설정한다.
-     * 주 사용처: U3dImageLayer에서 지형 mesh material의 normal texture 설정에 사용한다.
-     * @param {import('three').Material & {normalScale?: import('three').Vector2, normalMap?: import('three').Texture | null, normalMapType?: import('three').NormalMapTypes}} material normal texture를 설정할 material.
-     * @param {number} [tileLevel] normalScale 계산에 사용할 tile level.
-     * @returns {void}
+     * 지형 재질에 공유 노멀 텍스처와 타일 레벨별 요철 강도를 설정합니다.
+     * 계산한 강도가 최소값보다 작으면 기존 재질을 유지합니다.
      *
-     * @ignore
+     * @param {import('three').Material & Partial<{normalScale: import('three').Vector2, normalMap: import('three').Texture | null, normalMapType: import('three').NormalMapTypes}>} material 설정할 지형 재질
+     * @param {number} [tileLevel] 강도 계산에 사용할 타일 레벨. 생략하거나 0이면 최대 강도
+     *
+                                                                        
      */
-    static setTerrainNormalTexture(material: three.Material & {
-        normalScale?: three.Vector2;
-        normalMap?: three.Texture | null;
-        normalMapType?: three.NormalMapTypes;
-    }, tileLevel?: number): void;
+    static setTerrainNormalTexture(material: three.Material & Partial<{
+        normalScale: three.Vector2;
+        normalMap: three.Texture | null;
+        normalMapType: three.NormalMapTypes;
+    }>, tileLevel?: number): void;
     /**
      * degree 값을 radian 값으로 변환한다.
      * 주 사용처: UAnalyLandScape, U3dComponentPosition, U3dLodComponentLayer, U3dMultipleComponentLayer, PointerLockDriveControls에서 회전 각도 변환에 사용한다.
@@ -17879,8 +18343,8 @@ declare const SIMPLE_TAIL_COLOR_FRAGMENT_VARS: string;
  * 이동 지점을 연결해 화면을 향하는 리본 궤적을 그립니다.
  */
 declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
-    static "__#11381@#normalizeDrawResult"(result: any, previous: any): any;
-    static "__#11381@#interpolateDrawNode"(a: any, b: any, t: any): Pick<USimpleTailNode, "x" | "y" | "z" | "time" | "colorFactor" | "pathDistance">;
+    static "__#11556@#normalizeDrawResult"(result: any, previous: any): any;
+    static "__#11556@#interpolateDrawNode"(a: any, b: any, t: any): Pick<USimpleTailNode, "x" | "y" | "z" | "time" | "colorFactor" | "pathDistance">;
     /**
      * 삼각형 한 면을 구성하는 인덱스 개수를 반환합니다.
      *
@@ -17932,7 +18396,10 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @type {boolean}
      */
     _disposed: boolean;
-    /** @ignore 콜백 표시 버퍼의 변경을 프레임 요청에 전달합니다. */
+    /**
+     * 콜백 표시 버퍼의 변경을 프레임 요청에 전달합니다.
+     * @ignore
+     */
     _drawStyleVersion: number;
     /** @type {USimpleTailDrawEvaluator | undefined} */
     drawFunc: USimpleTailDrawEvaluator | undefined;
@@ -17983,9 +18450,17 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @param {boolean} [forAppend=true] 다음 노드를 포함할지 여부.
      */
     getRequiredMemoryCapacity(forAppend?: boolean): any;
-    /** @ignore 자동 축소를 실행할 draw의 소유 app을 반환합니다. */
+    /**
+     * 자동 축소를 실행할 draw의 소유 app을 반환합니다.
+     *
+     * @ignore
+     */
     getMemoryApp(): any;
-    /** @ignore 자동 축소가 현재 경로의 기록·표시를 보존할 수 있는지 확인합니다. */
+    /**
+     * 자동 축소가 현재 경로의 기록·표시를 보존할 수 있는지 확인합니다.
+     *
+     * @ignore
+     */
     canShrinkMemory(): boolean;
     /**
      * 새 버퍼가 완성된 뒤에만 교체합니다. 실패해도 현재 노드·표시·기록 상태는 유지합니다.
@@ -18044,6 +18519,8 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
     _origin: three.Vector3;
     /**
      * 궤적을 그릴 저장 공간과 메시를 준비하고 기존 지점 이력을 비웁니다. <br>
+     * 저장 공간과 메시 준비는 이 호출 안에서 끝나므로 반환 직후 지점을 기록할 수 있습니다. <br>
+     * 반환 Promise의 후속 콜백은 표준 Promise 실행 순서를 따릅니다. <br>
      * 전달한 재질은 이 궤적이 소유하며 dispose 시 함께 해제합니다. <br>
      * 재초기화하면 기존 geometry와 교체되는 재질을 해제합니다. 같은 재질을 다시 전달하면 유지합니다. <br>
      * 초기화에 실패하면 전달한 재질과 부분 생성 자원을 해제하며 이 궤적은 다시 사용할 수 없습니다. <br>
@@ -18195,9 +18672,17 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
      * @param {boolean} enabled true면 colorFactor를 반영
      */
     setGradation(enabled: boolean): void;
-    /** @ignore time 모드의 마지막 입력 간격을 표시 중인지 반환합니다. */
+    /**
+     * time 모드의 마지막 입력 간격을 표시 중인지 반환합니다.
+     *
+     * @ignore
+     */
     _isTimeFadeAnimating(now?: number): boolean;
-    /** @ignore age 이력이 모두 만료되면 자동 갱신을 종료합니다. */
+    /**
+     * age 이력이 모두 만료되면 자동 갱신을 종료합니다.
+     *
+     * @ignore
+     */
     _isAgeFadeAnimating(now?: number): boolean;
     /**
      * 궤적(trail)의 기본 너비를 변경합니다. <br>
@@ -18312,16 +18797,16 @@ declare class USimpleTail extends three.Object3D<three.Object3DEventMap> {
  */
 declare class U3dCumulativePath {
     /** @type {Set<U3dCumulativePath>} */
-    static "__#11382@#drawPaths": Set<U3dCumulativePath>;
+    static "__#11557@#drawPaths": Set<U3dCumulativePath>;
     /** @type {number | undefined} */
-    static "__#11382@#drawFrame": number | undefined;
-    static "__#11382@#tickDraw"(): void;
-    static "__#11382@#scheduleDraw"(): void;
+    static "__#11557@#drawFrame": number | undefined;
+    static "__#11557@#tickDraw"(): void;
+    static "__#11557@#scheduleDraw"(): void;
     /**
      * @param {U3dCumulativePath} path
      * @param {boolean} enabled
      */
-    static "__#11382@#watchDraw"(path: U3dCumulativePath, enabled: boolean): void;
+    static "__#11557@#watchDraw"(path: U3dCumulativePath, enabled: boolean): void;
     /**
      * @param {U3dCumulativePathStyleFunc | null | undefined} value
      * @returns {U3dCumulativePathStyleFunc | null | undefined}
@@ -18481,6 +18966,7 @@ declare class U3dCumulativePath {
      * 음수면 경로가 진행 방향 뒤쪽에 표시됩니다.<br>
      * 이동 거리에 따라 방향을 완화해 짧은 구간의 방향 흔들림이 증폭되지 않게 합니다.<br>
      * 선회 중에는 실제 보정 거리가 일시적으로 줄어들며, 직선 이동을 이어가면 지정 거리로 수렴합니다.
+     * 첫 유효 지점은 출발점에 두고 오프셋을 0에서 시작해 이동하면서 지정 거리로 수렴합니다.
      *
      * @param {number} offset 지점을 진행 방향으로 옮길 거리
      */
@@ -18525,7 +19011,8 @@ declare class U3dCumulativePath {
      * 현재 위치를 경로 끝에 추가합니다.<br>
      * 숨김 여부와 관계없이 경로를 갱신하고 단순화·GPU 표시 설정을 적용합니다.<br>
      * 별도 원본 입력 대기열은 만들지 않습니다.<br>
-     * drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다음 이동점이 올 때 함께 추가합니다.<br>
+     * 첫 유효 좌표는 drawOffset 없이 출발점에 기록하며 positionOffset은 적용합니다.<br>
+     * 자원 생성 중에는 최초 유효 좌표 하나만 복사해 보관합니다. 유효한 초기 이력이 있으면 그 시작점이 우선합니다.<br>
      * `pos`는 복사해 사용하므로 호출 뒤 같은 객체를 재사용할 수 있습니다.
      *
      * @param {WorldPosition} pos 추가할 지점이며 x, y, z가 모두 있어야 함
@@ -18538,7 +19025,7 @@ declare class U3dCumulativePath {
      * 생성 직후의 초기 경로는 생성 옵션 initPositions로 지정하십시오.<br>
      * 유효한 입력 지점을 모두 전달하며 지점 축소는 tailPolicy의 단순화·GPU 표시 설정에 따릅니다.<br>
      * 자원 생성을 지연한 경우에도 호출 시 초기 경로를 먼저 반영한 뒤 입력을 추가합니다.<br>
-     * drawOffset이 0이 아니고 입력 지점이 모두 같은 위치이면 첫 이동점이 올 때 시작점을 추가합니다.<br>
+     * 첫 유효 좌표는 실시간 입력과 동일하게 drawOffset 없이 출발점에 기록합니다.<br>
      * 기존 경로 뒤에 지점을 추가합니다.<br>
      * `hide`후 첫 호출에서는 기존 경로를 지우고 새 경로로 표시됩니다.
      *
@@ -18611,6 +19098,18 @@ declare class UAnimationController extends UEventDispatcher {
      * @returns {number} 아직 처리하지 않은 경유지 개수입니다. <br>
      */
     get waypointQueueSize(): number;
+    /**
+     * 현재 목표와 대기 경유지를 도착 순서대로 복사하여 예상 도착 시간과 함께 반환합니다.<br>
+     * 새 입력과 프레임 지연이 없다고 가정하며 기본 속도, 남은 기한, 대기열 밀림 보정과 거리·보간 진행률의 도착 기준을 반영합니다.<br>
+     * 도착 허용 범위에 진입하는 시간을 추정하므로 각 구간의 실제 도착은 다음 프레임까지 늦어질 수 있습니다.<br>
+     * 일시정지 중에는 재개 시점을 알 수 없으므로 도착 시간을 Infinity로 반환합니다. 조회는 이동 상태를 바꾸지 않습니다.
+     *
+     * @param {number} [count=100] 반환할 목표의 최대 개수인 양의 정수
+     * @returns {Array<UAnimationScheduledWaypoint>} 호출 시점 기준 예상 시간(ms)과 목표 좌표의 복사본. 실행 중이 아니면 빈 배열
+     *
+     * @ignore
+     */
+    _getScheduledWaypoints(count?: number): Array<UAnimationScheduledWaypoint>;
     /**
      * 컨트롤러가 주행 중인지 반환합니다. <br>
      *
@@ -19340,7 +19839,7 @@ declare class USpotLight extends three.SpotLight {
      *      widthSegment: 100
      * })
      */
-    analysisLight(options?: LightAnalyOption): DeferredObject<unknown>;
+    analysisLight(options?: LightAnalyOption): DeferredPromise<boolean>;
     setShadow(enabled?: boolean): void;
     /**
      * 광원의 생성 파라미터(Parameter)를 반환하는 함수
@@ -19444,6 +19943,8 @@ declare class U3dQuadTileWork {
 
 declare class U3dQuadTileTask {
     constructor(opt?: {});
+    /** @type {DeferredPromise<this>} */
+    ready: DeferredPromise<this>;
     type: any;
     name: any;
     scope: any;
@@ -20329,11 +20830,11 @@ declare class U3dModelLayer extends U3dLayer {
      * @param {ModelMesh} mesh 모델 Mesh
      * @param {U3dModelLayer} layer 레이어
      * @param {import('@UDrawArg').UDrawArg} drawArg 레이어 drawArg
-     * @return {Promise<import('@U3dQuadTile').U3dQuadTile>} 찾아진 타일 Array
+     * @return {Promise<import('@U3dQuadTile').U3dQuadTile | undefined>} 찾아진 타일. 원본 타일도 없으면 undefined
      *
      * @ignore
      */
-    setTileFromEditedModel(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile>;
+    setTileFromEditedModel(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile | undefined>;
     /**
      * @param {string} id
      * @return {EditedEvent | undefined}
@@ -20349,6 +20850,15 @@ declare class U3dModelLayer extends U3dLayer {
      * @returns {Array<import('three').Object3D> | undefined} 동기 분리 결과 목록, 분리하지 않으면 undefined
      */
     mergedMeshDivision(object: ModelMesh, afterFunction?: (mesh: three.Object3D, drawArg: UDrawArg) => void): Array<three.Object3D> | undefined;
+    /**
+     * 해당 원본의 분리 처리가 끝나면 결과 모델들을 전달합니다. 텍스처 실패도 완료에 포함합니다.
+     *
+     * @param {import('three').Object3D} object 분리 원본
+     * @returns {Promise<Array<import('three').Object3D>> | undefined} 진행 중인 분리 결과, 대기할 작업이 없으면 undefined
+     *
+     * @ignore
+     */
+    _getMeshDivisionPromise(object: three.Object3D): Promise<Array<three.Object3D>> | undefined;
     /**
      * @return {void}
      */
@@ -20381,6 +20891,17 @@ declare class U3dModelLayer extends U3dLayer {
      * @return {EditedEvent | undefined}
      */
     setSplitEvent(parent: ModelMesh, child: ModelMesh): EditedEvent | undefined;
+    /**
+     * 재로딩한 U3F의 분리 조각과 피처 합성 모델에 기존 편집 상태를 복원합니다.
+     * 원본의 삭제 목록은 분리 표시를 위한 숨김도 포함하므로, 일반 분리 요청의 삭제 검사와
+     * 구분합니다. 로더가 복원 필요성을 판정한 결과에만 사용하며 새 사용 대상을 만들지 않습니다.
+     *
+     * @param {ModelMesh} original 재로딩한 병합 원본
+     * @param {import('three').Object3D} meshList 로더가 복원한 분리 조각의 그룹
+     *
+     * @ignore
+     */
+    _restoreSplitModels(original: ModelMesh, meshList: three.Object3D): void;
     #private;
 }
 
@@ -20400,6 +20921,12 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
      * @param {Partial<U3dModelBasicLayerCO>} [opt={}] 모델 목록·주소와 XML·배치 설정
      */
     constructor(opt?: Partial<U3dModelBasicLayerCO>);
+    /**
+     * 생성 옵션에 위경도 위치가 명시되었는지 나타냅니다. 생략 시 적용하는 기본 좌표와 구분합니다.
+     *
+     * @type {boolean}
+     */
+    _hasGeoLocation: boolean;
     /**@type{number}*/
     _defaultHeight: number;
     /**@type{import('three').Vector3}*/
@@ -20459,11 +20986,11 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
     _printSprite: any;
     /**
      * 현재 모델 목록을 다시 로드하고 완료 객체를 반환합니다.
-     * 기존 공개 선언은 문자열 결과이지만 현재 성공 경로는 값을 전달하지 않습니다.
+     * 성공 시 별도 결과값 없이 완료하며 실패 원인은 그대로 전달합니다.
      *
-     * @returns {Promise<string>}
+     * @returns {Promise<void>} 모델 목록의 재로딩 완료
      */
-    reLoad(): Promise<string>;
+    reLoad(): Promise<void>;
     /**
      * U3F 자료로 표시 객체를 구성하고 레이어 배치 설정을 적용합니다.
      * 텍스처 요청은 별도로 진행하며 그 완료를 기다리지 않습니다. 일부 로드 실패는 로그만 남깁니다.
@@ -20554,10 +21081,18 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
      */
     getModelInfo(name: string, baseurl?: string): ModelInfo | undefined;
     /**
+     * 이 레이어가 기록한 현재 모델 요청에 완료 통지가 접수되었는지 확인합니다.
+     * 성공 여부는 ready를 기다려 판정합니다. 외부에서 교체한 Promise의 상태는 추측하지 않습니다.
+     *
+     * @param {ModelInfo} model 조회한 모델 정보
+     * @returns {boolean} 현재 요청의 resolve 또는 reject가 호출되었으면 true
+     */
+    _isModelLoadReady(model: ModelInfo): boolean;
+    /**
      * 파일 확장자로 로더를 선택하고 형식별 후처리 결과를 전달합니다.
-     * 입력 항목을 목록과 공유하고 파일 이름·완료 인터페이스를 보완할 수 있습니다.
-     * 성공 결과와 실패 전달은 형식별 기존 계약을 따릅니다. 모든 오류가 반환 객체의 거부로 전달되지는 않습니다.
-     * GLB의 로더 실패와 장면 후처리 예외는 반환 객체 및 모델의 실패 콜백에 전달합니다.
+     * 입력 항목을 목록과 공유하고 파일 이름을 보완합니다. 모델 정보의 ready에는 이 호출과 같은 Promise를 기록합니다.
+     * 로딩 성공 값은 반환 Promise와 모델의 성공 콜백에, 로더·후처리 실패는 반환 Promise와 모델의 실패 콜백에 전달합니다.
+     * 선택 완료 콜백의 예외와 비동기 실패는 오류로 보고하며 이미 정해진 로딩 결과는 바꾸지 않습니다.
      *
      * @param {ModelInfo} model 모델 데이터
      * @param {string} [textureUrl=undefined] 텍스처 URL
@@ -20565,18 +21100,17 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
      */
     load(model: ModelInfo, textureUrl?: string): Promise<ModelObject3D>;
     /**
-     * 모델 자료를 요청하고 파서와 공유하는 완료 객체를 반환합니다.
-     * 기존 초기화 경로가 반환 객체의 resolve/reject도 사용하므로 완료 제어 인터페이스를 유지합니다.
-     * 입력 타입과 달리 요청 구현은 model.baseurl을 직접 읽습니다.
+     * 모델 자료를 요청하고 파싱 결과를 Promise로 반환합니다.
+     * 문자열 주소 또는 모델 정보의 baseurl을 사용하며 요청·파싱 실패는 호출자에게 전달합니다.
      *
      * @param {ModelInfo | KeyValue | string | undefined} model U3F 모델 파라미터
      * @param {string} baseurl U3F 모델 URL
-     * @returns {DeferredObject<any>} promise 함수. 작업 성공 시 Load한 U3F 3D Object 배열을 반환한다.
+     * @returns {Promise<Array<U3FParsedObj>>} 로딩·파싱한 U3F 객체 배열
      */
-    getU3FInfo(model: ModelInfo | KeyValue | string | undefined, baseurl: string): DeferredObject<any>;
+    getU3FInfo(model: ModelInfo | KeyValue | string | undefined, baseurl: string): Promise<Array<U3FParsedObj>>;
     /**
      * 텍스처를 요청하여 완료 결과를 반환합니다.
-     * 기존 동작상 로드 오류뿐 아니라 진행 콜백이 호출되어도 거부합니다.
+     * 실제 로딩·후처리 실패를 거부하며 진행률 통지는 실패로 처리하지 않습니다.
      *
      * @param {string} url 텍스처 URL
      * @returns {Promise<import('three').Texture>} promise 함수. 작업 성공 시 Load한 텍스처를 반환.
@@ -20673,6 +21207,7 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
      * @param {boolean} useClone 별도 복제 그룹을 만들어 표시할지 여부
      */
     mergeVertices(tolerance: number, useClone: boolean): void;
+    #private;
 }
 
 /**
@@ -20996,7 +21531,7 @@ declare class U3dMultipleComponentLayer extends U3dModelBasicLayer {
     labelVisible: any;
     /**
      * 원본 모델을 제외하고 레이어에 배치된 컴포넌트를 한꺼번에 화면에 나타내는 메서드입니다. <br>
-     * 개별 컴포넌트를 hideComponent로 숨겨 둔 경우 그 컴포넌트는 숨겨진 상태로 남습니다.
+     * 모든 등록 컴포넌트에 표시를 요청하며 개별 비동기 실패는 엔진 오류로 보고합니다.
      *
      * @override
      */
@@ -21004,12 +21539,14 @@ declare class U3dMultipleComponentLayer extends U3dModelBasicLayer {
     /**
      * 레이어에 배치된 컴포넌트를 한꺼번에 화면에서 숨기는 메서드입니다. <br>
      * 컴포넌트는 그대로 남아 있으므로 show로 다시 나타낼 수 있습니다.
+     * 개별 숨김의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
      */
     hide(): void;
     /**
      * 현재 레이어에 배치된 모든 컴포넌트의 스타일을 한꺼번에 변경합니다. <br>
      * option에 지정한 속성만 적용하며 생략하거나 null로 지정한 속성은 기존 값을 유지합니다. <br>
      * 이 설정은 호출 시점에 등록된 컴포넌트에만 적용되고 이후 추가하는 컴포넌트의 기본 스타일은 바꾸지 않습니다.
+     * 가시성 변경의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
      *
      * @param {U3dMultipleComponentLayerStyle} option 적용할 색상, 불투명도, 가시성, 밝기와 대비 <br>
      */
@@ -21175,6 +21712,7 @@ declare class U3dMultipleComponentLayer extends U3dModelBasicLayer {
     /**
      * 지정한 위치에 컴포넌트 하나를 만들어 레이어에 배치하는 메서드입니다. <br>
      * 만들어진 컴포넌트는 곧바로 화면에 올라가고 레이어의 컴포넌트 목록에 등록되며 CREATE 이벤트가 발생합니다. <br>
+     * 초기 가시성 변경의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다. <br>
      * opt에 movepointlist나 pathgeometry를 넣으면 그 경로를 따라 달리는 주행 애니메이션이 함께 준비됩니다. <br>
      * 레이어가 이미 주행 중이면 새로 만든 컴포넌트도 바로 달리기 시작하고, 일시정지 상태이면 멈춘 상태로 배치됩니다. <br>
      * 이름이 이미 등록된 컴포넌트와 같으면 화면에는 올라가지만 목록에는 등록되지 않으므로 이름은 서로 다르게 지으십시오. <br>
@@ -21546,6 +22084,7 @@ declare class U3dMultipleComponentLayer extends U3dModelBasicLayer {
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dSphere {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -21553,7 +22092,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -21583,24 +22121,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: number): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -21667,8 +22221,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -21722,6 +22276,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
 "_sphere": three.Sphere | undefined;
@@ -21760,6 +22315,562 @@ readonly "normalMatrix": three.Matrix3;
 "occlusionTest"?: boolean | undefined;
 }
 
+declare class LineMaterial extends ShaderMaterial {
+    constructor(parameters: any);
+    isLineMaterial: boolean;
+    set color(value: any);
+    get color(): any;
+    set worldUnits(value: boolean);
+    get worldUnits(): boolean;
+    set linewidth(value: any);
+    get linewidth(): any;
+    set dashed(value: boolean);
+    get dashed(): boolean;
+    set dashScale(value: any);
+    get dashScale(): any;
+    set dashSize(value: any);
+    get dashSize(): any;
+    set dashOffset(value: any);
+    get dashOffset(): any;
+    set gapSize(value: any);
+    get gapSize(): any;
+    set opacity(value: any);
+    get opacity(): any;
+    set resolution(value: any);
+    get resolution(): any;
+}
+
+/** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
+interface GeOnDTMixedInstance_U3dLine {
+"outline": boolean;
+"name": string;
+"color": three.ColorRepresentation;
+"opacity": number;
+"type": string;
+"wireframe": boolean;
+"depthOffset": number | undefined;
+"dynamicDepthOffset": boolean;
+"_beforeRenderCallbacks": Map<string, (arg0: three.WebGLRenderer, arg1: three.Scene<three.Object3DEventMap>, arg2: three.Camera, arg3: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, arg4: three.Material<three.MaterialEventMap>, arg5: three.Group<three.Object3DEventMap>) => void>;
+"_vertices": WorldPositionVector3[];
+"_coordinates": GeoPositionVector3[];
+"_needTransform": boolean;
+"_ulayer": U3dLayer | undefined;
+"_showLabel": boolean;
+"_properties": KeyValue;
+"geometry": three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap> | undefined;
+"needUpdates": boolean;
+"_size": number;
+"_url": string;
+"_classtype": string;
+"_lineColor": any;
+"init"(): void;
+"setLayer"(layer: U3dLayer | undefined): void;
+"getLayer"(): U3dLayer | undefined;
+"updateVertex"(): void;
+"updateColor"(): void;
+"updateGeometry"(): void;
+"updateMaterial"(): void;
+"setVertex"(vertex: WorldPositionVector3[]): void;
+"getVertex"(): WorldPositionVector3[];
+"addVertex"(vec3: WorldPositionVector3): void;
+"removeVertex"(idx: number): void;
+"getVertexIndex"(vec3: GeoPositionVector3): number;
+"getGeometry"(): three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap> | undefined;
+"setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
+"getPositions"(): GeoPositionVector3[];
+"addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
+"setLineColor"(lineColor: three.ColorRepresentation): void;
+"getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
+"addWorldPosition"(x: number, y: number, z: number): void;
+"setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
+"setHeightOffset"(z?: number | undefined): void;
+"_getGroundHeight"(x: number, y: number): number;
+"setPositions"(coordinates: GeoPositionVector3[]): void;
+"setRotation"(rotation: three.Euler): void;
+"setTransparent"(val: boolean): void;
+"setOpacity"(opacity: number): void;
+"_applyChildrenOpacity"(opacity: number): void;
+"getOpacity"(): number | undefined;
+"setBrightness"(brightness?: number | undefined): void;
+"getBrightness"(): number;
+"setContrast"(contrast?: number | undefined): void;
+"getContrast"(): number;
+"removePosition"(idx: number): void;
+"getMaterial"(): three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[] | undefined;
+"setMaterial"(material: any): void;
+"material": any;
+"setDepthOffset"(depthOffset: number | null | undefined): void;
+"getDepthOffset"(): number | undefined;
+"setDynamicDepthOffset"(enabled: boolean): void;
+"getDynamicDepthOffset"(): boolean;
+"setDepthOffsetFunction"(func: U3dDepthOffsetFunction): void;
+"getDepthOffsetFunction"(): U3dDepthOffsetFunction | undefined;
+"setColor"(color: three.ColorRepresentation): void;
+"getColor"(): three.ColorRepresentation | three.Color[] | undefined;
+"setWireframe"(wireframe: boolean): void;
+"getWireframe"(): boolean;
+"setImage"(url: string): void;
+"getImage"(): string | undefined;
+"needTransform"(): boolean;
+"getCenter"(): three.Vector3;
+"setRelativePosition"(): void;
+"setShowLabel"(val: boolean): void;
+"getShowLabel"(): boolean;
+"setShadow"(enabled?: boolean | undefined): void;
+"isShadow"(): boolean;
+"getProperties"(): KeyValue;
+"setProperties"(input: string | KeyValue): void;
+"addProperties"(key: string, value: any): void;
+"removeProperties"(key: string): void;
+"setParam"(param?: U3dGeometryStyleParam | undefined): void;
+"getParam"(): U3dGeometryStyleParam;
+"changeProperties"(key: string, value: any): void;
+"_listeners": Listeners | undefined;
+"addEventListener"<T extends keyof three.Object3DEventMap>(type: T, listener: three.EventListener<three.Object3DEventMap[T], T, this>): void;
+"on"(type: string, listener: EventCallBack, once?: boolean | undefined, name?: string | undefined): string | null;
+"once"(type: string, listener: EventCallBack, name?: string | undefined): string | null;
+"hasEventListener"<T extends keyof three.Object3DEventMap>(type: T, listener: three.EventListener<three.Object3DEventMap[T], T, this>): boolean;
+"hasEventType"(type: string): boolean;
+"removeEventListener"<T extends keyof three.Object3DEventMap>(type: T, listener: three.EventListener<three.Object3DEventMap[T], T, this>): void;
+"off"(type?: string | undefined, listener?: string | Function | undefined): void;
+"unkey"(type: string, key?: string | undefined): void;
+"removeEventListenerAll"(): void;
+"dispatchEvent"<T extends keyof three.Object3DEventMap>(event: three.BaseEvent<T> & three.Object3DEventMap[T]): void;
+"emit"(event: string | DispatchInputEvent, data?: any): void;
+"raycast"(raycaster: any, intersects: any): void;
+"updateMorphTargets"(): void;
+"getVertexPosition"(index: number, target: three.Vector3): three.Vector3;
+"intersectsFrustum"(frustum: three.Frustum | three.FrustumArray): boolean;
+"toJSON"(meta?: three.JSONMeta | undefined): three.MeshJSON;
+"onBeforeShadow"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, shadowCamera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, depthMaterial: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"onAfterShadow"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, shadowCamera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, depthMaterial: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"onBeforeRender"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, material: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"onAfterRender"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, material: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
+"applyMatrix4"(matrix: three.Matrix4): void;
+"applyQuaternion"(quaternion: three.Quaternion): this;
+"setRotationFromAxisAngle"(axis: three.Vector3, angle: number): void;
+"setRotationFromEuler"(euler: three.Euler): void;
+"setRotationFromMatrix"(m: three.Matrix4): void;
+"setRotationFromQuaternion"(q: three.Quaternion): void;
+"rotateOnAxis"(axis: three.Vector3, angle: number): this;
+"rotateOnWorldAxis"(axis: three.Vector3, angle: number): this;
+"rotateX"(angle: number): this;
+"rotateY"(angle: number): this;
+"rotateZ"(angle: number): this;
+"translateOnAxis"(axis: three.Vector3, distance: number): this;
+"translateX"(distance: number): this;
+"translateY"(distance: number): this;
+"translateZ"(distance: number): this;
+"localToWorld"(vector: three.Vector3): three.Vector3;
+"worldToLocal"(vector: three.Vector3): three.Vector3;
+"lookAt"(vector: three.Vector3): void;
+"lookAt"(x: number, y: number, z: number): void;
+"add"(...object: three.Object3D<three.Object3DEventMap>[]): this;
+"remove"(...object: three.Object3D<three.Object3DEventMap>[]): this;
+"removeFromParent"(): this;
+"clear"(): this;
+"attach"(object: three.Object3D<three.Object3DEventMap>): this;
+"getObjectById"(id: number): three.Object3D<three.Object3DEventMap> | undefined;
+"getObjectByName"(name: string): three.Object3D<three.Object3DEventMap> | undefined;
+"getObjectByProperty"(name: string, value: any): three.Object3D<three.Object3DEventMap> | undefined;
+"getObjectsByProperty"(name: string, value: any, optionalTarget?: three.Object3D<three.Object3DEventMap>[] | undefined): three.Object3D<three.Object3DEventMap>[];
+"getWorldPosition"(target: three.Vector3): three.Vector3;
+"getWorldQuaternion"(target: three.Quaternion): three.Quaternion;
+"getWorldScale"(target: three.Vector3): three.Vector3;
+"getWorldDirection"(target: three.Vector3): three.Vector3;
+"traverse"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
+"traverseVisible"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
+"traverseAncestors"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
+"updateMatrix"(): void;
+"updateMatrixWorld"(force?: boolean | undefined): void;
+"updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
+"clone"(recursive?: boolean | undefined): this;
+"copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"isLine2": boolean;
+"isLineSegments2": boolean;
+readonly "isMesh": true;
+"morphTargetInfluences"?: number[] | undefined;
+"morphTargetDictionary"?: { [key: string]: number; } | undefined;
+"count": number;
+readonly "isObject3D": true;
+readonly "id": number;
+"uuid": string;
+"parent": three.Object3D<three.Object3DEventMap> | null;
+"children": three.Object3D<three.Object3DEventMap>[];
+"up": three.Vector3;
+readonly "position": three.Vector3;
+readonly "rotation": three.Euler;
+readonly "quaternion": three.Quaternion;
+readonly "scale": three.Vector3;
+readonly "modelViewMatrix": three.Matrix4;
+readonly "normalMatrix": three.Matrix3;
+"matrix": three.Matrix4;
+"matrixWorld": three.Matrix4;
+"matrixAutoUpdate": boolean;
+"matrixWorldAutoUpdate": boolean;
+"matrixWorldNeedsUpdate": boolean;
+"layers": three.Layers;
+"castShadow": boolean;
+"receiveShadow": boolean;
+"frustumCulled": boolean;
+"animations": three.AnimationClip[];
+"customDepthMaterial"?: three.Material<three.MaterialEventMap> | undefined;
+"customDistanceMaterial"?: three.Material<three.MaterialEventMap> | undefined;
+"static": boolean;
+"userData": Record<string, any>;
+"pivot": three.Vector3 | null;
+"occlusionTest"?: boolean | undefined;
+}
+
+declare const U3dLine_base: Omit<typeof U3dGeometry, "prototype"> & {
+    new (opt?: U3dGeometryCO, isInit?: boolean): GeOnDTMixedInstance_U3dLine & InstanceType<typeof U3dGeometry>;
+    prototype: GeOnDTMixedInstance_U3dLine & InstanceType<typeof U3dGeometry>;
+};
+/**
+ * ~extends import('@U3dGeometry') <br>
+ *
+ * 여러 좌표를 연결해 3D 공간에 두께가 있는 선(폴리라인)을 표시하는 도형입니다. <br>
+ * 좌표 사이는 Catmull-Rom 곡선으로 보간하며, 단색 또는 좌표별 그라디언트 색상과 미터 또는 화면 픽셀 단위의 두께를 지정할 수 있습니다. <br>
+ * Catmull-Rom 곡선은 지정한 모든 좌표를 통과하면서 좌표 사이를 부드럽게 연결하는 곡선입니다. <br>
+ * `drapeOnSurface`로 선의 높이를 모델·지형 표면에 맞출 수 있습니다. <br>
+ *
+ * 좌표는 2개 이상 필요합니다. <br>
+ * `setVertex`로 월드 좌표(EPSG:3857)를 지정하면 즉시 형상을 생성하고, <br>
+ * `setPositions`로 위경도 좌표계(EPSG:4326)를 지정하면 선이 속한 레이어가 월드 좌표(EPSG:3857)로 변환해 반영합니다. <br>
+ *
+ * @group geometry
+ *
+ * @extends {__GeOnDTMixinBase_U3dLine}
+ 
+ */
+declare class U3dLine extends U3dLine_base {
+    /**
+     * 일반 Three.js renderer에서 선 AA의 렌더 직전 갱신을 연결합니다.
+     * GeOnDT 앱에서는 자동 연결되므로 별도 호출이 필요하지 않습니다.
+     * 사용자 onBeforeRender를 클래스 필드로 선언해도 AA 갱신을 유지하며,
+     * renderer.dispose() 시 연결을 자동으로 해제합니다.
+     *
+     * @param {import('three').WebGLRenderer} renderer 선을 그릴 renderer
+     */
+    static attachRenderer(renderer: three.WebGLRenderer): void;
+    /**
+     * renderer의 선 AA 연결을 해제하고 연결이 소유한 함수를 복원합니다.
+     * renderer 자체와 장면의 geometry·material은 해제하지 않습니다.
+     *
+     * @param {import('three').WebGLRenderer} renderer 연결을 해제할 renderer
+     */
+    static detachRenderer(renderer: three.WebGLRenderer): void;
+    /**
+     * 선 도형을 생성합니다. <br>
+     * 생성 옵션 `vertices`에 월드 좌표(EPSG:3857)가 2개 이상 있으면 생성 시 형상을 생성합니다. <br>
+     * 위경도 좌표(`coordinates`)만 지정한 경우 생성 시 형상을 생성하지 않으므로, <br>
+     * 레이어에 추가한 후 `setPositions`로 좌표를 지정하십시오. <br>
+     * 생성 옵션 `opacity`와 `setOpacity`·`setParam`으로 선 재질의 불투명도를 지정합니다. <br>
+     *
+     * @param {U3dLineCO} [opt={}] 색상(또는 그라디언트 색상 배열)·두께·두께 단위·표본 간격과 좌표를 지정하는 생성 옵션 <br>
+     */
+    constructor(opt?: U3dLineCO);
+    /**
+     * 도형의 외곽선으로 생성된 선인지 나타냅니다. <br>
+     * 일반 선은 false이며, 도형이 자동 생성한 외곽선은 true입니다. <br>
+     *
+     * @type {boolean}
+     */
+    isOutline: boolean;
+    /**
+     * 도형 표시 여부입니다. 기본값은 true입니다. <br>
+     *
+     * @type {import('three').Object3D['visible']}
+     */
+    visible: three.Object3D["visible"];
+    /**
+     * 렌더링 정렬 순서입니다. 값이 작을수록 먼저 그리며, 깊이 검사를 비활성화하지는 않습니다. <br>
+     *
+     * @type {import('three').Object3D['renderOrder']}
+     */
+    renderOrder: three.Object3D["renderOrder"];
+    /**
+     * 사용자가 지정한 선 두께입니다. <br>
+     * 기본값은 1입니다. <br>
+     * `worldUnits`가 `true`이면 미터, `false`이면 화면 픽셀 단위입니다. <br>
+     * 미터 단위이고 위경도 좌표가 있으면 첫 좌표의 위도에 따라 월드 좌표(EPSG:3857) 길이로 환산해 재질에 적용하며, 적용된 값은 `getLineWidth`로 조회합니다. <br>
+     * 직접 대입한 값은 재질에 즉시 반영되지 않으며, 변경은 `setLineWidth` 또는 `setParam`으로 합니다. <br>
+     *
+     * @type {number}
+     */
+    linewidth: number;
+    /**
+     * 곡선 표본 간격입니다. <br>
+     * 단위는 월드 좌표(EPSG:3857) 길이이며 기본값은 10입니다. <br>
+     * 곡선 길이를 이 값으로 나눈 수(최소 좌표 수)만큼 표본을 생성하므로, 값이 작을수록 곡선이 매끄러워지고 정점 수가 증가합니다. <br>
+     * 0보다 큰 값을 지정하십시오. <br>
+     *
+     * @type {number}
+     */
+    divisions: number;
+    /**
+     * 닫힘 설정값입니다. <br>
+     * 기본값은 `false`입니다. <br>
+     * 생성 옵션이나 `setParam`으로 지정한 값을 보관하고 `getParam`으로 반환하지만, 선 형상 생성에는 사용되지 않으므로 `true`여도 끝점과 시작점이 연결되지 않습니다. <br>
+     * 값이 변경되면 `drapeOnSurface`로 적용한 표면 드레이프가 해제됩니다. <br>
+     *
+     * @type {boolean}
+     */
+    closed: boolean;
+    /**
+     * 선 두께 단위 설정입니다. <br>
+     * 기본값은 `true`입니다. <br>
+     * `true`이면 두께를 미터로 해석하므로 화면상 두께가 카메라 거리에 따라 달라지고, `false`이면 화면 픽셀로 해석하므로 화면상 두께가 일정합니다. <br>
+     * 이 필드에 직접 대입한 값은 재질에 반영되지 않으므로, 단위를 바꿀 때는 `setParam`을 사용하십시오. <br>
+     *
+     * @type {boolean}
+     */
+    worldUnits: boolean;
+    /**
+     * 월드 좌표(EPSG:3857) 보정 스케일 (1 / cos(lat)), worldUnits=true 일 때만 사용 <br>
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
+    _googleScale: number;
+    /**
+     * 그라디언트용 색상 배열. null이면 단색 모드 <br>
+     *
+     * @type {Array<import('three').ColorRepresentation> | null}
+     *
+     * @ignore
+     */
+    _gradientColors: Array<three.ColorRepresentation> | null;
+    /**
+     * Line2에서 상속된 geometry (중복 방지) <br>
+     *
+     * @override
+     *
+     * @type {*}
+     *
+     * @ignore
+     */
+    override geometry: any;
+    /**
+     * Line2에서 상속된 material (중복 방지) <br>
+     *
+     * @override
+     *
+     * @type {import('@union3d/lib/three/lines/LineMaterial').LineMaterial}
+     *
+     * @ignore
+     */
+    override material: LineMaterial;
+    /**
+     * 고도 등 월드 위치 기반 후처리에서 Line2 실루엣을 재현하는 전용 material <br>
+     *
+     * @type {import('@union3d/lib/three/lines/LineMaterial').LineMaterial | undefined}
+     *
+     * @ignore
+     */
+    customWorldPositionMaterial: LineMaterial | undefined;
+    /**
+     * 레이어가 도형을 갱신할 때 `setMaterial`을 다시 호출할지 여부. 선은 자체 `LineMaterial`을 직접 만들므로 항상 false입니다. <br>
+     *
+     * @type {boolean}
+     *
+     * @ignore
+     */
+    _needMaterial: boolean;
+    /**
+     * 재질과 초기 형상을 구성하는 초기화 함수 <br>
+     *
+     * @ignore
+     */
+    _initLine(): void;
+    /**
+     * 점선 표시에 사용하는 선분별 누적 거리를 계산합니다. <br>
+     * 좌표를 설정해 instanceStart·instanceEnd 버퍼가 생성된 후 호출하며, 좌표 변경 후에는 다시 계산해야 합니다. <br>
+     * 계산 결과를 geometry의 instanceDistanceStart·instanceDistanceEnd 속성에 저장합니다. <br>
+     *
+     * @returns {this} 거리 계산을 마친 현재 선 객체 <br>
+     * @throws {TypeError} 지오메트리 또는 필요한 좌표 버퍼가 없으면 발생합니다 <br>
+     */
+    computeLineDistances(): this;
+    /**
+     * 곡선 장력을 설정합니다. 0이면 원본 정점을 직선으로 연결합니다. <br>
+     * @param {number} tension 0 이상의 유한수. 연속 경로의 기본값은 0.01이며 독립 선분은 0만 허용합니다 <br>
+     */
+    setTension(tension: number): void;
+    /** @returns {number} 현재 곡선 장력 <br> */
+    getTension(): number;
+    /**
+     * 공유 정점 인덱스 쌍으로 독립 선분을 지정합니다. 지정 시 tension은 0이 됩니다. <br>
+     * @param {Array<U3dLineSegment> | null} segments 인덱스 쌍. 빈 배열은 모든 선분을 숨기며 null은 연속 경로로 복귀합니다 <br>
+     */
+    setSegments(segments: Array<U3dLineSegment> | null): void;
+    /** @returns {Array<U3dLineSegment> | undefined} 인덱스 쌍의 복사본. 연속 경로는 undefined <br> */
+    getSegments(): Array<U3dLineSegment> | undefined;
+    /** @param {boolean} dashed 점선 표시 여부 <br> */
+    setDashed(dashed: boolean): void;
+    /** @returns {boolean} 점선 표시 여부 <br> */
+    getDashed(): boolean;
+    /** @param {number} dashSize 대시 길이. 형상 좌표 길이 기준의 0보다 큰 유한수 <br> */
+    setDashSize(dashSize: number): void;
+    /** @returns {number} 대시 길이 <br> */
+    getDashSize(): number;
+    /** @param {number} gapSize 대시 사이 간격. 형상 좌표 길이 기준의 0 이상 유한수 <br> */
+    setGapSize(gapSize: number): void;
+    /** @returns {number} 대시 사이 간격 <br> */
+    getGapSize(): number;
+    /**
+     * 공유 정점 목록을 변경하고 현재 선분 인덱스의 범위를 먼저 검증합니다. <br>
+     * @override
+     * @param {Array<WorldPositionVector3>} vertex 월드 정점 목록 <br>
+     */
+    override setVertex(vertex: Array<WorldPositionVector3>): void;
+    /**
+     * 재질에 적용된 선 두께를 반환합니다. <br>
+     * `worldUnits`가 `true`이고 위경도 좌표가 있으면 위도 환산 배율이 곱해진 값이므로 `linewidth`와 다를 수 있습니다. <br>
+     *
+     * @override
+     * @returns {number} 재질에 적용된 선 두께. 단위는 `worldUnits`에 따라 월드 좌표(EPSG:3857) 길이 또는 화면 픽셀 <br>
+     */
+    override getLineWidth(): number;
+    /**
+     * 선 두께를 설정하고 재질에 즉시 반영합니다. <br>
+     * `worldUnits`가 `true`이면 미터 값에 위도 환산 배율을 곱해 적용하고, `false`이면 화면 픽셀 값을 그대로 적용합니다. <br>
+     * 전달한 값은 요청값으로 `linewidth` 필드에 보관되며, 재질에는 배율을 적용한 두께가 들어갑니다. <br>
+     *
+     * @override
+     * @param {number} width 선 두께. `worldUnits`가 `true`이면 미터, `false`이면 화면 픽셀 <br>
+     */
+    override setLineWidth(width: number): void;
+    /**
+     * 선 재질 셰이더의 투명도 값을 반환합니다. <br>
+     * 0이면 완전 투명, 1이면 불투명입니다. <br>
+     *
+     * @override
+     *
+     * @returns {number | undefined} 투명도 (0~1). 재질에 투명도 값이 없으면 `undefined` <br>
+     */
+    override getOpacity(): number | undefined;
+    /**
+     * 선 재질 셰이더의 투명도 값을 설정합니다. <br>
+     * 0이면 완전 투명, 1이면 불투명입니다. <br>
+     * 재질의 투명 처리 설정(`transparent`)과 도형의 `opacity` 속성은 변경하지 않습니다. <br>
+     * 색상 선 재질은 경계 AA를 위해 항상 블렌딩하며, `transparent` 요청값과 관계없이 이 투명도를 반영합니다. `1`이면 선 내부는 불투명하게 유지됩니다. <br>
+     *
+     * @override
+     *
+     * @param {number} value 투명도 (0~1). 모든 하위 자식 재질에도 적용합니다 <br>
+     */
+    override setOpacity(value: number): void;
+    /**
+     * 선 색상을 설정하고 형상을 다시 생성합니다. <br>
+     * 단일 색상을 지정하면 선 전체에 적용하고, 색상 배열을 지정하면 좌표 사이 색상을 보간한 그라디언트로 표시합니다. <br>
+     * 배열 길이는 현재 좌표(`vertices`) 수와 같아야 하며, 길이가 다르면 콘솔에 오류를 출력하고 형상을 다시 생성하지 않습니다. <br>
+     *
+     * @override
+     *
+     * @param {import('three').ColorRepresentation | Array<import('three').ColorRepresentation>} color 선 전체 색상 또는 좌표 순서에 대응하는 그라디언트 색상 배열 <br>
+     */
+    override setColor(color: three.ColorRepresentation | Array<three.ColorRepresentation>): void;
+    /**
+     * 꼭짓점 좌표를 BufferAttribute로 변환하여 geometry에 적용 <br>
+     *
+     * @override
+     *
+     * @ignore
+     */
+    override updateVertex(): void;
+    /**
+     * 선의 높이를 모델·지형 표면에 맞춥니다. <br>
+     * 원본 좌표는 유지하고, `divisions` 간격으로 생성한 곡선 표본의 높이를 표면 높이에 `offset`을 더한 값으로 변경합니다. <br>
+     * 표면과 교차하지 않은 표본은 원래 높이를 유지하며, 모든 계산이 완료된 후 형상에 일괄 반영합니다. <br>
+     *
+     * - 원래 높이로 복원하려면 `clearSurfaceDrape`를 호출합니다. <br>
+     * - 다시 호출하면 진행 중인 이전 요청은 취소되고 마지막 요청의 결과만 반영됩니다. <br>
+     * - 색상·두께·투명도를 변경해도 적용 상태가 유지되며, 좌표나 `divisions`·`closed`를 변경하면 해제됩니다. <br>
+     * - 실행 중 지형이나 모델이 변경되면(LOD 변경 등) 최신 표면에 맞추려면 다시 호출해야 합니다. <br>
+     * - GPU에서 형태를 변형하는 인스턴스·배치 모델(본·모프 텍스처 사용)은 계산 대상에서 제외됩니다. <br>
+     *
+     * 화면 응답성을 유지하기 위해 계산을 여러 작업으로 나누어 실행하므로, 완료까지 여러 프레임이 소요될 수 있습니다. <br>
+     *
+     * @param {U3dLineDrapeOnSurfaceOptions} options 드레이프 옵션. 앱·높이 오프셋·표본 간격·취소 신호 <br>
+     * @returns {Promise<U3dLineDrapeOnSurfaceResult | undefined>} 성공 시 표본·교차·미교차 수. 입력 오류·실행 오류·취소 시 `undefined`이며, 다음 호출이나 `clearSurfaceDrape`·`dispose`로 중단된 경우에는 오류 메시지 없이 `undefined` <br>
+     *
+     * @example
+     * const result = await line.drapeOnSurface({
+     *     app,
+     *     offset: 3,
+     *     divisions: 5
+     * });
+     */
+    drapeOnSurface(options: U3dLineDrapeOnSurfaceOptions): Promise<U3dLineDrapeOnSurfaceResult | undefined>;
+    /**
+     * `drapeOnSurface`로 적용한 표면 드레이프를 해제하고 원래 좌표의 형상으로 복원합니다. <br>
+     * 진행 중인 드레이프 요청이 있으면 함께 취소하며, 적용한 드레이프가 없으면 아무 동작도 하지 않습니다. <br>
+     */
+    clearSurfaceDrape(): void;
+    /**
+     * 도형 공통 속성과 선 고유 속성을 일괄 변경하고 형상을 다시 생성합니다. <br>
+     * 지정하지 않은 항목은 현재 값을 유지합니다. <br>
+     * `linewidth`와 `lineWidth`를 함께 지정하면 `linewidth`를 사용하며, 두께는 `setLineWidth`와 같은 방식으로 적용합니다. <br>
+     *
+     * @override
+     *
+     * 정점과 선분 인덱스를 함께 변경하면 적용 전에 새 정점 목록 기준으로 인덱스를 검사합니다. <br>
+     * @param {U3dLineSetParam} [param] 공통 속성과 `vertices`·`coordinates`·`segments`·`tension`·`dashed`·`dashSize`·`gapSize`·`linewidth`(또는 `lineWidth`)·`divisions`·`closed`·`worldUnits` <br>
+     */
+    override setParam(param?: U3dLineSetParam): void;
+    /**
+     * 현재 도형 공통 속성과 선 고유 속성을 반환합니다. <br>
+     * `linewidth`는 입력한 두께이며 위도 보정 전 값입니다. 실제 재질 두께는 `getLineWidth`로 조회합니다. <br>
+     * 정점·인덱스·곡선·점선 설정과 위경도 좌표를 복사해 반환하므로 JSON 저장 후 생성 옵션이나 `setParam`으로 복원할 수 있습니다. <br>
+     * 그라디언트 색상 사용 중에는 공통 속성의 `color`가 흰색으로 반환됩니다. <br>
+     *
+     * @override
+     *
+     * @returns {U3dLineParam} 현재 속성. 호출할 때마다 새 객체를 반환 <br>
+     */
+    override getParam(): U3dLineParam;
+    /**
+     * 진행 중인 `drapeOnSurface` 요청을 중단하고 선 객체의 자원 해제를 요청합니다. <br>
+     * 두 번째 호출부터는 아무 동작도 하지 않습니다. <br>
+     * 레이어에서 선을 제거하지 않으므로, 레이어에 추가한 선은 레이어에서 제거하십시오. <br>
+     */
+    dispose(): void;
+    _disposed: boolean;
+    /**
+     * geometry position의 좌표를 중심점 기준 상대 좌표로 변환 <br>
+     *
+     * @param {Array<number>} positions 좌표 배열 <br>
+     * @param {Array<U3dLineSegment>} [pairs] 독립 선분의 정점 인덱스 쌍 <br>
+     *
+     * @ignore
+     */
+    _setRelativePosition(positions: Array<number>, pairs?: Array<U3dLineSegment>): void;
+    #private;
+}
+
 /**
  * ~extends import('@UEventDispatcher') <br>
  *
@@ -21783,6 +22894,16 @@ declare class U3dGeometry extends UEventDispatcher {
      */
     static EVENT: U3dGeometryEMI;
     /**
+     * 예전 외곽선 옵션을 경고와 함께 공식 이름으로 변환합니다. 입력 객체는 변경하지 않습니다. <br>
+     * 하위 생성자와 setParam도 같은 변환을 먼저 적용하므로 경고는 입력당 한 번만 출력됩니다. <br>
+     * @template {Record<string, *>} T
+     * @param {T} param 생성 옵션 또는 변경 옵션 <br>
+     * @returns {T} 공식 옵션 이름으로 변환한 복사본 <br>
+     * @protected
+     * @ignore
+     */
+    protected static _normalizeOutlineOptions<T extends Record<string, any>>(param: T): T;
+    /**
      * 3D 도형의 기반 객체를 생성합니다(주로 하위 클래스에서 상속하여 사용합니다). <br>
      *
      * @param {U3dGeometryCO} [opt={}] 생성 옵션 (이름·색상·투명도·좌표 등 공통 옵션) <br>
@@ -21790,6 +22911,12 @@ declare class U3dGeometry extends UEventDispatcher {
      * 상속 클래스에서 초기화를 미룰 때만 false를 사용합니다 <br>
      */
     constructor(opt?: U3dGeometryCO, isInit?: boolean);
+    /**
+     * 외곽선 표시 여부입니다. 하위 도형도 이 공통 상태를 사용합니다. <br>
+     * 변경은 `setOutline`, 조회는 `getOutline`을 사용합니다. <br>
+     * @type {boolean}
+     */
+    outline: boolean;
     /**
      * 도형 이름입니다. <br>
      * 레이어에서 도형을 찾을 때 쓰는 식별자이며, 생성 옵션에 넣지 않으면 무작위 문자열이 자동으로 만들어집니다. <br>
@@ -21844,14 +22971,6 @@ declare class U3dGeometry extends UEventDispatcher {
      * @type {boolean}
      */
     dynamicDepthOffset: boolean;
-    /**
-     * 마지막으로 적용한 지형 기준 높이 오프셋(미터)
-     *
-     * @type {number}
-     *
-     * @ignore
-     */
-    _heightOffset: number;
     /**
      * 매 프레임 렌더 직전에 실행할 콜백 모음입니다. <br>
      * 키는 콜백을 구분하는 이름이며, 이 클래스는 깊이 보정을 적용하는 `depthOffset` 하나를 미리 등록해 둡니다. <br>
@@ -21922,6 +23041,13 @@ declare class U3dGeometry extends UEventDispatcher {
     _classtype: string;
     _lineColor: any;
     /**
+     * 도형에 별도 외곽선이 필요한지 반환합니다. U3dLine과 U3dPoint는 제외합니다.
+     * @returns {boolean} 외곽선 지원 여부
+     * @protected
+     * @ignore
+     */
+    protected _supportsOutline(): boolean;
+    /**
      * 초기화 함수 <br>
      *
      * @ignore
@@ -21974,6 +23100,16 @@ declare class U3dGeometry extends UEventDispatcher {
      * @param {Array<WorldPositionVector3>} vertex 꼭짓점 의 월드 좌표(EPSG:3857) 배열 <br>
      */
     setVertex(vertex: Array<WorldPositionVector3>): void;
+    /**
+     * 중심 좌표만 바뀐 기본 도형은 기존 형상·외곽선에 위도 배율만 반영합니다.
+     * 정점에 적용한 회전과 외곽선의 로컬 변환도 함께 유지합니다.
+     * @param {number} previousScale 기존 미터 → 월드 배율
+     * @param {number} scale 새 미터 → 월드 배율
+     * @returns {boolean} 기존 형상을 재사용했는지 여부
+     * @protected
+     * @ignore
+     */
+    protected _updatePrimitiveGeometryScale(previousScale: number, scale: number): boolean;
     /**
      * 도형의 꼭짓점 좌표(월드 좌표(EPSG:3857)) 배열을 반환합니다. <br>
      * 복사본이 아니라 도형이 쓰는 배열 그대로이므로, 원소를 고치면 도형의 좌표도 함께 바뀝니다. <br>
@@ -22031,18 +23167,92 @@ declare class U3dGeometry extends UEventDispatcher {
      */
     addPosition(x: three.Vector3 | number, y?: number, z?: number): void;
     /**
+     * 전용 외곽선이 없는 도형의 메시 외곽선을 갱신합니다.
+     * @param {UGeometryOutlineTarget} [target] 실제 엔진 렌더 객체. 별도 메시를 사용하는 도형만 지정합니다.
+     * @protected
+     * @ignore
+     */
+    protected _updateCommonOutline(target?: UGeometryOutlineTarget): void;
+    /**
+     * @overload
+     * @param {import('three').BufferGeometry} geometry 본체 형상
+     * @param {boolean} depthTest 깊이 검사 여부
+     * @param {number} thresholdAngle 모서리 추출 기준각
+     * @param {typeof import('@union3d/geometry/U3dLine').U3dLine} LineType 선 생성자
+     * @returns {UGeometryOutlineLine} 인덱스 기반 모서리 외곽선
+     */
+    protected _createEdgeOutline(geometry: three.BufferGeometry, depthTest: boolean, thresholdAngle: number, LineType: typeof U3dLine): UGeometryOutlineLine;
+    /**
+     * @overload
+     * @param {import('three').BufferGeometry} geometry 본체 형상
+     * @param {boolean} depthTest 깊이 검사 여부
+     * @param {number} [thresholdAngle] 모서리 추출 기준각
+     * @returns {import('three/examples/jsm/lines/LineSegments2.js').LineSegments2} 기본 선분 외곽선
+     */
+    protected _createEdgeOutline(geometry: three.BufferGeometry, depthTest: boolean, thresholdAngle?: number): three_examples_jsm_lines_LineSegments2_js.LineSegments2;
+    /**
+     * @overload
+     * @param {import('three').BufferGeometry} edges 선분 형상
+     * @param {boolean} depthTest 깊이 검사 여부
+     * @param {typeof import('@union3d/geometry/U3dLine').U3dLine} LineType 선 생성자
+     * @returns {UGeometryOutlineLine} 인덱스 기반 모서리 외곽선
+     */
+    protected _createOutlineSegments(edges: three.BufferGeometry, depthTest: boolean, LineType: typeof U3dLine): UGeometryOutlineLine;
+    /**
+     * @overload
+     * @param {import('three').BufferGeometry} edges 선분 형상
+     * @param {boolean} [depthTest] 깊이 검사 여부
+     * @returns {import('three/examples/jsm/lines/LineSegments2.js').LineSegments2} 기본 선분 외곽선
+     */
+    protected _createOutlineSegments(edges: three.BufferGeometry, depthTest?: boolean): three_examples_jsm_lines_LineSegments2_js.LineSegments2;
+    /**
+     * 원의 경계를 중심으로 양쪽에 반 두께씩 확장한 공유 정점 띠로 그립니다.
+     * @param {import('three').BufferGeometry} geometry 원판 형상
+     * @param {boolean} depthTest 깊이 검사 여부
+     * @returns {import('three').Mesh} 원판 평면에서 월드 두께만큼 확장되는 테두리
+     * @protected
+     * @ignore
+     */
+    protected _createCircleOutline(geometry: three.BufferGeometry, depthTest: boolean): three.Mesh;
+    /**
+     * 곡면을 반 두께만 확장하고 축소한 실루엣을 제외하여 경계 중심의 테두리를 그립니다.
+     * 깊이 검사로 다른 객체의 가림을 유지합니다.
+     * @param {import('three').BufferGeometry} geometry 본체의 로컬 형상
+     * @param {boolean} [depthTest=true] 다른 객체에 대한 깊이 검사 여부
+     * @returns {import('three').Mesh} 독립된 형상과 재질을 소유하는 외곽선
+     * @protected
+     * @ignore
+     */
+    protected _createSilhouetteOutline(geometry: three.BufferGeometry, depthTest?: boolean): three.Mesh;
+    /**
+     * 공통 처리로 만든 외곽선만 제거하고, 본체·공유 텍스처·사용자 자식은 보존합니다.
+     * @protected
+     * @ignore
+     */
+    protected _disposeCommonOutline(): void;
+    /**
+     * 도형별 생성 전략과 외곽선의 자원 수명을 연결합니다.
+     * @param {U3dOutlineFactory} create 외곽선 생성 함수
+     * @param {number} [offset=0] 부모 기준 렌더 순서
+     * @protected
+     * @ignore
+     */
+    protected _replaceOutline(create: U3dOutlineFactory, offset?: number): void;
+    /**
      * 외곽선의 렌더 순서를 도형의 현재 값에 연결합니다.
      * 렌더 목록을 만들 때부터 적용되므로 부모 값을 직접 바꿔도 다음 정렬에 반영됩니다.
      *
      * @param {import('three').Object3D} outline 외곽선 객체
      * @param {number} [offset=0] 부모 렌더 순서에 더할 값
+     * @param {UGeometryOutlineTarget} [owner] 외곽선을 포함하는 엔진 렌더 객체
      * @protected
      * @ignore
      */
-    protected _bindOutlineRenderOrder(outline: three.Object3D, offset?: number): void;
+    protected _bindOutlineRenderOrder(outline: three.Object3D, offset?: number, owner?: UGeometryOutlineTarget): void;
     /**
      * 외곽선(테두리 선) 색상을 설정합니다. <br>
-     * 외곽선을 가진 도형에만 적용되며, 외곽선이 없는 도형에서 호출하면 색을 바꾸지 않고 콘솔에 기록을 남깁니다. <br>
+     * 외곽선이 꺼져 있어도 색상을 보관하여 다음에 켤 때 적용합니다. <br>
+     * `THREE.Color` 입력은 복사하여 보관합니다. <br>
      * 올바르지 않은 색상 값은 TypeError 또는 RangeError를 발생시키며 기존 색상을 유지합니다. <br>
      *
      * @param {ColorLike} lineColor 외곽선 색상. 16진수 숫자(`0x000000`), CSS 색 문자열(`'#000000'`) 또는 `THREE.Color`를 넣습니다 <br>
@@ -22051,11 +23261,175 @@ declare class U3dGeometry extends UEventDispatcher {
     /**
      * 외곽선 색상을 반환합니다(`setLineColor`와 짝을 이룹니다). <br>
      * 지정한 적이 없으면 기본값 `'#000000'`입니다. <br>
-     * 외곽선이 없는 도형에서는 `setLineColor`가 값을 저장하지 않으므로 생성 옵션에 넣은 값이 그대로 남습니다. <br>
+     * 외곽선 표시 여부와 관계없이 마지막으로 지정한 색상을 반환합니다. <br>
+     * `THREE.Color`를 지정한 경우 복사본을 반환하므로 색상 변경에는 `setLineColor`를 사용하십시오. <br>
      *
      * @returns {ColorLike} 외곽선 색상 <br>
      */
     getLineColor(): ColorLike;
+    /**
+     * 외곽선 표시 여부를 변경합니다. 색상·두께·불투명도는 유지합니다. <br>
+     * U3dLine과 U3dPoint는 별도 외곽선을 생성하지 않습니다. <br>
+     * @param {boolean} outline 외곽선을 표시할지 여부 <br>
+     */
+    setOutline(outline: boolean): void;
+    /**
+     * 외곽선 표시 여부를 반환합니다. <br>
+     * @returns {boolean} 외곽선 표시 여부 <br>
+     */
+    getOutline(): boolean;
+    /**
+     * 현재 도형이 생성한 외곽선 객체를 반환합니다. <br>
+     * 반환된 객체의 `isOutline`은 true이며, 외곽선이 없거나 도형이 해제되었으면 undefined입니다. <br>
+     * 크기·좌표 변경이나 외곽선 표시 전환으로 객체가 재생성되면 다시 조회하십시오. <br>
+     * 표시 여부는 `getOutline()`으로 조회합니다. <br>
+     *
+     * @returns {(import('three').Mesh & {isOutline: true}) | undefined} 현재 외곽선 객체 <br>
+     */
+    getOutlineObject(): (three.Mesh & {
+        isOutline: true;
+    }) | undefined;
+    /**
+     * @deprecated `outline`으로 통일되었습니다. 변경은 `setOutline()`을 사용하세요. <br>
+     * @param {boolean} outline 외곽선 표시 여부 <br>
+     */
+    set useline(outline: boolean);
+    /**
+     * @deprecated `outline`으로 통일되었습니다. 조회는 `getOutline()`을 사용하세요. <br>
+     * @returns {boolean} 외곽선 표시 여부 <br>
+     */
+    get useline(): boolean;
+    /**
+     * @deprecated `outline`으로 통일되었습니다. 변경은 `setOutline()`을 사용하세요. <br>
+     * @param {boolean} outline 외곽선 표시 여부 <br>
+     */
+    set useLine(outline: boolean);
+    /**
+     * @deprecated `outline`으로 통일되었습니다. 조회는 `getOutline()`을 사용하세요. <br>
+     * @returns {boolean} 외곽선 표시 여부 <br>
+     */
+    get useLine(): boolean;
+    /**
+     * @deprecated `outline`으로 통일되었습니다. 변경은 `setOutline()`을 사용하세요. <br>
+     * @param {boolean} outline 외곽선 표시 여부 <br>
+     */
+    set edge(outline: boolean);
+    /**
+     * @deprecated `outline`으로 통일되었습니다. 조회는 `getOutline()`을 사용하세요. <br>
+     * @returns {boolean} 외곽선 표시 여부 <br>
+     */
+    get edge(): boolean;
+    /**
+     * @deprecated `setOutline`으로 변경되었습니다. 호출하면 변경 안내 경고를 출력합니다.
+     * @param {boolean} outline 외곽선 표시 여부 <br>
+     */
+    setUseLine(outline: boolean): void;
+    /**
+     * @deprecated `setLineColor`를 사용하세요. 호출하면 변경 안내 경고를 출력합니다.
+     * @param {ColorLike} color 외곽선 색상 <br>
+     */
+    setOutlineColor(color: ColorLike): void;
+    /**
+     * @deprecated `getLineColor`를 사용하세요. 호출하면 변경 안내 경고를 출력합니다.
+     * @returns {ColorLike} 외곽선 색상 <br>
+     */
+    getOutlineColor(): ColorLike;
+    /**
+     * @deprecated `setLineWidth`를 사용하세요. 호출하면 변경 안내 경고를 출력합니다.
+     * @param {number} width 외곽선 두께 (outlineType에 따른 미터 또는 CSS 픽셀) <br>
+     */
+    setOutlineWidth(width: number): void;
+    /**
+     * @deprecated `getLineWidth`를 사용하세요. 호출하면 변경 안내 경고를 출력합니다.
+     * @returns {number} 외곽선 두께 (outlineType에 따른 미터 또는 CSS 픽셀) <br>
+     */
+    getOutlineWidth(): number;
+    /**
+     * @deprecated `setLineOpacity`를 사용하세요. 호출하면 변경 안내 경고를 출력합니다.
+     * @param {number} opacity 외곽선 불투명도 (0~1) <br>
+     */
+    setOutlineOpacity(opacity: number): void;
+    /**
+     * @deprecated `getLineOpacity`를 사용하세요. 호출하면 변경 안내 경고를 출력합니다.
+     * @returns {number} 외곽선 불투명도 (0~1) <br>
+     */
+    getOutlineOpacity(): number;
+    /**
+     * 외곽선을 지원하는 도형의 테두리 두께를 설정합니다. <br>
+     * 전체 두께의 절반씩 실제 경계 안쪽과 바깥쪽에 표시하는 중앙 정렬을 사용합니다. <br>
+     * 단위는 outlineType에 따릅니다. meter는 미터, pixel은 화면 CSS 픽셀입니다. <br>
+     * 위경도 좌표를 사용하는 도형에는 본체와 같은 위도 보정 배율을 적용합니다. <br>
+     * 외곽선이 꺼져 있어도 값을 보관하며 다음에 켤 때 적용합니다. <br>
+     *
+     * @param {number} width 0보다 큰 유한한 두께 (outlineType에 따른 미터 또는 CSS 픽셀). 기본값은 1입니다 <br>
+     */
+    setLineWidth(width: number): void;
+    /**
+     * 외곽선에 설정한 두께를 반환합니다. 단위는 outlineType에 따릅니다. <br>
+     *
+     * @returns {number} 외곽선 두께 (outlineType에 따른 미터 또는 CSS 픽셀) <br>
+     */
+    getLineWidth(): number;
+    /**
+     * 외곽선 두께의 단위를 설정합니다. 값이 생략된 생성 옵션은 pixel입니다. <br>
+     * meter는 미터, pixel은 화면 CSS 픽셀이며 기존 lineWidth 값은 유지합니다. <br>
+     * @param {'meter' | 'pixel'} type 외곽선 두께 단위 <br>
+     */
+    setOutlineType(type: "meter" | "pixel"): void;
+    /** @returns {'meter' | 'pixel'} 외곽선 두께 단위. 기본값은 pixel <br> */
+    getOutlineType(): "meter" | "pixel";
+    /**
+     * 메시로 만든 외곽선에 정점 깊이별 픽셀 두께 환산을 연결합니다.
+     * 색상·좌표 출력 재질이 같은 두께를 사용하며 meter 모드의 기존 형상은 유지합니다.
+     * @param {import('three').Mesh & {customWorldPositionMaterial?: import('three').Material}} outline 외곽선 메시
+     * @param {number} [widthRatio=1] 전체 두께에 대한 비율
+     * @protected
+     * @ignore
+     */
+    protected _bindOutlinePixelWidth(outline: three.Mesh & {
+        customWorldPositionMaterial?: three.Material;
+    }, widthRatio?: number): void;
+    /**
+     * 본체와 독립된 외곽선의 불투명도를 설정합니다. <br>
+     * 외곽선이 꺼져 있어도 값을 보관하며 재생성할 때 다시 적용합니다. <br>
+     * 0이면 외곽선 렌더링을 생략하고, 1이면 완전히 불투명하게 표시합니다. <br>
+     * 잘못된 값은 변경 전에 TypeError 또는 RangeError를 발생시킵니다. <br>
+     * @param {number} opacity 외곽선 불투명도 (0~1). 기본값은 1 <br>
+     */
+    setLineOpacity(opacity: number): void;
+    /**
+     * 본체와 독립된 외곽선의 불투명도를 반환합니다.
+     * @returns {number} 외곽선 불투명도 (0~1). 기본값은 1
+     */
+    getLineOpacity(): number;
+    /**
+     * 모서리 기반 외곽선의 코너가 둥근 정도를 설정합니다. <br>
+     * 0은 각진 연결, 1은 기존의 둥근 연결이며 중간 값은 반 두께에 대한 코너 반경 비율입니다. <br>
+     * 기본값은 1이며 선 두께·본체 형상·선분 경로는 유지합니다. 급각의 돌출은 반 두께의 네 배로 제한하며 곡면 실루엣의 곡률은 바꾸지 않습니다. <br>
+     *
+     * @param {number} tension 0~1 범위의 유한한 숫자 <br>
+     */
+    setOutlineTension(tension: number): void;
+    /**
+     * 모서리 기반 외곽선의 둥근 정도를 반환합니다. <br>
+     *
+     * @returns {number} 0은 각진 연결, 1은 둥근 연결인 반경 비율. 기본값은 1 <br>
+     */
+    getOutlineTension(): number;
+    /**
+     * 본체와 같은 위도 보정을 적용한 렌더 월드 두께를 반환합니다.
+     * @returns {number} 렌더 좌표계의 외곽선 두께
+     * @protected
+     * @ignore
+     */
+    protected _getOutlineWorldWidth(): number;
+    /**
+     * 외곽선을 그리는 선 객체의 전체 월드 두께를 반환합니다.
+     * @returns {number} 선 렌더링 두께
+     * @protected
+     * @ignore
+     */
+    protected _getOutlineRenderWidth(): number;
     /**
      * 월드 좌표(EPSG:3857)를 위경도로 변환해 도형에 좌표로 추가합니다. <br>
      * 월드 좌표(EPSG:3857)를 그대로 두려면 `addVertex`를 사용합니다. <br>
@@ -22090,12 +23464,6 @@ declare class U3dGeometry extends UEventDispatcher {
      * box.setHeightOffset(30);   // 그 지점 지형 위 30m
      */
     setHeightOffset(z?: number): void;
-    /**
-     * `setHeightOffset`으로 마지막에 적용한 지형 기준 높이 오프셋을 반환합니다.
-     *
-     * @returns {number} 지형 표면 기준 높이 오프셋(미터). 설정한 적이 없으면 0
-     */
-    getHeightOffset(): number;
     /**
      * 지정한 위경도 지점의 지형 표면 높이(해발, 미터)를 읽습니다. <br>
      * 도형이 레이어에 등록되어 있지 않거나 그 지점의 지형을 아직 불러오지 않았으면 0을 돌려줍니다.
@@ -22133,7 +23501,8 @@ declare class U3dGeometry extends UEventDispatcher {
     setTransparent(val: boolean): void;
     /**
      * 도형의 투명도를 설정합니다(0이면 완전 투명, 1이면 불투명). <br>
-     * 외곽선을 포함한 모든 하위 자식 객체의 재질에도 같은 투명도를 적용합니다. <br>
+     * 자동 생성 외곽선을 제외한 일반 하위 자식 재질에도 같은 투명도를 적용합니다. <br>
+     * 외곽선의 투명도는 `setLineOpacity`로 독립적으로 설정합니다. <br>
      *
      * @param {number} opacity 투명도 (0~1) <br>
      */
@@ -22147,7 +23516,7 @@ declare class U3dGeometry extends UEventDispatcher {
      */
     protected _setGeometryOpacity(opacity: number): void;
     /**
-     * 모든 하위 자식 객체의 단일·배열 재질과 투명도 유니폼에 같은 값을 적용합니다.
+     * 자동 생성 외곽선을 제외한 하위 자식의 단일·배열 재질과 투명도 유니폼에 같은 값을 적용합니다.
      * 재질이 없는 그룹도 순회하여 그 안의 자식까지 처리합니다.
      *
      * @param {number} opacity 불투명도 (0~1)
@@ -22420,7 +23789,7 @@ declare class U3dGeometry extends UEventDispatcher {
      * `position`은 좌표가 하나인 도형에만 적용하며, 좌표가 여러 개인 도형은 모양이 한 점으로 합쳐지지 않도록 적용하지 않고 콘솔에 기록만 남깁니다.
      * 공통 숫자·boolean·좌표 항목이 잘못되면 변경 전에 TypeError 또는 RangeError를 발생시킵니다. <br>
      *
-     * @param {U3dGeometryStyleParam} [param] 변경할 속성 객체. `color`·`opacity`·`brightness`·`contrast`·`shadow`·`lineColor`·`wireframe`·`depthOffset`·`dynamicDepthOffset`·`depthOffsetFunction`·`position`·`rotation`·`scale`을 읽으며, 넣지 않은 항목은 현재 값을 유지합니다
+     * @param {U3dGeometryStyleParam} [param] 변경할 속성 객체. `color`·`opacity`·`brightness`·`contrast`·`shadow`·`lineColor`·`lineWidth`·`lineOpacity`·`outlineType`·`outlineTension`·`wireframe`·`depthOffset`·`dynamicDepthOffset`·`depthOffsetFunction`·`position`·`rotation`·`scale`을 읽으며, 넣지 않은 항목은 현재 값을 유지합니다
      *
      * @example
      * geometry.setParam({ color: '#ff0000', opacity: 0.5 });
@@ -22437,9 +23806,10 @@ declare class U3dGeometry extends UEventDispatcher {
      * 그 안에서 `super.getParam()`을 펼쳐 공통 속성을 함께 담습니다. <br>
      * 위치(`position`)·회전(`rotation`)·크기(`scale`)는 JSON으로 그대로 저장할 수 있도록 `{x, y, z}` 형태의 일반 객체로 담습니다. <br>
      * `rotation`은 도(degree) 단위입니다. <br>
-     * `position`은 좌표가 하나인 도형에만 담기며, 좌표가 여러 개인 도형은 `undefined`입니다.
+     * `position`은 좌표가 하나인 도형에만 담기며, 좌표가 여러 개인 도형은 `undefined`입니다. <br>
+     * 지형 기준 높이는 현재 좌표에 반영되어 있으므로 `heightOffset`은 반환하지 않습니다.
      *
-     * @returns {U3dGeometryStyleParam} 현재 속성 객체. `color`·`opacity`·`brightness`·`contrast`·`lineColor`·`shadow`·`wireframe`·`depthOffset`·`dynamicDepthOffset`·`depthOffsetFunction`·`position`·`rotation`·`scale`이 담기며, 호출할 때마다 새 객체를 만들어 돌려줍니다
+     * @returns {U3dGeometryStyleParam} 현재 속성 객체. `color`·`opacity`·`brightness`·`contrast`·`lineColor`·`outline`·`lineWidth`·`lineOpacity`·`outlineType`·`outlineTension`·`shadow`·`wireframe`·`depthOffset`·`dynamicDepthOffset`·`depthOffsetFunction`·`position`·`rotation`·`scale`이 담기며, 호출할 때마다 새 객체를 만들어 돌려줍니다
      *
      * @example
      * const param = geometry.getParam();
@@ -22458,97 +23828,10 @@ declare class U3dGeometry extends UEventDispatcher {
     #private;
 }
 
-/**
- * ~extends U3dGeometryCO <br>
- *
- * U3dSphere(구체) 생성자에 넘기는 옵션입니다. <br>
- * 외곽선 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`가, 색상·투명도 같은 도형 공통 옵션은 `U3dGeometryCO`가 정의합니다. <br>
- */
-type U3dSphereCO_Content = {
-    /**
-     * 구체의 반지름 (미터). 화면에 그릴 때는 좌표가 지정된 위도의 보정 배율이 곱해집니다 <br>
-     */
-    radius?: number;
-    /**
-     * 가로(둘레) 방향 분할 수. 클수록 옆에서 본 윤곽이 원에 가까워지고 정점 수가 늘어납니다. <br>
-     * 최소 3 <br>
-     */
-    widthSegments?: number;
-    /**
-     * 세로(위아래) 방향 분할 수. 클수록 표면이 매끄러워지고 정점 수가 늘어납니다. <br>
-     * 최소 2 <br>
-     */
-    heightSegments?: number;
-    /**
-     * 가로 방향으로 그리기 시작할 각도 (라디안) <br>
-     */
-    phiStart?: number;
-    /**
-     * 가로 방향으로 그릴 각도 범위 (라디안). 기본값은 `Math.PI * 2`(360도)로 둘레 전체를 그리며, 줄이면 수박 조각처럼 일부만 남습니다 <br>
-     */
-    phiLength?: number;
-    /**
-     * 세로 방향으로 그리기 시작할 각도 (라디안) <br>
-     */
-    thetaStart?: number;
-    /**
-     * 세로 방향으로 그릴 각도 범위 (라디안). 기본값은 `Math.PI`(180도)로 위아래 전체를 그리며, `Math.PI / 2`를 넣으면 반구가 됩니다 <br>
-     */
-    thetaLength?: number;
-    /**
-     * 불투명도. 0이면 완전 투명, 1이면 불투명하며 1보다 작으면 투명 처리가 켜집니다 <br>
-     */
-    opacity?: number;
-    /**
-     * 카메라 거리에 따라 색과 밝기가 달라지는 셰이더 재질을 쓸지 여부. false면 단색 재질을 사용하며, 생성 시에만 적용되고 `setParam`으로는 바꿀 수 없습니다 <br>
-     */
-    setDistanceMaterial?: boolean;
-    /**
-     * 구체 표면 색상. 16진수 숫자(`0xff0000`), CSS 색 문자열(`'#ff0000'`) 또는 `THREE.Color`를 넣습니다 <br>
-     */
-    color?: three.ColorRepresentation;
-    /**
-     * 도형 종류 식별자 (기본값 `'basic'`). 구체는 이 값으로 재질이 달라지지 않으며, 재질 종류는 `setDistanceMaterial`이 정합니다 <br>
-     */
-    type?: string;
-};
-/**
- * ~extends U3dGeometryCO <br>
- *
- * U3dSphere(구체) 생성자에 넘기는 옵션입니다. <br>
- * 외곽선 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`가, 색상·투명도 같은 도형 공통 옵션은 `U3dGeometryCO`가 정의합니다. <br>
- */
-type U3dSphereCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dSphereCO_Content, never>;
 declare const U3dSphere_base: Omit<typeof U3dGeometry, "prototype"> & {
     new (opt?: U3dGeometryCO, isInit?: boolean): GeOnDTMixedInstance_U3dSphere & InstanceType<typeof U3dGeometry>;
     prototype: GeOnDTMixedInstance_U3dSphere & InstanceType<typeof U3dGeometry>;
 };
-/**
- * ~extends U3dGeometryCO <br>
- *
- * U3dSphere(구체) 생성자에 넘기는 옵션입니다. <br>
- * 외곽선 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`가, 색상·투명도 같은 도형 공통 옵션은 `U3dGeometryCO`가 정의합니다. <br>
- *
- * @memberof U3dSphere
- * @inner
- *
- * @typedef {object} U3dSphereCO_Content
- * @property {number} [radius=5] 구체의 반지름 (미터). 화면에 그릴 때는 좌표가 지정된 위도의 보정 배율이 곱해집니다 <br>
- * @property {number} [widthSegments=8] 가로(둘레) 방향 분할 수. 클수록 옆에서 본 윤곽이 원에 가까워지고 정점 수가 늘어납니다. <br>
- * 최소 3 <br>
- * @property {number} [heightSegments=6] 세로(위아래) 방향 분할 수. 클수록 표면이 매끄러워지고 정점 수가 늘어납니다. <br>
- * 최소 2 <br>
- * @property {number} [phiStart=0] 가로 방향으로 그리기 시작할 각도 (라디안) <br>
- * @property {number} [phiLength] 가로 방향으로 그릴 각도 범위 (라디안). 기본값은 `Math.PI * 2`(360도)로 둘레 전체를 그리며, 줄이면 수박 조각처럼 일부만 남습니다 <br>
- * @property {number} [thetaStart=0] 세로 방향으로 그리기 시작할 각도 (라디안) <br>
- * @property {number} [thetaLength] 세로 방향으로 그릴 각도 범위 (라디안). 기본값은 `Math.PI`(180도)로 위아래 전체를 그리며, `Math.PI / 2`를 넣으면 반구가 됩니다 <br>
- * @property {number} [opacity=1] 불투명도. 0이면 완전 투명, 1이면 불투명하며 1보다 작으면 투명 처리가 켜집니다 <br>
- * @property {boolean} [setDistanceMaterial=false] 카메라 거리에 따라 색과 밝기가 달라지는 셰이더 재질을 쓸지 여부. false면 단색 재질을 사용하며, 생성 시에만 적용되고 `setParam`으로는 바꿀 수 없습니다 <br>
- * @property {import('three').ColorRepresentation} [color] 구체 표면 색상. 16진수 숫자(`0xff0000`), CSS 색 문자열(`'#ff0000'`) 또는 `THREE.Color`를 넣습니다 <br>
- * @property {string} [type] 도형 종류 식별자 (기본값 `'basic'`). 구체는 이 값으로 재질이 달라지지 않으며, 재질 종류는 `setDistanceMaterial`이 정합니다 <br>
- *
- * @typedef {Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dSphereCO_Content} U3dSphereCO
- */
 /**
  * ~extends import('@U3dGeometry') <br>
  *
@@ -22557,7 +23840,7 @@ declare const U3dSphere_base: Omit<typeof U3dGeometry, "prototype"> & {
  * 좌표는 생성 후 `setVertex`(월드) 또는 `setPositions`(위경도)로 지정하며, 첫 번째 좌표에 구체가 놓입니다. <br>
  *
  * 반지름·분할 수·각도 범위 같은 형상 필드에 직접 대입한 값은 곧바로 화면에 반영되지 않습니다. <br>
- * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용되므로, 값을 바꿀 때는 `setParam`을 사용하십시오. <br>
+ * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용됩니다. 분할 수는 `setWidthSegments`·`setHeightSegments` 또는 `setParam`으로 변경하십시오. <br>
  *
  * @group geometry
  * @extends {__GeOnDTMixinBase_U3dSphere}
@@ -22693,14 +23976,6 @@ declare class U3dSphere extends U3dSphere_base {
      */
     thetaLength: number;
     /**
-     * 외곽선(모서리 선) 표시 여부 (기본값 false). <br>
-     * 켜면 구체의 모서리를 따라 선 객체가 자식으로 추가되며, 선 색은 `lineColor` 옵션 값(없으면 검정)을 사용합니다. <br>
-     * 생성 옵션과 `setParam`에서는 `outline`(별칭 `useline`/`useLine`/`edge`) 이름을 사용합니다. <br>
-     *
-     * @type {boolean}
-     */
-    useline: boolean;
-    /**
      * 카메라 거리에 따라 색과 밝기가 달라지는 셰이더 재질을 사용하는지 여부 (기본값 false). <br>
      * false면 단색 재질을 사용합니다. **생성 시에만 적용되며 `setParam`으로는 바꿀 수 없습니다.** <br>
      *
@@ -22714,11 +23989,11 @@ declare class U3dSphere extends U3dSphere_base {
      */
     _googleScale: number;
     /**
-     * @type {import('three').LineSegments | undefined}
+     * @type {import('three').Mesh | undefined}
      *
      * @ignore
      */
-    _outline: three.LineSegments | undefined;
+    _outline: three.Mesh | undefined;
     opacity: any;
     /**
      * 설정된 좌표(vertices)의 첫 번째 점으로 구체 위치를 이동시키고 지오메트리를 갱신합니다. <br>
@@ -22742,12 +24017,27 @@ declare class U3dSphere extends U3dSphere_base {
      *
      * @override
      *
-     * @param {number} opacity 투명도 (0~1). 외곽선을 포함한 모든 하위 자식에도 적용하며, 1보다 작으면 투명 처리가 켜집니다 <br>
+     * @param {number} opacity 투명도 (0~1). 자동 생성 외곽선을 제외한 일반 하위 자식에도 적용하며, 1보다 작으면 투명 처리가 켜집니다 <br>
      */
     override setOpacity(opacity: number): void;
     /**
+     * 가로(둘레) 방향 분할 수를 변경합니다. 값이 바뀌면 형상과 외곽선을 갱신합니다. <br>
+     * @param {number} segments 3 이상의 유한한 정수 <br>
+     */
+    setWidthSegments(segments: number): void;
+    /** @returns {number} 가로(둘레) 방향 분할 수. 기본값은 8입니다 <br> */
+    getWidthSegments(): number;
+    /**
+     * 세로(위아래) 방향 분할 수를 변경합니다. 값이 바뀌면 형상과 외곽선을 갱신합니다. <br>
+     * @param {number} segments 2 이상의 유한한 정수 <br>
+     */
+    setHeightSegments(segments: number): void;
+    /** @returns {number} 세로(위아래) 방향 분할 수. 기본값은 6입니다 <br> */
+    getHeightSegments(): number;
+    /**
      * 구체의 속성(색상·투명도·반지름·세그먼트·각도·외곽선)을 한 번에 변경합니다. <br>
-     * 전달한 값만 반영되고 나머지는 기존 값이 유지되며, 형태 관련 값을 바꾸면 지오메트리가 즉시 다시 생성됩니다. <br>
+     * 전달한 값만 반영되고 나머지는 기존 값이 유지되며, 형태 관련 값이 바뀔 때 형상을 다시 만듭니다. <br>
+     * 스타일만 변경하면 형상과 외곽선을 유지하며, 인자 없는 호출이나 빈 옵션은 형상을 다시 만듭니다. <br>
      * `setDistanceMaterial`은 생성 시에만 적용되어 여기서 변경되지 않습니다. <br>
      * 좌표(`vertices`·`coordinates`)와 `name`·`showLabel`·`properties`도 생성 옵션 전용이라 넣어도 오류 없이 무시됩니다. <br>
      *
@@ -22773,6 +24063,12 @@ declare class U3dSphere extends U3dSphere_base {
      * 자원 정리에 앞서 `DISPOSE` 이벤트가 발생하며, **호출한 뒤에는 같은 구체를 다시 사용할 수 없습니다.** <br>
      */
     dispose(): void;
+    /**
+     * 본체 형상을 유지하고 외곽선만 갱신합니다.
+     * @protected
+     * @ignore
+     */
+    protected _updateOutline(): void;
     #private;
 }
 
@@ -22798,27 +24094,27 @@ declare class U3dAdaptedGeometry extends U3dSphere {
      */
     static override EVENT: U3dAdaptedGeometryEMI;
     /** @type {import("three").Vector3} */
-    static "__#11365@#TEMP_POSITION": three.Vector3;
+    static "__#11540@#TEMP_POSITION": three.Vector3;
     /** @type {import("three").Quaternion} */
-    static "__#11365@#TEMP_ROTATION": three.Quaternion;
+    static "__#11540@#TEMP_ROTATION": three.Quaternion;
     /** @type {import("three").Vector3} */
-    static "__#11365@#TEMP_SCALE": three.Vector3;
+    static "__#11540@#TEMP_SCALE": three.Vector3;
     /** @type {import("three").Matrix4} */
-    static "__#11365@#TEMP_MAT4": three.Matrix4;
+    static "__#11540@#TEMP_MAT4": three.Matrix4;
     /** @type {import("three").Sphere} */
-    static "__#11365@#TEMP_SPHERE": three.Sphere;
+    static "__#11540@#TEMP_SPHERE": three.Sphere;
     /** @type {import("three").Vector3} */
-    static "__#11365@#TEMP_VECTOR": three.Vector3;
+    static "__#11540@#TEMP_VECTOR": three.Vector3;
     /** @type {import("three").Vector3} */
-    static "__#11365@#TEMP_VECTOR2": three.Vector3;
+    static "__#11540@#TEMP_VECTOR2": three.Vector3;
     /** @type {import("three").Vector3} */
-    static "__#11365@#TEMP_CENTER": three.Vector3;
+    static "__#11540@#TEMP_CENTER": three.Vector3;
     /** @type {import("three").Box3} */
-    static "__#11365@#TEMP_BOX": three.Box3;
+    static "__#11540@#TEMP_BOX": three.Box3;
     /** @type {import("three").Vector3} */
-    static "__#11365@#LINE_DIRECTION": three.Vector3;
+    static "__#11540@#LINE_DIRECTION": three.Vector3;
     /** @type {import("three").Vector3} */
-    static "__#11365@#TEMP_DIR": three.Vector3;
+    static "__#11540@#TEMP_DIR": three.Vector3;
     /**
      * 어댑터 도형을 생성합니다. <br>
      * 인지 범위 배율(`buffer`), 연결선 색상·굵기(`lineColor`/`lineThick`), 범위 강조 색상(`boundColor`) 등을 옵션으로 지정할 수 있습니다. <br>
@@ -23326,7 +24622,8 @@ declare class UAnalyGizmoModel extends UAnaly {
      */
     hideLaser(): void;
     /**
-     * 선택한 각 모델의 편집 정보를 앱에 알리고 분석 end 이벤트를 전달합니다.
+     * 현재 모델의 식별값으로 편집 정보를 앱에 알리고 대상별 end 이벤트를 전달합니다.
+     * 미등록 절차형 객체도 편집 종료는 알리되 데이터 모델의 편집 이력에는 등록하지 않습니다.
      */
     onEnd(): void;
     /**
@@ -23466,6 +24763,7 @@ declare class UExtrudeGeometry extends UExtrudeBufferGeometry {
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dPathGeometry {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -23473,7 +24771,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -23503,24 +24800,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: number): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): number | undefined;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -23587,8 +24900,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -23642,6 +24955,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_sphere": three.Sphere | undefined;
@@ -23827,12 +25141,6 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
      * @ignore
      */
     _segments: number;
-    /**
-     * @type {boolean}
-     *
-     * @ignore
-     */
-    _edge: boolean;
     /**
      * @type {boolean}
      *
@@ -24109,11 +25417,15 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
      * @returns {number} 불투명도 (0~1). 재질이 없거나 불투명도 값이 없으면 0 <br>
      */
     override getOpacity(): number;
+    /** @override @param {'meter' | 'pixel'} type 외곽선 두께 단위 */
+    override setOutlineType(type: "meter" | "pixel"): void;
+    /** @override @param {number} width 외곽선 두께 */
+    override setLineWidth(width: number): void;
     /**
      * 경로 속성을 일괄 변경합니다. <br>
      * 지정하지 않은 항목은 현재 값을 유지합니다. <br>
      * 색상·불투명도는 재질에 즉시 적용하고, 경로 속성이 설정된 경우 형상 재생성 시에도 유지되도록 기록합니다. <br>
-     * 너비·높이·곡선 장력·분할 수·외곽선을 변경하면 형상을 다시 생성하며, 이 변경은 `draw()` 또는 `createPathMesh()`로 경로 속성과 앱이 설정되고 좌표가 2개 이상인 경로에만 적용됩니다. <br>
+     * 너비·높이·곡선 장력·분할 수·외곽선의 실제 값이 달라질 때 형상을 다시 생성하며, 이 변경은 `draw()` 또는 `createPathMesh()`로 경로 속성과 앱이 설정되고 좌표가 2개 이상인 경로에만 적용됩니다. <br>
      *
      * @override
      *
@@ -24134,6 +25446,12 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
      * @returns {U3dPathGeometryParam} 현재 속성. 호출할 때마다 새 객체를 반환 <br>
      */
     override getParam(): U3dPathGeometryParam;
+    /**
+     * 경로 외곽선 표시 여부를 반환합니다. <br>
+     * @override
+     * @returns {boolean} 외곽선 표시 여부 <br>
+     */
+    override getOutline(): boolean;
     /**
      * 경로에 점을 추가합니다. <br>
      * 마우스 이벤트를 전달하면 클릭 지점에, 좌표를 전달하면 해당 위치에 점을 추가하며, 직전 점과 같은 위치이면 추가하지 않습니다. <br>
@@ -24226,7 +25544,7 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
      * 좌표를 월드 좌표로 변환하고 곡선으로 보간한 101개 지점으로 `createMeshFromVec3`를 호출하므로 jsts 라이브러리가 필요합니다. <br>
      * 세로 범위는 첫 좌표의 높이에서 `pathheight`만큼 아래·위로 설정하고, 중심선 양쪽으로 `buffer`만큼 넓힌 형상을 생성합니다. <br>
      *
-     * @param {PathGeometryInfo} [opt] 경로 옵션. `geopoints`와 `app` 필수이며 `buffer`(기본값 400)·`pathheight`(기본값 40)·`pathcolor`·`opacity`·`tension`·`edge` 사용 <br>
+     * @param {PathGeometryInfo} [opt] 경로 옵션. `geopoints`와 `app` 필수이며 `buffer`(기본값 400)·`pathheight`(기본값 40)·`pathcolor`·`opacity`·`tension`·`outline` 사용 <br>
      * @returns {U3dPathGeometry | undefined} 형상을 생성한 경로(현재 인스턴스). `geopoints`나 `app`이 없거나 형상 생성에 실패하면 `undefined` <br>
      */
     createMesh(opt?: PathGeometryInfo): U3dPathGeometry | undefined;
@@ -24245,17 +25563,17 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
     /**
      * 월드 좌표 목록을 중심선으로 하여 양쪽으로 넓힌 다각형을 세로로 돌출한 형상을 생성합니다. <br>
      * 다각형 확장에 jsts 라이브러리를 사용하며, 이 메서드의 거리와 높이 값은 위도 환산 없이 월드 좌표 길이로 적용합니다. <br>
-     * 기존 지오메트리와 재질은 해제하며, 외곽선(`edge`)을 사용하면 인접한 면의 각도가 10도 이상인 모서리에 `lineColor` 색상의 선을 추가합니다. <br>
+     * 기존 지오메트리·재질·외곽선은 해제하며, 외곽선(`outline`)을 사용하면 인접한 면의 각도가 10도 이상인 모서리에 `lineColor` 색상의 선 하나를 추가합니다. <br>
      *
      * @param {Array<import('three').Vector3>} pts 중심선 좌표 목록 (월드 좌표, EPSG:3857, 2개 이상) <br>
-     * @param {PathGeometryInfo} [opt] 형상 옵션. `buffer`·`minheight`(기본값 0)·`maxheight`(기본값 100)·`centerheight`·`color`·`opacity`·`transparent`·`addstartend`·`edge` 사용 <br>
+     * @param {PathGeometryInfo} [opt] 형상 옵션. `buffer`·`minheight`(기본값 0)·`maxheight`(기본값 100)·`centerheight`·`color`·`opacity`·`transparent`·`addstartend`·`outline` 사용 <br>
      * @returns {this | undefined} 형상을 생성한 경로(현재 인스턴스). 좌표가 배열이 아니거나 2개 미만이거나 jsts가 없으면 `undefined` <br>
      */
     createMeshFromVec3(pts: Array<three.Vector3>, opt?: PathGeometryInfo): this | undefined;
     /**
      * 좌표 목록과 경로 속성으로 경로 형상을 생성합니다. <br>
      * 좌표를 곡선으로 보간하고 곡선을 따라 윗면·아랫면·양쪽 옆면으로 구성된 띠 형상을 생성하며, 곡선 중심은 좌표 높이(z)에 `minheight`를 더한 높이에 위치합니다. <br>
-     * 외곽선(`edge`)을 사용하면 면 가장자리를 흰색 선으로 표시하는 셰이더 재질을, `textureUrl`을 지정하면 이미지 재질을 사용합니다. <br>
+     * 외곽선(`outline`)을 사용하면 면 가장자리를 흰색 선으로 표시하는 셰이더 재질을, `textureUrl`을 지정하면 이미지 재질을 사용합니다. <br>
      * `opt.app`이 없으면 형상을 생성하지 않습니다. <br>
      * 전달한 `opt`는 복사하지 않고 경로 속성으로 보관하며(`points` 항목 추가), `vertices` 배열도 복사하지 않고 좌표 목록으로 보관합니다. <br>
      *
@@ -24274,7 +25592,7 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
      *     maxheight: 10,   // minheight 이하이므로 세로 두께 10m
      *     tension: 0.5,
      *     segments: 200,
-     *     edge: true
+     *     outline: true
      * });
      * vectorLayer.addGeometry(path);
      */
@@ -24415,20 +25733,22 @@ declare class U3dComponentPosition {
      */
     get waypointHistory(): Array<WorldPositionVector3>;
     /**
-     * 최근 도착한 지점들을 바탕으로 앞으로 도착할 예측 지점 (count개)과 예상 도착 시간을 계산합니다.<br>
-     * 마지막 도착 지점에서 시작해 최근 도착 지점 간 평균 간격만큼 한 단계씩 나아간 지점을 반환합니다.<br>
-     * 최근 도착 지점들이 한쪽으로 꺾이는 추세이면 그 수평 회전율을 이어받아 단계마다 진행 방향을 회전시키므로 예측 지점이 원호를 그립니다.
-     * turnWeight는 회전율 반영 비율이며 0이면 직선 예측, 1이면 추정한 회전율을 그대로 사용합니다(기본 1). 고도(z) 변화는 직선 추세를 유지합니다.<br>
-     * 첫 단계 방향은 최근 이동 추세 방향과 현재 진행 방향(지금 향하고 있는 목표 지점 방향)을 headingWeight 비율로 섞어 정합니다.
-     * 0이면 최근 이동 추세만, 1이면 현재 진행 방향만 사용합니다(기본 1). 현재 진행 방향을 알 수 없으면 최근 이동 추세만 사용합니다.<br>
-     * time은 호출 시점부터 그 지점 도착까지의 예상 시간(ms)이며 계산할 수 없으면 Infinity입니다.<br>
-     * 도착 이력이 count개보다 적으면 undefined를 반환합니다.<br>
-     * count는 2~100 사이의 정수, headingWeight와 turnWeight는 0~1 사이의 숫자여야 하며 아니면 TypeError 또는 RangeError가 발생합니다.
+     * 현재 이동 목표와 대기 경유지를 우선 반영하여 앞으로 도착할 지점(최대 count개)과 예상 도착 시간을 계산합니다.<br>
+     * 예약 목표 이후는 마지막 예약 목표에서, 예약 목표가 없으면 마지막 도착점에서 잡음을 보정한 도착 지점 간 평균 간격만큼 연장합니다.<br>
+     * 최근 도착 지점의 거리 기반 방향·회전율을 사용하며, 짧은 구간과 위치 잡음으로 설명되는 회전은 신뢰도를 낮춥니다.
+     * 이력에서 추정한 초기 회전율은 내부에서 전부 반영합니다.<br>
+     * 가까운 1초 이동 거리(최대 45도 선회)까지 초기 회전율을 유지한 뒤 지수 감쇠합니다. 감쇠 거리는 최근 분석 거리의 절반과 2초 이동 거리 중 큰 값을 사용하되, 외삽의 총 방위각 변화가 90도를 넘지 않도록 제한합니다. 고도(z) 변화는 직선 추세를 유지합니다.<br>
+     * 이력으로 연장하는 첫 단계 방향은 최근 이동 추세 방향과 마지막 예약 구간 방향을 headingWeight 비율로 섞어 정합니다.
+     * 0이면 이력 방향을, 1이면 신뢰 가능한 예약 구간 방향을 우선 사용합니다(기본 1). 방향이 불명확하거나 구간이 잡음보다 짧으면 이력 방향을 유지합니다.<br>
+     * time은 호출 시점부터 그 지점 도착까지의 예상 시간(ms)이며 계산할 수 없거나 일시정지 중이면 Infinity입니다.<br>
+     * 직선·원호 형상과 위치 잡음을 구분해 평균 이동 거리와 속도를 보정하며, 같은 도착 이력의 분석은 재사용합니다.<br>
+     * 도착 이력이 2개 이상이면 이력 수와 count 중 작은 개수까지 외삽 결과를 채웁니다. 이력이 쌓일수록 반환 개수가 늘어납니다.<br>
+     * 이미 알려진 예약 목표는 이력 수와 관계없이 count개까지 우선 반환합니다. 이력이 2개 미만이고 예약 목표도 없으면 undefined를 반환합니다.<br>
+     * count는 2~100 사이의 정수, headingWeight는 0~1 사이의 숫자여야 하며 아니면 TypeError 또는 RangeError가 발생합니다.
      *
-     * @param {number} count 분석할 최근 도착 지점 수와 반환할 미래 단계 수인 2~100 사이의 정수
-     * @param {number} [headingWeight=1] 현재 진행 방향 반영 비율 (0~1). 0이면 도착 이력 추세만, 1이면 현재 진행 방향만 사용합니다.
-     * @param {number} [turnWeight=1] 회전율 반영 비율 (0~1). 0이면 직선 예측, 1이면 도착 이력에서 추정한 수평 회전율을 그대로 반영합니다.
-     * @returns {Array<PredictedPosition> | undefined} 가까운 예측점부터 순서대로 담은 위치와 예상 경과 시간 목록 또는 이력이 부족할 때 undefined
+     * @param {number} count 반환할 미래 단계의 최대 개수인 2~100 사이의 정수. 도착 이력 2개부터 이력 수만큼 점진적으로 외삽하며 분석 창은 출력 개수와 독립적입니다.
+     * @param {number} [headingWeight=1] 이력 외삽에 예약 구간의 진행 방향을 반영할 비율 (0~1). 잡음에 비해 짧은 구간은 신뢰도로 감쇠하며 이미 예약된 좌표는 바꾸지 않습니다.
+     * @returns {Array<PredictedPosition> | undefined} 도착 순서대로 담은 위치와 예상 경과 시간 목록. 예약 목표와 충분한 이력이 모두 없으면 undefined
      *
      * @example
      * const predicted = component.predictFuturePositions(10, 0.5);
@@ -24439,14 +25759,11 @@ declare class U3dComponentPosition {
      * }
      *
      * @example
-     * // 이력 추세만으로 예측 (현재 주행 진행 방향 미반영)
+     * // 예약 목표 이후를 이력 추세만으로 연장
      * const trendOnly = component.predictFuturePositions(5, 0);
      *
-     * @example
-     * // 회전을 반영하지 않는 직선 예측
-     * const straight = component.predictFuturePositions(10, 1, 0);
      */
-    predictFuturePositions(count: number, headingWeight?: number, turnWeight?: number): Array<PredictedPosition> | undefined;
+    predictFuturePositions(count: number, headingWeight?: number): Array<PredictedPosition> | undefined;
     /**
      * 주행 애니메이션이 현재 실행 중인지 여부. `moveStart`/`moveStop`이 갱신하는 내부 상태입니다.
      *
@@ -25254,12 +26571,16 @@ declare class U3dComponentPosition {
     removeCumulativeRoute(): void;
     /**
      * 누적 경로(궤적)의 스타일을 변경하는 함수
+     * 새 경로의 첫 좌표를 출발점에 유지하며 drawOffset은 이동 거리에 따라 적용합니다.
      * @param {U3dCumulativePath_StyleOpt} opt 변경 옵션
      */
     setCumulativePathStyle(opt: U3dCumulativePath_StyleOpt): void;
     /**
      * 누적 경로(궤적)의 초기 좌표 값(이전 히스토리)을 설정하는 함수.
      * 이미 경로가 있으면 현재 스타일과 표시 설정을 사용해 새 초기 이력으로 교체합니다.
+     * 렌더 노드의 시각은 호출 시각을 기준으로 현재 위치까지의 거리와 speed로 역산한 epoch 시각(ms)입니다.
+     * 속도가 0이거나 유효하지 않으면 모든 초기 지점에 호출 시각을 사용합니다.
+     * cumulativeProperty.lastInfo.time은 기존처럼 시작부터의 경과 시간(ms)을 유지합니다.
      * @param {Array<GeoPositionVector3>} positions 위경도 좌표 배열
      */
     setInitPathPositions(positions: Array<GeoPositionVector3>): void;
@@ -25660,14 +26981,18 @@ declare class U3dComponentPosition {
     _tempLODMode: string;
     /**
      * 컴포넌트 가시화(show) 함수
-     * @returns {DeferredObject<unknown> | undefined} 숨김 상태를 표시한 경우 true로 resolve하며 이미 표시 중이면 undefined
+     * 자식 컴포넌트의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
+     *
+     * @returns {Promise<unknown> | undefined} 숨김 상태를 표시한 경우 true로 resolve하며 이미 표시 중이면 undefined
      */
-    show(): DeferredObject<unknown> | undefined;
+    show(): Promise<unknown> | undefined;
     /**
      * 컴포넌트 비가시화(hide) 함수
-     * @returns {DeferredObject<unknown> | undefined} 표시 상태를 숨긴 경우 true로 resolve하며 이미 숨김 상태면 undefined
+     * 자식 컴포넌트의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
+     *
+     * @returns {Promise<unknown> | undefined} 표시 상태를 숨긴 경우 true로 resolve하며 이미 숨김 상태면 undefined
      */
-    hide(): DeferredObject<unknown> | undefined;
+    hide(): Promise<unknown> | undefined;
     /**
      * 컴포넌트의 경계영역(BoundingBox)을 반환하는 함수
      * @returns {import('three').Box3} 컴포넌트의 경계영역
@@ -26819,7 +28144,7 @@ declare class U3dViewLight extends U3dView {
         widthSegment?: object;
         start?: object;
         end?: object;
-    }): DeferredObject<unknown>;
+    }): DeferredPromise<boolean>;
 }
 
 /**
@@ -29637,9 +30962,24 @@ declare class UInstancedMesh<TGeometry extends three.BufferGeometry, TMaterial e
         visible: number;
         meshCount: number;
     };
-    /** @type {number} 전체 인스턴스 개수 합계 */ static ALL_INSTANCES_COUNT: number;
-    /** @type {number} 가시화된 인스턴스 개수 합계 */ static VISIBLE_INSTANCES_COUNT: number;
-    /** @type {Set<UInstancedMesh<any, any, number, UInstancedMeshCO>>} 가시화된 인스턴스 개수 합계 */ static LIVE_INSTANCED_MESHES: Set<UInstancedMesh<any, any, number, UInstancedMeshCO>>;
+    /**
+     * 전체 인스턴스 개수의 합계입니다.
+     *
+     * @type {number}
+     */
+    static ALL_INSTANCES_COUNT: number;
+    /**
+     * 가시화된 인스턴스 개수의 합계입니다.
+     *
+     * @type {number}
+     */
+    static VISIBLE_INSTANCES_COUNT: number;
+    /**
+     * 전역 카운터 검증에 사용하는 인스턴스 메시 집합입니다.
+     *
+     * @type {Set<import('@UInstancedMesh').UInstancedMesh<any, any, number, UInstancedMeshCO>>}
+     */
+    static LIVE_INSTANCED_MESHES: Set<UInstancedMesh<any, any, number, UInstancedMeshCO>>;
     /**
      * @param {TGeometry} geometry 지오메트리
      * @param {TMaterial} material 머티리얼
@@ -29647,10 +30987,22 @@ declare class UInstancedMesh<TGeometry extends three.BufferGeometry, TMaterial e
      * @param {UInstancedMeshCO} [opt={}] 옵션
      */
     constructor(geometry: TGeometry, material: TMaterial, instanceLength: number, opt?: UInstancedMeshCO);
+    /**
+     * 현재 공유 렌더 메시의 식별값을 반환합니다.
+     * 개별 배치는 메시와 instanceId로 찾아야 하며 이 값은 재로딩 식별자가 아닙니다.
+     *
+     * @returns {string} 현재 렌더 메시의 uuid
+     */
+    getUid(): string;
     /** @type {boolean} */ isUInstancedMesh: boolean;
     /** @type {string|undefined} */ _ulayername: string | undefined;
     /** @type {string} */ _utype: string;
-    /** @type {boolean} 레이어가 실제 표시 중이어서 전역 visible 통계에 포함되는지 여부 */ _visibilityEnabled: boolean;
+    /**
+     * 레이어가 실제 표시 중이어서 전역 visible 통계에 포함되는지 나타냅니다.
+     *
+     * @type {boolean}
+     */
+    _visibilityEnabled: boolean;
     /** @type {Map<number, number>} */ _opacityMap: Map<number, number>;
     /** @type {Map<number, import('three').Color>} */ _colorMap: Map<number, three.Color>;
     /** @type {Map<number, import('three').Color>} */ _oriColorMap: Map<number, three.Color>;
@@ -29998,11 +31350,6 @@ declare class UInstancedMesh<TGeometry extends three.BufferGeometry, TMaterial e
      * @param {string} type 컴포넌트 타입
      */
     setUType(type: string): void;
-    /**
-     * 컴포넌트 고유 ID 반환
-     * @returns {string|number} ID
-     */
-    getUid(): string | number;
     /**
      * 특정 인스턴스의 가시성 설정 (배리어 동기화 포함)
      * @param {number} instanceIdx 인스턴스 인덱스
@@ -30412,6 +31759,13 @@ declare class UOutlinePass extends OutlinePass {
     setOutlineStyleForObject(object: three.Object3D, style?: object): number;
     getOutlineStyleForObject(object: any, effective?: boolean): any;
     /**
+     * 실제 렌더링 시각과 GPU에 저장된 속도로 대상의 누적 bounce 주기를 반환합니다.
+     * @param {import('three').Object3D} object 외곽선 대상
+     * @returns {number | undefined} 누적 파동 주기이며 bounce 대상이 아니면 undefined입니다.
+     * @ignore
+     */
+    _getBounceProgress(object: three.Object3D): number | undefined;
+    /**
      * 오브젝트(outline 대상)마다 개별 색상을 간단히 지정하는 compact helper 입니다.
      * - visible/hidden/dash 색상을 모두 동일하게 쓰고 싶을 때 `{ color }`만 전달하면 됩니다.
      *
@@ -30637,6 +31991,7 @@ declare class U3dObjectBarrier {
     /**
      * 후처리 외곽선 pass에 객체를 등록해 화면 합성 단계에서 테두리를 그립니다.<br>
      * 객체의 재질을 건드리지 않으므로 원래 색과 질감이 그대로 유지됩니다.<br>
+     * 도형이 자동 생성한 외곽선은 제외하고 본체 형상을 기준으로 하이라이트합니다.<br>
      * 보통 setBarrier()가 대신 호출하며, 후처리 길을 직접 지정하고 싶을 때만 씁니다.<br>
      * 외곽선 pass가 준비되어 있지 않으면 false를 반환합니다.
      * farPoint의 기본 보정·부분 입력·명시적 해제는 setBarrier()와 같습니다.
@@ -30698,15 +32053,33 @@ declare class U3dObjectBarrier {
 }
 
 /**
- * ~extends import('@UEventDispatcher').UEventDispatcher <br>
- *
- * 지도 위 3D 객체를 사용자가 고르는 기능(선택)을 담당하는 클래스입니다. <br>
- * 클릭(POINT), 영역·선·원 그리기(AREA/LINE/CIRCLE), 드래그 사각형(BOX) 모드로 객체를 찾아 내부 선택 목록에 넣고, 외곽선 또는 색상으로 강조 표시하며, 진행 상황을 `U3dSelect.EVENT`(`start`/`change`/`end`) 이벤트로 알립니다. <br>
- * 생성 후 `setApp(app)`으로 앱을 연결하고 `active()`를 호출해야 사용자 입력을 받기 시작하며, 다 쓰면 `remove()`로 해제합니다.
+ * ~extends import('@UEventDispatcher').UEventDispatcher
  *
  * @group select
  */
 declare class U3dSelect extends UEventDispatcher {
+    /**
+     * 알람 등이 보관한 선택 구독에 해당 대상만 다시 연결합니다.
+     * 같은 콜백의 고유 등록 이름과 다른 대상의 구독을 보존합니다.
+     *
+     * @param {Function} listener 선택기로부터 전달받은 로드 콜백
+     * @param {string} key 선택 키
+     * @param {ModelMesh} object 현재 선택 객체
+     * @returns {boolean} 선택기가 관리하는 콜백인지 여부
+     *
+     * @ignore
+     */
+    static _retainLoadedTarget(listener: Function, key: string, object: ModelMesh): boolean;
+    /**
+     * 공유 로드 구독에서 선택 한 건만 해제합니다. 마지막 대상 해제 때 이벤트도 제거합니다.
+     *
+     * @param {Function} listener 선택기로부터 전달받은 로드 콜백
+     * @param {string} key 해제할 선택 키
+     * @returns {boolean} 선택기가 관리하는 콜백인지 여부
+     *
+     * @ignore
+     */
+    static _releaseLoadedTarget(listener: Function, key: string): boolean;
     /**
      * 이 클래스가 dispatch하는 선택 이벤트 이름입니다. <br>
      * `on(U3dSelect.EVENT.END, callback)`처럼 사용합니다. <br>
@@ -30808,6 +32181,17 @@ declare class U3dSelect extends UEventDispatcher {
      * @type {Record<string, EventCallBack | undefined>}
      */
     _loadedListeners: Record<string, EventCallBack | undefined>;
+    /**
+     * 현재 검색의 분리 대기와 후속 콜백만 보관하며, 선택 해제 시 소유 참조를 끊습니다.
+     * @type {{owner: U3dSelect | undefined, pending: Set<Promise<Array<import('three').Object3D>>>, cleanups: Set<function(boolean): void>, end: undefined | function(): void}}
+     * @ignore
+     */
+    _divisionSelection: {
+        owner: U3dSelect | undefined;
+        pending: Set<Promise<Array<three.Object3D>>>;
+        cleanups: Set<(arg0: boolean) => void>;
+        end: undefined | (() => void);
+    };
     /**
      * 앱에 등록한 `click` 리스너 식별자. 비활성 상태면 undefined.
      *
@@ -31079,11 +32463,11 @@ declare class U3dSelect extends UEventDispatcher {
      * @param {USelect | Array<USelect>} [object] 지정하면 해당 대상이나 상위 그룹의 hover만 해제합니다. 생략하면 모두 해제합니다.
      */
     clearHover(object?: USelect | Array<USelect>): void;
-    _measureGeom: any;
+    _measureGeom: OLGeometry;
     /**
      * 선택 객체에 Outline(외곽선) 하이라이트를 적용하는 함수 <br>
      * `selectType === UDEF.SELECT_TYPE.OUTLINE`|| 'outline' 에서 사용되며, 외부에서 직접 호출할 수도 있습니다.
-     * 생성 옵션 또는 setSelectType()에 저장한 mode·renderOrder·lineWidth·width·farPoint를 배리어에 전달합니다.
+     * 생성 옵션 또는 setSelectType()에 저장한 mode·bounceSpeed·renderOrder·lineWidth·width·farPoint를 배리어에 전달합니다.
      *
      * @param {USelect} selected 선택 객체(모델/메시)
      *
@@ -31127,6 +32511,7 @@ declare class U3dSelect extends UEventDispatcher {
      * `getSelectWork()` 형태의 작업 정보를 이용해 선택을 재현하는 함수 <br>
      * - 드로잉(측정 레이어) 재생성 <br>
      * - 교차 객체 탐색 후 선택/하이라이트 반영
+     * 영역 검색의 U3F 분리가 진행 중이면 해당 분리 결과를 반영한 뒤 END 이벤트를 전달합니다.
      *
      * @param {{type:string, points:Array<GeoPosition>}} work 선택 작업 정보. `type`은 선택 모드, `points`는 위경도 좌표계(EPSG:4326) 좌표 목록으로 `getSelectWork()`의 반환값을 그대로 넘긴다
      * @returns {boolean|undefined} 재현 성공 시 true. 입력이 유효하지 않거나 앱·측정 레이어가 없으면 반환 없음(POINT 모드는 재현 후에도 반환 없음)
@@ -31182,7 +32567,9 @@ declare class U3dSelect extends UEventDispatcher {
     isActive(): boolean;
     /**
      * 선택기능 초기화 함수 <br>
-     * 선택/드로잉 상태를 초기화하고 측정 레이어의 draw feature를 정리합니다.
+     * 선택/드로잉 상태를 초기화하고 측정 레이어의 draw feature를 정리합니다. <br>
+     * 선택과 자체 드로잉을 정리합니다. <br>
+     * 종료된 앱의 측정·장면 자원에는 접근하지 않습니다.
      */
     clear(): void;
     /**
@@ -31223,10 +32610,10 @@ declare class U3dSelect extends UEventDispatcher {
      */
     clearDrawnSelect(): void;
     /**
-     * 선택 취소하는 함수
+     * 선택 취소하는 함수 <br>
+     * 선택 강조와 보관 참조를 비우고 앱이 살아 있을 때만 그리기 갱신을 요청합니다.
      *
-     * @param {boolean} [isCheckIdle=false] 분할(mesh division(*u3f model 한정)) 상태 점검/정리 호출 여부
-     *
+     * @param {boolean} [isCheckIdle=false] U3F 분할 메시의 유휴 정리도 요청할지 여부(기본값 false)
      */
     clearSelect(isCheckIdle?: boolean): void;
     /**
@@ -31261,9 +32648,9 @@ declare class U3dSelect extends UEventDispatcher {
      * 객체로부터 내부 선택 키를 생성하여 반환하는 함수
      *
      * @param {USelect} object 대상 객체
-     * @returns {string|void} 선택 키(생성 실패 시 반환 없음)
+     * @returns {string | undefined} 선택 키. 생성할 수 없으면 undefined
      */
-    getObjectKey(object: USelect): string | void;
+    getObjectKey(object: USelect): string | undefined;
     /**
      * 선택영역 형상 스타일 변경 함수 <br>
      * AREA/LINE/CIRCLE 모드에서 그려지는 도형의 외곽선·채움 스타일을 바꿉니다. <br>
@@ -31308,10 +32695,11 @@ declare class U3dSelect extends UEventDispatcher {
      */
     override on(type: string, listener: EventCallBack): string | null;
     /**
-     * 해당 모델의 선택을 취소하는 기능
-     * 링은 이동 전 저장한 선택 키를 객체 참조로 찾아 해제합니다.
+     * 지정한 대상의 선택과 강조를 해제합니다. <br>
+     * 링 선택은 대상의 참조로 이동 전에 보관한 선택 키를 찾아 해제합니다. <br>
+     * 연결한 앱이 살아 있을 때 화면 갱신을 요청합니다.
      *
-     * @param {USelect} object 모델객체
+     * @param {USelect} object 선택을 해제할 원래 대상 참조, 형상·재질의 소유권은 변경하지 않음
      */
     removeSelected(object: USelect): void;
     /**
@@ -31329,12 +32717,16 @@ declare class U3dSelect extends UEventDispatcher {
     /**
      * 해당 모델을 선택하는 기능 <br>
      * 선택 목록에 넣고 현재 강조 방식(outline/color)으로 표시하며, 배열을 넘기면 각 원소를 차례로 선택합니다. <br>
+     * 배열 머티리얼의 병합 메시도 교차 면 정보가 없으면 전체 모델을 선택합니다. <br>
      * `USelect`가 아닌 값과 공유 메시(`USharedMesh`)는 조용히 무시됩니다. <br>
-     * 이벤트는 발생시키지 않습니다.
+     * 이벤트는 발생시키지 않습니다. <br>
+     * 살아 있는 앱에서만 대상을 강조합니다. <br>
+     * 종료된 앱의 지연 요청은 자원을 조회하지 않고 정상 종결합니다.
      *
-     * @param {USelect | Array<USelect>} object 선택할 객체 또는 객체 배열
-     * @param {U3dIntersectLike} [intersect] picking 결과. 병합 메시의 부분(`faceIndex`)이나 인스턴스(`instanceId`)만 강조할 때 전달
-     * @returns {Promise<void>} 선택 처리가 끝나면 이행되는 Promise. 내부 선택 목록이 없는 비정상 상태에서만 거부된다
+     * @param {USelect | Array<USelect>} object 선택할 객체 또는 객체 배열, 호출자가 소유한 USelect 또는 USelect 배열 입력이며 형상·재질의 소유권은 이전하지 않습니다.
+     * @param {U3dIntersectLike} [intersect] 부분 면이나 인스턴스 강조에 사용할 picking 결과(faceIndex·instanceId)
+     * @returns {Promise<void>} 선택 처리가 끝나면 이행되는 Promise. <br>
+     * 내부 선택 목록이 없는 비정상 상태에서만 거부됩니다.
      */
     addSelected(object: USelect | Array<USelect>, intersect?: U3dIntersectLike): Promise<void>;
     /**
@@ -32296,7 +33688,7 @@ declare class U3dModelBIMObjLayer extends U3dModelLayer {
      */
     createControlCase(caseName?: string): ControlCase | undefined;
     /**
-     * 제어 케이스를 서버에 POST하고 같은 URL을 다시 읽어 사전에 반영합니다. XHR의 status가 200이 아니면 readyState와 무관하게 거부합니다.
+     * 제어 케이스를 서버에 POST하고 같은 URL을 다시 읽어 사전에 반영합니다. XHR 응답 완료 후 상태를 검사하고 재조회·반영까지 기다립니다.
      *
      * @param {string} [caseName] 제어 케이스 이름
      * @param {boolean} [useProxy] 저장 요청에 프록시를 사용할지 여부
@@ -33122,7 +34514,7 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
      * 원본 레이어 정보를 읽어 표시 범위와 패키지 로딩 설정을 초기화합니다. <br>
      * 정보 요청·해석·부모 초기화에 실패하면 원래 사유로 레이어의 초기화를 거부합니다. <br>
      * 삭제 시 진행 중인 초기화는 AbortError로 거부하며, 늦은 응답은 적용하지 않습니다. <br>
-     * 초기화가 진행 중이면 같은 정보 요청을 반환합니다. 실패 후 reset()하면 재시도할 수 있습니다. <br>
+     * 초기화가 진행 중이면 같은 정보 요청을 반환합니다. 실패 후 내부에서 _resetReady()를 호출하면 재시도할 수 있습니다. <br>
      * needXml이 false이면 부모 초기화와 완료 통지만 수행하며 Promise를 반환하지 않습니다. <br>
      * 패키지 JSON을 요청하는 경우 반환된 Promise와 별도로 초기화가 진행됩니다.
      *
@@ -33183,11 +34575,11 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
      * @param {number} indexY 타일 Y 인덱스
      * @param {number} level 타일 레벨
      * @param {string} url 타일 정보 요청 URL
-     * @returns {Promise<import('@union3d/meta/U3fPackagedInfo').TileInfo>} 타일 정보 Promise
+     * @returns {Promise<import('@union3d/meta/U3fPackagedInfo').TileInfo | undefined>} 타일 정보 Promise. 유효한 패키지 타일이 없으면 undefined
      *
      * @ignore
      */
-    getTileInfo(tile: U3dQuadTile, indexX: number, indexY: number, level: number, url: string): Promise<TileInfo>;
+    getTileInfo(tile: U3dQuadTile, indexX: number, indexY: number, level: number, url: string): Promise<TileInfo | undefined>;
     /**
      * 모델 정보를 로드/파싱하여 mesh로 변환합니다.
      *
@@ -33329,11 +34721,11 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
      * @param {number} max
      * @param {import('@U3dQuadTile').U3dQuadTile} tile
      * @param {import('@UDrawArg').UDrawArg} drawArg
-     * @param {DeferredObject<boolean>} endPromise
+     * @param {DeferredPromise<boolean>} endPromise
      *
      * @ignore
      */
-    loadBlockModel(self: U3dModelU3FLayer, baseurl: string, startindex: number, endindex: number, blocksize: number, max: number, tile: U3dQuadTile, drawArg: UDrawArg, endPromise: DeferredObject<boolean>): void;
+    loadBlockModel(self: U3dModelU3FLayer, baseurl: string, startindex: number, endindex: number, blocksize: number, max: number, tile: U3dQuadTile, drawArg: UDrawArg, endPromise: DeferredPromise<boolean>): void;
     /**
      * 메쉬 색상을 설정합니다.
      *
@@ -33349,7 +34741,7 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
      *
      * @param {ModelMesh} mesh
      * @param {number | function(import('three').Object3D, import('@UDrawArg').UDrawArg): void} [faceIndex] faceIndex 또는 afterFunction
-     * @param {function(import('three').Object3D, import('@UDrawArg').UDrawArg, string): void} [onAfterFunction]
+     * @param {function(import('three').Object3D, import('@UDrawArg').UDrawArg, string): void} [onAfterFunction] 텍스처 처리 후 모델·렌더링 문맥·모델 ID를 받는 콜백
      * @returns {any}
      *
      * @ignore
@@ -33383,15 +34775,15 @@ declare class U3dModelU3FLayer extends U3dModelLayer {
     /**
      * 메쉬의 바운딩 박스 정보를 구합니다.
      *
-     * @param {ModelMesh} mesh
-     * @returns {Array<{id: string, info: object}> | void}
+     * @param {ModelMesh} mesh 병합 그룹 정보를 조회할 메시
+     * @returns {Array<{id: string, info: object}> | undefined} 병합 그룹 정보 배열. 메시가 없거나 재질이 배열이 아니면 undefined
      *
      * @ignore
      */
     getBoundingBoxInfo(mesh: ModelMesh): Array<{
         id: string;
         info: object;
-    }> | void;
+    }> | undefined;
     /**
      * 결합 그룹에서 지정 모델의 편집 정보를 찾습니다. <br>
      * 반환값은 저장된 정보의 원본 참조입니다.
@@ -33807,30 +35199,31 @@ declare class U3dHeightLayer extends U3dLayer {
      */
     static terrains: Map<string, UPlaneBufferGeometry>;
     /**
-     * @param {string} key 고도를 가져올 타일 키 값
-     * @returns {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry | undefined}
+     * 처리 경로가 같은 공유 지형 geometry를 조회합니다.
      *
-     * @ignore
+     * @param {string} key 원래 타일 키 문자열입니다.
+     * @returns {undefined | import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry}
      */
-    static getTerrains(key: string): UPlaneBufferGeometry | undefined;
+    static getTerrains(key: string): undefined | UPlaneBufferGeometry;
     /**
-     * @param {string} key 고도를 적용할 타일 키 값
-     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} value
+     * 해당 처리 경로에만 공유 지형 geometry를 등록합니다.
      *
-     * @ignore
+     * @param {string} key 원래 타일 키 문자열입니다.
+     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} value 캐시에서 공유할 지오메트리
      */
     static setTerrains(key: string, value: UPlaneBufferGeometry): void;
     /**
-     * @param {string} key 고도를 제거할 타일 키 값
+     * 해당 처리 경로의 geometry 참조만 제거합니다. <br>
+     * 실제 해제는 호출자가 담당합니다.
      *
-     * @ignore
+     * @param {string} key 원래 타일 키 문자열입니다.
      */
     static deleteTerrains(key: string): void;
     /**
-     * @param {string} key
-     * @returns {boolean}
+     * 해당 처리 경로에 원래 타일 키가 등록되어 있는지 확인합니다.
      *
-     * @ignore
+     * @param {string} key 원래 타일 키 문자열입니다.
+     * @returns {boolean}
      */
     static hasTerrains(key: string): boolean;
     /**
@@ -33921,7 +35314,8 @@ declare class U3dHeightLayer extends U3dLayer {
      * 입력값은 기존 배율과 곱하지 않고 새 배율로 저장하며, 0.1 미만이면 0.1로 보정합니다. <br>
      * scale을 생략하거나 undefined 또는 null을 전달하면 초기값 1.0을 적용합니다. <br>
      * 문자열을 전달하면 현재 배율과 타일 메시를 변경하지 않고 TypeError가 발생합니다. <br>
-     * 호출 시 레이어 캐시에 등록된 타일 중 현재 메시가 있는 타일에는 즉시 적용하고, 아직 메시가 없는 타일에는 이후 고도가 연결될 때 저장된 배율을 적용합니다.
+     * 호출 시 레이어 캐시에 등록된 타일 중 현재 메시가 있는 타일에는 즉시 적용하고, 아직 메시가 없는 타일에는 이후 고도가 연결될 때 저장된 배율을 적용합니다. <br>
+     * 현재 지도 컨트롤러가 지형 충돌을 사용 중이면 모든 타일 배율을 반영한 뒤 현재 카메라 위치의 충돌 높이도 다시 계산합니다.
      *
      * @param {number | null | undefined} [scale=1.0] 지형 타일 메시의 Z축에 설정할 배율, 생략하거나 undefined·null이면 1.0이며 0.1 미만은 0.1로 보정됨
      * @throws {TypeError} scale이 문자열일 때 발생합니다.
@@ -33932,7 +35326,7 @@ declare class U3dHeightLayer extends U3dLayer {
      * 부모가 아직 내려받는 중이면 부모의 로드 완료를 한 번 기다린 뒤 이어서 진행합니다. <br>
      * 성공과 실패는 반환값이 아니라 opt.promise와 타일 작업 상태로 전달합니다.
      *
-     * @param {import('@U3dQuadTile').U3dQuadTile} tile 부모 고도를 대신 적용할 타일
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 부모 고도를 적용할 타일
      * @param {U3dHeightWorkOption} opt 작업 상태와 완료 결과를 받을 옵션
      * @returns {undefined} 항상 undefined이며, 생성 성공 여부는 opt.promise가 받음
      */
@@ -33949,10 +35343,10 @@ declare class U3dHeightLayer extends U3dLayer {
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} [tile] 고도를 반영할 타일
      * @param {ArrayLike<number>} [ioBuf] 가로 표본 수와 세로 표본 수의 곱만큼 담긴 고도 표본 배열
-     * @param {U3dHeightTileHeader} [headerBuf] 이 표본에만 적용할 격자 크기와 배율·오프셋·없음 값 정보
-     * @returns {boolean | undefined} 고도를 반영하면 true, ioBuf를 생략하면 undefined
+     * @param {U3dHeightTileHeader} [headerBuf] 현재 표본의 격자·배율·오프셋·NoData 정보(생략하면 기존 캐시 사용)
+     * @returns {undefined | boolean} 고도를 반영하면 true, ioBuf를 생략하면 undefined
      */
-    override updateHeight(tile?: U3dQuadTile, ioBuf?: ArrayLike<number>, headerBuf?: U3dHeightTileHeader): boolean | undefined;
+    override updateHeight(tile?: U3dQuadTile, ioBuf?: ArrayLike<number>, headerBuf?: U3dHeightTileHeader): undefined | boolean;
     /**
      * 이전에 받아 보관해 둔 고도 표본과 헤더를 화면에 있는 같은 타일에 다시 적용합니다. <br>
      * 커스텀 지형 편집처럼 원본 고도는 그대로 두고 결과만 다시 계산해야 할 때 사용합니다. <br>
@@ -34242,10 +35636,13 @@ declare class U3dTerrainLayer extends U3dModelLayer {
      */
     isTexture(tile: any): boolean;
     /**
-     * 입력받은 타일을 Scene에 추가하는 함수
-     * @param {Object} tile 추가할 타일
+     * 타일 메시를 장면에 부착하고 같은 타일이 유지되면 캐시에 등록합니다.
+     *
+     * @override
+     *
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 추가할 타일
      */
-    addTileFromScene(tile: any): void;
+    override addTileFromScene(tile: U3dQuadTile): void;
     /**
      * 입력받은 Tile을 Scene에서 제거하는 함수
      * @param {Object} tile 제거할 타일
@@ -34559,7 +35956,12 @@ declare class U3dOpenLayer extends U3dImageLayer {
     /** @type {boolean} */ _oldebug: boolean;
     /** @type {object | undefined} */ _parameter: object | undefined;
     /** @type {string | undefined} */ _srs: string | undefined;
-    /** @override @type {undefined | {minx: number, miny: number, maxx: number, maxy: number} & Partial<{minz: number, maxz: number}>} */ override _boundingBox: undefined | ({
+    /**
+     * @override
+     *
+     * @type {undefined | {minx: number, miny: number, maxx: number, maxy: number} & Partial<{minz: number, maxz: number}>}
+     */
+    override _boundingBox: undefined | ({
         minx: number;
         miny: number;
         maxx: number;
@@ -34652,13 +36054,13 @@ declare class U3dOpenLayer extends U3dImageLayer {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile
      * @param {any} rendererBundle 현재 타일 작업이 대여한 UMap/UView bundle
      * @param {number} rendererGeneration 현재 bundle 대여 세대
-     * @param {DeferredObject<boolean>} promise
+     * @param {DeferredPromise<boolean>} promise
      * @param {Record<string, any>} [debugEntry] 성능 측정 로그 항목
      * @param {any} [event] OL 이벤트
      *
      * @ignore
      */
-    postCompose(tile: U3dQuadTile, rendererBundle: any, rendererGeneration: number, promise: DeferredObject<boolean>, debugEntry?: Record<string, any>, event?: any): void;
+    postCompose(tile: U3dQuadTile, rendererBundle: any, rendererGeneration: number, promise: DeferredPromise<boolean>, debugEntry?: Record<string, any>, event?: any): void;
     /**
      * OL 레이어 callback에 전달할 파라미터를 갱신합니다. <br>
      * source가 레이어 단위로 유지되므로 파라미터 변경 뒤에도 기존 source를 계속 사용하면 URL이나 source 옵션이
@@ -35212,7 +36614,8 @@ declare class U3dQuadTileProcess extends U3dProcess {
     _dequeueTask(startImmediately: boolean): boolean;
     /**
      * 슬롯 점유와 단일 종결을 공유하되 실제 호출 경계만 예약 경로에 맞춥니다.
-     * 공통 예산 대기는 진입 전이므로 30초 응답 제한에 포함되지 않습니다.
+     * 즉시 완료된 Promise까지 먼저 종결하고 실제 대기만 슬롯 확보 시각 기준의 30초 제한으로 보호합니다.
+     * 공통 예산 대기는 진입 전이므로 응답 제한에 포함되지 않습니다.
      *
      * @param {import('@union3d/quadtree/U3dQuadTileTask').U3dQuadTileTask} obj 실행할 작업
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 대상 타일
@@ -35269,7 +36672,11 @@ declare class UCustomProcess {
 
 declare class UProcessManager {
     constructor(app: any, maxProcess: any);
-    /** @type {boolean} @ignore */
+    /**
+     * @type {boolean}
+     *
+     * @ignore
+     */
     _disposed: boolean;
     _app: any;
     _drawArg: any;
@@ -35768,9 +37175,10 @@ declare class U3dLayerList {
     /**
      * 등록된 레이어를 목록에서 먼저 제거한 뒤 자원을 해제합니다. <br>
      * 해제 수신자가 같은 레이어를 다시 제거해도 이웃 레이어는 유지됩니다.
+     * 비동기 해제는 기다리지 않으며 나중에 발생한 실패는 엔진 오류로 보고합니다.
      *
      * @param {string | import('@U3dLayer').U3dLayer} name 레이어 이름 또는 레이어 객체
-     * @returns {boolean} 정상 종료하면 true이며, 해제 중 예외는 호출자에게 전달
+     * @returns {boolean} 정상 종료하면 true이며, 해제 호출의 동기 예외는 호출자에게 전달
      */
     removeLayer(name: string | U3dLayer): boolean;
     /**
@@ -35967,8 +37375,8 @@ declare class U3dLayerList {
     /**
      * 등록된 모든 레이어를 처분(dispose)하며 비동기 완료는 기다리지 않습니다.
      * 동기 해제 오류가 발생해도 남은 레이어와 목록을 정리한 뒤 오류를 전달합니다.
+     * 비동기 해제 오류는 해당 레이어의 엔진 오류로 보고합니다.
      *
-     * @returns {void}
      * @throws {Error} 단일 실패는 원래 오류를, 복수 실패는 호출 순서대로 모은 errors 배열을 가진 오류를 전달합니다.
      */
     disposeAll(): void;
@@ -36007,9 +37415,17 @@ declare class U3dAppEventHandler {
     constructor(container: any, app: any);
     /** 여러 앱의 로딩 대기와 타이머를 분리합니다. */
     _eventsWorking: {};
-    /** 완료 예약별 이벤트 종류입니다. @type {Map<ReturnType<typeof setTimeout>, string>} */
+    /**
+     * 완료 예약별 이벤트 종류입니다.
+     *
+     * @type {Map<ReturnType<typeof setTimeout>, string>}
+     */
     _workingTimers: Map<ReturnType<typeof setTimeout>, string>;
-    /** 일부 종류만 취소해도 이전 완료 콜백을 구분합니다. @type {Record<string, number>} */
+    /**
+     * 일부 종류만 취소해도 이전 완료 콜백을 구분합니다.
+     *
+     * @type {Record<string, number>}
+     */
     _workingEventGenerations: Record<string, number>;
     _workingGeneration: number;
     _initialized: boolean;
@@ -36030,7 +37446,14 @@ declare class U3dAppEventHandler {
     _preMoveEvent: any;
     get listeners(): any;
     onchange(): void;
-    createWorkingEndEvent(): void;
+    /**
+     * 현재 검색의 완료 감시를 시작하고 LOAD 알림 중 교체된 종류는 제외합니다.
+     *
+     * @param {unknown} [name] 기존 호출과의 호환용 인수이며 감시 범위에는 사용하지 않습니다.
+     * @param {boolean} [modelOnly=false] 내부 모델 검색에서 모델·거리별 완료만 감시할지 여부
+     * @returns {void}
+     */
+    createWorkingEndEvent(name?: unknown, modelOnly?: boolean): void;
     isValidEventTarget(event: any): boolean;
     /**
      * renderer가 전달한 WebGL context 손실을 app 이벤트로 중계합니다.
@@ -36445,6 +37868,8 @@ declare namespace TWEEN {
         /** 정지한 시간만큼 시작 시각을 늦춰 등록을 재개합니다. */
         play(): void;
         stopChainedTweens(): void;
+        /** 입력을 Boolean으로 변환하여 내부 플래그에 저장합니다. 현재 stop 동작에는 사용하지 않습니다. */
+        setForce(value: unknown): void;
         delay(amount: number): this;
         yoyo(enabled: boolean): this;
         easing(easing: EasingFunction): this;
@@ -36557,7 +37982,7 @@ declare class UWalkControls extends UWalkControls_base {
      * @returns {Promise<boolean>} 이동이 끝나면 true로 resolve되는 프로미스
      */
     flyToPosition(worldPosition: WorldPosition): Promise<boolean>;
-    flyToPositionEx(worldPosition: any, target: any): DeferredObject<unknown>;
+    flyToPositionEx(worldPosition: any, target: any): DeferredPromise<boolean>;
     /**
      * 보행 모드를 활성하는 함수
      */
@@ -36643,9 +38068,8 @@ declare class UUnderground extends three.Group<three.Object3DEventMap> {
     setFogColor(color: three.Color | number): void;
     _texture: any;
     /**
-     * 지하 객체·재질·표시 설정을 유지하며 영역 크기와 위치를 갱신합니다.
+     * 지하 객체·재질·표시 설정을 유지하며 원래 격자 간격으로 영역 크기와 위치를 갱신합니다.
      * @param {import('@UGeoRect').UGeoRect} rectangle 새 지도 영역
-     * @returns {void}
      * @ignore
      */
     updateRegion(rectangle: UGeoRect): void;
@@ -36771,6 +38195,43 @@ declare class UIndexManager {
     insertAtPoint(x: any, y: any, key: any, value: any, category?: string): void;
     removeAtPoint(x: any, y: any, key: any, category?: string): void;
     searchAtPoint(x: any, y: any, category?: string): any[];
+    /**
+     * 점 위치에 key와 값을 등록하고 이후 수정·제거에 사용할 불투명 식별자를 반환합니다.
+     * 같은 카테고리와 key가 이미 등록되어 있으면 기존 등록과 ID를 그대로 재사용합니다.
+     *
+     * @param {number} x 등록할 월드 X 좌표
+     * @param {number} y 등록할 월드 Y 좌표
+     * @param {*} key 검색 결과 소비자에게 전달할 원본 key
+     * @param {*} value 검색 결과 소비자가 사용할 값
+     * @param {string} [category=DEFAULT_CATEGORY] 등록 카테고리
+     * @returns {symbol | null} 등록 수정·제거에 사용할 식별자. 좌표가 유효하지 않으면 null
+     */
+    addAtPoint(x: number, y: number, key: any, value: any, category?: string): symbol | null;
+    /**
+     * ID로 등록한 점의 위치 또는 값을 갱신합니다.
+     * 값만 바꾸면 공간 인덱스를 다시 구성하지 않습니다. 위치나 key를 바꾸면 기존 UIndexItem과
+     * 격자별 DataBush를 재사용하되, RBush와 key Map 정합성을 위해 각 격자에서 항목만 다시 넣습니다.
+     *
+     * @param {symbol} updateId addAtPoint()가 반환한 등록 식별자
+     * @param {{x?: number, y?: number, key?: *, value?: *}} [option={}] 바꿀 점 좌표, 원본 key 또는 등록 값
+     * @param {string} [category=DEFAULT_CATEGORY] 등록 카테고리
+     * @returns {boolean} 등록 항목을 찾아 갱신했으면 true
+     */
+    updateById(updateId: symbol, option?: {
+        x?: number;
+        y?: number;
+        key?: any;
+        value?: any;
+    }, category?: string): boolean;
+    /**
+     * addAtPoint()가 반환한 ID에 연결된 등록을 제거합니다.
+     * 호출자는 기존 좌표나 등록 값을 다시 보관할 필요가 없습니다.
+     *
+     * @param {symbol} updateId 제거할 등록 식별자
+     * @param {string} [category=DEFAULT_CATEGORY] 등록 카테고리
+     * @returns {boolean} 등록 항목을 찾아 제거했으면 true
+     */
+    removeById(updateId: symbol, category?: string): boolean;
     insert(minx: any, miny: any, maxx: any, maxy: any, key: any, value: any, category?: string): void;
     remove(minx: any, miny: any, maxx: any, maxy: any, key: any, category?: string): void;
     /**
@@ -36855,7 +38316,7 @@ declare class XTween {
  * 2D 지도 위의 한 지점을 원형 마커로 표시하는 클래스입니다. <br>
  * 반지름과 채우기·테두리 색을 지정해 지도상의 특정 지점을 나타냅니다. <br>
  *
- * 원의 크기와 선 두께는 픽셀로 다루므로 지도를 확대·축소해도 화면에서 보이는 크기는 그대로입니다. <br>
+ * `U2dVectorShaderLayer`에서는 기본 반경을 지도 거리로 다루며, `isDynamicRadius: true`를 지정한 점은 반경과 선 두께를 화면 픽셀로 유지합니다. <br>
  * 좌표는 지도 좌표계(EPSG:3857)로 보관하며, 만들 때는 좌표가 비어 있으므로 생성한 뒤 `setPosition`으로 좌표를 넣어야 점이 나타납니다. <br>
  *
  * @group geometry
@@ -36917,7 +38378,7 @@ declare class U2dPoint extends U2dGeometry {
     /** @returns {number} 현재 원형 마커의 반지름입니다. 다중점은 같은 반지름을 공유합니다. */
     getRadius(): number;
     /**
-     * 공통 상태와 현재 마커 반지름을 반환합니다.
+     * 공통 상태와 현재 마커 반지름·개별 화면 반경 사용 여부를 반환합니다.
      *
      * @override
      *
@@ -36925,7 +38386,7 @@ declare class U2dPoint extends U2dGeometry {
      */
     override getParam(): U2dPointParam;
     /**
-     * 공통 항목과 반지름을 부분 변경합니다. 모든 입력을 검증한 뒤 적용합니다.
+     * 공통 항목과 반지름·개별 화면 반경 사용 여부를 부분 변경합니다. 모든 입력을 검증한 뒤 적용합니다.
      *
      * @override
      *
@@ -36933,6 +38394,7 @@ declare class U2dPoint extends U2dGeometry {
      * @throws {TypeError|RangeError} 값이 잘못되면 변경 전에 발생합니다.
      */
     override setParam(param?: U2dPointParam): void;
+    #private;
 }
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
@@ -37354,7 +38816,7 @@ interface GeOnDTMixedInstance_UCharacterControls {
 "dispose"(): void;
 "getObject"(): three.PerspectiveCamera;
 "getDirection"(v: three.Vector3): three.Vector3;
-"setModelFile"(filePath: string, rotate?: three.Euler | { x: number; y: number; z: number; } | undefined): DeferredObject<void>;
+"setModelFile"(filePath: string, rotate?: three.Euler | { x: number; y: number; z: number; } | undefined): Promise<void>;
 "setWalkModel"(walkModel: any): void;
 "getWalkModel"(): any;
 "setWalkSpeed"(speed: number): void;
@@ -37388,6 +38850,7 @@ interface GeOnDTMixedInstance_UCharacterControls {
 "off"(type: any, listener: any): void;
 "isDeBug": boolean;
 "setWireframe"(setWireframe: boolean): void;
+"_hasGeoLocation": boolean;
 "_defaultHeight": number;
 "_averagePos": three.Vector3;
 "_setAveragePosition": boolean;
@@ -37431,7 +38894,7 @@ interface GeOnDTMixedInstance_UCharacterControls {
 "_frustum": UFrustum | undefined;
 "_quadtreeSet": U3dQuadSet | undefined;
 "_light": ULight | three.Light | undefined;
-"reLoad"(): Promise<string>;
+"reLoad"(): Promise<void>;
 "initializeU3f"(): Promise<boolean>;
 "createModel"(tile: U3dQuadTile): boolean;
 "parseXML"(xml: XMLHttpRequest): void;
@@ -37448,8 +38911,9 @@ interface GeOnDTMixedInstance_UCharacterControls {
 "getBoundingBox"(): three.Box3;
 "checkIsExistModel"(name: string, baseurl?: string | undefined): boolean;
 "getModelInfo"(name: string, baseurl?: string | undefined): ModelInfo | undefined;
+"_isModelLoadReady"(model: ModelInfo): boolean;
 "load"(model: ModelInfo, textureUrl?: string | undefined): Promise<ModelObject3D>;
-"getU3FInfo"(model: string | KeyValue | ModelInfo | undefined, baseurl: string): DeferredObject<any>;
+"getU3FInfo"(model: string | KeyValue | ModelInfo | undefined, baseurl: string): Promise<KeyValue[]>;
 "getTexture"(url: string): Promise<three.Texture<any, three.TextureEventMap>>;
 "getObjectCenter"(): three.Vector3;
 "update"(): void;
@@ -37531,15 +38995,17 @@ interface GeOnDTMixedInstance_UCharacterControls {
 "getToonImgUrl"(): string | undefined;
 "setToonImgUrl"(url: string): void;
 "settingModelLayerMaterial"(material: ModelMaterial): void;
-"setTileFromEditedModel"(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile>;
+"setTileFromEditedModel"(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile | undefined>;
 "getEditedEventById"(id: string): EditedEvent | undefined;
 "mergedMeshDivision"(object: ModelMesh, afterFunction?: ((mesh: three.Object3D<three.Object3DEventMap>, drawArg: UDrawArg) => void) | undefined): three.Object3D<three.Object3DEventMap>[] | undefined;
+"_getMeshDivisionPromise"(object: three.Object3D<three.Object3DEventMap>): Promise<three.Object3D<three.Object3DEventMap>[]> | undefined;
 "checkDivisionMeshIdle"(): void;
 "setEditEvent"(meshes: three.Object3D<three.Object3DEventMap>[]): void;
 "removeEdit"(modelId: string): void;
 "getMaterialIndexByFace"(object: three.Object3D<three.Object3DEventMap>, faceIndex: number): void | SplitInfo;
 "removeMaterialIndex"(object: ModelMesh, materialIndex: number): boolean;
 "setSplitEvent"(parent: ModelMesh, child: ModelMesh): EditedEvent | undefined;
+"_restoreSplitModels"(original: ModelMesh, meshList: three.Object3D<three.Object3DEventMap>): void;
 "_readyState": "pending" | "fulfilled" | "rejected";
 "_readyResolve"(): void;
 "_readyReject"(reason: Error): void;
@@ -37609,8 +39075,8 @@ readonly "ready": Promise<U3dModelBasicLayer>;
 "intersectFrustum"(frustum: three.Frustum): boolean;
 "getCacheKeys"(): string[];
 "getCacheLength"(): number;
-"setCancelByTile"(tile: U3dQuadTile, value: DeferredObject<U3dQuadTile>): void;
-"getCancelByTile"(tile: U3dQuadTile): DeferredObject<U3dQuadTile> | undefined;
+"setCancelByTile"(tile: U3dQuadTile, value: DeferredPromise<U3dQuadTile>): void;
+"getCancelByTile"(tile: U3dQuadTile): Promise<U3dQuadTile> | undefined;
 "unkey"(type: string, key?: string | undefined): void;
 "removeCancelByTile"(tile: U3dQuadTile): void;
 "cancelTile"(tile: U3dQuadTile): void;
@@ -37729,7 +39195,8 @@ declare class CharacterControls extends CharacterControlsBase {
     dispose: () => void;
     getObject: () => three.PerspectiveCamera;
     getDirection: (v: three.Vector3) => three.Vector3;
-    setModelFile: (filePath: string, rotate?: three.Euler | {x: number; y: number; z: number}) => DeferredObject<void>;
+    /** 모델과 애니메이션 준비를 기다립니다. 실패·취소는 반환 Promise의 거부로 전달합니다. */
+    setModelFile: (filePath: string, rotate?: three.Euler | {x: number; y: number; z: number}) => Promise<void>;
     setWalkModel: (walkModel: any) => void;
     getWalkModel: () => any;
     setWalkSpeed: (speed: number) => void;
@@ -39139,260 +40606,7 @@ type U3dAppWindowRect = {
     height: number;
 };
 /**
- * U3dApp을 생성할 때 전달하는 초기 설정 옵션입니다.<br>
- * 지도를 그려 넣을 화면 영역, 홈 위치와 카메라 시점, 화면 품질과 성능, 타일·레이어 처리 기준을 한 번에 지정합니다.<br>
- * containername을 제외한 모든 속성은 생략할 수 있으며, 생략하면 각 항목에 적힌 기본값이 적용됩니다.<br>
- * 기본값이 `기기 성능에 따라 결정`이라고 적힌 속성은 실행 기기의 성능 점수에 따라 값이 달라집니다.<br>
- * 생성한 뒤에 값을 바꾸려면 각 항목에 대응하는 U3dApp의 설정 함수를 사용하십시오.
- */
-type U3dAppCO = {
-    /**
-     * 지도 화면을 그려 넣을 div 엘리먼트의 id
-     */
-    containername: string;
-    /**
-     * 지도 영역. world는 전세계, korea는 한반도, custom은 targetrectopt 범위이며 타일 옵션을 지정하면 custom으로 처리합니다.
-     */
-    type?: MapRegion;
-    /**
-     * 여러 U3dApp을 구분하기 위한 이름입니다.<br>
-     * 생략하면 'U3dApp_'에 생성 순번을 붙인 이름이 자동으로 지정됩니다.
-     */
-    name?: string;
-    /**
-     * 인덱스맵(overview, 현재 보는 곳을 넓은 범위에서 보여 주는 보조 2D 지도)을 그려 넣을 div 엘리먼트의 id입니다.<br>
-     * 값을 입력하면 앱을 만들 때 그 영역에 인덱스맵이 함께 생성되고, 생략하면 인덱스맵을 만들지 않습니다.
-     */
-    idoverview?: string;
-    /**
-     * 인덱스맵의 중심을 맞추는 기준입니다.<br>
-     * true이면 카메라가 바라보는 지점을, false이면 카메라가 있는 위치를 인덱스맵의 중심으로 사용합니다.
-     */
-    camTargetType?: boolean;
-    /**
-     * 홈 위치이며 위경도 좌표계(EPSG:4326)로 입력합니다.<br>
-     * x는 경도, y는 위도, z는 고도(m)이며 기본값은 { x: 0, y: 0, z: 0 }입니다.<br>
-     * 앱을 만들 때 이 위치로 이동하지는 않으며, updateHomePosition()을 호출하면 카메라가 이 위치로 이동합니다.
-     */
-    homePosition?: GeoPosition;
-    /**
-     * 홈 위치로 이동할 때 적용할 방위각이며 0은 북쪽을 바라보는 방향
-     */
-    homeRotateLeft?: Degree;
-    /**
-     * 홈 위치로 이동할 때 적용할 고도각이며 0은 지면을 수직으로 내려다보는 방향
-     */
-    homeRotateDown?: Degree;
-    /**
-     * 카메라 투영 방식입니다.<br>
-     * `perspective`는 멀리 있는 것이 작게 보이는 원근 투영, `orthographic`은 거리와 무관하게 크기가 유지되는 평행 투영입니다.
-     */
-    cameraType?: "perspective" | "orthographic";
-    /**
-     * 한 프레임에서 처리할 작업 개수의 상한입니다.<br>
-     * 값을 키우면 데이터가 빨리 채워지는 대신 프레임이 끊길 수 있으며, 기본값은 기기 성능에 따라 결정됩니다.
-     */
-    maxprocess?: number;
-    /**
-     * 화면 상태에 맞춰 한 프레임의 작업량을 자동으로 조절할지 여부
-     */
-    frameOptimize?: boolean;
-    /**
-     * 화면 조작이 멈춘 유휴 상태에서 사용하지 않는 리소스와 메모리를 자동으로 정리할지 여부
-     */
-    autoClear?: boolean;
-    /**
-     * 이미지·고도 타일 한 장에 사용할 해상도 비율이며 값이 작을수록 타일이 흐려지고 가벼워짐
-     */
-    ratiotilesize?: number;
-    /**
-     * 모델 검색 타일 한 장에 사용할 해상도 비율이며 값이 작을수록 모델을 성기게 검색함
-     */
-    ratiomodeltilesize?: number;
-    /**
-     * 카메라 시점 주변에서 그릴 타일을 찾는 범위의 모양입니다.<br>
-     * `sphere`는 구, `boundingbox`는 직육면체 범위로 검색합니다.
-     */
-    searchtype?: "boundingbox" | "sphere";
-    /**
-     * 지형 고도 데이터를 해석하고 타일 경계의 틈을 메우는 스커트를 만드는 방식
-     */
-    methodheight?: "raw" | "base" | "1_0";
-    /**
-     * 카메라 프러스텀(frustum, 화면에 보이는 원뿔 모양 영역)의 세로 시야각이며 도 단위
-     */
-    fov?: number;
-    /**
-     * 하늘을 생성할지 여부
-     */
-    usesky?: boolean;
-    /**
-     * 지도 화면의 배경색이며 RGB 또는 HEX 문자열
-     */
-    backgroundcolor?: string;
-    /**
-     * 먼 거리를 흐리게 보이도록 안개 효과를 적용할지 여부
-     */
-    useFog?: boolean;
-    /**
-     * 하늘에 구름 효과를 적용할지 여부
-     */
-    useCloud?: boolean;
-    /**
-     * 태양을 바라볼 때 나타나는 빛 번짐(플레어) 효과를 적용할지 여부이며, 기본값은 기기 성능에 따라 결정
-     */
-    useSunFlare?: boolean;
-    /**
-     * 그림자를 그릴지 여부
-     */
-    useShadowMap?: boolean;
-    /**
-     * 장면 전체를 밝히는 환경 광원의 세기
-     */
-    intensitylight?: number;
-    /**
-     * 최종 화면의 노출 밝기이며 값이 클수록 화면이 밝아짐
-     */
-    toneExposure?: number;
-    /**
-     * 지면 텍스처 품질 보정 단계이며, 단계가 올라갈수록 선명해지고 연산량이 늘어납니다.<br>
-     * 기본값은 기기 성능에 따라 결정됩니다.
-     */
-    improveTexture?: "none" | "low" | "medium" | "high";
-    /**
-     * 렌더링에 사용할 해상도이며 사전 정의된 이름 또는 [가로, 세로] 픽셀 배열로 입력합니다.<br>
-     * 예: 'FHD' 또는 [1122, 840]이며, 기본값은 기기 성능에 따라 결정됩니다.
-     */
-    pixelResolution?: "SD" | "HD" | "FHD" | "QHD" | "UHD" | Array<number>;
-    /**
-     * 로그 깊이 버퍼 사용 여부입니다.<br>
-     * logarithmicDepthBuffer 속성을 생략하면 기본값 true를 사용합니다.
-     */
-    logarithmicDepthBuffer?: boolean;
-    /**
-     * 해상도에 곱해지는 픽셀 밀도 배율이며 값이 클수록 선명해지고 연산량이 늘어남
-     */
-    pixelRatio?: number;
-    /**
-     * 렌더링 결과에 후처리 효과를 적용할지 여부이며, 기본값은 기기 성능에 따라 결정
-     */
-    usePostProcess?: boolean;
-    /**
-     * 후처리 효과의 세부 설정이며 생략하면 각 효과의 기본 설정 사용
-     */
-    postOption?: PostProcessParam;
-    /**
-     * 지형을 나누는 쿼드타일의 최대 분할 레벨이며 지도 영역의 시작 레벨 이상이어야 합니다. 값이 클수록 가까이에서 더 세밀하게 표현됩니다.
-     */
-    maxlevel?: number;
-    /**
-     * 카메라 프러스텀에서 가장 가까운 평면까지의 거리이며 미터 단위
-     */
-    near?: number;
-    /**
-     * 카메라 프러스텀에서 가장 먼 평면까지의 거리이며 미터 단위이고 기본값은 월드 영역 크기
-     */
-    far?: number;
-    /**
-     * custom 영역의 타일 인덱스이며 지정하면 custom으로 처리합니다. 생략 시 type별 기본 타일을 사용합니다.
-     */
-    targetrectopt?: TargetRectOption;
-    /**
-     * 타일 경계에 생기는 틈을 가리는 스커트를 생성할지 여부
-     */
-    skirt?: boolean;
-    /**
-     * 데이터를 불러오고 그리기 시작하는 최소 타일 레벨이며, 이보다 낮은 레벨의 타일은 화면에 나타나지 않습니다.<br>
-     * 생략하면 레벨 제한을 두지 않습니다.
-     */
-    passlevel?: number;
-    /**
-     * 모든 이미지 레이어에 공통 투명도를 적용할지 여부
-     */
-    useimageopacity?: boolean;
-    /**
-     * 모든 이미지 레이어에 적용할 투명도이며 0은 완전 투명, 1은 불투명
-     */
-    imageopacity?: number;
-    /**
-     * 모든 모델 레이어에 공통 투명도를 적용할지 여부
-     */
-    usemodelopacity?: boolean;
-    /**
-     * 모든 모델 레이어에 적용할 투명도이며 0은 완전 투명, 1은 불투명
-     */
-    modelopacity?: number;
-    /**
-     * 모델 텍스처 해상도를 거리로 나누는 기준 거리이며 미터 단위입니다.<br>
-     * 카메라가 이 거리 안에 있으면 가까울수록 높은 해상도의 텍스처를 사용하고, 이 거리보다 멀면 modelimagedefaultlevel의 해상도를 사용합니다.
-     */
-    modelimagedistance?: number;
-    /**
-     * modelimagedistance보다 멀리 있는 모델에 적용할 텍스처 해상도 레벨이며 0이 가장 낮은 해상도
-     */
-    modelimagedefaultlevel?: number;
-    /**
-     * 카메라 종횡비(화면 가로 길이를 세로 길이로 나눈 값)에 곱하는 보정 배율이며 1은 컨테이너 비율을 그대로 사용
-     */
-    viewportratio?: number;
-    /**
-     * 지도 확대 단계를 세는 Zoom 레벨의 시작값입니다.<br>
-     * zoomIn()과 zoomOut()이 이 값을 1씩 올리거나 내려 화면을 확대·축소합니다.
-     */
-    zoomLevel?: number;
-    /**
-     * 원근 버튼의 최소 줌과 지역 기본 최대 거리 계산 기준. 직교 축소는 현재 영역의 최대 거리 제한을 사용
-     */
-    minZoomLevel?: number;
-    /**
-     * zoomIn()으로 올라갈 수 있는 Zoom 레벨의 상한
-     */
-    maxZoomLevel?: number;
-    /**
-     * 지면과 카메라 사이의 거리에 따라 확대·이동·회전 속도를 자동으로 조절할지 여부
-     */
-    useautospeed?: boolean;
-    /**
-     * 앱을 만들면서 렌더러·카메라·컨트롤·광원·하늘을 자동으로 생성하고 렌더링을 시작할지 여부입니다.<br>
-     * false로 지정하면 필요한 구성 요소를 직접 생성한 뒤 start()를 호출하십시오.
-     */
-    auto?: boolean;
-    /**
-     * 비행 모드에서 지정한 경로를 따라 카메라가 자동으로 이동할지 여부
-     */
-    automove?: boolean;
-    /**
-     * 앱을 만든 직후 화면 그리기를 멈춘 상태로 둘지 여부
-     */
-    stoprender?: boolean;
-    /**
-     * 지하 모드에서 안개 효과를 적용할지 여부
-     */
-    undergroundFog?: boolean;
-    /**
-     * 지하 안개의 밀도이며 값이 클수록 시야가 빨리 흐려짐
-     */
-    undergroundFogDensity?: number;
-    /**
-     * 지하 안개가 시작되는 높이이며 미터 단위
-     */
-    undergroundFogStartHeight?: number;
-    /**
-     * 지하 안개가 가장 짙어지는 높이이며 미터 단위
-     */
-    undergroundFogEndHeight?: number;
-    /**
-     * 지하 안개 색상이며 x·y·z를 각각 0 이상 1 이하의 R·G·B 값으로 입력합니다.<br>
-     * 기본값은 { x: 0.034, y: 0.034, z: 0.034 }입니다.
-     */
-    undergroundFogColor?: three.Vector3;
-};
-/**
- * ~extends import('@U3dObject').U3dObject <br>
- *
- * 3D 어플리케이션 메인 클래스입니다. <br>
- * 3D 서비스를 제공하기 위해 기본이 되며 지도를 생성하고 조작하기 위한 속성 및 함수로 구성되어 있습니다.<br>
- * Layer, Control 등을 등록하기 위한 기본 컨테이너입니다.
+ * ~extends import('@U3dObject').U3dObject
  *
  * @group app
  * @extends {U3dObject}
@@ -39401,11 +40615,10 @@ declare class U3dApp extends U3dObject {
     /** @type {U3dAppEMI} */ static EVENT: U3dAppEMI;
     /** @type {U3dApp_Analysis} */ static ANALYSIS: U3dApp_Analysis;
     /**
-     * U3dApp 클래스 생성자입니다.<br>
-     * opt.containername으로 지정한 div 엘리먼트를 지도 화면 영역으로 사용하며, 그 안에 지도를 그릴 캔버스를 만듭니다.<br>
-     * 인터넷 익스플로러에서 실행하면 지도를 만들지 않고 지원하지 않는다는 오류만 알립니다.
+     * U3dApp 클래스 생성자입니다. <br>
+     * opt.containername으로 지정한 div 엘리먼트를 지도 화면 영역으로 사용하며, 그 안에 지도를 그릴 캔버스를 만듭니다.
      *
-     * @param {U3dAppCO} opt 지도 화면 영역과 홈 위치, 화면 품질, 타일 처리 기준을 담은 생성 옵션
+     * @param {U3dAppCO} opt 지도 화면, 홈 위치, 품질 및 타일 처리 설정
      */
     constructor(opt: U3dAppCO);
     /** @type {import('@union3d/core/UCamera').UCamera | undefined} */ _camera: UCamera | undefined;
@@ -39689,12 +40902,18 @@ declare class U3dApp extends U3dObject {
      * @throws {Error} 준비되지 않았거나 해제된 앱에서 조회한 경우
      */
     getMapRegion(): MapRegion;
+    /**
+     * 현재 앱의 생성 옵션을 새 객체로 반환합니다. <br>
+     * 중첩 옵션의 참조는 기존대로 유지합니다.
+     *
+     * @returns {{ name: string; containername: string; idoverview: undefined | string; camTargetType: boolean; homePosition: undefined | import('three').Vector3; homeRotateDown: number; homeRotateLeft: number; maxProcess: any; frameOptimize: boolean; autoClear: boolean; ratioTileSize: number; ratioModelTileSize: number; useSunFlare: boolean; useshadowmap: boolean; intensitylight: number; intensitysunlight: number; toneExposure: number; usesky: boolean; usefog: boolean; useCloud: boolean; backgroundcolor: import('three').ColorRepresentation; fov: number; cameraType: "perspective" | "orthographic"; improveTexture: string; pixelResolution: Array<number>; pixelRatio: number; usePostProcess: boolean; postOption: undefined | PostProcessParam; datalevel: undefined | number; passlevel: undefined | number; minlevel: number; maxlevel: number; size: number; rectangle: undefined | import('@union3d/math/UGeoRect').UGeoRect; useimageopacity: any; imageopacity: any; usemodelopacity: any; modelopacity: any; methodheight: undefined | string; searchtype: string; modelimagedistance: number; modelimagedefaultlevel: number; viewportratio: number; near: number; far: number; minZoomLevel: number; maxZoomLevel: number; automove: boolean; }} 현재 앱의 생성 옵션을 새 객체로 반환하며 앱별 지형 처리 모드를 포함합니다.
+     */
     getParam(): {
         name: string;
         containername: string;
-        idoverview: string;
+        idoverview: undefined | string;
         camTargetType: boolean;
-        homePosition: three.Vector3;
+        homePosition: undefined | three.Vector3;
         homeRotateDown: number;
         homeRotateLeft: number;
         maxProcess: any;
@@ -39714,21 +40933,21 @@ declare class U3dApp extends U3dObject {
         fov: number;
         cameraType: "perspective" | "orthographic";
         improveTexture: string;
-        pixelResolution: number[];
+        pixelResolution: Array<number>;
         pixelRatio: number;
         usePostProcess: boolean;
-        postOption: PostProcessParam;
-        datalevel: number;
-        passlevel: number;
+        postOption: undefined | PostProcessParam;
+        datalevel: undefined | number;
+        passlevel: undefined | number;
         minlevel: number;
         maxlevel: number;
         size: number;
-        rectangle: UGeoRect;
+        rectangle: undefined | UGeoRect;
         useimageopacity: any;
         imageopacity: any;
         usemodelopacity: any;
         modelopacity: any;
-        methodheight: any;
+        methodheight: undefined | string;
         searchtype: string;
         modelimagedistance: number;
         modelimagedefaultlevel: number;
@@ -39756,8 +40975,8 @@ declare class U3dApp extends U3dObject {
      */
     getTerrainDecalManager(): UShaderTerrainDecalManager;
     /**
-     * 작업 처리기와 측정을 먼저 종료한 뒤 앱이 소유한 자원을 정리합니다.
-     * 종료 콜백에서 다시 호출하거나 이미 종료된 경우에는 중복 정리를 하지 않습니다.
+     * 작업 처리기와 측정을 먼저 종료한 뒤 앱이 소유한 자원을 정리합니다. <br>
+     * 종료 콜백에서 다시 호출하거나 이미 종료된 경우에는 중복 정리를 하지 않습니다. <br>
      * 동기 해제 오류가 발생해도 다음 자원의 정리를 시도한 뒤 수집한 오류를 전달합니다.
      *
      * @throws {unknown} 단일 실패의 원래 사유 또는 복수 실패를 호출 순서대로 errors에 담은 Error
@@ -40118,23 +41337,47 @@ declare class U3dApp extends U3dObject {
      */
     getTestManager(): UTestManager;
     /**
-     * @description 고도가 업데이트 될때 입력한 위치의 고도값을 추출해 입력한 함수를 실행시켜 준다
-     * @param {number} x  업데이트할 위치의 x (월드좌표)
-     * @param {number} y  업데이트할 위치의 y (월드좌표)
-     * @param {import('three').Object3D} object  업데이트 할 객체
-     * @param {Function} updateFnc  업데이트 시 실행 함수, 함수의 파라메터로 입력되는 값과 그 순서 updateFnc(object, tile, 고도값)
+     * 지정한 월드 좌표의 지형 타일 고도가 갱신될 때 실행할 콜백을 등록합니다.
+     * 반환한 ID만 보관하면 위치·콜백 수정과 등록 해제가 가능하며, 대상 객체나 기존 좌표를 다시 전달할 필요가 없습니다.
      *
-     * @ignore
+     * @template {object} T
+     * @param {number} x 업데이트할 위치의 월드 X 좌표
+     * @param {number} y 업데이트할 위치의 월드 Y 좌표
+     * @param {T} object 업데이트할 대상 객체
+     * @param {function(T, import('@U3dQuadTile').U3dQuadTile, number): void} updateFnc 지형 타일과 새 고도를 대상 객체에 적용할 콜백
+     * @returns {symbol | null} 등록 수정·해제에 사용할 ID. 입력이나 인덱스가 유효하지 않으면 null
      */
-    addAutoHeightUpdate(x: number, y: number, object: three.Object3D, updateFnc: Function): void;
+    addAutoHeightUpdate<T extends unknown>(x: number, y: number, object: T, updateFnc: (arg0: T, arg1: U3dQuadTile, arg2: number) => void): symbol | null;
     /**
-     * @param {number} x  addAutoHeightUpdate로 등록된 업데이트할 위치의 x (월드좌표)
-     * @param {number} y  addAutoHeightUpdate로 등록된업데이트할 위치의 y (월드좌표)
-     * @param {import('three').Object3D} object addAutoHeightUpdate로 등록된 업데이트 할 객체
+     * 자동 높이 등록 ID를 유지한 채 점 위치, 대상 객체 또는 콜백을 바꿉니다.
+     * 콜백만 바꾸는 경우 공간 인덱스는 다시 구성하지 않습니다. 좌표는 x와 y를 함께 전달해야 합니다.
      *
-     * @ignore
+     * @param {symbol} updateId addAutoHeightUpdate()가 반환한 등록 ID
+     * @param {{x?: number, y?: number, object?: object, updateFnc?: function(object, import('@U3dQuadTile').U3dQuadTile, number): void}} [option={}] 바꿀 등록 내용
+     * @returns {boolean} 등록을 찾아 유효한 내용으로 갱신했으면 true
      */
-    removeAutoHeightUpdate(x: number, y: number, object: three.Object3D): void;
+    updateAutoHeightUpdate(updateId: symbol, option?: {
+        x?: number;
+        y?: number;
+        object?: object;
+        updateFnc?: (arg0: object, arg1: U3dQuadTile, arg2: number) => void;
+    }): boolean;
+    /**
+     * 기존 좌표·대상 기반 자동 높이 등록을 해제합니다.
+     *
+     * @param {number} x addAutoHeightUpdate()에 전달한 월드 X 좌표
+     * @param {number} y addAutoHeightUpdate()에 전달한 월드 Y 좌표
+     * @param {object} object addAutoHeightUpdate()에 전달한 대상 객체
+     * @returns {void}
+     */
+    removeAutoHeightUpdate(x: number, y: number, object: object): void;
+    /**
+     * 등록 ID에 연결된 자동 높이 등록을 해제합니다.
+     *
+     * @param {symbol} updateId addAutoHeightUpdate()가 반환한 등록 ID
+     * @returns {boolean} 등록을 찾아 제거했으면 true
+     */
+    removeAutoHeightUpdateById(updateId: symbol): boolean;
     /**
      * 기존 고도 갱신 호출을 현재 쿼드셋에 전달합니다.
      *
@@ -40449,9 +41692,9 @@ declare class U3dApp extends U3dObject {
     saveJson(): {
         name: string;
         containername: string;
-        idoverview: string;
+        idoverview: undefined | string;
         camTargetType: boolean;
-        homePosition: three.Vector3;
+        homePosition: undefined | three.Vector3;
         homeRotateDown: number;
         homeRotateLeft: number;
         maxProcess: any;
@@ -40471,21 +41714,21 @@ declare class U3dApp extends U3dObject {
         fov: number;
         cameraType: "perspective" | "orthographic";
         improveTexture: string;
-        pixelResolution: number[];
+        pixelResolution: Array<number>;
         pixelRatio: number;
         usePostProcess: boolean;
-        postOption: PostProcessParam;
-        datalevel: number;
-        passlevel: number;
+        postOption: undefined | PostProcessParam;
+        datalevel: undefined | number;
+        passlevel: undefined | number;
         minlevel: number;
         maxlevel: number;
         size: number;
-        rectangle: UGeoRect;
+        rectangle: undefined | UGeoRect;
         useimageopacity: any;
         imageopacity: any;
         usemodelopacity: any;
         modelopacity: any;
-        methodheight: any;
+        methodheight: undefined | string;
         searchtype: string;
         modelimagedistance: number;
         modelimagedefaultlevel: number;
@@ -40549,9 +41792,15 @@ declare class U3dApp extends U3dObject {
     setModelUpdateOffset(val: number): void;
     getModelImageDefaultLevel(): number;
     setModelImageDefaultLevel(val: any): void;
-    getMethodHeight(): any;
-    setMethodHeight(val: any): void;
-    _methodHeight: any;
+    getMethodHeight(): string;
+    /**
+     * 높이 처리 방식을 변경합니다.
+     *
+     * @param {string} val 높이 처리 방식(raw·base·1_0)
+                                                                           
+     */
+    setMethodHeight(val: string): void;
+    _methodHeight: string;
     setBoundingTree(val: any): void;
     /**
      * 타일 Key 값으로 생성된 타일을 검색하여 반환합니다.
@@ -40618,7 +41867,26 @@ declare class U3dApp extends U3dObject {
     fitLayerExtent(layername: string, useFly?: boolean, offsetZ?: number, leftrotate?: number, downrotate?: number): Promise<boolean | void>;
     drawLayerExtent(layername: any, color: any): DeferredPromise<void>;
     getEditHeightBoxList(): Map<string, any>;
-    updateHeightLayers(box: any, minlevel: any, maxlevel: any): void;
+    /**
+     * 같은 앱의 높이 편집을 모아 마지막에 고도 타일을 재적용합니다. <br>
+     * 중간 지형 값을 읽거나 레이어 설정을 바꾸는 작업은 배치 밖에서 실행하십시오. <br>
+     * 기본 고도 레이어 하나일 때만 중복 타일을 생략하며 다른 조건은 기존 즉시 실행을 유지합니다. <br>
+     * 활성 범위에서 같은 앱의 수집 가능한 갱신 요청을 모두 모으므로 동시 편집은 호출자가 조정하십시오. <br>
+     * 최종 재적용이 끝나면 살아 있는 앱에 갱신 신호를 반영합니다.
+     *
+     * @param {function(): (void | Promise<void>)} action 순차 높이 편집 작업
+     * @returns {Promise<void>} 작업과 최종 재적용의 완료
+     */
+    runHeightUpdateBatch(action: () => (void | Promise<void>)): Promise<void>;
+    /**
+     * 지정한 영역에 고도를 다시 적용하거나 활성 고도 갱신 배치에 요청을 추가합니다. <br>
+     * 지도 그리기 정보가 준비되지 않았거나 고도 레이어가 없으면 갱신하지 않습니다.
+     *
+     * @param {import('three').Box3 | null | undefined} [box] 고도를 다시 적용할 영역, null·undefined이면 갱신 생략
+     * @param {number | null | undefined} [minlevel] 최소 타일 레벨, null·undefined이면 현재 화면의 pass 레벨 사용
+     * @param {number | null | undefined} [maxlevel] 최대 타일 레벨, null·undefined이면 앱의 최대 레벨 사용
+     */
+    updateHeightLayers(box?: three.Box3 | null | undefined, minlevel?: number | null | undefined, maxlevel?: number | null | undefined): void;
     defined(value: any): boolean;
     assert(condition: any, message: any): void;
     setHighlightByMesh(mesh: any, opt: any): void;
@@ -40926,6 +42194,7 @@ declare class U3dApp extends U3dObject {
     activeMode(mode: string): void;
     /**
      * 지정된 위치로 부드럽게 이동하며 타겟을 바라보는 함수 (Tween 애니메이션 사용)
+     * 카메라의 3차원 이동 거리가 월드 좌표 기준 1m 이하이면 첫 트윈 갱신에서 이동을 마칩니다.
      *
      * 2D 지도 모드에서는 시선이 TopView에 고정되므로, target을 화면 중심으로 유지하고
      * 카메라를 그 바로 위 `position.z` 높이에 배치합니다. 이때 `position`의 x, y는 사용되지 않습니다.
@@ -41291,7 +42560,15 @@ declare class U3dApp extends U3dObject {
      * @returns {boolean} 프로세스 동작 여부 [true : 동작 중, false : 동작 안함]
      */
     getWorking(name?: string): boolean;
-    createWorkingEndEvent(name: any): void;
+    /**
+     * 앱과 표시 레이어의 현재 작업 완료를 감시합니다.
+     * LOAD 알림에서 교체된 레이어의 완료 감시는 새 검색까지 보류합니다.
+     *
+     * @param {unknown} [name] 기존 호출과의 호환용 인수이며 감시 범위에는 사용하지 않습니다.
+     * @param {boolean} [modelOnly=false] 내부 모델 검색에서 모델 종류의 완료만 감시할지 여부
+     * @returns {void}
+     */
+    createWorkingEndEvent(name?: unknown, modelOnly?: boolean): void;
     /**
      * 동작 중인 프로세스 수를 반환하는 함수
      * @returns {number} 동작 중인 프로세스 수
@@ -41303,12 +42580,19 @@ declare class U3dApp extends U3dObject {
     getWorkingHeight(name: any): number;
     getWorkingModel(): number;
     getWorkingInDistance(opt: any): number;
-    listenEndWork(callback: any, param: any): void;
+    /**
+     * 현재 작업이 끝나면 앱을 this로 완료 콜백을 호출합니다.
+     * 트리 변경이나 앱 해제 시 이전 대기는 취소합니다.
+     *
+     * @param {Function} [callback] 작업 완료 콜백
+     * @param {unknown} [param] 완료 콜백에 전달할 값
+     */
+    listenEndWork(callback?: Function, param?: unknown): void;
     /**
      * 3D 모델 레이어를 정적으로 로딩시켜, 한 번 가시화된 모델을 사라지지 않게 설정하는 함수
      * @param {boolean} tileloadall 정적로딩 활성 여부
      * @param {number} [maxDistance] 모델을 사라지지 않게 유지할 최대 거리
-     * @returns {Promise<boolean>} 설정 적용이 끝난 시점의 Promise
+     * @returns {Promise<boolean>} 설정 적용이 끝난 시점의 Promise. 트리 변경·앱 해제 시 AbortError로 거절합니다.
      *
      * @example
      * app.keepModelByDistance(true).then(() => console.log('적용 완료'));
@@ -41987,7 +43271,7 @@ declare class U3dApp extends U3dObject {
      * 지정한 지점을 바라보도록 카메라를 옮기고 방향과 거리까지 한 번에 맞춥니다.<br>
      * x, y, z는 카메라를 놓을 자리가 아니라 카메라가 바라볼 지점의 월드 좌표(EPSG:3857)이며, 카메라는 그 지점에서 targetZ만큼 떨어진 곳에 자리를 잡습니다.<br>
      * leftrotate와 downrotate는 그 지점을 기준으로 카메라가 어느 방향 어느 높이에 설지를 정합니다.<br>
-     * 이동은 곧바로 끝나지 않고 출발점과 도착점 사이를 한 번 솟아올랐다 내려오는 곡선을 그리며 durationTime 동안 진행합니다.<br>
+     * durationTime이 0이거나 카메라의 3차원 이동 거리가 월드 좌표 기준 1000 이하이면 첫 트윈 갱신에서 목적지로 이동하며, 그 밖에는 출발점과 도착점 사이를 한 번 솟아올랐다 내려오는 곡선으로 이동합니다.<br>
      * 호출하면 진행 중이던 카메라 이동과 2D·3D 시점 전환을 먼저 멈춥니다.<br>
      * 카메라나 지도 컨트롤러가 아직 만들어지지 않았으면 아무것도 하지 않고 promise가 reject를 반환하므로 실패 처리를 함께 연결하여 사용을 권장드립니다.
      *
@@ -42265,18 +43549,21 @@ declare class U3dApp extends U3dObject {
     changeUpdate(): void;
     /**
      * 생성된 모델 레이어들에게서 입력된 박스 영역의 모델 객체를 타일단위로 강제 로드 하는 함수
+     * 수집 전에 폐기된 타일은 표시하지 않으며, 후속 표시 예외는 정리 경로로 전달합니다.
      * 표시 자원 정리 실패도 수집하여 갱신 중지를 복원한 뒤 Promise를 거절합니다.
+     * 취소 신호가 전달되면 이 요청의 표시 자원과 리스너를 정리합니다.
      *
      * @param {boolean} visible 검색 영역 표시 여부
      * @param {number} minx box 영역의 min X 좌표 값 (월드 좌표)
      * @param {number} maxx box 영역의 max X 좌표 값 (월드 좌표)
      * @param {number} miny box 영역의 min Y 좌표 값 (월드 좌표)
      * @param {number} maxy box 영역의 max Y 좌표 값 (월드 좌표)
+     * @param {AbortSignal} [signal] 이 요청의 취소 신호
      * @returns {Promise<void> | undefined} 완료 또는 취소·정리 오류. 기존 작업 중에는 undefined
      * @throws {Error} 범위 오류, 내부 오류 또는 트리 교체·해제에 따른 취소
      * @ignore
      */
-    forceLoadModel(visible?: boolean, minx?: number, maxx?: number, miny?: number, maxy?: number): Promise<void> | undefined;
+    forceLoadModel(visible?: boolean, minx?: number, maxx?: number, miny?: number, maxy?: number, signal?: AbortSignal): Promise<void> | undefined;
     /**
      * 실내, 객체 내부 또는 자세한 카메라 조작을 지원하는 1인칭 컨트롤 변경 함수
      * @param {boolean} set 1인칭 컨트롤 활성 여부 [ true : 활성 / false : 비활성 ]
@@ -42474,6 +43761,7 @@ declare class U3dApp extends U3dObject {
     set3DMode(target?: null | WorldPositionVector3): Promise<void>;
     /**
      * U3dApp에 레이어를 추가하는 함수
+     *
      * @param {import('@union3d/3dLayer/U3dLayer').U3dLayer} layer 추가할 레이어 객체 (예: U3dImageXYZLayer, U3dHeightXYZLayer 등)
      * @returns {import('@union3d/3dLayer/U3dLayer').U3dLayer | undefined} 추가된 레이어 객체
      */
@@ -42601,13 +43889,13 @@ declare class U3dApp extends U3dObject {
      * @param {string} [option.uuid] 오버레이 ID
      * @param {boolean} [option.useanchor] 앵커 사용 여부
      * @param {Array<number>} [option.anchor] 앵커 위치
-     * @param {{x: number, y: number}} [option.balloon] 말풍선 꼭지점 위치
+     * @param {{ x: number; y: number; }} [option.balloon] 말풍선 꼭지점 위치
      * @returns {import('@U3dOverlay').U3dOverlay | undefined} 생성된 오버레이
      *
      * @example
-     * const overlay = app.createOverlay('<div>서울</div>', {
-     *     position: {x: 126.97, y: 37.56, z: 0}
-     * });
+const overlay = app.createOverlay('<div>서울</div>', {
+    position: {x: 126.97, y: 37.56, z: 0}
+});
      */
     createOverlay(html: string | HTMLElement, option: U3dOverlayCO): U3dOverlay | undefined;
     /**
@@ -42852,9 +44140,10 @@ declare class U3dApp extends U3dObject {
     getMouseToGeographic(event: U3dMouseEvent): GeoPosition;
     /**
      * 픽셀좌표(화면좌표)를 3D좌표로 변환하는 함수. <br>
-     * 교차 검색(intersect)를 통해 픽셀좌표(화면좌표)를 3D좌표로 변환한다.
+     * 교차 검색(intersect)를 통해 픽셀좌표(화면좌표)를 3D좌표로 변환합니다.
+     *
      * @param {import('@U3dMouseEvent').U3dMouseEvent} e GeOnDT 마우스 이벤트 객체
-     * @param {boolean} onlyTerrain 교차 검색 지형만 대상으로 할 것인지 여부. false면 씬에 추가된 모델까지 포함한다.
+     * @param {boolean} onlyTerrain 지형만 검색할지 여부(false이면 장면의 모델도 포함)
      * @param {boolean} recursive 교차 검색 시 자식 Object까지 포함할지 여부
      * @returns {WorldPosition} 3D좌표
      */
@@ -42906,6 +44195,7 @@ declare class U3dApp extends U3dObject {
     };
     /**
      * 카메라 줌, 패닝, 회전속도(factor)를 지면과의 거리에 따라 자동으로 변경하는 기능 사용여부 설정 함수
+     *
      * @param {boolean} [use=true] 기능 사용여부
      */
     setAutoSpeed(use?: boolean): void;
@@ -42929,8 +44219,8 @@ declare class U3dApp extends U3dObject {
      */
     syncCamera(app: U3dApp, reactiveOffset?: number): string | null | undefined;
     /**
-     * 건물 지우기 등록 함수
-     * 입력받은 데이터에 제거할 건물을 등록한다.
+     * 건물 지우기 등록 함수 입력받은 데이터에 제거할 건물을 등록합니다.
+     *
      * @param {Array<KeyValue> | KeyValue} data 건물 지우기 데이터 배열 또는 오브젝트 (Object 구성 {layer : 레이어이름, uid : 유니크아이디})
      */
     registerRemoveModel(data: Array<KeyValue> | KeyValue): void;
@@ -43563,8 +44853,8 @@ declare class OBJExporter {
 }
 
 declare class UImageWriter {
-    write(objects: any, isMergeSameImage: any, imageFlipY: any): Promise<unknown>;
-    textureToBlob(texture: any, imageFlipY: any): DeferredObject<unknown>;
+    write(objects: any, isMergeSameImage: any, imageFlipY: any): Promise<string | Blob[]>;
+    textureToBlob(texture: any, imageFlipY: any): DeferredPromise<Blob>;
 }
 
 /**
@@ -43718,6 +45008,7 @@ declare class UMeshWriter {
         rotation: three.Vector3;
         scale: three.Vector3;
     }): Promise<UMeshWriterResult>;
+    _arrayBuffer: ArrayBuffer;
     dataToString(data: any): string;
 }
 
@@ -43748,7 +45039,7 @@ declare class UMeshParser {
      * @param onerror {function} 파싱 오류 시 호출되는 함수
      */
     load(path: string, onload: Function, onerror: Function): void;
-    loadResources(path: any, resources: any): Promise<unknown[]>;
+    loadResources(path: any, resources: any): Promise<three.Texture<any, three.TextureEventMap>[]>;
     /**
      * umesh 파일을 입력 받아 파싱하는 함수
      * @param files {FileList | File}  umesh 파일 배열
@@ -43841,7 +45132,7 @@ declare class UGLTFLoader extends UGLTFLoader_base {
     } | {
         ready: Promise<void>;
         supported: boolean;
-        useWorkers: (count: any) => void;
+        useWorkers: (count?: number) => void;
         decodeVertexBuffer: (target: any, count: any, size: any, source: any, filter: any) => void;
         decodeIndexBuffer: (target: any, count: any, size: any, source: any) => void;
         decodeIndexSequence: (target: any, count: any, size: any, source: any) => void;
@@ -43850,6 +45141,8 @@ declare class UGLTFLoader extends UGLTFLoader_base {
     };
     load(url: any, onLoad: any, onProgress: any, onError: any): void;
     /**
+     * 원본 데이터 준비부터 장면 후처리까지의 실패를 같은 오류 콜백으로 전달합니다.
+     *
      * @param {string|ArrayBuffer|object} data glTF/GLB 원본 데이터. b3dm 내부 GLB는 원본 b3dm 버퍼가 그대로 들어올 수 있다.
      * @param {string} path 외부 리소스 기준 경로
      * @param {Function} onLoad 파싱 완료 콜백
@@ -43857,12 +45150,13 @@ declare class UGLTFLoader extends UGLTFLoader_base {
      * @param {object | null} layer 기존 호출 호환용 레이어 인자. 레이어 없이 파싱하면 null을 전달합니다.
      * @param {number} [byteOffset=0] data가 ArrayBuffer일 때 GLB/glTF가 시작되는 위치
      * @param {number} [byteLength] data 안에서 파싱할 GLB/glTF 길이
-     * @param {{skipAnimations?: boolean, skipCameras?: boolean}} [parseOptions] 3D Tiles처럼 animation/camera 결과를 쓰지 않는 경로의 선택 최적화 옵션
+     * @param {Partial<{skipAnimations: boolean, skipCameras: boolean}>} [parseOptions] 3D Tiles처럼 animation/camera 결과를 쓰지 않는 경로의 선택 최적화 옵션
+     * @returns {Promise<void>} 완료 콜백 또는 오류 콜백 처리까지 기다리는 Promise. 오류 콜백이 없으면 원래 오류로 거부됩니다.
      */
-    parse(data: string | ArrayBuffer | object, path: string, onLoad: Function, onError: Function, layer: object | null, byteOffset?: number, byteLength?: number, parseOptions?: {
-        skipAnimations?: boolean;
-        skipCameras?: boolean;
-    }): Promise<void>;
+    parse(data: string | ArrayBuffer | object, path: string, onLoad: Function, onError: Function, layer: object | null, byteOffset?: number, byteLength?: number, parseOptions?: Partial<{
+        skipAnimations: boolean;
+        skipCameras: boolean;
+    }>): Promise<void>;
     setDracoDecodePath(path: any): void;
     setWorkerLimit(limit: any): void;
     dispose(): void;
@@ -43922,6 +45216,666 @@ declare class FBXLoader extends Loader<any, string> {
 
 declare class UFBXLoader extends FBXLoader {
     constructor(manager?: three.LoadingManager);
+}
+
+/**
+ * Autodesk 3DS three.js file loader, based on lib3ds.
+ *
+ * Loads geometry with uv and materials basic properties with texture support.
+ *
+ * @class TDSLoader
+ * @constructor
+ * @extends {Loader<Group>}
+ */
+declare class TDSLoader extends Loader<Group<three.Object3DEventMap>, string> {
+    /** @param {import('three').LoadingManager} [manager] */
+    constructor(manager?: three.LoadingManager);
+    debug: boolean;
+    group: Group<three.Object3DEventMap>;
+    materials: any[];
+    meshes: any[];
+    /**
+     * Parse arraybuffer data and load 3ds file.
+     *
+     * @method parse
+     * @param {ArrayBuffer} arraybuffer Arraybuffer data to be loaded.
+     * @param {String} path Path for external resources.
+     * @return {Group} Group loaded from 3ds file.
+     */
+    parse(arraybuffer: ArrayBuffer, path: string): Group;
+    /**
+     * Decode file content to read 3ds data.
+     *
+     * @method readFile
+     * @param {ArrayBuffer} arraybuffer Arraybuffer data to be loaded.
+     * @param {String} path Path for external resources.
+     */
+    readFile(arraybuffer: ArrayBuffer, path: string): void;
+    /**
+     * Read mesh data chunk.
+     *
+     * @method readMeshData
+     * @param {Chunk} chunk to read mesh from
+     * @param {String} path Path for external resources.
+     */
+    readMeshData(chunk: Chunk, path: string): void;
+    /**
+     * Read named object chunk.
+     *
+     * @method readNamedObject
+     * @param {Chunk} chunk Chunk in use.
+     */
+    readNamedObject(chunk: Chunk): void;
+    /**
+     * Read material data chunk and add it to the material list.
+     *
+     * @method readMaterialEntry
+     * @param {Chunk} chunk Chunk in use.
+     * @param {String} path Path for external resources.
+     */
+    readMaterialEntry(chunk: Chunk, path: string): void;
+    /**
+     * Read mesh data chunk.
+     *
+     * @method readMesh
+     * @param {Chunk} chunk Chunk in use.
+     * @return {Mesh} The parsed mesh.
+     */
+    readMesh(chunk: Chunk): Mesh;
+    /**
+     * Read face array data chunk.
+     *
+     * @method readFaceArray
+     * @param {Chunk} chunk Chunk in use.
+     * @param {Mesh} mesh Mesh to be filled with the data read.
+     */
+    readFaceArray(chunk: Chunk, mesh: Mesh): void;
+    /**
+     * Read texture map data chunk.
+     *
+     * @method readMap
+     * @param {Chunk} chunk Chunk in use.
+     * @param {String} path Path for external resources.
+     * @return {import('three').Texture} Texture read from this data chunk.
+     */
+    readMap(chunk: Chunk, path: string): three.Texture;
+    /**
+     * Read material group data chunk.
+     *
+     * @method readMaterialGroup
+     * @param {Chunk} chunk Chunk in use.
+     * @return {{name: string, index: number[]}} Material name and face indices.
+     */
+    readMaterialGroup(chunk: Chunk): {
+        name: string;
+        index: number[];
+    };
+    /**
+     * Read a color value.
+     *
+     * @method readColor
+     * @param {Chunk} chunk Chunk.
+     * @return {Color} Color value read..
+     */
+    readColor(chunk: Chunk): Color;
+    /**
+     * Read percentage value.
+     *
+     * @method readPercentage
+     * @param {Chunk} chunk Chunk to read data from.
+     * @return {Number} Data read from the dataview.
+     */
+    readPercentage(chunk: Chunk): number;
+    /**
+     * Print debug message to the console.
+     *
+     * Is controlled by a flag to show or hide debug messages.
+     *
+     * @method debugMessage
+     * @param {Object} message Debug message to print to the console.
+     */
+    debugMessage(message: any): void;
+}
+/** Read data/sub-chunks from chunk */
+declare class Chunk {
+    /**
+     * Create a new chunk
+     *
+     * @class Chunk
+     * @param {DataView} data DataView to read from.
+     * @param {Number} position in data.
+     * @param {Function} debugMessage logging callback.
+     */
+    constructor(data: DataView, position: number, debugMessage: Function);
+    data: DataView<ArrayBufferLike>;
+    offset: number;
+    position: number;
+    debugMessage: () => void;
+    id: number;
+    size: number;
+    end: number;
+    /**
+     * read a sub cchunk.
+     *
+     * @method readChunk
+     * @return {Chunk | null} next sub chunk
+     */
+    readChunk(): Chunk | null;
+    /**
+     * return the ID of this chunk as Hex
+     *
+     * @method idToString
+     * @return {String} hex-string of id
+     */
+    get hexId(): string;
+    get endOfChunk(): boolean;
+    /**
+     * Read byte value.
+     *
+     * @method readByte
+     * @return {Number} Data read from the dataview.
+     */
+    readByte(): number;
+    /**
+     * Read 32 bit float value.
+     *
+     * @method readFloat
+     * @return {Number} Data read from the dataview.
+     */
+    readFloat(): number;
+    /**
+     * Read 32 bit signed integer value.
+     *
+     * @method readInt
+     * @return {Number} Data read from the dataview.
+     */
+    readInt(): number;
+    /**
+     * Read 16 bit signed integer value.
+     *
+     * @method readShort
+     * @return {Number} Data read from the dataview.
+     */
+    readShort(): number;
+    /**
+     * Read 64 bit unsigned integer value.
+     *
+     * @method readDWord
+     * @return {Number} Data read from the dataview.
+     */
+    readDWord(): number;
+    /**
+     * Read 32 bit unsigned integer value.
+     *
+     * @method readWord
+     * @return {Number} Data read from the dataview.
+     */
+    readWord(): number;
+    /**
+     * Read NULL terminated ASCII string value from chunk-pos.
+     *
+     * @method readString
+     * @return {String} Data read from the dataview.
+     */
+    readString(): string;
+}
+
+/**
+ * ~extends import('@union3d/lib/three/loaders/TDSLoader').TDSLoader <br>
+ *
+ * 3DS(Autodesk 3D Studio) 파일을 읽어 `UGroup` 아래 `UMesh` 목록으로 만드는 로더입니다. <br>
+ * Three.js `TDSLoader`를 상속하고 청크 파싱을 직접 구현하여 다음을 지원합니다.
+ * 부모와 같은 Chunk 인자·반환값으로 읽기 메서드를 오버라이드하며 색상·백분율·재질 그룹 읽기는 부모 구현을 재사용합니다.
+ * - keyframe 데이터(KFDATA)의 PIVOT·POS/ROT/SCL_TRACK을 읽어 프레임 0 값으로 각 mesh의 position·quaternion·scale을 설정합니다.
+ * - 정점·MESH_MATRIX·keyframe 값을 모두 3DS 원좌표(Z-up) 그대로 사용합니다. 축 교환은 하지 않으므로 결과는 Z가 높이인 장면에 바로 놓을 수 있습니다.
+ * - 재질 그룹(MSH_MAT_GROUP)이 여러 개인 객체는 그룹별로 `UMesh`를 나눕니다.
+ * - 재질 텍스처를 파싱 뒤 비동기로 내려받으며, `load()`의 완료 콜백은 텍스처까지 준비된 뒤 호출됩니다.
+ * - 외부 메타데이터(`updateMetaData`)로 mesh 위치 오프셋을 적용할 수 있습니다.
+ *
+ * 인스턴스는 한 파일 파싱 상태(`meshes`, `materials`, `nodes` 등)를 프로퍼티로 유지하므로 파일마다 새로 만들어 사용하십시오.
+ *
+ * @group core
+ * @extends {TDSLoader}
+ */
+declare class UTDSLoader extends TDSLoader {
+    /**
+     * 로더를 생성합니다. `opt`는 생략할 수 없으며(`opt.drawarg`를 바로 읽음) 각 옵션의 기본값은 `UTDSLoaderCO`를 참고하십시오.
+     *
+     * @param {import('three').LoadingManager | undefined} manager 파일·텍스처 요청을 추적할 Three.js 로딩 매니저. 생략하면 `THREE.DefaultLoadingManager`
+     * @param {UTDSLoaderCO} opt 생성 옵션
+     */
+    constructor(manager: three.LoadingManager | undefined, opt: UTDSLoaderCO);
+    /**
+     * 키프레임 전용 DataView 파서의 읽기 위치(파일 시작 기준 바이트 오프셋). 메시 파서는 각 Chunk의 독립적인 커서를 사용합니다.
+     *
+     * @type {number}
+     */
+    position: number;
+    /**
+     * keyframe 노드 맵. 키는 노드가 가리키는 객체 이름(NAMED_OBJECT 이름)이며 `$$$DUMMY` 노드는 담지 않습니다.
+     * 같은 객체를 참조하는 노드가 여러 개면 마지막 노드만 남습니다.
+     *
+     * @type {Record<string, UTDSNode>}
+     */
+    nodes: Record<string, UTDSNode>;
+    /**
+     * 객체 이름 → 그 객체에서 만들어진 mesh 목록. `readFile`이 keyframe 노드를 mesh에 적용할 때 이 맵으로 짝을 찾습니다.
+     *
+     * @type {Record<string, Array<import('@UMesh').UMesh>>}
+     */
+    nodesMeshPair: Record<string, Array<UMesh>>;
+    /**
+     * 원본 메시와 재질 그룹별 분할 메시 목록을 연결합니다. `readMesh()`는 원본 메시 하나를 반환하고 `readNamedObject()`가 전체 목록을 등록합니다.
+     *
+     * @type {WeakMap<import('three').Mesh, Array<import('@UMesh').UMesh>>}
+     */
+    _meshParts: WeakMap<three.Mesh, Array<UMesh>>;
+    /**
+     * 생성 옵션 `loadtype`의 보관 값. 기본 `'XYZ'`. 현재 파싱 동작을 바꾸지 않습니다.
+     *
+     * @type {string}
+     */
+    loadtype: string;
+    /**
+     * `true`면 `readFile` 끝에서 재질이 참조하는 텍스처 이미지를 내려받아 연결합니다. 생성 옵션 `needtexture`, 기본 `true`.
+     *
+     * @type {boolean}
+     */
+    needTexture: boolean;
+    /**
+     * 텍스처 연결 뒤 화면 갱신에 사용할 컨텍스트입니다. 없으면 갱신 호출을 생략합니다.
+     *
+     * @type {import('@UDrawArg').UDrawArg | undefined}
+     */
+    drawArg: UDrawArg | undefined;
+    /**
+     * 재질에 적용할 렌더 면(생성 옵션 `side`). 재질 청크마다 복제되는 기본 재질의 `side`가 되며, 파일의 양면 플래그가 있으면 `DoubleSide`로 덮어씁니다.
+     *
+     * @type {import('three').Side | undefined}
+     */
+    side: three.Side | undefined;
+    /**
+     * 지정되어 있으면 파일의 재질 색상을 무시하고 모든 재질에 적용하는 색(생성 옵션 `color`).
+     *
+     * @type {ColorLike | undefined}
+     */
+    color: ColorLike | undefined;
+    /**
+     * 재질 청크마다 `clone()`되어 각 재질의 바탕이 되는 기본 재질. 회색(`0xc0c0c0`) `MeshStandardMaterial`이며 `UDEF.settingModelLayerMaterial`이 모델 레이어 공통 설정을 적용합니다.
+     * 재질 그룹으로 분할된 mesh와 재질 정보가 없는 mesh는 이 재질을 그대로 공유합니다.
+     *
+     * @type {import('three').MeshStandardMaterial}
+     */
+    _defaultMaterial: three.MeshStandardMaterial;
+    /**
+     * `true`면 원점 중앙화를 생략합니다(생성 옵션 `needXml`, 기본 `false`). `readFile`의 좌표 처리 설명을 참고하십시오.
+     *
+     * @type {boolean}
+     */
+    needXml: boolean;
+    /**
+     * 마지막 parse()가 시작한 텍스처 준비를 기다리는 Promise입니다. 파싱 전에는 완료 상태이며, parse() 후에는 await loader.ready로 기다립니다.
+     *
+     * @type {Promise<void>}
+     */
+    ready: Promise<void>;
+    /**
+     * 네이티브 Promise로 3DS 파일을 읽고 `UGroup` 결과를 반환합니다.
+     * `load()`가 반환하는 Promise를 사용하여 파싱·텍스처 준비·오류를 동일한 경로로 처리합니다.
+     *
+     * @override
+     *
+     * @param {string} url 내려받을 3DS 파일 경로
+     * @param {(event: ProgressEvent) => void} [onProgress] 파일 다운로드 진행 콜백
+     * @returns {Promise<import('@UGroup').UGroup>} 파싱과 텍스처 준비를 마친 결과 그룹
+     */
+    override loadAsync(url: string, onProgress?: (event: ProgressEvent) => void): Promise<UGroup>;
+    /**
+     * keyframe 노드를 외부에 전달할 수 있는 평범한 객체(`UTDSNodeInfo`)로 바꿉니다.
+     * 트랙 배열은 복사하지 않고 같은 참조를 넣으므로 반환 객체를 수정하면 노드 내부 트랙도 바뀝니다.
+     *
+     * @param {UTDSNode} node 직렬화할 노드
+     * @returns {UTDSNodeInfo} 노드 정보 객체
+     *
+     * @ignore
+     */
+    serializeNode(node: UTDSNode): UTDSNodeInfo;
+    /**
+     * keyframe 노드의 프레임 0 값으로 mesh의 position·quaternion·scale을 설정합니다.
+     * `readMesh`가 MESH_MATRIX에서 분해해 넣어 둔 transform을 **덮어쓰며**, 노드에 없는 항목(`InvalidValue`)은 건드리지 않습니다.
+     * 값은 3DS 원좌표 그대로이고 `mesh.userData.tds.node`에 `UTDSNodeInfo`를 기록한 뒤 `updateMatrix()`를 호출합니다.
+     * pivot 이동은 여기서 하지 않으며 호출 전에 `readFile`이 지오메트리에 적용합니다.
+     *
+     * @param {import('@UMesh').UMesh} mesh transform을 설정할 대상 mesh
+     * @param {UTDSNode} node 적용할 노드
+     *
+     * @ignore
+     */
+    applyNodeTransform(mesh: UMesh, node: UTDSNode): void;
+    /**
+     * 3DS 파일을 내려받아 파싱하고, 재질 텍스처까지 준비된 뒤 완료 콜백을 호출합니다. <br>
+     * 파일 경로는 `setPath()`로 지정한 경로를 앞에 붙여 해석하고, 텍스처는 `setResourcePath()`(없으면 `setPath()`) 경로에서 찾습니다.
+     * `onLoad`는 파싱 직후가 아니라 `needTexture`에 따른 텍스처 로딩이 모두 끝난 뒤(`ready` Promise 완료) 한 번 호출됩니다.
+     * 반환 프로미스도 같은 시점에 결과 그룹으로 이행되며, 파일 요청이나 파싱이 실패하면 `onError`가 호출되고 프로미스는 거부됩니다.
+     *
+     * @override
+     *
+     * @param {string} url 내려받을 3DS 파일 경로. `setPath()` 값에 이어 붙여집니다
+     * @param {(group: import('@UGroup').UGroup) => void} [onLoad] 완료 콜백. 인자는 `parse()` 결과 그룹
+     * @param {(event: ProgressEvent) => void} [onProgress] 파일 다운로드 진행 콜백. 텍스처 진행은 전달되지 않습니다
+     * @param {(error: unknown) => void} [onError] 파일 요청·파싱 실패 콜백
+     * @returns {Promise<import('@UGroup').UGroup>} 완료 시 결과 그룹으로 이행되는 프로미스
+     */
+    override load(url: string, onLoad?: (group: UGroup) => void, onProgress?: (event: ProgressEvent) => void, onError?: (error: unknown) => void): Promise<UGroup>;
+    /**
+     * keyframe 노드 참조(`nodes`, `nodesMeshPair`)를 비워 파싱 중간 데이터를 해제합니다.
+     * 결과 그룹·mesh·재질은 호출자가 소유하므로 해제하지 않으며 `group`, `meshes`, `materials`는 그대로 남습니다.
+     * `load()` 완료 콜백 안에서 호출하는 것을 전제로 합니다.
+     */
+    dispose(): void;
+    /**
+     * 메모리에 있는 3DS 바이너리를 파싱해 mesh들이 담긴 `UGroup`을 만듭니다. <br>
+     * 호출 시 `group`, `materials`, `meshes`, `nodes`, `nodesMeshPair`를 모두 새로 초기화하므로 이전 파싱 결과와의 연결은 끊어집니다.
+     * 결과 그룹에는 `userData.tdsNodes`(모든 keyframe 노드의 `UTDSNodeInfo` 배열)와
+     * 외부 메타데이터 적용용 `_updateMetaDataFn.update`(= `updateMetaData`)가 붙습니다.
+     * 이 메서드는 동기적으로 반환하지만 텍스처 이미지는 이후 비동기로 채워지므로, 텍스처가 필요하면 `load()`를 사용하거나 `await loader.ready`로 텍스처 준비를 기다리십시오.
+     *
+     * @override
+     *
+     * @param {ArrayBuffer} arraybuffer 3DS 파일 전체 바이너리
+     * @param {string} path 하위 파서에 전달되는 경로 인자. 현재 구현은 사용하지 않으며 텍스처 경로는 `setResourcePath()`/`setPath()` 값을 따릅니다
+     * @returns {import('@UGroup').UGroup} `meshes` 순서대로 mesh가 추가된 새 그룹. 좌표는 3DS 원좌표(Z-up)
+     */
+    override parse(arraybuffer: ArrayBuffer, path: string): UGroup;
+    /**
+     * keyframe 데이터 청크(KFDATA, `0xB000`)를 읽어 하위 객체 노드를 `nodes`에 채웁니다. 카메라·라이트 노드는 무시합니다.
+     * 호출 시 읽기 위치가 KFDATA 헤더 시작에 있어야 하며, 끝나면 청크 끝으로 이동합니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @param {string} path 사용하지 않는 인자(상위 호출 형식 유지용)
+     *
+     * @ignore
+     */
+    readKeyFrameData(data: DataView, path: string): void;
+    /**
+     * 부모 청크 안의 다음 하위 청크 헤더를 읽고 부모의 커서(`cur`)를 그 하위 청크 끝으로 전진시킵니다.
+     * 읽기 위치는 하위 청크의 본문 시작(헤더 직후)에 놓이므로 이어서 본문을 읽을 수 있습니다.
+     * 부모 범위를 다 읽었거나 헤더가 손상(크기 6 미만, 부모 범위 초과)되어 더 진행할 수 없으면 `undefined`를 돌려 순회를 끝냅니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @param {UTDSChunk} parentID 순회 중인 부모 청크. `cur`가 갱신됩니다
+     * @returns {UTDSChunk | undefined} 다음 하위 청크. 더 없거나 손상되면 `undefined`
+     *
+     * @ignore
+     */
+    readChildChunk(data: DataView, parentID: UTDSChunk): UTDSChunk | undefined;
+    /**
+     * KFDATA의 하위 청크를 순회하며 객체 노드(OBJECT_NODE_TAG, `0xB002`)만 `readObjectNode`로 읽습니다. 나머지 청크는 건너뜁니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @param {UTDSChunk} mainID KFDATA 청크
+     *
+     * @ignore
+     */
+    readKeyFrameSub(data: DataView, mainID: UTDSChunk): void;
+    /**
+     * 객체 노드 청크 하나를 읽어 `UTDSNode`를 만들고 객체 이름을 키로 `nodes`에 넣습니다. <br>
+     * NODE_ID, NODE_HDR(객체 이름·부모 ID), PIVOT, INSTANCE_NAME, POS/ROT/SCL_TRACK_TAG를 인식하며,
+     * 트랙은 `readTrack`으로 전체를 읽되 프레임 0(첫 키) 값만 노드의 위치·회전·스케일 필드에 복사합니다.
+     * 이름이 `$$$DUMMY`인 노드와 이름 없는 노드는 `nodes`에 넣지 않습니다. 부모 ID는 보관만 하며 계층 transform은 적용하지 않습니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @param {UTDSChunk} nodeChunk OBJECT_NODE_TAG 청크
+     *
+     * @ignore
+     */
+    readObjectNode(data: DataView, nodeChunk: UTDSChunk): void;
+    /**
+     * keyframe 트랙 청크(POS/ROT/SCL_TRACK_TAG)를 읽어 키 배열로 돌려줍니다. <br>
+     * 헤더(flags 2바이트, 미사용 8바이트, 키 개수 4바이트) 뒤에 키가 이어지며, 각 키는 프레임 번호·스플라인 플래그·플래그에 따른 보간 값·`valueCount`개의 float 값으로 이루어집니다.
+     * 청크 범위를 벗어나면 그 지점에서 읽기를 멈추므로 손상된 파일에서는 키 개수가 헤더보다 적을 수 있습니다.
+     * 반환 배열에는 `trackFlags`, `unknown` 프로퍼티가 함께 붙습니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @param {UTDSChunk} trackChunk 읽을 트랙 청크
+     * @param {number} valueCount 키 하나의 값 개수. 위치·스케일은 3, 회전은 4(각도 + 축)
+     * @returns {UTDSTrack} 키 배열. 헤더가 들어갈 공간이 없으면 빈 배열
+     *
+     * @ignore
+     */
+    readTrack(data: DataView, trackChunk: UTDSChunk, valueCount: number): UTDSTrack;
+    /**
+     * 재질의 한 텍스처 슬롯에 이미지 파일을 내려받아 연결합니다. <br>
+     * `readMap`이 만든 자리표시 텍스처의 offset·repeat를 새 텍스처로 옮기고, 반복 래핑·밉맵 필터·색공간(`map`은 그림자 인코딩, 그 외는 `NoColorSpace`)을 설정한 뒤 `material[slotKey]`를 교체합니다.
+     * `alphaMap` 슬롯이면 `material.alphaTest`를 0.5로 둡니다. 경로는 `resourcePath`(없으면 `path`)를 기준으로 합니다.
+     * 이미지 요청이 실패해도 프로미스는 `false`로 **이행**되며, 인자가 부적절하거나 슬롯에 이미 이미지가 있으면 `false`로 거부됩니다.
+     *
+     * @param {string} name 이미지 파일 이름(3DS MAT_MAPNAME 값)
+     * @param {import('three').Material} material 텍스처를 넣을 재질
+     * @param {string} [slotKey='map'] 재질의 텍스처 슬롯 이름(`map`, `bumpMap`, `alphaMap`, `specularMap`, `normalMap`)
+     * @returns {Promise<boolean>} 연결 성공이면 `true`, 요청 실패면 `false`로 이행. 전제조건 위반이면 `false`로 거부
+     *
+     * @ignore
+     */
+    loadTexture(name: string, material: three.Material, slotKey?: string): Promise<boolean>;
+    /**
+     * Chunk에서 정점·면·UV·MESH_MATRIX를 읽어 원본 UMesh 하나를 반환합니다. 재질별 분할 메시 목록은 _meshParts에 보관하며, 행렬과 좌표 보정은 모든 분할 메시에도 적용합니다.
+     *
+     * @override
+     *
+     * @param {import('@union3d/lib/three/loaders/TDSLoader').Chunk} chunk 읽을 청크. 커서는 본문 시작을 가리킵니다
+     * @returns {import('@UMesh').UMesh} 원본 메시. 재질별 분할 메시는 readNamedObject()에서 함께 등록합니다
+     *
+     * @ignore
+     */
+    override readMesh(chunk: Chunk): UMesh;
+    /**
+     * 원본 지오메트리에서 주어진 정점 인덱스에 해당하는 정점·UV만 복사한 새 지오메트리를 만듭니다. 재질 그룹별 mesh 분할에 사용됩니다.
+     * 인덱스 순서대로 정점을 펼쳐 담으므로 결과 지오메트리의 인덱스는 0부터 순번이 됩니다. 원본은 바꾸지 않습니다.
+     *
+     * @param {import('three').BufferGeometry} refgeometry 원본 지오메트리(`position`, 선택적으로 `uv` 속성 필요)
+     * @param {Array<number>} refindice 복사할 정점 인덱스 목록(면 하나당 3개)
+     * @returns {import('three').BufferGeometry | undefined} 새 지오메트리. 인자가 없으면 `undefined`
+     *
+     * @ignore
+     */
+    makeGeometryFromIndice(refgeometry: three.BufferGeometry, refindice: Array<number>): three.BufferGeometry | undefined;
+    /**
+     * 현재 읽기 위치에서 청크 헤더(ID 2바이트 + 크기 4바이트)를 읽어 청크 커서를 만듭니다. 읽기 위치는 헤더 직후(본문 시작)로 6바이트 전진합니다.
+     * 파일 끝이라 헤더를 읽을 수 없으면 `null`을 돌려줍니다. 크기 값의 유효성은 검사하지 않으므로 호출자가 `size < 6`을 확인해야 합니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @returns {UTDSChunk | null} 새 청크 커서. 파일 끝이면 `null`
+     *
+     * @ignore
+     */
+    readChunk(data: DataView): UTDSChunk | null;
+    /**
+     * 모든 값이 0인 빈 청크 커서를 만듭니다. 현재 파싱 흐름에서는 사용되지 않습니다.
+     *
+     * @returns {UTDSChunk} 새 빈 청크 커서
+     *
+     * @ignore
+     */
+    newChunk(): UTDSChunk;
+    /**
+     * 읽기 위치를 주어진 청크의 끝으로 옮겨 남은 본문·하위 청크를 건너뜁니다.
+     *
+     * @param {UTDSChunk} chunk 건너뛸 청크
+     *
+     * @ignore
+     */
+    endChunk(chunk: UTDSChunk): void;
+    /**
+     * 부모 청크 안의 다음 하위 청크 헤더를 읽고 그 ID를 돌려줍니다. 부모의 커서(`cur`)는 하위 청크 끝으로 전진하고 읽기 위치는 하위 청크 본문 시작에 놓입니다.
+     * 부모 범위를 다 읽었거나 헤더가 손상(크기 6 미만)되었으면 0을 돌려 `while (next !== 0)` 순회를 끝냅니다.
+     * 본문 대신 청크 전체를 다시 읽어야 하는 하위 함수에 넘길 때는 먼저 `resetPosition()`으로 헤더 시작까지 되돌리십시오.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @param {UTDSChunk} chunk 순회 중인 부모 청크. `cur`가 갱신됩니다
+     * @returns {number} 다음 하위 청크의 ID. 더 없거나 손상되면 0
+     *
+     * @ignore
+     */
+    nextChunk(data: DataView, chunk: UTDSChunk): number;
+    /**
+     * 키프레임 전용 DataView 파서의 읽기 위치를 청크 헤더 길이인 6바이트만큼 되돌립니다.
+     *
+     * @ignore
+     */
+    resetPosition(): void;
+    /**
+     * 읽기 위치를 주어진 바이트만큼 앞으로 건너뜁니다.
+     *
+     * @param {number} length 건너뛸 바이트 수
+     *
+     * @ignore
+     */
+    skipPosition(length: number): void;
+    /**
+     * 부호 없는 8비트 정수 1바이트를 읽습니다. 현재 읽기 위치에서 리틀 엔디언으로 읽고 위치를 그만큼 전진시킵니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @returns {number} 0~255 정수
+     *
+     * @ignore
+     */
+    readByte(data: DataView): number;
+    /**
+     * 32비트 부동소수(4바이트)를 읽습니다. 현재 읽기 위치에서 리틀 엔디언으로 읽고 위치를 그만큼 전진시킵니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @returns {number} 읽은 실수 값
+     *
+     * @ignore
+     */
+    readFloat(data: DataView): number;
+    /**
+     * 부호 있는 32비트 정수(4바이트)를 읽습니다. 현재 읽기 위치에서 리틀 엔디언으로 읽고 위치를 그만큼 전진시킵니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @returns {number} 읽은 정수 값
+     *
+     * @ignore
+     */
+    readInt(data: DataView): number;
+    /**
+     * 부호 있는 16비트 정수(2바이트)를 읽습니다. 노드 ID·부모 ID처럼 `-1`이 올 수 있는 값에 사용합니다. 현재 읽기 위치에서 리틀 엔디언으로 읽고 위치를 그만큼 전진시킵니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @returns {number} -32768~32767 정수
+     *
+     * @ignore
+     */
+    readShort(data: DataView): number;
+    /**
+     * 부호 없는 32비트 정수(4바이트, 3DS의 DWORD)를 읽습니다. 청크 크기·키 개수·프레임 번호에 사용합니다. 현재 읽기 위치에서 리틀 엔디언으로 읽고 위치를 그만큼 전진시킵니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @returns {number} 0 이상 정수
+     *
+     * @ignore
+     */
+    readDWord(data: DataView): number;
+    /**
+     * 부호 없는 16비트 정수(2바이트, 3DS의 WORD)를 읽습니다. 청크 ID·정점 개수·면 인덱스에 사용합니다. 현재 읽기 위치에서 리틀 엔디언으로 읽고 위치를 그만큼 전진시킵니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @returns {number} 0~65535 정수
+     *
+     * @ignore
+     */
+    readWord(data: DataView): number;
+    /**
+     * NUL(0)로 끝나는 문자열을 읽습니다. NUL을 만나면 그 바이트까지 소비하고 멈추며, `maxLength`바이트 안에 NUL이 없으면 그만큼만 읽습니다.
+     * 각 바이트를 문자 코드로 그대로 변환하므로 ASCII 이름을 전제로 합니다.
+     *
+     * @param {DataView} data 파일 전체를 감싼 DataView
+     * @param {number} maxLength 최대로 읽을 바이트 수(NUL 포함)
+     * @returns {string} 읽은 문자열(NUL 제외)
+     *
+     * @ignore
+     */
+    readString(data: DataView, maxLength: number): string;
+    /**
+     * 3DS 파일을 찾을 기준 경로를 지정합니다. `load(url)`은 이 경로에 `url`을 이어 붙여 요청하며, `setResourcePath()`가 없으면 텍스처도 이 경로에서 찾습니다.
+     *
+     * @override
+     *
+     * @param {string} path 기준 경로. 디렉터리 구분자로 끝나는 URL 또는 경로
+     * @returns {this} 체이닝을 위한 로더 자신
+     */
+    override setPath(path: string): this;
+    /**
+     * 텍스처 이미지를 찾을 기준 경로를 지정합니다. 지정하면 `loadTexture`가 `setPath()` 경로 대신 이 경로를 사용합니다.
+     *
+     * @override
+     *
+     * @param {string} resourcePath 텍스처 기준 경로. 디렉터리 구분자로 끝나는 URL 또는 경로
+     * @returns {this} 체이닝을 위한 로더 자신
+     */
+    override setResourcePath(resourcePath: string): this;
+    /**
+     * 텍스처 이미지 요청에 사용할 CORS 설정을 지정합니다. `TextureLoader.setCrossOrigin`에 그대로 전달됩니다.
+     *
+     * @override
+     *
+     * @param {string} crossOrigin `'anonymous'` 또는 `'use-credentials'`
+     * @returns {this} 체이닝을 위한 로더 자신
+     */
+    override setCrossOrigin(crossOrigin: string): this;
+    /**
+     * `debug` 프로퍼티가 `true`일 때만 메시지를 `console.log`로 출력합니다. 파싱 중 청크 이름과 값 추적에 사용합니다.
+     *
+     * @override
+     *
+     * @param {string | undefined} message 출력할 메시지. 알 수 없는 청크 ID면 `undefined`가 올 수 있습니다
+     *
+     * @ignore
+     */
+    override debugMessage(message: string | undefined): void;
+    /**
+     * 외부 메타데이터(JSON)의 위치 오프셋을 mesh에 적용합니다. 결과 그룹의 `_updateMetaDataFn.update`로 노출되어 모델 레이어가 mesh마다 호출합니다. <br>
+     * 호출 전 레이어가 로더에 `_metaDataObject`(파싱된 메타데이터 JSON), `_fileName`, `_useOffset`을 넣어 두어야 하며, 없으면 예외를 잡아 콘솔에 남기고 아무것도 바꾸지 않습니다.
+     * mesh의 재질 이름(`_uMemoryMaterialName` 또는 `material.name`)으로 `files[파일명].objects[재질명]` 항목을 찾아 `mesh._metaDataObject`에 넣고,
+     * 파일·그룹·객체 단계의 `position_offset`(또는 `layer._positionOffsetName`)을 모두 더한 값을 원래 위치(`mesh._oriPosition`, 첫 호출 때 보관)에 더해 `mesh.position`을 설정합니다.
+     * `_useOffset`이 거짓이거나 오프셋 항목이 하나도 없으면 위치를 바꾸지 않습니다. `group._groupMetaData`에는 파일 메타데이터가 기록됩니다.
+     *
+     * @param {import('@UMesh').UMesh} mesh 오프셋을 적용할 mesh. `THREE.Mesh`가 아니거나 지오메트리·재질 이름이 없으면 무시
+     * @param {import('@union3d/3dLayer/U3dModelBasicLayer').U3dModelBasicLayer} layer 호출한 모델 레이어. `_metaDataObject`, `_positionOffsetName`을 읽습니다
+     */
+    updateMetaData(mesh: UMesh, layer: U3dModelBasicLayer): void;
+}
+
+/**
+ * 3DS keyframe 데이터(KFDATA)의 객체 노드(OBJECT_NODE_TAG) 하나를 담는 내부 컨테이너입니다.
+ * `readObjectNode`가 채우고 `UTDSLoader#nodes`에 객체 이름을 키로 보관합니다. 값은 모두 3DS 원좌표(Z-up)이며
+ * 트랙이 없는 항목은 `InvalidValue`(-9999)로 남습니다. 외부에는 `serializeNode`가 만든 `UTDSNodeInfo` 형태로 전달됩니다.
+ *
+ * @ignore
+ */
+declare class UTDSNode {
+    _nodeID: number;
+    _instanceName: string;
+    _objectName: string;
+    _hierarchyValue: number;
+    _posX: number;
+    _posY: number;
+    _posZ: number;
+    _rotAxisX: number;
+    _rotAxisY: number;
+    _rotAxisZ: number;
+    _rotRadian: number;
+    _scaleX: number;
+    _scaleY: number;
+    _scaleZ: number;
+    _pivot: three.Vector3;
+    _positionTrack: any[];
+    _rotationTrack: any[];
+    _scaleTrack: any[];
+    _children: any[];
+    _userData: {};
+    _extent: any[];
 }
 
 /**
@@ -44706,8 +46660,8 @@ declare class U3dModelShapeLayer extends U3dModelLayer {
      * 기존 건물은 유지하며 컬렉션과 피처에 Mesh와 연결되는 `uuid`를 기록합니다.
      *
      * @param {U3dModelShapeFeatureCollection} featureCollection 피처 정보 묶음(FeatureCollection)
-     * @returns {Promise<Array<U3dModelShapeMesh> | undefined> | undefined} 처리할 Feature가 즉시 모두 끝나면 내부 전체 건물 목록으로 완료되는 Promise. <br>
-     * 처리 중인 Feature가 남거나 예외가 나면 거부되며, 입력이 없으면 `undefined`
+     * @returns {Promise<Array<U3dModelShapeMesh> | undefined> | undefined} 모든 Feature 처리가 끝나면 내부 전체 건물 목록으로 완료되는 Promise. <br>
+     * 개별 생성 또는 경계 계산에 실패하면 거부되며, 입력이 없으면 `undefined`
      */
     addFeatureCollection(featureCollection: U3dModelShapeFeatureCollection): Promise<Array<U3dModelShapeMesh> | undefined> | undefined;
     /**
@@ -45279,51 +47233,9 @@ declare class U3DTileset {
 }
 
 /**
- * 타일 재질의 원본 불투명도와 투명·깊이 기록 설정을 보관합니다.
- * 파싱 이후 레이어 보정 전에 생성하고 WeakMap에서 재질별로 재사용합니다.
- * U3dModelTilesLayer의 최초 로딩·캐시 복원·불투명도 갱신에서 기준값으로 사용합니다.
- */
-declare class UModelTileMaterialStateVo {
-    /**
-     *
-     * @type {string[]}
-     * @ignore
-     */
-    static OPT_KEYS: string[];
-    /**
-     * @param {{sourceOpacity?: number, sourceTransparent?: boolean, sourceDepthWrite?: boolean}} [opt={}] 원본 값이며 입력을 변경하지 않습니다.
-     */
-    constructor(opt?: {
-        sourceOpacity?: number;
-        sourceTransparent?: boolean;
-        sourceDepthWrite?: boolean;
-    });
-    /** @type {number} */ _sourceOpacity: number;
-    /** @type {boolean} */ _sourceTransparent: boolean;
-    /** @type {boolean} */ _sourceDepthWrite: boolean;
-    /** @param {number} value 원본 불투명도이며 유한수 0~1입니다. */
-    set sourceOpacity(value: number);
-    /** @returns {number} 원본 불투명도 0~1입니다. */
-    get sourceOpacity(): number;
-    /** @param {boolean} value 원본 투명 렌더링 여부입니다. */
-    set sourceTransparent(value: boolean);
-    /** @returns {boolean} 원본 투명 렌더링 여부입니다. */
-    get sourceTransparent(): boolean;
-    /** @param {boolean} value 원본 깊이 기록 여부입니다. */
-    set sourceDepthWrite(value: boolean);
-    /** @returns {boolean} 원본 깊이 기록 여부입니다. */
-    get sourceDepthWrite(): boolean;
-}
-
-/**
- * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer <br>
- *
- * 3D Tiles 콘텐츠를 로드하여 계층별로 표시하는 모델 레이어입니다. <br>
- * 원본 타일 경계 또는 선택적 콘텐츠 이동 범위로 탐색·LOD·표시 수명을 판정합니다. <br>
- * 모델 레이어와 시퀀스 확장에서 사용하며 파일 로딩·배치·캐시와 선택 경계 설정을 관리합니다.
+ * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer
  *
  * @group 3dLayer
- *
  * @extends {U3dModelLayer}
  */
 declare class U3dModelTilesLayer extends U3dModelLayer {
@@ -45349,12 +47261,14 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      * @ignore
      */
     _contentOffsetBoundsDirty: boolean;
-    /** @type {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} */
-    _materialStateMap: WeakMap<three.Material, UModelTileMaterialStateVo>;
-    /** @param {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} value 연결 전 사용할 원본 상태 저장소입니다. */
-    set materialStateMap(value: WeakMap<three.Material, UModelTileMaterialStateVo>);
-    /** @returns {WeakMap<import('three').Material, import('/union3d/3dTiles/vo/UModelTileMaterialStateVo.js').UModelTileMaterialStateVo>} 원본 상태 참조입니다. */
-    get materialStateMap(): WeakMap<three.Material, UModelTileMaterialStateVo>;
+    /**
+     * 레이어가 소유하는 재질 원본 상태입니다. 외부에서 항목을 교체하면 배율 복원 기준을 잃습니다.
+     *
+     * @type {WeakMap<import('three').Material, UModelTileMaterialState>}
+     *
+     * @ignore
+     */
+    _materialStateMap: WeakMap<three.Material, UModelTileMaterialState>;
     /**
      * 콘텐츠 캐시의 최대 항목 수입니다.
      *
@@ -45497,8 +47411,7 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
     /**
      * 0 이동을 포함하는 선택적 월드 이동 범위를 설정합니다.
      *
-     * @param {ModelContentOffsetBounds | null} [bounds=null] 원본 형상에 더할 월드 X/Y/Z 최소·최대 이동량. 배열을 복사하며 null이면 기존 판정입니다.
-     * @returns {void}
+     * @param {ModelContentOffsetBounds | null} [bounds=null] 원본 형상에 더할 월드 X·Y·Z 이동 범위(null이면 기존 경계 판정)
      */
     setContentOffsetBounds(bounds?: ModelContentOffsetBounds | null): void;
     /**
@@ -45510,8 +47423,7 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
     /**
      * 선택 경계 이동 범위를 검증 후 설정합니다.
      *
-     * @param {ModelContentOffsetBounds | null} value 원본을 변경하지 않을 범위. null이면 기존 판정으로 복귀합니다.
-     * @returns {void}
+     * @param {ModelContentOffsetBounds | null} value 이동 경계 범위(null이면 기존 판정으로 복귀)
      */
     set contentOffsetBounds(value: ModelContentOffsetBounds | null);
     /**
@@ -45523,8 +47435,7 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
     /**
      * 갱신 대기 상태의 직접 변경을 거부합니다.
      *
-     * @param {boolean} value 요청한 상태. setContentOffsetBounds와 update만 관리합니다.
-     * @returns {void}
+     * @param {boolean} value 요청한 이동 경계 상태(직접 변경 불가)
      */
     set contentOffsetBoundsDirty(value: boolean);
     /**
@@ -45560,8 +47471,8 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      * @override
      *
      * @param {import('@UDrawArg').UDrawArg} drawArg 현재 프레임의 렌더링 문맥
-     * @param {number} [curTime] 사용하지 않는 매개변수. 다른 레이어와 같은 호출 형태를 위해 유지
-     * @param {boolean} [force=false] `true`면 갱신 주기를 무시하고 즉시 갱신
+     * @param {number} [curTime] 공통 레이어 호출 형식과 맞추기 위해 유지하는 미사용 인수
+     * @param {boolean} [force=false] 갱신 주기를 무시하고 즉시 갱신할지 여부(기본값 false)
      */
     override update(drawArg: UDrawArg, curTime?: number, force?: boolean): void;
     /**
@@ -45755,13 +47666,13 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      * @param {import('@U3DTileset').U3DTileset} tile 탐색할 타일
      * @param {import('@U3DTileset').U3DTileset} parent 형제 로딩 상태를 집계할 부모
      * @param {string | number} updateId 현재 갱신 세대 ID
-     * @param {boolean} [isFirst=true] 최초 경계 교차 검사를 수행할지 여부
+     * @param {boolean} [isFirst=true] 최초 경계 교차 검사를 수행할지 여부(기본값 true)
      * @param {TileCheckContext} [checkContext] 같은 탐색 주기에서 공유할 판정 문맥
-     * @returns {Promise<import('@U3DTileset').U3DTileset> | undefined} 현재 타일 요청이며 취소·범위 제외 시 undefined
+     * @returns {undefined | Promise<import('@U3DTileset').U3DTileset>} 현재 타일 요청이며 취소·범위 제외 시 undefined
      *
      * @ignore
      */
-    searchTiles(tile: U3DTileset, parent: U3DTileset, updateId: string | number, isFirst?: boolean, checkContext?: TileCheckContext): Promise<U3DTileset> | undefined;
+    searchTiles(tile: U3DTileset, parent: U3DTileset, updateId: string | number, isFirst?: boolean, checkContext?: TileCheckContext): undefined | Promise<U3DTileset>;
     /**
      * 타일(tile)의 요청 완료 객체를 저장하고 성공·실패 시 콘텐츠 상태를 반영합니다.
      *
@@ -45890,12 +47801,11 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      * 아직 큐에 있는 파서는 최신 세대가 타일을 이어받지 않았을 때만 <br>
      * 제거하고, 이미 실행 중인 파서는 타일 dispose 여부를 완료 시점에 다시 확인합니다.
      *
-     * @param {(item: ModelTileParserQueueItem) => DeferredObject<import('@U3DTileset').U3DTileset>} fnc 파서 함수. <br>
-     *        호출 즉시 결과를 반환하는 동기 함수가 아니라 then/catch를 제공하는 DeferredObject를 반환해야 합니다.
+     * @param {(item: ModelTileParserQueueItem) => Promise<import('@U3DTileset').U3DTileset>} fnc 타일 처리 결과를 Promise로 반환하는 파서 함수
      * @param {ModelTileParserQueueItem} item 파서 파라미터
      * @returns {Promise<import('@U3DTileset').U3DTileset>} 비동기 처리 객체
      */
-    addParserQueue(fnc: (item: ModelTileParserQueueItem) => DeferredObject<U3DTileset>, item: ModelTileParserQueueItem): Promise<U3DTileset>;
+    addParserQueue(fnc: (item: ModelTileParserQueueItem) => Promise<U3DTileset>, item: ModelTileParserQueueItem): Promise<U3DTileset>;
     /**
      * 레이어 표시 여부를 바꾸고 숨길 때 타일 데이터를 회수합니다. <br>
      * 부모의 표시 완료 객체는 반환하지 않습니다.
@@ -46032,28 +47942,6 @@ declare class U3dModelTilesLayer extends U3dModelLayer {
      * @returns {import('three').Vector3} 변환한 새 좌표 벡터
      */
     cesiumFromRadians(longitude: number, latitude: number, height: number): three.Vector3;
-    /**
-     * 타일 콘텐츠 요청의 세대 승계와 dispose 취소 불변식을 격리된 가짜 상태로 검사합니다.
-     *
-     * 실제 레이어의 타일·캐시·로더는 변경하지 않습니다. <br>
-     * 같은 요청 상태를 새 updateId가 이어받을 때 <br>
-     * 공유 Promise와 큐/파서 파라미터가 유지되는지, dispose 취소 시 저장된 최종 URL만 abort되는지, <br>
-     * 상태 Map과 tile.work가 객체 identity 기준으로 한 번만 정리되는지를 확인합니다.
-     *
-     * @returns {boolean} 모든 요청 생명주기 불변식을 만족하면 true
-     */
-    __$testTileContentRequestLifecycle(): boolean;
-    /**
-     * 다운로드 WorkProcess 슬롯 반납 시점과 파이프라인 완료 시점의 분리 계약을 검사합니다.
-     *
-     * `#processQueue()`의 private 접근 때문에 실제 생성된 인스턴스에 bind되어 실행되어야 하며, <br>
-     * 레이어의 로더와 파서 큐 등록을 가짜 구현으로 잠시 교체한 뒤 종료 전에 복원합니다. <br>
-     * 실제 네트워크 요청과 WorkProcess 큐에는 작업을 만들지 않습니다.
-     *
-     * @returns {boolean} 사전 폐기·네트워크 실패에서 두 Promise가 함께 실패하고, <br>
-     *          파서 경로에서 슬롯이 파싱 완료보다 먼저 반납되면 true
-     */
-    __$testTileContentSlotRelease(): boolean;
     /**
      * 표시 그룹과 타일 참조의 일관성을 확인합니다.
      *
@@ -46431,7 +48319,7 @@ declare class U3dModelI3FLayer extends U3dModelLayer {
     };
     _manager: three.LoadingManager;
     _loader: any;
-    _cancel: DeferredObject<unknown>;
+    _cancel: DeferredPromise<void>;
     _change: boolean;
     _curPosition: any;
     _deleteMeshes: any;
@@ -46506,1205 +48394,6 @@ declare class U3dModelI3FLayer extends U3dModelLayer {
      * @returns {false | undefined} 요청 준비 실패 여부이며 그 외에는 undefined
      */
     setMetaData(mesh: UMesh): false | undefined;
-    #private;
-}
-
-/**
- * 공간 노드의 식별·계층·경계와 상세화 정의를 보관합니다.<br>
- * 공간 탐색기가 전달한 정의를 레이어의 노드 등록과 조회에 사용합니다.<br>
- * 필수 옵션 키를 확인한 뒤 값을 보관하며 값의 타입·범위와 필드 간 일관성은 사용하는 모듈이 검증합니다.<br>
- * 객체와 배열은 복사하지 않고 참조로 보관합니다.<br>
- * 부모 식별자는 공간 관계를 나타내며 레이어는 등록 시 정의 사본을 생성합니다.
- *
- * @group A3F
- * @summary A3F 공간 노드 정의
- */
-declare class UA3FNodeVo {
-    /**
-     * 필수 생성 옵션의 정본 키입니다.
-     *
-     * @type {Array<string>}
-     *
-     * @ignore
-     */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FNodeVo 클래스 생성자입니다.<br>
-     * 옵션 키를 정규화하고 필수 키의 존재를 확인한 뒤 값을 보관합니다.<br>
-     * 옵션이 객체가 아니거나 필수 키가 없으면 TypeError를 발생시키며 값 검증은 수행하지 않습니다.
-     *
-     * @param {UA3FNodeVoCO} opt 모든 필수 키를 가진 옵션이며 null·생략 불가, 원본 옵션을 변경하지 않음, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FNodeVoCO);
-    /** @type {string} */
-    _nodeId: string;
-    /** @type {string | null} */
-    _parentNodeId: string | null;
-    /** @type {string | null} */
-    _geometryId: string | null;
-    /** @type {UA3FNodeBoundingBoxData} */
-    _boundingBox: UA3FNodeBoundingBoxData;
-    /** @type {number} */
-    _geometricError: number;
-    /** @type {'ADD' | 'REPLACE'} */
-    _refine: "ADD" | "REPLACE";
-    /**
-     * 노드 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value 레이어 안에서 유일한 노드 식별자이며 호출자가 검증한 값
-     */
-    set nodeId(value: string);
-    /**
-     * 노드 식별자를 반환합니다.
-     *
-     * @returns {string} 레이어 안에서 유일한 노드 식별자
-     */
-    get nodeId(): string;
-    /**
-     * 부모 노드 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string | null} value 부모 노드 식별자이며 루트 노드는 null, 호출자가 검증한 값
-     */
-    set parentNodeId(value: string | null);
-    /**
-     * 부모 노드 식별자를 반환합니다.
-     *
-     * @returns {string | null} 부모 노드 식별자이며 루트 노드는 null
-     */
-    get parentNodeId(): string | null;
-    /**
-     * 공용 형상 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string | null} value 공용 형상 식별자이며 공간 컨테이너는 null, 호출자가 검증한 값
-     */
-    set geometryId(value: string | null);
-    /**
-     * 공용 형상 식별자를 반환합니다.
-     *
-     * @returns {string | null} 공용 형상 식별자이며 공간 컨테이너는 null
-     */
-    get geometryId(): string | null;
-    /**
-     * 공간 경계를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {UA3FNodeBoundingBoxData} value 월드 좌표(EPSG:3857)의 XY 경계와 원본 미터 높이 범위이며 호출자가 검증한 값, 복사 없이 참조를 보관
-     */
-    set boundingBox(value: UA3FNodeBoundingBoxData);
-    /**
-     * 공간 경계를 반환합니다.
-     *
-     * @returns {UA3FNodeBoundingBoxData} 월드 좌표(EPSG:3857)의 XY 경계와 원본 미터 높이 범위, 복사하지 않은 참조
-     */
-    get boundingBox(): UA3FNodeBoundingBoxData;
-    /**
-     * 공간 오차를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {number} value 유한한 0 이상의 공간 상세화 오차이며 호출자가 검증한 값
-     */
-    set geometricError(value: number);
-    /**
-     * 공간 오차를 반환합니다.
-     *
-     * @returns {number} 유한한 0 이상의 공간 상세화 오차
-     */
-    get geometricError(): number;
-    /**
-     * 공간 상세화 방식을 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {'ADD' | 'REPLACE'} value ADD는 부모와 자식의 병합, REPLACE는 자식으로 교체하는 방식이며 호출자가 검증한 값
-     */
-    set refine(value: "ADD" | "REPLACE");
-    /**
-     * 공간 상세화 방식을 반환합니다.
-     *
-     * @returns {'ADD' | 'REPLACE'} ADD는 부모와 자식의 병합, REPLACE는 자식으로 교체하는 방식
-     */
-    get refine(): "ADD" | "REPLACE";
-}
-
-/**
- * 한 필드 배열의 바이너리 배치를 보관합니다.<br>
- * 파서가 TypedArray를 구성하고 레이어가 attribute를 연결할 때 사용합니다.<br>
- * 필수 옵션 키를 확인한 뒤 값을 보관하며 값의 타입·범위와 필드 간 일관성은 사용하는 모듈이 검증합니다.
- *
- * @group A3F
- * @summary 한 배열의 바이너리 배치 보관
- */
-declare class UA3FArrayLayoutVo {
-    /**
-     * 생성자 옵션의 정본 키 목록입니다.
-     *
-     * @type {Array<string>}
-     *
-     * @ignore
-     */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FArrayLayoutVo 클래스 생성자입니다.<br>
-     * 옵션 키를 정규화하고 필수 키의 존재를 확인한 뒤 값을 보관합니다.<br>
-     * 옵션이 객체가 아니거나 필수 키가 없으면 TypeError를 발생시키며 값 검증은 수행하지 않습니다.
-     *
-     * @param {UA3FArrayLayoutVoCO} opt 모든 필수 키를 가진 옵션이며 null·생략 불가, 원본 옵션을 변경하지 않음
-     */
-    constructor(opt: UA3FArrayLayoutVoCO);
-    /** @type {string} */
-    _fieldId: string;
-    /** @type {('Float32' | 'Float64' | 'Uint16' | 'Uint32')} */
-    _componentType: ("Float32" | "Float64" | "Uint16" | "Uint32");
-    /** @type {('node' | 'index' | 'triangle')} */
-    _association: ("node" | "index" | "triangle");
-    /** @type {number} */
-    _count: number;
-    /** @type {number} */
-    _width: number;
-    /** @type {number} */
-    _height: number;
-    /** @type {(1 | 2 | 3 | 4)} */
-    _itemSize: (1 | 2 | 3 | 4);
-    /** @type {boolean} */
-    _normalized: boolean;
-    /** @type {number} */
-    _byteOffset: number;
-    /** @type {number} */
-    _byteLength: number;
-    /**
-     * 배열의 필드 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value 필드 정의와 연결할 식별자이며 호출자가 검증한 값
-     */
-    set fieldId(value: string);
-    /**
-     * 배열의 필드 식별자를 반환합니다.
-     *
-     * @returns {string} 필드 정의와 연결할 식별자
-     */
-    get fieldId(): string;
-    /**
-     * 바이너리 성분 타입을 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {('Float32' | 'Float64' | 'Uint16' | 'Uint32')} value Float32·Float64·Uint16·Uint32 중 성분 타입이며 호출자가 검증한 값
-     */
-    set componentType(value: ("Float32" | "Float64" | "Uint16" | "Uint32"));
-    /**
-     * 바이너리 성분 타입을 반환합니다.
-     *
-     * @returns {('Float32' | 'Float64' | 'Uint16' | 'Uint32')} Float32·Float64·Uint16·Uint32 중 성분 타입
-     */
-    get componentType(): ("Float32" | "Float64" | "Uint16" | "Uint32");
-    /**
-     * 값의 연결 대상을 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {('node' | 'index' | 'triangle')} value 정점은 node, 인덱스는 index, 삼각형은 triangle이며 호출자가 검증한 값
-     */
-    set association(value: ("node" | "index" | "triangle"));
-    /**
-     * 값의 연결 대상을 반환합니다.
-     *
-     * @returns {('node' | 'index' | 'triangle')} 정점은 node, 인덱스는 index, 삼각형은 triangle
-     */
-    get association(): ("node" | "index" | "triangle");
-    /**
-     * 배열 항목 수를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {number} value 양의 안전 정수인 항목 개수이며 호출자가 검증한 값
-     */
-    set count(value: number);
-    /**
-     * 배열 항목 수를 반환합니다.
-     *
-     * @returns {number} 양의 안전 정수인 항목 개수
-     */
-    get count(): number;
-    /**
-     * 배열 너비를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {number} value 양의 안전 정수인 가로 항목 수이며 호출자가 검증한 값
-     */
-    set width(value: number);
-    /**
-     * 배열 너비를 반환합니다.
-     *
-     * @returns {number} 양의 안전 정수인 가로 항목 수
-     */
-    get width(): number;
-    /**
-     * 배열 높이를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {number} value 양의 안전 정수인 세로 항목 수이며 호출자가 검증한 값
-     */
-    set height(value: number);
-    /**
-     * 배열 높이를 반환합니다.
-     *
-     * @returns {number} 양의 안전 정수인 세로 항목 수
-     */
-    get height(): number;
-    /**
-     * 항목당 성분 수를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {(1 | 2 | 3 | 4)} value 한 항목을 구성하는 1~4개 성분의 개수이며 호출자가 검증한 값
-     */
-    set itemSize(value: (1 | 2 | 3 | 4));
-    /**
-     * 항목당 성분 수를 반환합니다.
-     *
-     * @returns {(1 | 2 | 3 | 4)} 한 항목을 구성하는 1~4개 성분의 개수
-     */
-    get itemSize(): (1 | 2 | 3 | 4);
-    /**
-     * 정수 attribute의 정규화 여부를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {boolean} value 정수 attribute의 정규화 여부이며 호출자가 검증한 값
-     */
-    set normalized(value: boolean);
-    /**
-     * 정수 attribute의 정규화 여부를 반환합니다.
-     *
-     * @returns {boolean} 정수 attribute를 정규화해 읽으면 true
-     */
-    get normalized(): boolean;
-    /**
-     * 배열 시작 위치를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {number} value 파일 시작을 0으로 하는 바이트 위치이며 8의 배수이며 호출자가 검증한 값
-     */
-    set byteOffset(value: number);
-    /**
-     * 배열 시작 위치를 반환합니다.
-     *
-     * @returns {number} 파일 시작을 0으로 하는 바이트 위치이며 8의 배수
-     */
-    get byteOffset(): number;
-    /**
-     * 배열 바이트 길이를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {number} value 배열이 차지하는 바이트 수이며 호출자가 검증한 값
-     */
-    set byteLength(value: number);
-    /**
-     * 배열 바이트 길이를 반환합니다.
-     *
-     * @returns {number} 배열이 차지하는 바이트 수
-     */
-    get byteLength(): number;
-}
-
-/**
- * 배열 배치와 디코딩한 TypedArray를 함께 보관합니다.<br>
- * 파서와 워커가 만든 숫자 배열을 레이어의 attribute 연결에 전달합니다.<br>
- * 필수 옵션 키를 확인한 뒤 값을 보관하며 값의 타입·범위와 필드 간 일관성은 사용하는 모듈이 검증합니다.<br>
- * 객체와 배열은 복사하지 않으며 이 VO 자체는 버퍼 소유권을 이전하지 않습니다.
- *
- * @group A3F
- * @summary 배열 배치와 디코딩된 TypedArray 참조 전달
- */
-declare class UA3FDecodedArrayVo {
-    /**
-     * 생성자 옵션의 정본 키 목록입니다.
-     *
-     * @type {Array<string>}
-     *
-     * @ignore
-     */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FDecodedArrayVo 클래스 생성자입니다.<br>
-     * 옵션 키를 정규화하고 필수 키의 존재를 확인한 뒤 값을 보관합니다.<br>
-     * 옵션이 객체가 아니거나 필수 키가 없으면 TypeError를 발생시키며 값 검증은 수행하지 않습니다.
-     *
-     * @param {UA3FDecodedArrayVoCO} opt 모든 필수 키를 가진 옵션이며 null·생략 불가, 원본 옵션을 변경하지 않음, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FDecodedArrayVoCO);
-    /** @type {import('@union3d/a3f/vo/UA3FArrayLayoutVo').UA3FArrayLayoutVo} */
-    _layout: UA3FArrayLayoutVo;
-    /** @type {(Float32Array | Float64Array | Uint16Array | Uint32Array)} */
-    _array: (Float32Array | Float64Array | Uint16Array | Uint32Array);
-    /**
-     * 배열 배치를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FArrayLayoutVo').UA3FArrayLayoutVo} value 숫자 배열을 해석한 배열 배치 VO이며 호출자가 검증한 값, 복사 없이 참조를 보관
-     */
-    set layout(value: UA3FArrayLayoutVo);
-    /**
-     * 배열 배치를 반환합니다.
-     *
-     * @returns {import('@union3d/a3f/vo/UA3FArrayLayoutVo').UA3FArrayLayoutVo} 숫자 배열을 해석한 배열 배치 VO, 복사하지 않은 참조
-     */
-    get layout(): UA3FArrayLayoutVo;
-    /**
-     * 디코딩한 숫자 배열을 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {(Float32Array | Float64Array | Uint16Array | Uint32Array)} value 원본 ArrayBuffer를 참조하는 TypedArray이며 호출자가 검증한 값, 복사 없이 참조를 보관
-     */
-    set array(value: (Float32Array | Float64Array | Uint16Array | Uint32Array));
-    /**
-     * 디코딩한 숫자 배열을 반환합니다.
-     *
-     * @returns {(Float32Array | Float64Array | Uint16Array | Uint32Array)} 원본 ArrayBuffer를 참조하는 TypedArray, 복사하지 않은 참조
-     */
-    get array(): (Float32Array | Float64Array | Uint16Array | Uint32Array);
-}
-
-/**
- * 바이너리 파일 하나의 디코딩 결과를 보관합니다.<br>
- * 파서와 워커의 해석 결과를 레이어에 전달합니다.<br>
- * 필수 옵션 키를 확인한 뒤 값을 보관하며 값의 타입·범위와 필드 간 일관성은 사용하는 모듈이 검증합니다.<br>
- * 객체와 배열은 복사하지 않으며 이 VO 자체는 버퍼 소유권을 이전하지 않습니다.
- *
- * @group A3F
- * @summary 바이너리 파일 하나의 디코딩 결과
- */
-declare class UA3FDecodedBufferVo {
-    /**
-     * 생성자 옵션의 정본 키 목록입니다.
-     *
-     * @type {Array<string>}
-     *
-     * @ignore
-     */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FDecodedBufferVo 클래스 생성자입니다.<br>
-     * 옵션 키를 정규화하고 필수 키의 존재를 확인한 뒤 값을 보관합니다.<br>
-     * 옵션이 객체가 아니거나 필수 키가 없으면 TypeError를 발생시키며 값 검증은 수행하지 않습니다.
-     *
-     * @param {UA3FDecodedBufferVoCO} opt 모든 필수 키를 가진 옵션이며 null·생략 불가, 원본 옵션을 변경하지 않음, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FDecodedBufferVoCO);
-    /** @type {string} */
-    _bufferId: string;
-    /** @type {string} */
-    _layoutId: string;
-    /** @type {ArrayBuffer} */
-    _arrayBuffer: ArrayBuffer;
-    /** @type {Array<import('@union3d/a3f/vo/UA3FDecodedArrayVo').UA3FDecodedArrayVo>} */
-    _arrays: Array<UA3FDecodedArrayVo>;
-    /**
-     * 바이너리 파일 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value 해석한 바이너리 파일 식별자이며 호출자가 검증한 값
-     */
-    set bufferId(value: string);
-    /**
-     * 바이너리 파일 식별자를 반환합니다.
-     *
-     * @returns {string} 해석한 바이너리 파일 식별자
-     */
-    get bufferId(): string;
-    /**
-     * 공용 배치 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value 해석에 사용한 공용 배치 식별자이며 호출자가 검증한 값
-     */
-    set layoutId(value: string);
-    /**
-     * 공용 배치 식별자를 반환합니다.
-     *
-     * @returns {string} 해석에 사용한 공용 배치 식별자
-     */
-    get layoutId(): string;
-    /**
-     * 디코딩 결과의 기반 버퍼를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {ArrayBuffer} value 결과 TypedArray가 참조하는 ArrayBuffer이며 호출자가 검증한 값, 복사 없이 참조를 보관
-     */
-    set arrayBuffer(value: ArrayBuffer);
-    /**
-     * 디코딩 결과의 기반 버퍼를 반환합니다.
-     *
-     * @returns {ArrayBuffer} 결과 TypedArray가 참조하는 ArrayBuffer, 복사하지 않은 참조
-     */
-    get arrayBuffer(): ArrayBuffer;
-    /**
-     * 디코딩한 필드 배열 목록을 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {Array<import('@union3d/a3f/vo/UA3FDecodedArrayVo').UA3FDecodedArrayVo>} value 배열 배치와 숫자 배열을 보관한 VO 목록이며 호출자가 검증한 값, 복사 없이 참조를 보관
-     */
-    set arrays(value: Array<UA3FDecodedArrayVo>);
-    /**
-     * 디코딩한 필드 배열 목록을 반환합니다.
-     *
-     * @returns {Array<import('@union3d/a3f/vo/UA3FDecodedArrayVo').UA3FDecodedArrayVo>} 배열 배치와 숫자 배열을 보관한 VO 목록, 복사하지 않은 참조
-     */
-    get arrays(): Array<UA3FDecodedArrayVo>;
-}
-
-/**
- * 여러 바이너리 파일이 공유하는 배열 배치를 보관합니다.<br>
- * 파일 식별자와 연결된 공용 배치를 파서에 전달합니다.<br>
- * 필수 옵션 키를 확인한 뒤 값을 보관하며 값의 타입·범위와 필드 간 일관성은 사용하는 모듈이 검증합니다.<br>
- * 객체와 배열은 복사하지 않고 참조로 보관합니다.
- *
- * @group A3F
- * @summary 여러 파일이 참조하는 공용 배열 배치 보관
- */
-declare class UA3FLayoutVo {
-    /**
-     * 생성자 옵션의 정본 키 목록입니다.
-     *
-     * @type {Array<string>}
-     *
-     * @ignore
-     */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FLayoutVo 클래스 생성자입니다.<br>
-     * 옵션 키를 정규화하고 필수 키의 존재를 확인한 뒤 값을 보관합니다.<br>
-     * 옵션이 객체가 아니거나 필수 키가 없으면 TypeError를 발생시키며 값 검증은 수행하지 않습니다.
-     *
-     * @param {UA3FLayoutVoCO} opt 모든 필수 키를 가진 옵션이며 null·생략 불가, 원본 옵션을 변경하지 않음, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FLayoutVoCO);
-    /** @type {string} */
-    _layoutId: string;
-    /** @type {number} */
-    _byteLength: number;
-    /** @type {Array<import('@union3d/a3f/vo/UA3FArrayLayoutVo').UA3FArrayLayoutVo>} */
-    _arrays: Array<UA3FArrayLayoutVo>;
-    /**
-     * 공용 배치 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value 파일 정의에서 참조할 공용 배열 배치 식별자이며 호출자가 검증한 값
-     */
-    set layoutId(value: string);
-    /**
-     * 공용 배치 식별자를 반환합니다.
-     *
-     * @returns {string} 파일 정의에서 참조할 공용 배열 배치 식별자
-     */
-    get layoutId(): string;
-    /**
-     * 공용 배치의 바이트 길이를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {number} value 배치 전체가 차지하는 바이트 수이며 호출자가 검증한 값
-     */
-    set byteLength(value: number);
-    /**
-     * 공용 배치의 바이트 길이를 반환합니다.
-     *
-     * @returns {number} 배치 전체가 차지하는 바이트 수
-     */
-    get byteLength(): number;
-    /**
-     * 필드별 배열 배치 목록을 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {Array<import('@union3d/a3f/vo/UA3FArrayLayoutVo').UA3FArrayLayoutVo>} value 파일 내 순서에 맞춘 배열 배치 VO 목록이며 호출자가 검증한 값, 복사 없이 참조를 보관
-     */
-    set arrays(value: Array<UA3FArrayLayoutVo>);
-    /**
-     * 필드별 배열 배치 목록을 반환합니다.
-     *
-     * @returns {Array<import('@union3d/a3f/vo/UA3FArrayLayoutVo').UA3FArrayLayoutVo>} 파일 내 순서에 맞춘 배열 배치 VO 목록, 복사하지 않은 참조
-     */
-    get arrays(): Array<UA3FArrayLayoutVo>;
-}
-
-/**
- * 바이너리 파일의 식별자와 공용 배치 연결을 보관합니다.<br>
- * 로더가 파일을 요청하고 파서가 파일 길이와 해시를 확인할 때 사용합니다.<br>
- * 필수 옵션 키를 확인한 뒤 값을 보관하며 값의 타입·범위와 필드 간 일관성은 사용하는 모듈이 검증합니다.
- *
- * @group A3F
- * @summary 실제 파일과 공용 배치 연결
- */
-declare class UA3FBufferVo {
-    /**
-     * 생성자 옵션의 정본 키 목록입니다.
-     *
-     * @type {Array<string>}
-     *
-     * @ignore
-     */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FBufferVo 클래스 생성자입니다.<br>
-     * 옵션 키를 정규화하고 필수 키의 존재를 확인한 뒤 값을 보관합니다.<br>
-     * 옵션이 객체가 아니거나 필수 키가 없으면 TypeError를 발생시키며 값 검증은 수행하지 않습니다.
-     *
-     * @param {UA3FBufferVoCO} opt 모든 필수 키를 가진 옵션이며 null·생략 불가, 원본 옵션을 변경하지 않음
-     */
-    constructor(opt: UA3FBufferVoCO);
-    /** @type {string} */
-    _bufferId: string;
-    /** @type {string} */
-    _uri: string;
-    /** @type {number} */
-    _byteLength: number;
-    /** @type {string} */
-    _sha256: string;
-    /** @type {string} */
-    _layoutId: string;
-    /**
-     * 바이너리 파일 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value 작업 문맥과 연결할 바이너리 식별자이며 호출자가 검증한 값
-     */
-    set bufferId(value: string);
-    /**
-     * 바이너리 파일 식별자를 반환합니다.
-     *
-     * @returns {string} 작업 문맥과 연결할 바이너리 식별자
-     */
-    get bufferId(): string;
-    /**
-     * 파일 URI을 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value 메타정보 URL을 기준으로 해석할 파일 URI이며 호출자가 검증한 값
-     */
-    set uri(value: string);
-    /**
-     * 파일 URI을 반환합니다.
-     *
-     * @returns {string} 메타정보 URL을 기준으로 해석할 파일 URI
-     */
-    get uri(): string;
-    /**
-     * 파일 바이트 길이를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {number} value 파일 전체의 바이트 수이며 호출자가 검증한 값
-     */
-    set byteLength(value: number);
-    /**
-     * 파일 바이트 길이를 반환합니다.
-     *
-     * @returns {number} 파일 전체의 바이트 수
-     */
-    get byteLength(): number;
-    /**
-     * 파일 해시를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value SHA-256을 나타내는 64자리 소문자 16진수 문자열이며 호출자가 검증한 값
-     */
-    set sha256(value: string);
-    /**
-     * 파일 해시를 반환합니다.
-     *
-     * @returns {string} SHA-256을 나타내는 64자리 소문자 16진수 문자열
-     */
-    get sha256(): string;
-    /**
-     * 공용 배치 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value 파일의 배열 배치를 정의한 layoutId이며 호출자가 검증한 값
-     */
-    set layoutId(value: string);
-    /**
-     * 공용 배치 식별자를 반환합니다.
-     *
-     * @returns {string} 파일의 배열 배치를 정의한 layoutId
-     */
-    get layoutId(): string;
-}
-
-/**
- * A3F 코덱 작업의 식별자와 실행 문맥을 보관합니다.<br>
- * 레이어가 지정한 프레임·세대·우선순위를 UA3FTaskManager에 전달합니다.<br>
- * 필수 옵션 키를 확인한 뒤 값을 보관하며 값의 타입·범위와 필드 간 일관성은 사용하는 모듈이 검증합니다.
- *
- * @group A3F
- * @summary A3F 작업 문맥
- */
-declare class UA3FTaskContextVo {
-    /**
-     * 생성자 옵션의 정본 키입니다.
-     *
-     * @type {Array<string>}
-     *
-     * @ignore
-     */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FTaskContextVo 클래스 생성자입니다.<br>
-     * 옵션 키를 정규화하고 필수 키의 존재를 확인한 뒤 값을 보관합니다.<br>
-     * 옵션이 객체가 아니거나 필수 키가 없으면 TypeError를 발생시키며 값 검증은 수행하지 않습니다.
-     *
-     * @param {UA3FTaskContextVoCO} opt 모든 필수 키를 가진 옵션이며 null·생략 불가, 원본 옵션을 변경하지 않음
-     */
-    constructor(opt: UA3FTaskContextVoCO);
-    /** @type {string} */
-    _taskId: string;
-    /** @type {string} */
-    _nodeId: string;
-    /** @type {string} */
-    _bufferId: string;
-    /** @type {number | null} */
-    _frameIndex: number | null;
-    /** @type {number | null} */
-    _generation: number | null;
-    /** @type {number} */
-    _priority: number;
-    /**
-     * 작업 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value 호출자가 지정한 작업 식별자이며 호출자가 검증한 값
-     */
-    set taskId(value: string);
-    /**
-     * 작업 식별자를 반환합니다.
-     *
-     * @returns {string} 호출자가 지정한 작업 식별자
-     */
-    get taskId(): string;
-    /**
-     * 공간 노드 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value 작업을 요청한 공간 노드 식별자이며 호출자가 검증한 값
-     */
-    set nodeId(value: string);
-    /**
-     * 공간 노드 식별자를 반환합니다.
-     *
-     * @returns {string} 작업을 요청한 공간 노드 식별자
-     */
-    get nodeId(): string;
-    /**
-     * 처리 대상 파일 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value 처리할 바이너리 파일 식별자이며 호출자가 검증한 값
-     */
-    set bufferId(value: string);
-    /**
-     * 처리 대상 파일 식별자를 반환합니다.
-     *
-     * @returns {string} 처리할 바이너리 파일 식별자
-     */
-    get bufferId(): string;
-    /**
-     * 프레임 순번을 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {number | null} value 0 기반 프레임 순번이며 공용 형상은 null, 호출자가 검증한 값
-     */
-    set frameIndex(value: number | null);
-    /**
-     * 프레임 순번을 반환합니다.
-     *
-     * @returns {number | null} 0 기반 프레임 순번이며 공용 형상은 null
-     */
-    get frameIndex(): number | null;
-    /**
-     * 요청 세대를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {number | null} value 0 이상의 안전 정수인 요청 세대이며 공용 형상은 null, 호출자가 검증한 값
-     */
-    set generation(value: number | null);
-    /**
-     * 요청 세대를 반환합니다.
-     *
-     * @returns {number | null} 0 이상의 안전 정수인 요청 세대이며 공용 형상은 null
-     */
-    get generation(): number | null;
-    /**
-     * 작업 우선순위를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {number} value 0 이상의 안전 정수이며 작은 값부터 처리하는 우선순위이며 호출자가 검증한 값
-     */
-    set priority(value: number);
-    /**
-     * 작업 우선순위를 반환합니다.
-     *
-     * @returns {number} 0 이상의 안전 정수이며 작은 값부터 처리하는 우선순위
-     */
-    get priority(): number;
-}
-
-/**
- * 한 A3F 레이어의 코덱 요청과 워커 풀을 관리합니다.<br>
- * 작업 문맥과 배치 정의를 복사하고 우선순위·세대·대기 한도를 확인해 UTaskProcessor에 실행을 위임합니다.<br>
- * 실행 중인 요청을 취소해도 실제 응답까지 워커 슬롯을 유지하며 정상 결과는 숫자 배열 복사 없이 VO로 복원합니다.<br>
- * 레이어가 생성하고 해제하며 네트워크 요청·프레임 캐시·GPU 자원은 관리하지 않습니다.
- *
- * @group A3F
- * @summary A3F 작업 예약과 수명 관리
- */
-declare class UA3FTaskManager {
-    /**
-     * 생성자 옵션의 정본 키입니다.
-     *
-     * @type {Array<string>}
-     *
-     * @ignore
-     */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FTaskManager 클래스 생성자입니다.<br>
-     * 옵션을 검증하고 워커를 생성하지 않은 상태로 작업 관리를 준비합니다.
-     *
-     * @param {UA3FTaskManagerCO} opt 필수 설정이며 null과 생략은 허용하지 않고 원본을 변경하지 않음
-     */
-    constructor(opt: UA3FTaskManagerCO);
-    /** @type {string} */
-    _datasetId: string;
-    /** @type {number} */
-    _workerCount: number;
-    /** @type {number} */
-    _maxQueuedTasks: number;
-    /** @type {number} */
-    _maxQueuedBytes: number;
-    /** @type {number} */
-    _generation: number;
-    /** @type {import('@union3d/core/UTaskProcessor').UTaskProcessor | null} */
-    _taskProcessor: UTaskProcessor | null;
-    /** @type {Map<string, UA3FTaskManagerEntry>} */
-    _taskMap: Map<string, UA3FTaskManagerEntry>;
-    /** @type {number} */
-    _sequence: number;
-    /** @type {boolean} */
-    _disposed: boolean;
-    /** @type {Promise<void> | null} */
-    _disposePromise: Promise<void> | null;
-    /** @type {boolean} */
-    _pumpRunning: boolean;
-    /**
-     * 데이터셋 식별자를 첫 작업 등록 전에 설정합니다.
-     *
-     * @param {string} value 비어 있지 않은 데이터셋 식별자이며 null 불가, 첫 등록 또는 해제 후 변경 불가
-     */
-    set datasetId(value: string);
-    /**
-     * 데이터셋 식별자를 반환합니다.
-     *
-     * @returns {string} 작업을 구분하는 비어 있지 않은 데이터셋 식별자
-     */
-    get datasetId(): string;
-    /**
-     * 물리 워커 수와 동시 실행 상한을 첫 작업 등록 전에 설정합니다.
-     *
-     * @param {number} value 물리 워커 수와 동시 실행 상한이며 null 불가, 숫자는 안전 정수이고 1 이상, 등록·해제 후 변경 불가
-     */
-    set workerCount(value: number);
-    /**
-     * 물리 워커 수와 동시 실행 상한을 반환합니다.
-     *
-     * @returns {number} 양의 안전 정수인 물리 워커 수와 동시 실행 상한이며 기본값 1
-     */
-    get workerCount(): number;
-    /**
-     * 실행 중 작업을 제외한 대기 작업 수 상한을 첫 작업 등록 전에 설정합니다.
-     *
-     * @param {number} value 실행 중 작업을 제외한 대기 작업 수 상한이며 null 불가, 숫자는 안전 정수이고 0 이상, 등록·해제 후 변경 불가
-     */
-    set maxQueuedTasks(value: number);
-    /**
-     * 실행 중 작업을 제외한 대기 작업 수 상한을 반환합니다.
-     *
-     * @returns {number} 실행 중 작업을 제외한 대기 작업 수 상한이며 기본값 8
-     */
-    get maxQueuedTasks(): number;
-    /**
-     * 대기 backing buffer 총 바이트 상한을 첫 작업 등록 전에 설정합니다.
-     *
-     * @param {number} value 대기 backing buffer 총 바이트 상한이며 null 불가, 숫자는 안전 정수이고 0 이상, 등록·해제 후 변경 불가
-     */
-    set maxQueuedBytes(value: number);
-    /**
-     * 대기 backing buffer 총 바이트 상한을 반환합니다.
-     *
-     * @returns {number} 대기 입력의 기반 버퍼 바이트 상한이며 기본값 67108864
-     */
-    get maxQueuedBytes(): number;
-    /**
-     * 정의를 등록 시 고정하고 워커에서 해석한 공유 버퍼 결과를 반환합니다.<br>
-     * 기본 설정에서는 전송 시 입력 ArrayBuffer가 분리되며 실패·취소 시 입력을 돌려주지 않습니다.<br>
-     * 취소만으로 실행 중인 처리가 중단되거나 입력 버퍼를 다시 사용할 수 있다고 가정하면 안 됩니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FTaskContextVo').UA3FTaskContextVo} contextVo 필수 작업 문맥이며 null 불가, frameIndex는 0 기반이고 등록 후 원본 변경은 작업에 반영하지 않음
-     * @param {import('@union3d/a3f/vo/UA3FBufferVo').UA3FBufferVo} bufferVo 필수 파일 정의이며 context의 bufferId와 일치해야 하고 원본을 변경하지 않음
-     * @param {import('@union3d/a3f/vo/UA3FLayoutVo').UA3FLayoutVo} layoutVo 필수 공용 배치이며 작은 정의는 사본으로 고정하고 원본을 변경하지 않음
-     * @param {ArrayBuffer} arrayBuffer 양수 바이트 길이의 고정·미분리 입력이며 워커가 읽는 동안 호출자의 변경·분리 금지, 기본적으로 실제 전송 시 소유권 이전
-     * @param {UA3FTaskManagerDecodeOptions} [opt={}] 선택 옵션이며 null 불가, verifyHash와 transferInput 기본값 true
-     * @returns {Promise<import('@union3d/a3f/vo/UA3FDecodedBufferVo').UA3FDecodedBufferVo>} 숫자 복사 없이 같은 반환 버퍼를 공유하는 결과, 실패·취소는 거부
-     */
-    decode(contextVo: UA3FTaskContextVo, bufferVo: UA3FBufferVo, layoutVo: UA3FLayoutVo, arrayBuffer: ArrayBuffer, opt?: UA3FTaskManagerDecodeOptions): Promise<UA3FDecodedBufferVo>;
-    /**
-     * 워커에서 새 바이너리를 만들며 기본적으로 메인의 입력 배열을 보존합니다.<br>
-     * 전송 옵션이 true이면 부분 view를 포함한 기반 버퍼 전체가 이전되며 이를 공유하는 모든 view가 분리됩니다.<br>
-     * 취소는 실행 중인 처리를 중단하지 않으므로 취소만으로 입력 버퍼를 다시 사용할 수 있다고 가정하면 안 됩니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FTaskContextVo').UA3FTaskContextVo} contextVo 필수 작업 문맥이며 null 불가, frameIndex는 0 기반이고 원본을 변경하지 않음
-     * @param {import('@union3d/a3f/vo/UA3FLayoutVo').UA3FLayoutVo} layoutVo 필수 출력 배치이며 원본을 변경하지 않고 정의 사본을 만듦
-     * @param {Array<import('@union3d/a3f/vo/UA3FDecodedArrayVo').UA3FDecodedArrayVo>} arrays 필수 필드별 숫자 view이며 부분 view 허용, 워커가 읽는 동안 호출자의 입력 변경·분리 금지
-     * @param {UA3FTaskManagerEncodeOptions} [opt={}] 선택 옵션이며 null 불가, transferInput 기본 false, true이면 공유 backing buffer 전체의 소유권 이전
-     * @returns {Promise<ArrayBuffer>} 호출자가 소유하는 새 바이너리 버퍼
-     */
-    encode(contextVo: UA3FTaskContextVo, layoutVo: UA3FLayoutVo, arrays: Array<UA3FDecodedArrayVo>, opt?: UA3FTaskManagerEncodeOptions): Promise<ArrayBuffer>;
-    /**
-     * 미완료 요청을 한 번 취소하며 이미 실행 중인 물리 슬롯은 유지합니다.
-     *
-     * @param {string} taskId 비어 있지 않은 작업 식별자이며 null 불가
-     * @returns {boolean} 처음 취소했으면 true, 없거나 이미 종결했으면 false
-     */
-    cancel(taskId: string): boolean;
-    /**
-     * 요청 세대를 증가시키고 이전 프레임 작업을 취소합니다.
-     *
-     * @returns {number} 증가한 0 이상의 안전 정수 세대
-     */
-    advanceGeneration(): number;
-    /**
-     * 세대를 같거나 큰 값으로 갱신하고 이전 숫자 세대의 요청을 취소합니다.
-     *
-     * @param {number} value 현재 값 이상인 안전 정수이며 기본 세대는 0, null 불가, null 세대의 공용 작업은 보존
-     */
-    set generation(value: number);
-    /**
-     * 현재 요청 세대를 반환합니다.
-     *
-     * @returns {number} 현재 프레임 요청에 적용하는 0 이상의 안전 정수 세대
-     */
-    get generation(): number;
-    /**
-     * 모든 요청을 종결하고 소유한 워커 풀을 한 번 해제합니다.
-     *
-     * @returns {Promise<void>} 반복 호출이 공유하는 해제 결과이며 해제한 Manager는 재사용 불가
-     */
-    dispose(): Promise<void>;
-    /**
-     * 등록 전 비어 있는 문맥 Map만 수용하여 실행 자료의 임의 교체를 막습니다.
-     *
-     * @param {Map<string, import('@union3d/a3f/vo/UA3FTaskContextVo').UA3FTaskContextVo>} value 빈 Map만 허용, null 불가, 입력 Map을 보관하거나 변경하지 않음
-     */
-    set taskMap(value: Map<string, UA3FTaskContextVo>);
-    /**
-     * 작업 문맥의 사본 Map을 반환하며 내부 실행 자료는 노출하지 않습니다.
-     *
-     * @returns {Map<string, import('@union3d/a3f/vo/UA3FTaskContextVo').UA3FTaskContextVo>} 각 문맥도 사본인 조회 목록
-     */
-    get taskMap(): Map<string, UA3FTaskContextVo>;
-    /**
-     * 워커 처리기의 임의 교체를 거부합니다.<br>
-     * 현재 값과 동일한 값만 허용하며 실제 상태 변경은 작업 관리 API로 수행합니다.
-     *
-     * @param {import('@union3d/core/UTaskProcessor').UTaskProcessor | null} value 관리자가 소유한 처리기 참조이며 첫 전송 전에는 null, 외부 해제 금지이며 현재 값과 동일한 값만 허용
-     */
-    set taskProcessor(value: UTaskProcessor | null);
-    /**
-     * 관리자가 소유한 워커 처리기를 반환합니다.
-     *
-     * @returns {import('@union3d/core/UTaskProcessor').UTaskProcessor | null} 관리자가 소유한 처리기 참조이며 첫 전송 전에는 null, 외부 해제 금지
-     */
-    get taskProcessor(): UTaskProcessor | null;
-    /**
-     * 작업 등록 순번의 임의 교체를 거부합니다.<br>
-     * 현재 값과 동일한 값만 허용하며 실제 상태 변경은 작업 관리 API로 수행합니다.
-     *
-     * @param {number} value 지금까지 등록한 작업의 마지막 순번이며 등록 전에는 0이며 현재 값과 동일한 값만 허용
-     */
-    set sequence(value: number);
-    /**
-     * 마지막 작업 등록 순번을 반환합니다.
-     *
-     * @returns {number} 지금까지 등록한 작업의 마지막 순번이며 등록 전에는 0
-     */
-    get sequence(): number;
-    /**
-     * 해제 시작 여부의 임의 교체를 거부합니다.<br>
-     * 현재 값과 동일한 값만 허용하며 실제 상태 변경은 작업 관리 API로 수행합니다.
-     *
-     * @param {boolean} value 해제가 시작되었으면 true이며 현재 값과 동일한 값만 허용
-     */
-    set disposed(value: boolean);
-    /**
-     * 해제 시작 여부를 반환합니다.
-     *
-     * @returns {boolean} 해제가 시작되었으면 true
-     */
-    get disposed(): boolean;
-    /**
-     * 해제 결과의 임의 교체를 거부합니다.<br>
-     * 현재 값과 동일한 값만 허용하며 실제 상태 변경은 작업 관리 API로 수행합니다.
-     *
-     * @param {Promise<void> | null} value dispose 호출이 공유하는 Promise 참조이며 호출 전에는 null이며 현재 값과 동일한 값만 허용
-     */
-    set disposePromise(value: Promise<void> | null);
-    /**
-     * 워커 풀의 해제 결과를 반환합니다.
-     *
-     * @returns {Promise<void> | null} dispose 호출이 공유하는 Promise 참조이며 호출 전에는 null
-     */
-    get disposePromise(): Promise<void> | null;
-    /**
-     * 대기열 처리 상태의 임의 교체를 거부합니다.<br>
-     * 현재 값과 동일한 값만 허용하며 실제 상태 변경은 작업 관리 API로 수행합니다.
-     *
-     * @param {boolean} value 대기열을 동기적으로 처리하는 중이면 true이며 현재 값과 동일한 값만 허용
-     */
-    set pumpRunning(value: boolean);
-    /**
-     * 대기열 처리 중 여부를 반환합니다.
-     *
-     * @returns {boolean} 대기열을 동기적으로 처리하는 중이면 true
-     */
-    get pumpRunning(): boolean;
-    /**
-     * 취소 후 실제 응답을 기다리는 작업도 포함한 실행 슬롯 수를 계산합니다.
-     *
-     * @returns {number} 취소 후 응답 대기를 포함한 현재 실행 슬롯 수
-     */
-    get activeTaskCount(): number;
-    /**
-     * 실행 전 대기 작업 수를 계산합니다.
-     *
-     * @returns {number} 실행 전 대기 작업 개수
-     */
-    get queuedTaskCount(): number;
-    /**
-     * 실행 중 입력을 제외한 대기 backing buffer 바이트 수를 계산합니다.
-     *
-     * @returns {number} 요청별로 중복을 제거한 대기 입력 기반 버퍼의 바이트 합계
-     */
-    get queuedByteLength(): number;
-    #private;
-}
-
-/**
- * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer <br>
- *
- * A3F의 공간 노드와 외부 표시 객체를 기존 모델 레이어에 연결합니다.
- * 한 데이터셋의 작업 관리자를 소유하고 노드 등록 토큰으로 늦은 결과를 차단합니다.
- * 레이어 ready는 초기화 완료이며 HTTP나 시계열 표면 로딩 완료가 아닙니다.
- *
- * @group 3dLayer
- * @summary A3F 공간 노드와 표시 객체의 레이어
- * @extends {U3dModelLayer}
- */
-declare class U3dModelA3FLayer extends U3dModelLayer {
-    /**
-     * 월드 좌표(EPSG:3857)의 XY와 원본 미터 높이 경계를 검증하여 복사합니다.
-     *
-     * @param {UA3FNodeBoundingBoxData} bounds 필수 공간 경계이며 null 불가, 원본과 배열은 변경하지 않음
-     * @returns {UA3FNodeBoundingBoxData} 원본 높이 의미를 보존한 새 경계
-     */
-    static "__#11435@#snapshotBounds"(bounds: UA3FNodeBoundingBoxData): UA3FNodeBoundingBoxData;
-    /**
-     * 부모 생성 전에 옵션을 정규화하고 A3F 레이어의 고정 계약을 확인합니다.
-     *
-     * @param {U3dModelA3FLayerCO} opt 선택 생성 옵션이며 null 불가, 입력은 변경하지 않음
-     * @param {typeof import('@union3d/3dLayer/U3dModelA3FLayer').U3dModelA3FLayer} targetClass new.target의 실제 생성 클래스이며 OPT_KEYS 정규화에 사용
-     * @returns {U3dModelA3FLayerCO} 기본값과 고정 형식을 적용한 새 옵션
-     */
-    static "__#11435@#prepareOptions"(opt: U3dModelA3FLayerCO, targetClass: typeof U3dModelA3FLayer): U3dModelA3FLayerCO;
-    /**
-     * 작업 설정의 기본값과 안전 정수 범위를 확인합니다.
-     *
-     * @param {Partial<U3dModelA3FLayerTaskOptions>} options 옵션 객체이며 null 불가, 바이트 단위 maxQueuedBytes를 변경하지 않고 읽음
-     * @returns {U3dModelA3FLayerTaskOptions} 세 수치가 모두 있는 사본
-     */
-    static "__#11435@#taskOptions"(options: Partial<U3dModelA3FLayerTaskOptions>): U3dModelA3FLayerTaskOptions;
-    /**
-     * 필수 문자열을 확인하며 원문을 정규화하거나 변경하지 않습니다.
-     *
-     * @param {string | null} value 비어 있지 않은 문자열 검사값이며 null 불가
-     * @param {string} label 오류에 표시할 필드 이름
-     */
-    static "__#11435@#assertString"(value: string | null, label: string): void;
-    /**
-     * 최소값 이상의 안전 정수인지 확인합니다.
-     *
-     * @param {number} value 검사할 필수 수치이며 null 불가
-     * @param {number} minimum 포함하는 최소 정수
-     * @param {string} label 오류에 표시할 필드 이름
-     */
-    static "__#11435@#assertInteger"(value: number, minimum: number, label: string): void;
-    /**
-     * 고정 길이 배열의 모든 성분이 유한한 숫자인지 확인합니다.
-     *
-     * @param {Array<number>} value 입력 배열이며 null 불가, 원본을 변경하지 않음
-     * @param {number} length 요구 성분 수인 양의 정수
-     * @param {string} label 오류에 표시할 경계 이름
-     */
-    static "__#11435@#finiteTuple"(value: Array<number>, length: number, label: string): void;
-    /**
-     * 필수 정의 객체를 읽기 전에 null·배열·원시값을 거부합니다.
-     *
-     * @param {unknown} value 검사할 입력이며 변경하지 않음
-     * @param {string} label 오류에 표시할 입력 이름
-     */
-    static "__#11435@#requireRecord"(value: unknown, label: string): void;
-    /**
-     * A3F 옵션을 부모 자원 생성 전에 확인하고 데이터셋 연결을 준비합니다.
-     *
-     * @param {U3dModelA3FLayerCO} [opt={}] 선택 옵션이며 null 불가, 원본은 변경하지 않고 visible 기본 true
-     */
-    constructor(opt?: U3dModelA3FLayerCO);
-    /** @type {string | null} */
-    _datasetId: string | null;
-    /** @type {import('@union3d/a3f/UA3FTaskManager').UA3FTaskManager | null} */
-    _taskManager: UA3FTaskManager | null;
-    /** @type {U3dModelA3FLayerTaskOptions} */
-    _a3fTaskOptions: U3dModelA3FLayerTaskOptions;
-    /** @type {Map<string, U3dModelA3FLayerNodeEntry>} */
-    _a3fNodeMap: Map<string, U3dModelA3FLayerNodeEntry>;
-    /** @type {number} */
-    _a3fNodeRevision: number;
-    /** @type {Promise<boolean> | null} */
-    _a3fDisposePromise: Promise<boolean> | null;
-    /**
-     * 엔진의 지형 MODEL 타일 콜백을 등록하지 않습니다.
-     *
-     * @override
-     *
-     * @returns {undefined} A3F 공간 탐색은 별도 모듈이 담당하므로 콜백 없음
-     */
-    override getTileCallback(): undefined;
-    /**
-     * 한 데이터셋의 작업 관리자를 소유하며 같은 식별자의 재연결은 재사용합니다.
-     *
-     * @param {string} datasetId 비어 있지 않은 데이터셋 식별자이며 null 불가, 연결 후 다른 값으로 변경 불가
-     * @returns {import('@union3d/a3f/UA3FTaskManager').UA3FTaskManager} 레이어 소유이므로 호출자가 해제하지 않을 관리자
-     */
-    bindDataset(datasetId: string): UA3FTaskManager;
-    /**
-     * 정의 사본과 빈 형제 그룹을 등록하고 재등록을 구분하는 토큰을 반환합니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FNodeVo').UA3FNodeVo} nodeVo 필수 노드 정의이며 null 불가, parentNodeId는 이미 등록한 부모 또는 null, 원본은 변경하지 않음
-     * @returns {number} 양의 안전 정수 등록 토큰이며 삭제 후 같은 키를 등록해도 달라짐
-     */
-    registerNode(nodeVo: UA3FNodeVo): number;
-    /**
-     * 등록 노드와 경계 배열의 사본을 반환합니다.
-     *
-     * @param {string} nodeId 레이어 안의 노드 키이며 null 불가
-     * @returns {import('@union3d/a3f/vo/UA3FNodeVo').UA3FNodeVo | undefined} 등록되어 있으면 정의 사본, 없으면 undefined
-     */
-    getNode(nodeId: string): UA3FNodeVo | undefined;
-    /**
-     * 현재 노드 등록의 토큰을 반환합니다.
-     *
-     * @param {string} nodeId 레이어 안의 노드 키이며 null 불가
-     * @returns {number | undefined} 현재 등록 토큰 또는 없는 노드이면 undefined
-     */
-    getNodeRevision(nodeId: string): number | undefined;
-    /**
-     * 현재 표시 객체를 빌린 참조로 반환합니다.
-     *
-     * @param {string} nodeId 레이어 안의 노드 키이며 null 불가
-     * @returns {import('three').Object3D | undefined} 현재 객체 또는 없음, 외부에서 부모를 바꾸거나 해제하지 않음
-     */
-    getNodeObject(nodeId: string): three.Object3D | undefined;
-    /**
-     * 현재 등록 토큰에 표시 객체를 연결하고 성공한 연결의 반납 책임을 맡습니다.
-     *
-     * @param {string} nodeId 연결할 형상 노드 키이며 null 불가
-     * @param {number} revision registerNode가 반환한 현재 양의 안전 정수 토큰
-     * @param {import('three').Object3D} object 부모가 없는 표시 객체이며 성공 시 레이어가 연결을 관리, 실패 시 호출자 소유 유지
-     * @param {U3dModelA3FLayerRelease} release 인수 없는 동기 반납 함수이며 null 불가, 성공한 연결의 교체·제거·해제 시 한 번 호출
-     */
-    attachNodeObject(nodeId: string, revision: number, object: three.Object3D, release: U3dModelA3FLayerRelease): void;
-    /**
-     * 노드와 공간 후손의 작업 및 표시 연결을 제거합니다.
-     *
-     * @param {string} nodeId 제거할 노드 키이며 null 불가, 없는 노드는 무동작
-     * @returns {boolean} 기존 등록을 제거했으면 true, 없으면 false
-     */
-    removeNode(nodeId: string): boolean;
-    /**
-     * 데이터셋 식별자를 첫 연결하거나 동일 값으로 확인합니다.
-     *
-     * @param {string | null} value 첫 연결 전 null은 무동작, 그 외에는 bindDataset의 비어 있지 않은 식별자 계약
-     */
-    set datasetId(value: string | null);
-    /**
-     * 현재 연결한 데이터셋 식별자를 반환합니다.
-     *
-     * @returns {string | null} 아직 연결하지 않았으면 null
-     */
-    get datasetId(): string | null;
-    /**
-     * 운영 값은 동일 값만 수용하며 실제 변경은 레이어 API에 위임합니다.
-     *
-     * @param {import('@union3d/a3f/UA3FTaskManager').UA3FTaskManager | null} value 레이어 소유 작업 관리자의 빌린 참조이며 현재 값·참조와 같아야 하고 소유권을 이전하지 않음
-     */
-    set taskManager(value: UA3FTaskManager | null);
-    /**
-     * 레이어 소유 작업 관리자의 빌린 참조를 반환합니다.
-     *
-     * @returns {import('@union3d/a3f/UA3FTaskManager').UA3FTaskManager | null} 현재 운영 참조 또는 값
-     */
-    get taskManager(): UA3FTaskManager | null;
-    /**
-     * 운영 값은 동일 값만 수용하며 실제 변경은 레이어 API에 위임합니다.
-     *
-     * @param {number} value 현재까지 발행한 등록 토큰이며 현재 값·참조와 같아야 하고 소유권을 이전하지 않음
-     */
-    set a3fNodeRevision(value: number);
-    /**
-     * 현재까지 발행한 등록 토큰를 반환합니다.
-     *
-     * @returns {number} 현재 운영 참조 또는 값
-     */
-    get a3fNodeRevision(): number;
-    /**
-     * 운영 값은 동일 값만 수용하며 실제 변경은 레이어 API에 위임합니다.
-     *
-     * @param {Promise<boolean> | null} value 해제 전에는 null인 반복 해제 결과이며 현재 값·참조와 같아야 하고 소유권을 이전하지 않음
-     */
-    set a3fDisposePromise(value: Promise<boolean> | null);
-    /**
-     * 해제 전에는 null인 반복 해제 결과를 반환합니다.
-     *
-     * @returns {Promise<boolean> | null} 현재 운영 참조 또는 값
-     */
-    get a3fDisposePromise(): Promise<boolean> | null;
-    /**
-     * 데이터셋 연결과 노드 등록 전에 작업 설정을 교체합니다.
-     *
-     * @param {U3dModelA3FLayerTaskOptions} value 필수 세 수치 설정이며 null 불가, workerCount>=1, 나머지는 0 이상의 안전 정수, 바이트 단위
-     */
-    set a3fTaskOptions(value: U3dModelA3FLayerTaskOptions);
-    /**
-     * 작업 관리자의 생성 설정 사본을 반환합니다.
-     *
-     * @returns {U3dModelA3FLayerTaskOptions} 원본을 수정할 수 없는 설정 사본
-     */
-    get a3fTaskOptions(): U3dModelA3FLayerTaskOptions;
-    /**
-     * 첫 노드 등록 전 빈 정의 Map만 수용합니다.
-     *
-     * @param {Map<string, import('@union3d/a3f/vo/UA3FNodeVo').UA3FNodeVo>} value 빈 Map만 허용하며 null 불가, 입력은 보관하거나 변경하지 않음
-     */
-    set a3fNodeMap(value: Map<string, UA3FNodeVo>);
-    /**
-     * 노드와 경계 배열을 사본으로 구성한 조회 Map을 반환합니다.
-     *
-     * @returns {Map<string, import('@union3d/a3f/vo/UA3FNodeVo').UA3FNodeVo>} 실행 객체와 반납 함수가 없는 정의 사본 목록
-     */
-    get a3fNodeMap(): Map<string, UA3FNodeVo>;
     #private;
 }
 
@@ -47808,6 +48497,7 @@ interface GeOnDTMixedInstance_U3dLodComponentLayer {
 "getIntersect"(event: Event & { normalizedX: number; normalizedY: number; }, raycaster: URaycaster): ComponentObject | undefined;
 "setBbox"(key: string, value: UBox3): void;
 "getBbox"(key: string): UBox3 | undefined;
+"_hasGeoLocation": boolean;
 "_defaultHeight": number;
 "_averagePos": three.Vector3;
 "_setAveragePosition": boolean;
@@ -47853,7 +48543,7 @@ interface GeOnDTMixedInstance_U3dLodComponentLayer {
 "_drawArg": UDrawArg;
 "_quadtreeSet": U3dQuadSet | undefined;
 "_light": ULight | three.Light | undefined;
-"reLoad"(): Promise<string>;
+"reLoad"(): Promise<void>;
 "initializeU3f"(): Promise<boolean>;
 "parseXML"(xml: XMLHttpRequest): void;
 "_geoLocation": { x: number; y: number; z: number; } | undefined;
@@ -47866,8 +48556,9 @@ interface GeOnDTMixedInstance_U3dLodComponentLayer {
 "refresh"(): void;
 "checkIsExistModel"(name: string, baseurl?: string | undefined): boolean;
 "getModelInfo"(name: string, baseurl?: string | undefined): ModelInfo | undefined;
+"_isModelLoadReady"(model: ModelInfo): boolean;
 "load"(model: ModelInfo, textureUrl?: string | undefined): Promise<ModelObject3D>;
-"getU3FInfo"(model: string | KeyValue | ModelInfo | undefined, baseurl: string): DeferredObject<any>;
+"getU3FInfo"(model: string | KeyValue | ModelInfo | undefined, baseurl: string): Promise<KeyValue[]>;
 "getTexture"(url: string): Promise<three.Texture<any, three.TextureEventMap>>;
 "getObjectCenter"(): three.Vector3;
 "updateHeightByMetadata"(): void;
@@ -47947,21 +48638,22 @@ interface GeOnDTMixedInstance_U3dLodComponentLayer {
 "setToonImgUrl"(url: string): void;
 "settingModelLayerMaterial"(material: ModelMaterial): void;
 "setWireframe"(setWireframe: boolean): void;
-"setTileFromEditedModel"(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile>;
+"setTileFromEditedModel"(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile | undefined>;
 "getEditedEventById"(id: string): EditedEvent | undefined;
 "mergedMeshDivision"(object: ModelMesh, afterFunction?: ((mesh: three.Object3D<three.Object3DEventMap>, drawArg: UDrawArg) => void) | undefined): three.Object3D<three.Object3DEventMap>[] | undefined;
+"_getMeshDivisionPromise"(object: three.Object3D<three.Object3DEventMap>): Promise<three.Object3D<three.Object3DEventMap>[]> | undefined;
 "checkDivisionMeshIdle"(): void;
 "setEditEvent"(meshes: three.Object3D<three.Object3DEventMap>[]): void;
 "removeEdit"(modelId: string): void;
 "getMaterialIndexByFace"(object: three.Object3D<three.Object3DEventMap>, faceIndex: number): void | SplitInfo;
 "removeMaterialIndex"(object: ModelMesh, materialIndex: number): boolean;
 "setSplitEvent"(parent: ModelMesh, child: ModelMesh): EditedEvent | undefined;
+"_restoreSplitModels"(original: ModelMesh, meshList: three.Object3D<three.Object3DEventMap>): void;
 "_readyState": "pending" | "fulfilled" | "rejected";
 "_readyResolve"(): void;
 "_readyReject"(reason: Error): void;
 readonly "ready": Promise<U3dMultipleComponentLayer>;
 "_readyPromise": Promise<U3dMultipleComponentLayer>;
-"_resetReady"(): this;
 "isReady"(): boolean;
 "_resolveReady"(): this;
 "_rejectReady"(reason: unknown): this;
@@ -48026,8 +48718,8 @@ readonly "ready": Promise<U3dMultipleComponentLayer>;
 "intersectFrustum"(frustum: three.Frustum): boolean;
 "getCacheKeys"(): string[];
 "getCacheLength"(): number;
-"setCancelByTile"(tile: U3dQuadTile, value: DeferredObject<U3dQuadTile>): void;
-"getCancelByTile"(tile: U3dQuadTile): DeferredObject<U3dQuadTile> | undefined;
+"setCancelByTile"(tile: U3dQuadTile, value: DeferredPromise<U3dQuadTile>): void;
+"getCancelByTile"(tile: U3dQuadTile): Promise<U3dQuadTile> | undefined;
 "once"(event: string, callback: EventCallBack, name?: string | undefined): string;
 "on"(event: string, callback: EventCallBack, once?: boolean | undefined, name?: string | undefined): string;
 "off"(event?: string | undefined, callback?: string | Function | undefined): void;
@@ -48278,19 +48970,17 @@ declare class U3dLodComponentLayer extends U3dLodComponentLayer_base {
      */
     override initialize(): object;
     _loadedModel: boolean;
-    _initPromise: DeferredObject<unknown>;
+    _initPromise: DeferredPromise<void>;
     getBoundingBox(): three.Box3;
     getBoundingBoxAt(mesh: any, idx: any): any;
-    createModel(tile: any): false | DeferredObject<unknown>;
+    createModel(tile: any): false | DeferredPromise<void>;
     /**
      * 레이어의 모델, 작업자, 캐시와 예약된 비동기 작업을 해제합니다.
      *
      * @override
-     *
-     * @returns {void} 반환값 없이 레이어가 소유한 리소스를 해제합니다.
      */
     override dispose(): void;
-    getTileInfo(tile: any, indexX: any, indexY: any, level: any, baseUrl: any, drawArg: any, tileGen: any): DeferredObject<unknown>;
+    getTileInfo(tile: any, indexX: any, indexY: any, level: any, baseUrl: any, drawArg: any, tileGen: any): DeferredPromise<void>;
     /**
      * 모델 레이어의 프레임 순환 작업을 처리합니다.
      * pending LOD/index 갱신은 auto-height와 분리해 먼저 선처리하고, 고도 보정은 기존 비동기 순환을 유지합니다.
@@ -48351,6 +49041,7 @@ declare class U3dLodComponentLayer extends U3dLodComponentLayer_base {
     removeModelByName(name: string): void;
     /**
      * 위치·회전·크기 목록으로 이름이 `name`인 모델의 인스턴스를 일괄 생성합니다.
+     * 생성 대기 중 인스턴스 전체 제거 또는 레이어 해제가 발생하면 결과를 반영하지 않고 값 없이 완료합니다.
      *
      * @param {Array<U3dLodComponentPositionInfo>} positionList 위치, 회전, 크기에 대한 내용이 담긴 목록 정보
      * @param {string} name 해당 정보로 생성하려는 모델의 이름
@@ -48723,9 +49414,10 @@ declare class U3dMaskLayer extends U3dModelLayer {
     removeAll(): void;
     /**
      * 타일 키에 대응하는 마스크 격자가 없을 때만 생성합니다.
-     * 기존 격자는 다시 초기화하지 않습니다.
+     * 중첩 생성의 최신 크기를 보존하며, 실패한 격자의 등록과 자원을 되돌려 같은 키의 재시도를 허용합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 마스크를 생성할 타일
+     * @throws {unknown} 격자 생성 실패. 정리도 실패하면 원래 오류와 정리 오류를 errors에 담아 전달합니다.
      */
     createMask(tile: U3dQuadTile): void;
     /**
@@ -48769,7 +49461,7 @@ declare class U3dMaskLayer extends U3dModelLayer {
     /**
      * 참조 레이어의 모델 높이를 격자 셀에 반영하고 요청 타일의 박스를 표시합니다.
      * 공유 메시와 이미 처리한 메시를 제외하고, 모든 점 검사 이후 타일 상 태와 완료 객체를 갱신합니다.
-     * infoLayer가 없으면 완료되지 않는 기존 경로도 유지합니다.
+     * infoLayer가 없으면 값을 변경하지 않고 완료합니다.
      *
      * @param {string} tileKey 높이를 반영할 타일 키
      * @param {AbortSignal} [signal] 모델 작업의 취소 신호
@@ -49058,7 +49750,7 @@ declare class U3dVectorLayer extends U3dLayer {
      * 모든 항목을 동시에 처리하므로 호출 순서대로 끝난다고 가정하지 마십시오. <br>
      * `callback`이 동기 예외를 던지면 이 호출에서 직접 전파되며 완료 Promise를 반환하지 않습니다. <br>
      * `callback`이 반환한 Promise가 거절되면 전체 완료 Promise도 거절되며, 그때까지 등록한 도형은 남습니다. <br>
-     * LOAD 이벤트는 별도 성공 처리에서 발생하므로 이벤트 리스너 예외는 반환한 완료 Promise에 합쳐지지 않습니다. <br>
+     * LOAD 이벤트 리스너의 동기 예외는 콘솔에 기록하며, 복원 결과와 반환한 완료 Promise에는 영향을 주지 않습니다. <br>
      *
      * @param {Partial<{type: string, param: Record<string, unknown>}> | Array<Partial<{type: string, param: Record<string, unknown>}>>} savedData `saveWork` 결과의 `geometries` 항목 하나 또는 그 배열 <br>
      * @param {function(Partial<{type: string, param: Record<string, unknown>}>): *} callback 저장 항목 하나를 받아 도형을 만들고 `addGeometry`로 등록하는 사용자 콜백 함수 <br>
@@ -49106,6 +49798,8 @@ declare class U3dVectorLayer extends U3dLayer {
  * ~extends import('@union3d/3dLayer/U3dVectorLayer').U3dVectorLayer <br>
  *
  * KML 또는 KMZ 파일의 지리 형상을 3D 객체로 변환해 표시하는 레이어 클래스입니다.
+ * `ready`는 파일 읽기·파싱·형상 등록과 경계 갱신이 끝나면 이 레이어로 완료됩니다.
+ * 로딩 실패는 `ready`의 거부로 전달하며 이미지 로딩이나 실제 렌더 프레임 완료는 기다리지 않습니다.
  *
  * @group 3dLayer
  * @extends {U3dVectorLayer}
@@ -49144,16 +49838,17 @@ declare class U3dModelKmlLayer extends U3dVectorLayer {
      * U3dModelKmlLayer 클래스 생성자입니다.<br>
      * KML 텍스트·바이너리 데이터 또는 파일 경로 중 제공된 입력으로 3D 형상 변환을 시작합니다.<br>
      * kmlText, kmlData, baseUrl 순서로 먼저 제공된 입력을 사용합니다.
+     * 입력이 없으면 빈 레이어로 준비되며, 로딩 결과는 `await layer.ready`로 받으십시오.
      *
      * @param {U3dModelKmlLayerCO} opt 레이어 생성 설정
      */
     constructor(opt: U3dModelKmlLayerCO);
     /**
-     * 현재 KML 또는 KMZ 파일을 불러와 변환하는 작업입니다.
+     * 현재 로딩 회차의 ready와 같은 Promise입니다. 외부에서는 ready를 사용하십시오.
      *
-     * @type {Promise<U3dModelKmlLayer> | null}
+     * @type {Promise<this> | null}
      */
-    _loadingPromise: Promise<U3dModelKmlLayer> | null;
+    _loadingPromise: Promise<this> | null;
     /**
      * 생성한 3D 형상을 고유 ID로 찾기 위한 목록입니다.
      *
@@ -49195,10 +49890,13 @@ declare class U3dModelKmlLayer extends U3dVectorLayer {
     /**
      * 현재 파일 경로의 KML 또는 KMZ를 다시 불러와 레이어 형상을 교체합니다.<br>
      * 파일 경로 없이 텍스트 또는 바이너리 데이터로 생성한 레이어에서는 사용할 수 없습니다.
+     * 로딩 중에는 현재 `ready`를 공유하며 추가 파일 요청을 시작하지 않습니다.
+     * 종결 후에는 새 `ready`를 만들고 같은 Promise를 반환합니다. 이전 Promise의 결과는 유지됩니다.
+     * 경로 누락과 로딩 실패는 반환 Promise로 거부됩니다.
      *
-     * @returns {Promise<U3dModelKmlLayer>} 변환이 끝난 현재 레이어
+     * @returns {Promise<this>} 현재 로딩 회차의 ready
      */
-    reload(): Promise<U3dModelKmlLayer>;
+    reload(): Promise<this>;
     /**
      * ID 값으로 해당하는 Geometry를 반환하는 메서드입니다.
      *
@@ -49302,6 +50000,7 @@ declare class UIndoorLight extends three.DirectionalLight {
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dPoint {
+"outline": boolean;
 "name": string;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -49309,7 +50008,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<string, (arg0: three.WebGLRenderer, arg1: three.Scene<three.Object3DEventMap>, arg2: three.Camera, arg3: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, arg4: three.Material<three.MaterialEventMap>, arg5: three.Group<three.Object3DEventMap>) => void>;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -49339,24 +50037,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: number): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): number | undefined;
-"_getGeometryOpacity"(): number;
 "setBrightness"(brightness?: number | undefined): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -49487,6 +50201,7 @@ readonly "normalMatrix": three.Matrix3;
  * ~extends import('@U3dGeometry').U3dGeometryCO <br>
  *
  * U3dPoint 생성자 옵션 <br>
+ * 이미지 마커에는 별도 외곽선 옵션을 지원하지 않습니다. <br>
  */
 type U3dPointCO_Content = {
     /**
@@ -49524,8 +50239,9 @@ type U3dPointCO_Content = {
  * ~extends import('@U3dGeometry').U3dGeometryCO <br>
  *
  * U3dPoint 생성자 옵션 <br>
+ * 이미지 마커에는 별도 외곽선 옵션을 지원하지 않습니다. <br>
  */
-type U3dPointCO = Omit<Omit<U3dGeometryCO, never> & U3dPointCO_Content, never>;
+type U3dPointCO = Omit<U3dGeometryCO, keyof U3dOutlineCO | "lineWidth" | "lineOpacity" | "lineColor" | "outlineColor" | "outlineWidth" | "outlineOpacity"> & U3dPointCO_Content;
 /**
  * ~extends U3dGeometryStyleParam <br>
  *
@@ -49558,7 +50274,7 @@ type U3dPointParam_Content = {
  *
  * `getParam` 함수가 반환하는 Point 속성 객체 <br>
  */
-type U3dPointParam = U3dPointParam_Content & U3dGeometryStyleParam;
+type U3dPointParam = U3dPointParam_Content & Omit<U3dGeometryStyleParam, keyof U3dOutlineCO | "lineWidth" | "lineOpacity" | "lineColor" | "outlineColor" | "outlineWidth" | "outlineOpacity">;
 declare const U3dPoint_base: Omit<typeof U3dGeometry, "prototype"> & {
     new (opt?: U3dGeometryCO, isInit?: boolean): GeOnDTMixedInstance_U3dPoint & InstanceType<typeof U3dGeometry>;
     prototype: GeOnDTMixedInstance_U3dPoint & InstanceType<typeof U3dGeometry>;
@@ -49567,6 +50283,7 @@ declare const U3dPoint_base: Omit<typeof U3dGeometry, "prototype"> & {
  * ~extends import('@U3dGeometry').U3dGeometryCO <br>
  *
  * U3dPoint 생성자 옵션 <br>
+ * 이미지 마커에는 별도 외곽선 옵션을 지원하지 않습니다. <br>
  *
  * @typedef {object} U3dPointCO_Content
  * @property {number} [size=1] Point 크기. `sizeAttenuation`이 false면 화면 픽셀, true면 월드 단위(미터)로 해석됩니다. <br>
@@ -49582,7 +50299,7 @@ declare const U3dPoint_base: Omit<typeof U3dGeometry, "prototype"> & {
  * @memberof U3dPoint
  * @inner
  *
- * @typedef {Omit<U3dGeometryCO, never> & U3dPointCO_Content} U3dPointCO
+ * @typedef {Omit<U3dGeometryCO, keyof U3dOutlineCO | 'lineWidth' | 'lineOpacity' | 'lineColor' | 'outlineColor' | 'outlineWidth' | 'outlineOpacity'> & U3dPointCO_Content} U3dPointCO
  */
 /**
  * ~extends U3dGeometryStyleParam <br>
@@ -49599,7 +50316,7 @@ declare const U3dPoint_base: Omit<typeof U3dGeometry, "prototype"> & {
  * @property {boolean} sizeAttenuation 카메라에서 멀어질수록 Point를 작게 그릴지 여부 <br>
  * @property {boolean} depthTest 깊이 판정 사용 여부. false면 다른 객체에 가려지지 않고 항상 위에 그려집니다 <br>
  *
- * @typedef {U3dPointParam_Content & U3dGeometryStyleParam} U3dPointParam
+ * @typedef {U3dPointParam_Content & Omit<U3dGeometryStyleParam, keyof U3dOutlineCO | 'lineWidth' | 'lineOpacity' | 'lineColor' | 'outlineColor' | 'outlineWidth' | 'outlineOpacity'>} U3dPointParam
  */
 /**
  * ~extends import('@U3dGeometry') <br>
@@ -49632,7 +50349,7 @@ declare class U3dPoint extends U3dPoint_base {
      *
      * @type {Record<string, number>}
      */
-    static "__#11367@#scaleList": Record<string, number>;
+    static "__#11542@#scaleList": Record<string, number>;
     /**
      * 캐시된 Point 재질(materialList)과 그 텍스처를 모두 정리(dispose)합니다. <br>
      * 캐시 텍스처는 살아있는 U3dPoint 인스턴스들이 공유하므로, 앱 종료나 전체 리셋 시점에만 호출해야 합니다. <br>
@@ -49644,7 +50361,7 @@ declare class U3dPoint extends U3dPoint_base {
      * @param {import('three').Texture | null | undefined} texture
      * @returns {boolean}
      */
-    static "__#11367@#isCachedTexture"(texture: three.Texture | null | undefined): boolean;
+    static "__#11542@#isCachedTexture"(texture: three.Texture | null | undefined): boolean;
     /**
      * 이미지 URL과 offset으로 재질 캐시 키를 만듭니다. <br>
      *
@@ -49652,7 +50369,7 @@ declare class U3dPoint extends U3dPoint_base {
      * @param {import('three').Vector3Like | undefined} offset
      * @returns {string}
      */
-    static "__#11367@#cacheKey"(url: string, offset: three.Vector3Like | undefined): string;
+    static "__#11542@#cacheKey"(url: string, offset: three.Vector3Like | undefined): string;
     /**
      * 두 offset이 같은 보정값인지 비교합니다. <br>
      *
@@ -49660,7 +50377,7 @@ declare class U3dPoint extends U3dPoint_base {
      * @param {import('three').Vector3Like | undefined} b
      * @returns {boolean}
      */
-    static "__#11367@#sameOffset"(a: three.Vector3Like | undefined, b: three.Vector3Like | undefined): boolean;
+    static "__#11542@#sameOffset"(a: three.Vector3Like | undefined, b: three.Vector3Like | undefined): boolean;
     /**
      * 포인트 도형을 생성합니다. <br>
      * 색상·크기·이미지(`img`) 등을 옵션으로 지정할 수 있으며, 좌표는 생성 후 `setVertex`(월드)나 `setPositions`(위경도)로 넣습니다. <br>
@@ -49890,487 +50607,6 @@ declare class U3dPoint extends U3dPoint_base {
      * @ignore
      */
     _init(opt: U3dPointCO): void;
-    #private;
-}
-
-declare class LineMaterial extends ShaderMaterial {
-    constructor(parameters: any);
-    isLineMaterial: boolean;
-    set color(value: any);
-    get color(): any;
-    set worldUnits(value: boolean);
-    get worldUnits(): boolean;
-    set linewidth(value: any);
-    get linewidth(): any;
-    set dashed(value: boolean);
-    get dashed(): boolean;
-    set dashScale(value: any);
-    get dashScale(): any;
-    set dashSize(value: any);
-    get dashSize(): any;
-    set dashOffset(value: any);
-    get dashOffset(): any;
-    set gapSize(value: any);
-    get gapSize(): any;
-    set opacity(value: any);
-    get opacity(): any;
-    set resolution(value: any);
-    get resolution(): any;
-}
-
-/** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
-interface GeOnDTMixedInstance_U3dLine {
-"name": string;
-"color": three.ColorRepresentation;
-"opacity": number;
-"type": string;
-"wireframe": boolean;
-"depthOffset": number | undefined;
-"dynamicDepthOffset": boolean;
-"_heightOffset": number;
-"_beforeRenderCallbacks": Map<string, (arg0: three.WebGLRenderer, arg1: three.Scene<three.Object3DEventMap>, arg2: three.Camera, arg3: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, arg4: three.Material<three.MaterialEventMap>, arg5: three.Group<three.Object3DEventMap>) => void>;
-"_vertices": WorldPositionVector3[];
-"_coordinates": GeoPositionVector3[];
-"_needTransform": boolean;
-"_ulayer": U3dLayer | undefined;
-"_showLabel": boolean;
-"_properties": KeyValue;
-"geometry": three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap> | undefined;
-"needUpdates": boolean;
-"_size": number;
-"_url": string;
-"_classtype": string;
-"_lineColor": any;
-"init"(): void;
-"setLayer"(layer: U3dLayer | undefined): void;
-"getLayer"(): U3dLayer | undefined;
-"updateVertex"(): void;
-"updateColor"(): void;
-"updateGeometry"(): void;
-"updateMaterial"(): void;
-"setVertex"(vertex: WorldPositionVector3[]): void;
-"getVertex"(): WorldPositionVector3[];
-"addVertex"(vec3: WorldPositionVector3): void;
-"removeVertex"(idx: number): void;
-"getVertexIndex"(vec3: GeoPositionVector3): number;
-"getGeometry"(): three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap> | undefined;
-"setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
-"getPositions"(): GeoPositionVector3[];
-"addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
-"setLineColor"(lineColor: three.ColorRepresentation): void;
-"getLineColor"(): three.ColorRepresentation;
-"addWorldPosition"(x: number, y: number, z: number): void;
-"setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
-"_getGroundHeight"(x: number, y: number): number;
-"setPositions"(coordinates: GeoPositionVector3[]): void;
-"setRotation"(rotation: three.Euler): void;
-"setTransparent"(val: boolean): void;
-"setOpacity"(opacity: number): void;
-"_setGeometryOpacity"(opacity: number): void;
-"_applyChildrenOpacity"(opacity: number): void;
-"getOpacity"(): number | undefined;
-"_getGeometryOpacity"(): number;
-"setBrightness"(brightness?: number | undefined): void;
-"_setGeometryBrightness"(brightness: number): void;
-"getBrightness"(): number;
-"setContrast"(contrast?: number | undefined): void;
-"getContrast"(): number;
-"removePosition"(idx: number): void;
-"getMaterial"(): three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[] | undefined;
-"setMaterial"(material: any): void;
-"material": any;
-"setDepthOffset"(depthOffset: number | null | undefined): void;
-"getDepthOffset"(): number | undefined;
-"setDynamicDepthOffset"(enabled: boolean): void;
-"getDynamicDepthOffset"(): boolean;
-"setDepthOffsetFunction"(func: U3dDepthOffsetFunction): void;
-"getDepthOffsetFunction"(): U3dDepthOffsetFunction | undefined;
-"setColor"(color: three.ColorRepresentation): void;
-"getColor"(): three.ColorRepresentation | three.Color[] | undefined;
-"setWireframe"(wireframe: boolean): void;
-"getWireframe"(): boolean;
-"setImage"(url: string): void;
-"getImage"(): string | undefined;
-"needTransform"(): boolean;
-"getCenter"(): three.Vector3;
-"setRelativePosition"(): void;
-"setShowLabel"(val: boolean): void;
-"getShowLabel"(): boolean;
-"setShadow"(enabled?: boolean | undefined): void;
-"isShadow"(): boolean;
-"getProperties"(): KeyValue;
-"setProperties"(input: string | KeyValue): void;
-"addProperties"(key: string, value: any): void;
-"removeProperties"(key: string): void;
-"setParam"(param?: U3dGeometryStyleParam | undefined): void;
-"getParam"(): U3dGeometryStyleParam;
-"changeProperties"(key: string, value: any): void;
-"_listeners": Listeners | undefined;
-"addEventListener"<T extends keyof three.Object3DEventMap>(type: T, listener: three.EventListener<three.Object3DEventMap[T], T, this>): void;
-"on"(type: string, listener: EventCallBack, once?: boolean | undefined, name?: string | undefined): string | null;
-"once"(type: string, listener: EventCallBack, name?: string | undefined): string | null;
-"hasEventListener"<T extends keyof three.Object3DEventMap>(type: T, listener: three.EventListener<three.Object3DEventMap[T], T, this>): boolean;
-"hasEventType"(type: string): boolean;
-"removeEventListener"<T extends keyof three.Object3DEventMap>(type: T, listener: three.EventListener<three.Object3DEventMap[T], T, this>): void;
-"off"(type?: string | undefined, listener?: string | Function | undefined): void;
-"unkey"(type: string, key?: string | undefined): void;
-"removeEventListenerAll"(): void;
-"dispatchEvent"<T extends keyof three.Object3DEventMap>(event: three.BaseEvent<T> & three.Object3DEventMap[T]): void;
-"emit"(event: string | DispatchInputEvent, data?: any): void;
-"raycast"(raycaster: any, intersects: any): void;
-"updateMorphTargets"(): void;
-"getVertexPosition"(index: number, target: three.Vector3): three.Vector3;
-"intersectsFrustum"(frustum: three.Frustum | three.FrustumArray): boolean;
-"toJSON"(meta?: three.JSONMeta | undefined): three.MeshJSON;
-"onBeforeShadow"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, shadowCamera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, depthMaterial: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
-"onAfterShadow"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, shadowCamera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, depthMaterial: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
-"onBeforeRender"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, material: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
-"onAfterRender"(renderer: three.WebGLRenderer, scene: three.Scene<three.Object3DEventMap>, camera: three.Camera, geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, material: three.Material<three.MaterialEventMap>, group: three.Group<three.Object3DEventMap>): void;
-"applyMatrix4"(matrix: three.Matrix4): void;
-"applyQuaternion"(quaternion: three.Quaternion): this;
-"setRotationFromAxisAngle"(axis: three.Vector3, angle: number): void;
-"setRotationFromEuler"(euler: three.Euler): void;
-"setRotationFromMatrix"(m: three.Matrix4): void;
-"setRotationFromQuaternion"(q: three.Quaternion): void;
-"rotateOnAxis"(axis: three.Vector3, angle: number): this;
-"rotateOnWorldAxis"(axis: three.Vector3, angle: number): this;
-"rotateX"(angle: number): this;
-"rotateY"(angle: number): this;
-"rotateZ"(angle: number): this;
-"translateOnAxis"(axis: three.Vector3, distance: number): this;
-"translateX"(distance: number): this;
-"translateY"(distance: number): this;
-"translateZ"(distance: number): this;
-"localToWorld"(vector: three.Vector3): three.Vector3;
-"worldToLocal"(vector: three.Vector3): three.Vector3;
-"lookAt"(vector: three.Vector3): void;
-"lookAt"(x: number, y: number, z: number): void;
-"add"(...object: three.Object3D<three.Object3DEventMap>[]): this;
-"remove"(...object: three.Object3D<three.Object3DEventMap>[]): this;
-"removeFromParent"(): this;
-"clear"(): this;
-"attach"(object: three.Object3D<three.Object3DEventMap>): this;
-"getObjectById"(id: number): three.Object3D<three.Object3DEventMap> | undefined;
-"getObjectByName"(name: string): three.Object3D<three.Object3DEventMap> | undefined;
-"getObjectByProperty"(name: string, value: any): three.Object3D<three.Object3DEventMap> | undefined;
-"getObjectsByProperty"(name: string, value: any, optionalTarget?: three.Object3D<three.Object3DEventMap>[] | undefined): three.Object3D<three.Object3DEventMap>[];
-"getWorldPosition"(target: three.Vector3): three.Vector3;
-"getWorldQuaternion"(target: three.Quaternion): three.Quaternion;
-"getWorldScale"(target: three.Vector3): three.Vector3;
-"getWorldDirection"(target: three.Vector3): three.Vector3;
-"traverse"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
-"traverseVisible"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
-"traverseAncestors"(callback: (object: three.Object3D<three.Object3DEventMap>) => any): void;
-"updateMatrix"(): void;
-"updateMatrixWorld"(force?: boolean | undefined): void;
-"updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
-"clone"(recursive?: boolean | undefined): this;
-"copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
-"isLine2": boolean;
-"isLineSegments2": boolean;
-readonly "isMesh": true;
-"morphTargetInfluences"?: number[] | undefined;
-"morphTargetDictionary"?: { [key: string]: number; } | undefined;
-"count": number;
-readonly "isObject3D": true;
-readonly "id": number;
-"uuid": string;
-"parent": three.Object3D<three.Object3DEventMap> | null;
-"children": three.Object3D<three.Object3DEventMap>[];
-"up": three.Vector3;
-readonly "position": three.Vector3;
-readonly "rotation": three.Euler;
-readonly "quaternion": three.Quaternion;
-readonly "scale": three.Vector3;
-readonly "modelViewMatrix": three.Matrix4;
-readonly "normalMatrix": three.Matrix3;
-"matrix": three.Matrix4;
-"matrixWorld": three.Matrix4;
-"matrixAutoUpdate": boolean;
-"matrixWorldAutoUpdate": boolean;
-"matrixWorldNeedsUpdate": boolean;
-"layers": three.Layers;
-"castShadow": boolean;
-"receiveShadow": boolean;
-"frustumCulled": boolean;
-"animations": three.AnimationClip[];
-"customDepthMaterial"?: three.Material<three.MaterialEventMap> | undefined;
-"customDistanceMaterial"?: three.Material<three.MaterialEventMap> | undefined;
-"static": boolean;
-"userData": Record<string, any>;
-"pivot": three.Vector3 | null;
-"occlusionTest"?: boolean | undefined;
-}
-
-declare const U3dLine_base: Omit<typeof U3dGeometry, "prototype"> & {
-    new (opt?: U3dGeometryCO, isInit?: boolean): GeOnDTMixedInstance_U3dLine & InstanceType<typeof U3dGeometry>;
-    prototype: GeOnDTMixedInstance_U3dLine & InstanceType<typeof U3dGeometry>;
-};
-/**
- * ~extends import('@U3dGeometry') <br>
- *
- * 여러 좌표를 연결해 3D 공간에 두께가 있는 선(폴리라인)을 표시하는 도형입니다. <br>
- * 좌표 사이는 Catmull-Rom 곡선으로 보간하며, 단색 또는 좌표별 그라디언트 색상과 미터 또는 화면 픽셀 단위의 두께를 지정할 수 있습니다. <br>
- * Catmull-Rom 곡선은 지정한 모든 좌표를 통과하면서 좌표 사이를 부드럽게 연결하는 곡선입니다. <br>
- * `drapeOnSurface`로 선의 높이를 모델·지형 표면에 맞출 수 있습니다. <br>
- *
- * 좌표는 2개 이상 필요합니다. <br>
- * `setVertex`로 월드 좌표(EPSG:3857)를 지정하면 즉시 형상을 생성하고, <br>
- * `setPositions`로 위경도 좌표계(EPSG:4326)를 지정하면 선이 속한 레이어가 월드 좌표(EPSG:3857)로 변환해 반영합니다. <br>
- *
- * @group geometry
- *
- * @extends {__GeOnDTMixinBase_U3dLine}
- 
- */
-declare class U3dLine extends U3dLine_base {
-    /**
-     * 선 도형을 생성합니다. <br>
-     * 생성 옵션 `vertices`에 월드 좌표(EPSG:3857)가 2개 이상 있으면 생성 시 형상을 생성합니다. <br>
-     * 위경도 좌표(`coordinates`)만 지정한 경우 생성 시 형상을 생성하지 않으므로, <br>
-     * 레이어에 추가한 후 `setPositions`로 좌표를 지정하십시오. <br>
-     * 생성 옵션 `opacity`는 선 재질에 적용되지 않으므로, 투명도는 `setOpacity` 또는 `setParam`으로 지정하십시오. <br>
-     *
-     * @param {U3dLineCO} [opt={}] 색상(또는 그라디언트 색상 배열)·두께·두께 단위·표본 간격과 좌표를 지정하는 생성 옵션 <br>
-     */
-    constructor(opt?: U3dLineCO);
-    /**
-     * 도형 표시 여부입니다. 기본값은 true입니다. <br>
-     *
-     * @type {import('three').Object3D['visible']}
-     */
-    visible: three.Object3D["visible"];
-    /**
-     * 렌더링 정렬 순서입니다. 값이 작을수록 먼저 그리며, 깊이 검사를 비활성화하지는 않습니다. <br>
-     *
-     * @type {import('three').Object3D['renderOrder']}
-     */
-    renderOrder: three.Object3D["renderOrder"];
-    /**
-     * 사용자가 지정한 선 두께입니다. <br>
-     * 기본값은 1입니다. <br>
-     * `worldUnits`가 `true`이면 미터, `false`이면 화면 픽셀 단위입니다. <br>
-     * 미터 단위이고 위경도 좌표가 있으면 첫 좌표의 위도에 따라 월드 좌표(EPSG:3857) 길이로 환산해 재질에 적용하며, 적용된 값은 `getLineWidth`로 조회합니다. <br>
-     * 직접 대입한 값은 재질에 즉시 반영되지 않으며, 변경은 `setLineWidth` 또는 `setParam`으로 합니다. <br>
-     *
-     * @type {number}
-     */
-    linewidth: number;
-    /**
-     * 곡선 표본 간격입니다. <br>
-     * 단위는 월드 좌표(EPSG:3857) 길이이며 기본값은 10입니다. <br>
-     * 곡선 길이를 이 값으로 나눈 수(최소 좌표 수)만큼 표본을 생성하므로, 값이 작을수록 곡선이 매끄러워지고 정점 수가 증가합니다. <br>
-     * 0보다 큰 값을 지정하십시오. <br>
-     *
-     * @type {number}
-     */
-    divisions: number;
-    /**
-     * 닫힘 설정값입니다. <br>
-     * 기본값은 `false`입니다. <br>
-     * 생성 옵션이나 `setParam`으로 지정한 값을 보관하고 `getParam`으로 반환하지만, 선 형상 생성에는 사용되지 않으므로 `true`여도 끝점과 시작점이 연결되지 않습니다. <br>
-     * 값이 변경되면 `drapeOnSurface`로 적용한 표면 드레이프가 해제됩니다. <br>
-     *
-     * @type {boolean}
-     */
-    closed: boolean;
-    /**
-     * 선 두께 단위 설정입니다. <br>
-     * 기본값은 `true`입니다. <br>
-     * `true`이면 두께를 미터로 해석하므로 화면상 두께가 카메라 거리에 따라 달라지고, `false`이면 화면 픽셀로 해석하므로 화면상 두께가 일정합니다. <br>
-     * 이 필드에 직접 대입한 값은 재질에 반영되지 않으므로, 단위를 바꿀 때는 `setParam`을 사용하십시오. <br>
-     *
-     * @type {boolean}
-     */
-    worldUnits: boolean;
-    /**
-     * 월드 좌표(EPSG:3857) 보정 스케일 (1 / cos(lat)), worldUnits=true 일 때만 사용 <br>
-     *
-     * @type {number}
-     *
-     * @ignore
-     */
-    _googleScale: number;
-    /**
-     * 그라디언트용 색상 배열. null이면 단색 모드 <br>
-     *
-     * @type {Array<import('three').ColorRepresentation> | null}
-     *
-     * @ignore
-     */
-    _gradientColors: Array<three.ColorRepresentation> | null;
-    /**
-     * Line2에서 상속된 geometry (중복 방지) <br>
-     *
-     * @override
-     *
-     * @type {*}
-     *
-     * @ignore
-     */
-    override geometry: any;
-    /**
-     * Line2에서 상속된 material (중복 방지) <br>
-     *
-     * @override
-     *
-     * @type {import('@union3d/lib/three/lines/LineMaterial').LineMaterial}
-     *
-     * @ignore
-     */
-    override material: LineMaterial;
-    /**
-     * 고도 등 월드 위치 기반 후처리에서 Line2 실루엣을 재현하는 전용 material <br>
-     *
-     * @type {import('@union3d/lib/three/lines/LineMaterial').LineMaterial | undefined}
-     *
-     * @ignore
-     */
-    customWorldPositionMaterial: LineMaterial | undefined;
-    /**
-     * 레이어가 도형을 갱신할 때 `setMaterial`을 다시 호출할지 여부. 선은 자체 `LineMaterial`을 직접 만들므로 항상 false입니다. <br>
-     *
-     * @type {boolean}
-     *
-     * @ignore
-     */
-    _needMaterial: boolean;
-    /**
-     * 재질과 초기 형상을 구성하는 초기화 함수 <br>
-     *
-     * @ignore
-     */
-    _initLine(): void;
-    /**
-     * 점선 표시에 사용하는 선분별 누적 거리를 계산합니다. <br>
-     * 좌표를 설정해 instanceStart·instanceEnd 버퍼가 생성된 후 호출하며, 좌표 변경 후에는 다시 계산해야 합니다. <br>
-     * 계산 결과를 geometry의 instanceDistanceStart·instanceDistanceEnd 속성에 저장합니다. <br>
-     *
-     * @returns {this} 거리 계산을 마친 현재 선 객체 <br>
-     * @throws {TypeError} 지오메트리 또는 필요한 좌표 버퍼가 없으면 발생합니다 <br>
-     */
-    computeLineDistances(): this;
-    /**
-     * 재질에 적용된 선 두께를 반환합니다. <br>
-     * `worldUnits`가 `true`이고 위경도 좌표가 있으면 위도 환산 배율이 곱해진 값이므로 `linewidth`와 다를 수 있습니다. <br>
-     *
-     * @returns {number} 재질에 적용된 선 두께. 단위는 `worldUnits`에 따라 월드 좌표(EPSG:3857) 길이 또는 화면 픽셀 <br>
-     */
-    getLineWidth(): number;
-    /**
-     * 선 두께를 설정하고 재질에 즉시 반영합니다. <br>
-     * `worldUnits`가 `true`이면 미터 값에 위도 환산 배율을 곱해 적용하고, `false`이면 화면 픽셀 값을 그대로 적용합니다. <br>
-     * 전달한 값은 요청값으로 `linewidth` 필드에 보관되며, 재질에는 배율을 적용한 두께가 들어갑니다. <br>
-     *
-     * @param {number} width 선 두께. `worldUnits`가 `true`이면 미터, `false`이면 화면 픽셀 <br>
-     */
-    setLineWidth(width: number): void;
-    /**
-     * 선 재질 셰이더의 투명도 값을 반환합니다. <br>
-     * 0이면 완전 투명, 1이면 불투명입니다. <br>
-     *
-     * @override
-     *
-     * @returns {number | undefined} 투명도 (0~1). 재질에 투명도 값이 없으면 `undefined` <br>
-     */
-    override getOpacity(): number | undefined;
-    /**
-     * 선 재질 셰이더의 투명도 값을 설정합니다. <br>
-     * 0이면 완전 투명, 1이면 불투명입니다. <br>
-     * 재질의 투명 처리 설정(`transparent`)과 도형의 `opacity` 속성은 변경하지 않습니다. <br>
-     * 선 재질은 투명 처리가 꺼진 상태로 만들어지므로, 투명도를 화면에 나타내려면 `setTransparent(true)`를 함께 호출하십시오. <br>
-     *
-     * @override
-     *
-     * @param {number} value 투명도 (0~1). 모든 하위 자식 재질에도 적용합니다 <br>
-     */
-    override setOpacity(value: number): void;
-    /**
-     * 선 색상을 설정하고 형상을 다시 생성합니다. <br>
-     * 단일 색상을 지정하면 선 전체에 적용하고, 색상 배열을 지정하면 좌표 사이 색상을 보간한 그라디언트로 표시합니다. <br>
-     * 배열 길이는 현재 좌표(`vertices`) 수와 같아야 하며, 길이가 다르면 콘솔에 오류를 출력하고 형상을 다시 생성하지 않습니다. <br>
-     *
-     * @override
-     *
-     * @param {import('three').ColorRepresentation | Array<import('three').ColorRepresentation>} color 선 전체 색상 또는 좌표 순서에 대응하는 그라디언트 색상 배열 <br>
-     */
-    override setColor(color: three.ColorRepresentation | Array<three.ColorRepresentation>): void;
-    /**
-     * 꼭짓점 좌표를 BufferAttribute로 변환하여 geometry에 적용 <br>
-     *
-     * @override
-     *
-     * @ignore
-     */
-    override updateVertex(): void;
-    /**
-     * 선의 높이를 모델·지형 표면에 맞춥니다. <br>
-     * 원본 좌표는 유지하고, `divisions` 간격으로 생성한 곡선 표본의 높이를 표면 높이에 `offset`을 더한 값으로 변경합니다. <br>
-     * 표면과 교차하지 않은 표본은 원래 높이를 유지하며, 모든 계산이 완료된 후 형상에 일괄 반영합니다. <br>
-     *
-     * - 원래 높이로 복원하려면 `clearSurfaceDrape`를 호출합니다. <br>
-     * - 다시 호출하면 진행 중인 이전 요청은 취소되고 마지막 요청의 결과만 반영됩니다. <br>
-     * - 색상·두께·투명도를 변경해도 적용 상태가 유지되며, 좌표나 `divisions`·`closed`를 변경하면 해제됩니다. <br>
-     * - 실행 중 지형이나 모델이 변경되면(LOD 변경 등) 최신 표면에 맞추려면 다시 호출해야 합니다. <br>
-     * - GPU에서 형태를 변형하는 인스턴스·배치 모델(본·모프 텍스처 사용)은 계산 대상에서 제외됩니다. <br>
-     *
-     * 화면 응답성을 유지하기 위해 계산을 여러 작업으로 나누어 실행하므로, 완료까지 여러 프레임이 소요될 수 있습니다. <br>
-     *
-     * @param {U3dLineDrapeOnSurfaceOptions} options 드레이프 옵션. 앱·높이 오프셋·표본 간격·취소 신호 <br>
-     * @returns {Promise<U3dLineDrapeOnSurfaceResult | undefined>} 성공 시 표본·교차·미교차 수. 입력 오류·실행 오류·취소 시 `undefined`이며, 다음 호출이나 `clearSurfaceDrape`·`dispose`로 중단된 경우에는 오류 메시지 없이 `undefined` <br>
-     *
-     * @example
-     * const result = await line.drapeOnSurface({
-     *     app,
-     *     offset: 3,
-     *     divisions: 5
-     * });
-     */
-    drapeOnSurface(options: U3dLineDrapeOnSurfaceOptions): Promise<U3dLineDrapeOnSurfaceResult | undefined>;
-    /**
-     * `drapeOnSurface`로 적용한 표면 드레이프를 해제하고 원래 좌표의 형상으로 복원합니다. <br>
-     * 진행 중인 드레이프 요청이 있으면 함께 취소하며, 적용한 드레이프가 없으면 아무 동작도 하지 않습니다. <br>
-     */
-    clearSurfaceDrape(): void;
-    /**
-     * 도형 공통 속성과 선 고유 속성을 일괄 변경하고 형상을 다시 생성합니다. <br>
-     * 지정하지 않은 항목은 현재 값을 유지합니다. <br>
-     * `linewidth`와 `lineWidth`를 함께 지정하면 `linewidth`를 사용하며, 두께는 `setLineWidth`와 같은 방식으로 적용합니다. <br>
-     *
-     * @override
-     *
-     * @param {U3dLineSetParam} [param] 변경할 속성. 도형 공통 속성과 `linewidth`(또는 `lineWidth`)·`divisions`·`closed`·`worldUnits` <br>
-     */
-    override setParam(param?: U3dLineSetParam): void;
-    /**
-     * 현재 도형 공통 속성과 선 고유 속성을 반환합니다. <br>
-     * `linewidth`는 재질에 적용된 두께(`getLineWidth` 값)이므로, `worldUnits`가 `true`이고 위경도 좌표가 있으면 지정한 두께에 위도 환산 배율이 곱해진 값입니다. <br>
-     * 반환값을 그대로 `setParam`에 넘기면 이미 배율이 적용된 두께에 배율이 다시 곱해지므로, 되돌려 넣을 때는 `linewidth`를 원하는 두께로 다시 지정하거나 제외하십시오. <br>
-     * 그라디언트 색상 사용 중에는 공통 속성의 `color`가 흰색으로 반환됩니다. <br>
-     *
-     * @override
-     *
-     * @returns {U3dLineParam} 현재 속성. 호출할 때마다 새 객체를 반환 <br>
-     */
-    override getParam(): U3dLineParam;
-    /**
-     * 진행 중인 `drapeOnSurface` 요청을 중단하고 선 객체의 자원 해제를 요청합니다. <br>
-     * 두 번째 호출부터는 아무 동작도 하지 않습니다. <br>
-     * 레이어에서 선을 제거하지 않으므로, 레이어에 추가한 선은 레이어에서 제거하십시오. <br>
-     */
-    dispose(): void;
-    _disposed: boolean;
-    /**
-     * geometry position의 좌표를 중심점 기준 상대 좌표로 변환 <br>
-     *
-     * @param {Array<number>} positions 좌표 배열 <br>
-     *
-     * @ignore
-     */
-    _setRelativePosition(positions: Array<number>): void;
     #private;
 }
 
@@ -50631,6 +50867,7 @@ declare class U2dPolygon extends U2dGeometry {
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dCylinder {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -50638,7 +50875,6 @@ interface GeOnDTMixedInstance_U3dCylinder {
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -50668,24 +50904,40 @@ interface GeOnDTMixedInstance_U3dCylinder {
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: any): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -50753,8 +51005,8 @@ interface GeOnDTMixedInstance_U3dCylinder {
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -50808,6 +51060,7 @@ interface GeOnDTMixedInstance_U3dCylinder {
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
@@ -50865,7 +51118,7 @@ declare const U3dCylinder_base: Omit<typeof U3dGeometry, "prototype"> & {
  * ~extends import('@U3dGeometry') <br>
  *
  * `3D 원기둥(Cylinder)` 객체를 생성·관리하는 클래스입니다. <br>
- * 윗면/밑면 반지름과 높이로 원기둥·원뿔대·원뿔을 만들고, 재질 타입(`basic`/`topimage`/`standard`)과 외곽선(`edge`)을 지정할 수 있습니다. <br>
+ * 윗면/밑면 반지름과 높이로 원기둥·원뿔대·원뿔을 만들고, 재질 타입(`basic`/`topimage`/`standard`)과 외곽선(`outline`)을 지정할 수 있습니다. <br>
  * 좌표는 생성 후 월드 좌표(EPSG:3857)를 받는 `setVertex` 또는 위경도를 받는 `setPositions`로 지정하며, 첫 번째 좌표에 원기둥이 놓입니다. <br>
  * `setVertex`는 바로 반영되고, `setPositions`로 준 위경도는 도형이 속한 레이어가 월드 좌표(EPSG:3857)로 바꿔 넣는 시점에 반영됩니다. <br>
  *
@@ -50874,7 +51127,7 @@ declare const U3dCylinder_base: Omit<typeof U3dGeometry, "prototype"> & {
  * 지오메트리 자체를 돌리려면 `setRotateXFromGeometry`를, 도형 객체를 돌리려면 `setRotation`을 사용합니다. <br>
  *
  * 반지름·높이·분할 수·외곽선 같은 형상 필드에 직접 대입한 값은 곧바로 화면에 반영되지 않습니다. <br>
- * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용되므로, 값을 바꿀 때는 `setParam`을 사용하십시오. <br>
+ * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용됩니다. 분할 수는 `setRadialSegments`·`setHeightSegments` 또는 `setParam`으로 변경하십시오. <br>
  *
  * @group geometry
  * @extends {__GeOnDTMixinBase_U3dCylinder}
@@ -50883,7 +51136,7 @@ declare const U3dCylinder_base: Omit<typeof U3dGeometry, "prototype"> & {
 declare class U3dCylinder extends U3dCylinder_base {
     /**
      * 생성 옵션으로 원기둥(Cylinder)을 생성합니다. <br>
-     * 윗면/밑면 반지름과 높이로 원기둥을 만들고, 재질 타입(`basic` 단색 / `topimage` 윗면 이미지 / `standard` 표준 재질), 외곽선(`edge`) 등을 함께 지정할 수 있습니다. <br>
+     * 윗면/밑면 반지름과 높이로 원기둥을 만들고, 재질 타입(`basic` 단색 / `topimage` 윗면 이미지 / `standard` 표준 재질), 외곽선(`outline`) 등을 함께 지정할 수 있습니다. <br>
      * 재질 타입과 윗면 이미지는 이 시점에만 반영되며 이후 `setParam`으로는 바꿀 수 없습니다. <br>
      *
      * @param {U3dCylinderCO} [opt={}] 원기둥(Cylinder) 생성 옵션 (반지름·높이·재질 타입·외곽선 등) <br>
@@ -50944,27 +51197,17 @@ declare class U3dCylinder extends U3dCylinder_base {
      */
     thetaLength: number | undefined;
     /**
-     * 외곽선(테두리 선)을 표시하는지 여부입니다. <br>
-     * 생성 옵션에 넣지 않으면 켜진 상태(`true`)로 만들어지며, 이는 꺼진 상태로 만들어지는 육면체·구와 반대입니다. <br>
-     * 켜면 면과 면이 만나는 모서리를 선으로 덧그려 형태를 또렷하게 보여줍니다. <br>
-     * 선 색은 `lineColor`로 정하며 기본은 검정입니다. <br>
-     * 표시 여부는 `setParam({outline: ...})`으로 바꾸며, 이때 외곽선이 다시 만들어집니다. <br>
-     *
-     * @type {boolean}
-     */
-    edge: boolean;
-    /**
      * @type {number}
      *
      * @ignore
      */
     _googleScale: number;
     /**
-     * @type {import('three').LineSegments | undefined}
+     * @type {UGeometryOutlineLine | undefined}
      *
      * @ignore
      */
-    _outline: three.LineSegments | undefined;
+    _outline: UGeometryOutlineLine | undefined;
     /**
      * @override
      *
@@ -50992,7 +51235,10 @@ declare class U3dCylinder extends U3dCylinder_base {
      */
     _initCylinder(): void;
     /**
-     * 외곽선 갱신 함수 (기존 외곽선을 정리한 뒤 `edge`가 켜져 있을 때만 다시 생성) <br>
+     * 위·아래 원둘레와 옆면 경계선으로 원기둥의 테두리를 하나의 U3dLine으로 표시합니다. <br>
+     * 원둘레와 옆면 윤곽 모두 실제 경계 중심에 지정한 전체 두께를 표시합니다. <br>
+     * 16분할 이상의 완전한 원둘레는 경계 표본을 보강하고 공통 라인의 연결부 처리를 사용합니다. <br>
+     * 부분 원호와 낮은 분할 수의 다각형 단면은 원래 모서리를 유지합니다. <br>
      *
      * @ignore
      */
@@ -51061,13 +51307,29 @@ declare class U3dCylinder extends U3dCylinder_base {
      */
     override updateVertex(): void;
     /**
+     * 원둘레 방향 분할 수를 변경합니다. 값이 바뀌면 형상과 외곽선을 갱신합니다. <br>
+     * 지오메트리에 직접 준 회전·이동은 형상을 다시 만든 뒤 재적용해야 합니다. <br>
+     * @param {number} segments 3 이상의 유한한 정수 <br>
+     */
+    setRadialSegments(segments: number): void;
+    /** @returns {number} 원둘레 방향 분할 수. 기본값은 32입니다 <br> */
+    getRadialSegments(): number;
+    /**
+     * 높이(축) 방향 분할 수를 변경합니다. 값이 바뀌면 형상과 외곽선을 갱신합니다. <br>
+     * 지오메트리에 직접 준 회전·이동은 형상을 다시 만든 뒤 재적용해야 합니다. <br>
+     * @param {number} segments 1 이상의 유한한 정수 <br>
+     */
+    setHeightSegments(segments: number): void;
+    /** @returns {number | undefined} 높이(축) 방향 분할 수. 미지정이면 undefined이며 실제 형상에는 기본값 1을 사용합니다 <br> */
+    getHeightSegments(): number | undefined;
+    /**
      * 원기둥(Cylinder)의 속성(색상·투명도·반지름·높이·세그먼트 등)을 한 번에 변경합니다. <br>
-     * 전달한 값만 반영되고 나머지는 기존 값이 유지되며, 호출할 때마다 지오메트리와 외곽선이 다시 만들어집니다. <br>
+     * 전달한 값만 반영되고 나머지는 기존 값이 유지됩니다. 형상 값이 바뀌거나 인자 없이 호출하면 형상을 다시 만듭니다. <br>
+     * 스타일만 변경하면 형상과 외곽선을 유지하고, 외곽선 표시를 전환하면 외곽선만 생성·해제합니다. <br>
      *
      * 생성 옵션 중 `type`, `topimageurl`처럼 재질을 정하는 값은 이 함수로 바뀌지 않습니다. <br>
      * 재질을 바꾸려면 원기둥을 새로 만듭니다. <br>
-     * 지오메트리가 새로 만들어지므로 `setRotate*FromGeometry`·`setTranslateFromGeometry`로 준 회전과 이동도 함께 사라집니다. <br>
-     * 필요하면 호출 뒤에 다시 적용합니다. <br>
+     * 형상을 다시 만들면 `setRotate*FromGeometry`·`setTranslateFromGeometry`로 준 회전과 이동도 사라지므로 다시 적용합니다. <br>
      * 반지름·높이·세그먼트·각도·외곽선 옵션이 잘못되면 변경 전에 TypeError 또는 RangeError를 발생시킵니다. <br>
      *
      * @override
@@ -51094,6 +51356,7 @@ declare class U3dCylinder extends U3dCylinder_base {
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dBox {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -51101,7 +51364,6 @@ interface GeOnDTMixedInstance_U3dBox {
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -51131,24 +51393,40 @@ interface GeOnDTMixedInstance_U3dBox {
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: any): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -51216,8 +51494,8 @@ interface GeOnDTMixedInstance_U3dBox {
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -51271,6 +51549,7 @@ interface GeOnDTMixedInstance_U3dBox {
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
 "_sphere": three.Sphere | undefined;
@@ -51444,14 +51723,6 @@ declare class U3dBox extends U3dBox_base {
      */
     override type: "basic" | "topimage";
     /**
-     * 외곽선(outline) 표시 여부입니다. <br>
-     * 생성 옵션과 `setParam`에서는 `outline`(또는 별칭 `useline`·`useLine`·`edge`) 이름을 사용합니다. <br>
-     * `getParam`은 이 값을 `outline` 이름으로 반환합니다.
-     *
-     * @type {boolean}
-     */
-    useline: boolean;
-    /**
      * 첫 위경도 좌표의 위도로 계산한 크기 보정 배율 (월드 좌표(EPSG:3857) 1단위 → 실거리 환산의 역수)
      *
      * @type {number}
@@ -51462,11 +51733,11 @@ declare class U3dBox extends U3dBox_base {
     /**
      * 현재 외곽선 객체. 부모 `U3dGeometry.setLineColor`가 이 필드를 읽어 색상을 바꿉니다.
      *
-     * @type {import('three').LineSegments | undefined}
+     * @type {UGeometryOutlineLine | undefined}
      *
      * @ignore
      */
-    _outline: three.LineSegments | undefined;
+    _outline: UGeometryOutlineLine | undefined;
     /**
      * 해제 여부. `UMesh.dispose()`가 true로 바꾸며, 그 뒤 도착한 비동기 텍스처 로드 결과를 버리는 데 사용합니다.
      *
@@ -51571,7 +51842,7 @@ declare class U3dBox extends U3dBox_base {
      */
     _updateBoxGeometry(): void;
     /**
-     * 기존 외곽선을 해제하고 `useline`이면 현재 지오메트리로 외곽선을 다시 만들어 자식으로 추가합니다.
+     * 기존 외곽선을 해제하고 `outline`이면 현재 지오메트리로 외곽선을 다시 만들어 자식으로 추가합니다.
      *
      * @ignore
      */
@@ -51581,6 +51852,7 @@ declare class U3dBox extends U3dBox_base {
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dCircle {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -51588,7 +51860,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -51618,24 +51889,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: any): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -51703,7 +51990,7 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getOid"(): any;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -51757,6 +52044,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
@@ -51819,6 +52107,8 @@ declare const U3dCircle_base: Omit<typeof U3dGeometry, "prototype"> & {
  * `setVertex`는 바로 반영되고, `setPositions`로 준 위경도는 도형이 속한 레이어가 월드 좌표(EPSG:3857)로 바꿔 넣는 시점에 반영됩니다. <br>
  *
  * 원판은 로컬 XY 평면에 만들어져 +Z 방향을 바라봅니다. <br>
+ * 외곽선은 본체와 별도인 BufferGeometry와 전용 ShaderMaterial을 가진 Mesh로 원판과 같은 평면의 띠를 그립니다. <br>
+ * 전용 셰이더로 두께를 계산하고 안팎 경계에 픽셀 AA를 적용합니다. <br>
  * 지도는 Z가 높이인 좌표계를 쓰므로 따로 회전시키지 않아도 지면에 눕혀진 상태로 놓입니다. <br>
  * 재질에 양면 표시를 켜지 않으므로 원판을 아래에서 올려다보면 보이지 않습니다. <br>
  *
@@ -51826,7 +52116,7 @@ declare const U3dCircle_base: Omit<typeof U3dGeometry, "prototype"> & {
  * 월드 좌표(EPSG:3857)는 위도가 높을수록 실제 거리보다 늘어나 있어, 이 배율을 곱해야 화면에서 실제 미터 크기로 보입니다. <br>
  *
  * 반지름·조각 수 같은 형상 필드에 직접 대입한 값은 곧바로 화면에 반영되지 않습니다. <br>
- * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용되므로, 값을 바꿀 때는 `setParam`을 사용하십시오. <br>
+ * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용됩니다. 분할 수는 `setSegments` 또는 `setParam`으로 변경하십시오. <br>
  *
  * @group geometry
  * @extends {__GeOnDTMixinBase_U3dCircle}
@@ -51881,6 +52171,20 @@ declare class U3dCircle extends U3dCircle_base {
      */
     _updateCircleGeometry(): void;
     /**
+     * 중심과 중복 끝점을 제외한 둘레 정점으로 별도 BufferGeometry를 구성합니다.
+     * 전용 ShaderMaterial을 가진 Mesh로 원판 평면의 띠를 그립니다.
+     *
+     * @override
+     *
+     * @param {import('three').BufferGeometry} geometry 원판 형상
+     * @param {boolean} depthTest 깊이 검사 여부
+     * @returns {UGeometryOutlineMesh} 원판 평면의 외곽선 메시
+     *
+     * @protected
+     * @ignore
+     */
+    protected override _createCircleOutline(geometry: three.BufferGeometry, depthTest: boolean): UGeometryOutlineMesh;
+    /**
      * 꼭짓점 좌표를 위치에 반영 <br>
      *
      * @override
@@ -51889,8 +52193,16 @@ declare class U3dCircle extends U3dCircle_base {
      */
     override updateVertex(): void;
     /**
+     * 원둘레 분할 수를 변경합니다. 값이 바뀌면 형상과 외곽선을 갱신합니다. <br>
+     * @param {number} segments 3 이상의 유한한 정수 <br>
+     */
+    setSegments(segments: number): void;
+    /** @returns {number} 원둘레 분할 수. 기본값은 32입니다 <br> */
+    getSegments(): number;
+    /**
      * 원(Circle)의 속성(색상·투명도·반지름·조각 수 등)을 한 번에 변경합니다. <br>
-     * 전달한 값만 반영되고 나머지는 기존 값이 유지되며, 호출할 때마다 지오메트리가 다시 만들어집니다. <br>
+     * 전달한 값만 반영되고 나머지는 기존 값이 유지됩니다. 반지름·조각 수가 바뀔 때 형상을 다시 만듭니다. <br>
+     * 스타일만 변경하면 형상과 외곽선을 유지하며, 인자 없는 호출이나 빈 옵션은 형상을 다시 만듭니다. <br>
      *
      * 생성 옵션 중 렌더링 스타일(`style`), 좌표(`vertices`·`coordinates`), 이름(`name`), `showLabel`과 `properties`는 이 함수로 바뀌지 않습니다. <br>
      * 좌표는 `setVertex`나 `setPositions`로 바꾸고, 렌더링 스타일을 바꾸려면 원을 새로 만듭니다. <br>
@@ -51914,17 +52226,17 @@ declare class U3dCircle extends U3dCircle_base {
     override getParam(): U3dCircleParam;
     /**
      * 이 원(Circle)을 가리키는 고유 식별자(UID)를 반환합니다. <br>
-     * `userData.id`는 원을 만들 때 자동으로 채워지지 않으므로 필요하면 호출자가 직접 넣습니다. <br>
-     * 넣어 두었으면 그 값을, 없으면 three.js가 객체마다 자동으로 매기는 정수 id를 돌려줍니다. <br>
-     * 클릭한 도형을 목록에서 찾거나 여러 도형을 구별할 때 사용합니다. <br>
+     * 이 절차형 도형의 실행 중 인스턴스를 구분하는 three.js 정수 id입니다. <br>
+     * 데이터 모델의 재로딩 식별자인 puid와는 별개이며 userData를 엔진 키로 해석하지 않습니다. <br>
      *
-     * @returns {number | string} `userData.id`에 넣어 둔 식별자 또는 three.js가 매긴 객체 id <br>
+     * @returns {number} three.js가 매긴 실행 중 도형 id <br>
      */
-    getUid(): number | string;
+    getUid(): number;
 }
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dPipe {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -51932,7 +52244,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -51962,24 +52273,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: any): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -52047,8 +52374,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -52102,6 +52429,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
@@ -52167,6 +52495,7 @@ declare const U3dPipe_base: Omit<typeof U3dGeometry, "prototype"> & {
  * `setPositions`로 위경도 좌표계(EPSG:4326)를 지정하면 파이프가 속한 레이어가 월드 좌표(EPSG:3857)로 변환해 반영합니다. <br>
  *
  * 반지름·분할 수·장력 같은 형상 필드에 직접 대입한 값은 곧바로 화면에 반영되지 않습니다. <br>
+ * 외곽선은 실제 튜브 메시의 윤곽과 열린 끝의 단면 테두리를 전용 Mesh로 그립니다. <br>
  * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용되므로, 값을 바꿀 때는 `setParam`을 사용하십시오. <br>
  *
  * @group geometry
@@ -52250,12 +52579,25 @@ declare class U3dPipe extends U3dPipe_base {
     _init(): void;
     /**
      * 꼭짓점 업데이트 함수 <br>
+     * 분할 수·닫힘과 열린 끝의 연결 관계가 같으면 정점·법선만 기존 버퍼에 갱신합니다. <br>
+     * UV·인덱스와 계산한 단면 삼각함수를 재사용하고, 본체 경계는 갱신당 한 번 계산합니다. <br>
      *
      * @override
      *
+     * @param {boolean} [rebuild=false] 형상 옵션 변경 시 기존 자원을 교체합니다.
      * @ignore
      */
-    override updateVertex(): void;
+    override updateVertex(rebuild?: boolean): void;
+    /**
+     * 실제 튜브의 열린 끝과 현재 시점에서 보이는 표면 윤곽을 그립니다.
+     * @override
+     * @param {import('three').BufferGeometry} geometry 원본 튜브
+     * @param {boolean} [depthTest=true] 깊이 검사 여부
+     * @returns {UGeometryOutlineMesh} 메시 경계 외곽선
+     * @protected
+     * @ignore
+     */
+    protected override _createSilhouetteOutline(geometry: three.BufferGeometry, depthTest?: boolean): UGeometryOutlineMesh;
     /**
      * 재질 초기화 함수 <br>
      *
@@ -52265,24 +52607,8 @@ declare class U3dPipe extends U3dPipe_base {
      */
     override setMaterial(): void;
     /**
-     * 라인 너비 조회 함수 <br>
-     *
-     * @returns {number} 라인 너비 <br>
-     *
-     * @ignore
-     */
-    getLineWidth(): number;
-    /**
-     * 라인 너비 설정 함수 <br>
-     *
-     * @param {number} size 라인 너비 <br>
-     *
-     * @ignore
-     */
-    setLineWidth(size: number): void;
-    linewidth: number;
-    /**
-     * 도형 공통 속성과 파이프 고유 속성을 일괄 변경하고 형상을 다시 생성합니다. <br>
+     * 도형 공통 속성과 파이프 고유 속성을 일괄 변경합니다. <br>
+     * 파이프 형상 값이 바뀔 때만 형상을 다시 만들며, 스타일만 변경하면 기존 형상과 외곽선을 유지합니다. <br>
      * 지정하지 않은 항목은 현재 값을 유지합니다. <br>
      * 인자를 생략하고 호출하면 값은 그대로 두고 형상만 다시 만듭니다. <br>
      *
@@ -52364,14 +52690,12 @@ interface GeOnDTMixedInstance_U3dFlowPipe {
 "_needMaterial": boolean;
 "_init"(): void;
 "material": any;
-"updateVertex"(): void;
+"updateVertex"(rebuild?: boolean | undefined): void;
 "geometry": three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>;
 "setMaterial"(): void;
-"getLineWidth"(): number;
-"setLineWidth"(size: number): void;
-"linewidth": number | undefined;
 "setParam"(param?: U3dPipeCO | undefined): void;
 "getParam"(): U3dPipeParam;
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -52379,7 +52703,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> & Map<string, (arg0: three.WebGLRenderer, arg1: three.Scene<three.Object3DEventMap>, arg2: three.Camera, arg3: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, arg4: three.Material<three.MaterialEventMap>, arg5: three.Group<three.Object3DEventMap>) => void>;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -52407,24 +52730,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: any): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -52488,8 +52827,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -52543,6 +52882,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
@@ -52663,6 +53003,7 @@ declare class U3dFlowPipe extends U3dFlowPipe_base {
      *
      * 생성 직후에는 흐름이 멈춰 있습니다. <br>
      * `initAnimation(drawArg)`로 그리기 루프와 연결한 뒤 `flowStart`를 호출하면 흐르기 시작합니다. <br>
+     * 외곽선은 부모의 공통 `outline` 상태와 `lineColor`·`lineWidth`·`lineOpacity`를 사용합니다. <br>
      *
      * @param {U3dFlowPipeCO} [opt={}] 흐름 파이프 생성 옵션 (흐름 타입·속도·흐름 스타일·파이프 반지름·장력·색상 등) <br>
      */
@@ -53203,6 +53544,7 @@ declare class U3dFlowPipe extends U3dFlowPipe_base {
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dFault {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -53210,7 +53552,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -53240,24 +53581,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: number): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): number | undefined;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -53324,8 +53681,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -53378,6 +53735,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
@@ -53789,12 +54147,6 @@ declare class U3dFault extends U3dFault_base {
      */
     _length: number;
     /**
-     * @type {boolean}
-     *
-     * @ignore
-     */
-    _useline: boolean;
-    /**
      * 화면 픽셀 기준 외곽 테두리 두께입니다. <br>
      *
      * @type {number}
@@ -53852,7 +54204,7 @@ declare class U3dFault extends U3dFault_base {
      *
      * @ignore
      */
-    _edgeLine: three_examples_jsm_lines_LineSegments2_js.LineSegments2 | undefined;
+    _outline: three_examples_jsm_lines_LineSegments2_js.LineSegments2 | undefined;
     /**
      * @type {import('three').Vector3 | undefined}
      *
@@ -54225,7 +54577,7 @@ declare class U3dFault extends U3dFault_base {
      *
      * @override
      *
-     * @param {number} value 불투명도 (0~1). 외곽선을 포함한 모든 하위 자식에도 적용하며, 1 미만이면 투명 처리가 켜집니다 <br>
+     * @param {number} value 불투명도 (0~1). 자동 생성 외곽선을 제외한 일반 하위 자식에도 적용하며, 1 미만이면 투명 처리가 켜집니다 <br>
      */
     override setOpacity(value: number): void;
     /**
@@ -54303,17 +54655,18 @@ declare class U3dFault extends U3dFault_base {
      */
     setRenderOffset(val: number): void;
     /**
-     * 단층 내부 분할선을 제외한 외곽 테두리 표시 여부를 설정합니다. <br>
-     *
-     * @param {boolean} useLine 외곽 테두리 표시 여부 <br>
+     * 단층 외곽 테두리 두께를 반환합니다. <br>
+     * @override
+     * @returns {number} 외곽 테두리 두께 (outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀) <br>
      */
-    setUseLine(useLine: boolean): void;
+    override getLineWidth(): number;
     /**
-     * 단층 외곽 테두리 두께를 화면 픽셀 단위로 설정합니다. <br>
+     * 단층 외곽 테두리 두께를 outlineType에 지정한 단위로 설정합니다. <br>
      *
-     * @param {number} lineWidth 외곽 테두리 두께 (화면 픽셀). 0 이하이거나 숫자가 아니면 2를 적용합니다 <br>
+     * @override
+     * @param {number} lineWidth 외곽 테두리 두께 (outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀). 0보다 큰 유한한 숫자 <br>
      */
-    setLineWidth(lineWidth: number): void;
+    override setLineWidth(lineWidth: number): void;
     /**
      * 단층에 사용자 정의 속성 정보(key-value)를 설정합니다. <br>
      *
@@ -54353,7 +54706,7 @@ declare class U3dFault extends U3dFault_base {
     setHighLight(color?: three.ColorRepresentation, opacity?: number): void;
     /**
      * 하이라이트(강조 표시)를 해제하고 원래 색상·투명도로 되돌립니다. <br>
-     * 외곽선 옵션(`useline`)이 꺼져 있으면 강조용 외곽선도 함께 제거합니다. <br>
+     * 외곽선 옵션(`outline`)이 꺼져 있으면 강조용 외곽선도 함께 제거합니다. <br>
      */
     resetHighLight(): void;
     /**
@@ -54401,6 +54754,7 @@ declare class U3dFault extends U3dFault_base {
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dUserGeometry {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -54408,7 +54762,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -54438,24 +54791,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: any): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -54523,8 +54892,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -54578,6 +54947,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
@@ -54680,7 +55050,7 @@ type U3dUserGeometryCO_Content = {
  *
  * U3dUserGeometry 생성자 옵션 <br>
  */
-type U3dUserGeometryCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dUserGeometryCO_Content, never>;
+type U3dUserGeometryCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dUserGeometryCO_Content, never>;
 /**
  * ~extends U3dGeometryStyleParam <br>
  *
@@ -54733,7 +55103,7 @@ declare const U3dUserGeometry_base: Omit<typeof U3dGeometry, "prototype"> & {
  * @memberof U3dUserGeometry
  * @inner
  *
- * @typedef {Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dUserGeometryCO_Content} U3dUserGeometryCO
+ * @typedef {Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dUserGeometryCO_Content} U3dUserGeometryCO
  */
 /**
  * ~extends U3dGeometryStyleParam <br>
@@ -54785,14 +55155,6 @@ declare class U3dUserGeometry extends U3dUserGeometry_base {
      */
     height: number;
     /**
-     * 외곽선(테두리 선)을 표시하는지 여부입니다. <br>
-     * 켜면 면과 면이 만나는 모서리를 선으로 덧그리며, 선 색은 `lineColor`로 정하고 기본은 검정입니다. <br>
-     * 생성 옵션과 `setParam`에서는 `outline`(예전 이름 `useline`·`useLine`·`edge`) 이름을 사용하고, `getParam`은 `outline`으로 반환합니다. <br>
-     *
-     * @type {boolean}
-     */
-    useline: boolean;
-    /**
      * 정점 사이를 잘게 나눌지 여부입니다. <br>
      * 켜면 이웃한 두 정점 사이를 5조각으로 쪼개 정점 수를 늘립니다. <br>
      *
@@ -54812,11 +55174,11 @@ declare class U3dUserGeometry extends U3dUserGeometry_base {
      */
     _needMaterial: boolean;
     /**
-     * @type {import('three').LineSegments | undefined}
+     * @type {UGeometryOutlineLine | undefined}
      *
      * @ignore
      */
-    _outline: three.LineSegments | undefined;
+    _outline: UGeometryOutlineLine | undefined;
     color: any;
     opacity: any;
     /**
@@ -54826,37 +55188,23 @@ declare class U3dUserGeometry extends U3dUserGeometry_base {
      */
     _init(): void;
     /**
-     * 라인 너비 조회 함수 <br>
-     *
-     * @deprecated 제거될 메서드입니다.
-     *
-     * @returns {number} 라인 너비 <br>
-     *
-     * @ignore
-     */
-    getLineWidth(): number;
-    /**
-     * 라인 너비 설정 함수 <br>
-     *
-     * @deprecated 제거될 메서드입니다.
-     *
-     * @param {number} size 라인 너비 <br>
-     *
-     * @ignore
-     */
-    setLineWidth(size: number): void;
-    /**
      * 현재 정점(vertices)으로 도형 지오메트리를 다시 만듭니다. <br>
      * 정점을 바꾸면 자동으로 호출되며, 높이가 0 이하면 평면으로, 0보다 크면 세운 기둥으로 다시 만듭니다. <br>
      * 정점이 하나도 없으면 지오메트리를 빈 상태로 비우고, 하나뿐이면 지금 지오메트리를 그대로 둡니다.
      *
      * 지오메트리를 새로 만들면서 도형 위치를 형상의 중심으로 옮기고 z를 0.1만큼 올려, 바닥면이 지면과 겹쳐 깜빡이는 것을 줄입니다. <br>
      * 위경도 좌표가 있으면 바닥면을 첫 번째 좌표의 높이(`getPositions()[0].z`, 미터)에 놓습니다. <br>
-     * 외곽선도 이때 지웠다가 `useline`이 켜져 있으면 다시 만듭니다.
+     * 외곽선도 이때 지웠다가 `outline`이 켜져 있으면 다시 만듭니다.
      *
      * @override
      */
     override updateVertex(): void;
+    /**
+     * 본체의 형상·위치를 유지하고 외곽선만 갱신합니다.
+     * @protected
+     * @ignore
+     */
+    protected _updateOutline(): void;
     /**
      * 도형(과 외곽선)의 위치를 지정한 좌표로 이동시킵니다. <br>
      * `offset`에 정의된 축(x/y/z)만 적용되며, 외곽선 자식 객체도 함께 옮깁니다. <br>
@@ -54875,7 +55223,8 @@ declare class U3dUserGeometry extends U3dUserGeometry_base {
     override setMaterial(): void;
     /**
      * 도형의 속성(색상·투명도·높이·외곽선·곡선 보간)을 갱신합니다. <br>
-     * 전달한 값만 반영되고 나머지는 기존 값이 유지되며, 호출할 때마다 지오메트리와 외곽선이 다시 만들어집니다. <br>
+     * 전달한 값만 반영되고 나머지는 기존 값이 유지됩니다. 높이·곡선 설정이 바뀔 때 형상을 다시 만듭니다. <br>
+     * 스타일만 변경하면 형상과 외곽선을 유지하며, 인자 없는 호출이나 빈 옵션은 형상을 다시 만듭니다. <br>
      *
      * @override
      *
@@ -54897,6 +55246,7 @@ declare class U3dUserGeometry extends U3dUserGeometry_base {
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dPolygonLoftGeometry {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -54904,7 +55254,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -54934,24 +55283,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: any): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -55018,8 +55383,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -55073,6 +55438,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
 "_sphere": three.Sphere | undefined;
@@ -55154,11 +55520,11 @@ declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
     constructor(opt?: U3dPolygonLoftGeometryCO);
     /** @type {boolean} */ _disposed: boolean;
     /**
-     * @type {import('three').LineSegments | undefined}
+     * @type {UGeometryOutlineLine | undefined}
      *
      * @ignore
      */
-    _outline: three.LineSegments | undefined;
+    _outline: UGeometryOutlineLine | undefined;
     color: any;
     opacity: any;
     /**
@@ -55177,12 +55543,12 @@ declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
      */
     get topScale(): number;
     /**
-     * 외곽선 표시 여부를 반환합니다. <br>
-     * 생성 옵션 `outline`(또는 별칭)이나 `setUseLine`으로 지정한 값입니다. <br>
-     *
-     * @returns {boolean} 외곽선을 표시하면 `true` <br>
+     * 외곽선 표시 여부를 변경합니다. <br>
+     * 인자 없는 예전 생성 호출은 경고 후 `setOutline(true)`로 호환 처리합니다. <br>
+     * @override
+     * @param {boolean} [outline] 외곽선 표시 여부. 새 코드에서는 반드시 지정합니다 <br>
      */
-    get useLine(): boolean;
+    override setOutline(outline?: boolean): void;
     /**
      * `dispose` 호출로 자원 해제가 완료되었는지 여부를 반환합니다. <br>
      *
@@ -55216,9 +55582,11 @@ declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
      */
     override updateVertex(): void;
     /**
-     * 도형 공통 속성과 로프트 고유 속성을 일괄 변경하고 형상을 다시 생성합니다. <br>
+     * 도형 공통 속성과 로프트 고유 속성을 일괄 변경합니다. <br>
+     * 높이·윗면 배율·윗면 좌표가 바뀔 때 형상을 다시 만들며, 스타일만 변경하면 기존 형상과 외곽선을 유지합니다. <br>
+     * 인자 없는 호출이나 빈 옵션은 형상을 다시 만듭니다. <br>
      * 지정하지 않은 항목은 현재 값을 유지하며, 허용 범위를 벗어난 항목은 변경 전에 오류를 발생시킵니다. <br>
-     * 허용 범위는 `opacity` 0 이상 1 이하, `height` 0 이상, `topScale` 0 초과의 유한한 숫자이며, `topVertices`는 유한한 좌표를 가진 Vector3가 3개 이상인 배열, `outline`(또는 별칭)은 boolean입니다. <br>
+     * 허용 범위는 `opacity` 0 이상 1 이하, `height` 0 이상, `topScale` 0 초과의 유한한 숫자이며, `topVertices`는 유한한 좌표를 가진 Vector3가 3개 이상인 배열, `outline`은 boolean입니다. <br>
      * 지정한 `topVertices`는 `undefined`나 `null`로 해제되지 않습니다. <br>
      *
      * @override
@@ -55257,13 +55625,6 @@ declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
      */
     getTopVertex(): Array<WorldPositionVector3> | undefined;
     /**
-     * 외곽선 표시 여부를 변경하고 형상을 다시 생성합니다. <br>
-     * `setParam({useLine})`과 동일합니다. <br>
-     *
-     * @param {boolean} useLine 외곽선 표시 여부. boolean이 아니면 오류를 발생시키고 반영하지 않음 <br>
-     */
-    setUseLine(useLine: boolean): void;
-    /**
      * 현재 도형 공통 속성과 로프트 고유 속성을 반환합니다. <br>
      * 반환값을 `setParam`에 전달하면 같은 설정을 다른 로프트 도형에 적용할 수 있습니다. <br>
      *
@@ -55289,17 +55650,19 @@ declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
     getTopArea(): number;
     /**
      * 현재 형상으로 외곽선을 생성해 도형의 자식 객체로 추가합니다. <br>
-     * 윗면·아랫면 테두리와 측면 패널의 경계를 표시하고, 패널 내부의 삼각분할선은 제외합니다. <br>
+     * 본체에서 면 사이 각도가 1도 이상인 모서리를 추출합니다. 같은 평면의 삼각분할선은 제외합니다. <br>
      * 이 도형이 생성한 기존 외곽선만 제거하며, 다른 자식 선 객체는 유지합니다. <br>
-     * 선 색상은 `lineColor`를 사용하며, 선 두께는 대부분의 브라우저에서 1픽셀로 렌더링됩니다. <br>
-     * 외곽선 표시 여부(`useLine`)는 변경하지 않으며, 표시 여부는 `setUseLine`으로 변경합니다. <br>
+     * 선 색상은 `lineColor`, 월드 두께(미터)는 `lineWidth`를 사용합니다. <br>
+     * 외곽선 표시 여부는 변경하지 않습니다. <br>
+     * @protected
+     * @ignore
      */
-    setOutline(): void;
+    protected _updateLoftOutline(): void;
     /**
      * 이 도형이 생성한 외곽선(`_outline`)을 제거하고 자원을 해제합니다. <br>
      * 사용자가 추가한 다른 자식 선 객체는 유지합니다. <br>
-     * 외곽선 표시 여부(`useLine`)는 변경하지 않으므로 다음 형상 갱신 시 외곽선이 다시 생성될 수 있습니다. <br>
-     * 외곽선 표시를 끄는 경우에는 `setUseLine(false)`를 사용합니다. <br>
+     * 외곽선 표시 여부(`outline`)는 변경하지 않으므로 다음 형상 갱신 시 외곽선이 다시 생성될 수 있습니다. <br>
+     * 외곽선 표시를 끄는 경우에는 `setOutline(false)`를 사용합니다. <br>
      */
     clearOutline(): void;
     /**
@@ -55460,7 +55823,7 @@ declare class U3dBilboard {
      *
      * @ignore
      */
-    static "__#11339@#uuid": string;
+    static "__#11514@#uuid": string;
     /**
      * UUID 카운터 <br>
      *
@@ -55468,7 +55831,7 @@ declare class U3dBilboard {
      *
      * @ignore
      */
-    static "__#11339@#count": number;
+    static "__#11514@#count": number;
     /**
      * 생성된 빌보드 목록 <br>
      *
@@ -55496,7 +55859,7 @@ declare class U3dBilboard {
      *
      * @ignore
      */
-    static "__#11339@#deleteGroup"(group: UGroup): void;
+    static "__#11514@#deleteGroup"(group: UGroup): void;
     /**
      * 기본 빌보드(`bilboard` 타입)를 만들어 반환합니다. <br>
      * 씬에 추가하지 않고 객체만 만들어 반환하므로, 반환값을 직접 씬/그룹에 추가해야 합니다. <br>
@@ -55955,7 +56318,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#11492@#_TMP": three.Vector3;
+    static "__#11677@#_TMP": three.Vector3;
     /**
      * 임시 Quaternion (행렬 분해용) <br>
      *
@@ -55963,7 +56326,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#11492@#_TMP_Q": three.Quaternion;
+    static "__#11677@#_TMP_Q": three.Quaternion;
     /**
      * 임시 Vector3 (스케일 추출용) <br>
      *
@@ -55971,7 +56334,7 @@ declare class U3dHeatManager {
      *
      * @ignore
      */
-    static "__#11492@#_TMP_S": three.Vector3;
+    static "__#11677@#_TMP_S": three.Vector3;
     /**
      * 온도 기반 팔레트를 설정하는 함수 <br>
      *
@@ -56313,12 +56676,12 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#11482@#SINGLE_POSITION_TYPES": Array<string>;
+    static "__#11666@#SINGLE_POSITION_TYPES": Array<string>;
     /** @type {Array<string>}
      *
      * @ignore
      */
-    static "__#11482@#MULTI_POSITION_TYPES": Array<string>;
+    static "__#11666@#MULTI_POSITION_TYPES": Array<string>;
     /**
      * 도형 타입에 따라 단일위치/다중위치 생성 방식을 자동으로 골라 도형을 만들고, 레이어가 주어지면 함께 추가합니다. <br>
      * 좌표를 하나만 주면 도형 하나를, 좌표 배열을 주면 여러 개를 만들어 배열로 반환합니다.
@@ -56379,7 +56742,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#11482@#addSingle"(layer: {
+    static "__#11666@#addSingle"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coord: Coord | Array<Coord>, params: KeyValue): U3dGeometry | Array<U3dGeometry>;
     /**
@@ -56391,7 +56754,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#11482@#addSingleOne"(layer: {
+    static "__#11666@#addSingleOne"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coord: Coord, params: KeyValue): U3dGeometry;
     /**
@@ -56409,7 +56772,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#11482@#addMulti"(layer: {
+    static "__#11666@#addMulti"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coords: Array<Coord> | Double_Array<Coord>, params: KeyValue): U3dGeometry | Array<U3dGeometry>;
     /**
@@ -56421,7 +56784,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#11482@#addMultiOne"(layer: {
+    static "__#11666@#addMultiOne"(layer: {
         addGeometry: (geom: U3dGeometry) => void;
     } | undefined, type: GeomType, coords: Array<Coord>, params: KeyValue): U3dGeometry;
     /**
@@ -56433,7 +56796,7 @@ declare class U3dGeometryFactory {
      *
      * @ignore
      */
-    static "__#11482@#buildGeom"(type: GeomType, params: KeyValue): U3dGeometry | undefined;
+    static "__#11666@#buildGeom"(type: GeomType, params: KeyValue): U3dGeometry | undefined;
 }
 
 /**
@@ -56527,6 +56890,7 @@ declare class UAnalyArea extends UAnaly {
     onClick(e: U3dMouseEvent): void;
     /**
      * 활성 분석의 가이드 끝점을 마우스 교차점으로 갱신합니다.
+     * 지도 외 UI와 잘못된 화면 좌표는 무시하고 마지막 정상 측정을 유지합니다.
      * 측정 레이어가 없어 끝점 갱신을 생략해도 교차점이 있으면 라벨 갱신은 수행합니다.
      *
      * @param {MouseEvent} e 마우스 이벤트
@@ -57317,20 +57681,47 @@ declare class UAnalyLandScape extends UAnaly {
     /** @type {import('@union3d/core/UTween').UTween | undefined} */ _tween: UTween | undefined;
     /** @type {import('@U3dApp').U3dAppTweenHandle | undefined} */ _currentTween: U3dAppTweenHandle | undefined;
     /** @type {DeferredPromise<void> | undefined}  */ _currentTweenPromise: DeferredPromise<void> | undefined;
-    /** @type {import('three').Material | Array<import('three').Material> | undefined} */ _originMaterial: three.Material | Array<three.Material> | undefined;
+    /** @type {import('@union3d/select/U3dSelect').U3dSelect | undefined} */ _selector: U3dSelect | undefined;
     /** @type {import('three').Object3D | undefined} */ _building: three.Object3D | undefined;
     /** @type {string | null | undefined} */ _clickId: string | null | undefined;
     name: any;
     /**
-     * 클릭으로 건물을 선택하는 모드를 설정합니다. <br>
-     * 활성화하면 기존 클릭 동작을 교체하며 비활성화하면 선택 표시도 해제합니다.
+     * 사용자가 구성한 공통 선택기를 경관 분석에 연결합니다. <br>
+     * 선택기의 옵션과 사용자 이벤트는 유지하며 선택 중 교체하면 새 선택기로 입력을 이어갑니다.
+     * 주입된 선택기의 최종 제거는 호출자가 담당합니다.
+     *
+     * @param {import('@union3d/select/U3dSelect').U3dSelect} selector 사용할 공통 선택기
+     * @throws {TypeError} U3dSelect 인스턴스가 아닌 경우
+     *
+     * @example
+     * const selector = new U3dSelect({mode: 'point', selectType: 'outline'});
+     * selector.on('end', event => console.log(event.data));
+     * analy.setSelector(selector);
+     * analy.select(true);
+     */
+    setSelector(selector: U3dSelect): void;
+    /**
+     * 선택 설정을 변경할 수 있는 공통 선택기 원본을 반환합니다. <br>
+     * setSelector()나 첫 선택 활성화 전에는 undefined이며 clear() 후에도 같은 선택기를 반환합니다.
+     * deactive()는 내부 기본 선택기만 제거합니다.
+     *
+     * @returns {import('@union3d/select/U3dSelect').U3dSelect | undefined} 현재 선택기 또는 미설정 시 undefined
+     *
+     * @example
+     * analy.getSelector()?.setSelectType('outline');
+     */
+    getSelector(): U3dSelect | undefined;
+    /**
+     * 연결된 선택기의 입력을 활성화하거나 해제합니다. <br>
+     * 선택기가 없으면 앱이 연결된 활성화 시 기본 선택기를 생성합니다.
+     * 선택 결과의 첫 건물을 층별 분석 대상으로 사용하며 비활성화하면 선택 표시도 해제합니다.
      *
      * @param {boolean} active 건물 선택 모드 활성 여부
      */
     select(active: boolean): void;
     /**
      * 건물의 선택 표시와 선택 지점의 임시 POI를 해제합니다. <br>
-     * 선택 전의 재질 참조를 복원하고 선택 표시용 복제 재질만 해제합니다.
+     * 선택 표시·복원과 자원 정리는 공통 선택기에 위임합니다.
      */
     clearSelect(): void;
     /**
@@ -58150,54 +58541,24 @@ declare class SurfaceVolumeArea {
 }
 
 /**
- * ~extends import('@UAnaly').UAnalyCO <br>
- * UAnalySlope 생성자 옵션
- */
-type UAnalySlopeCO_Content = {
-    /**
-     * 분석 클래스 이름
-     */
-    name?: string;
-    /**
-     * 경사도 분할 수
-     */
-    divide?: number;
-};
-/**
- * ~extends import('@UAnaly').UAnalyCO <br>
- * UAnalySlope 생성자 옵션
- */
-type UAnalySlopeCO = Omit<Omit<UAnalyCO, never> & UAnalySlopeCO_Content, never>;
-/**
- * ~extends import('@UAnaly').UAnalyCO <br>
- * UAnalySlope 생성자 옵션
- *
- * @typedef {object} UAnalySlopeCO_Content
- * @property {string} [name='Slope'] 분석 클래스 이름
- * @property {number} [divide=60] 경사도 분할 수
- *
- * @memberof UAnalySlope
- * @inner
- *
- * @typedef {Omit<UAnalyCO, never> & UAnalySlopeCO_Content} UAnalySlopeCO
- */
-/**
  * ~extends import('@UAnaly').UAnaly <br>
- * `경사도` 분석 클래스 <br>
- * 두 점 사이의 지형 경사도를 계산하고 분석 결과를 제공한다.
+ *
+ * 경사도(Slope) 분석에 필요한 두 지점 사이의 지형 높이 표본을 제공합니다. <br>
+ * 측정선을 표시하려면 setStart()와 setEnd()를 사용하고, 좌표만 지정하려면 setPoints()를 사용합니다.
  *
  * @group analysis
- * @extends UAnaly
+ * @extends {UAnaly}
  *
  * @example
  * const slope = app.getAnalysis('Slope');
- * slope.setStart(startVec3);
- * slope.setEnd(endVec3);
- * const result = slope.getSlope();
+ * slope.setPoints(startVec3, endVec3);
+ * const samples = slope.getSlope(60);
  */
 declare class UAnalySlope extends UAnaly {
     /**
-     * @param {UAnalySlopeCO} [opt={}]
+     * UAnalySlope 클래스 생성자입니다.
+     *
+     * @param {UAnalySlopeCO} [opt={}] 분석 이름과 기본 표본 분할 수를 지정하는 옵션
      */
     constructor(opt?: UAnalySlopeCO);
     /** @type {number} */ _divide: number;
@@ -58209,116 +58570,135 @@ declare class UAnalySlope extends UAnaly {
     /** @type {import('@union3d/geometry/U3dPOI').U3dPOI} */ _indicator: U3dPOI;
     name: any;
     /**
+     * 연결한 앱에서 선 측정 모드를 시작하고 저장한 측정 길이를 0으로 초기화합니다. <br>
+     * 클릭 등록 ID가 있으면 분석 객체에 등록한 이벤트를 모두 해제합니다.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 활성화한 분석 객체
      */
     override active(): this;
     /**
+     * 분석을 비활성화하고 분석 객체에 등록한 이벤트를 해제합니다. <br>
+     * 활성 상태에서 종료할 때 저장한 측정 길이가 0이면 측정 표시와 좌표도 정리합니다.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 분석 객체
      */
     override deactive(): this;
     /**
+     * 연결한 앱에서 분석 좌표, 끝점 표식과 측정 도형을 정리합니다. <br>
+     * 앱의 측정 레이어에서 그리는 중인 도형도 지우고 화면 갱신을 요청합니다.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 정리한 분석 객체
      */
     override clear(): this;
     /**
-     * 분석 시작점을 반환하는 함수
+     * 지형 높이 표본 조회에 사용할 시작점을 반환합니다.
      *
-     * @return {import('three').Vector3 | undefined}
+     * @returns {import('three').Vector3 | undefined} 저장한 시작점 참조이며, 설정 전에는 undefined
      */
     getStart(): three.Vector3 | undefined;
     /**
-     * 분석 시작점을 설정하는 함수입니다.
+     * 연결한 앱의 이전 측정을 지우고 새 시작점을 등록합니다. <br>
+     * 입력 좌표의 참조를 저장하고 화면에 시작 표식을 추가합니다.
      *
-     * @param {WorldPositionVector3} point 시작점 3D 좌표 (월드 좌표, EPSG:3857)
-     * @return {this}
+     * @param {WorldPositionVector3} point 새 측정의 시작점인 월드 좌표(EPSG:3857)
+     * @returns {this} 시작점을 등록한 분석 객체
      */
     setStart(point: WorldPositionVector3): this;
     /**
-     * 분석 끝점을 반환하는 함수
+     * 지형 높이 표본 조회에 사용할 끝점을 반환합니다.
      *
-     * @return {import('three').Vector3 | undefined}
+     * @returns {import('three').Vector3 | undefined} 저장한 끝점 참조이며, 설정 전에는 undefined
      */
     getEnd(): three.Vector3 | undefined;
     /**
-     * 분석 끝점을 설정하는 함수입니다.
+     * 연결한 앱에 끝점 표식을 추가하고 진행 중인 측정을 확정합니다. <br>
+     * 입력 좌표의 참조와 확정 직전에 조회한 측정 길이를 보관합니다.
      *
-     * @param {WorldPositionVector3} point 끝점 3D 좌표 (월드 좌표, EPSG:3857)
-     * @return {this}
+     * @param {WorldPositionVector3} point 측정을 끝낼 위치의 월드 좌표(EPSG:3857)
+     * @returns {this} 끝점을 등록한 분석 객체
      */
     setEnd(point: WorldPositionVector3): this;
     /**
-     * 측정 길이를 반환하는 함수
+     * 끝점을 등록할 때 앱에서 읽은 지표 거리 기준 측정 길이를 반환합니다.
      *
-     * @return {number}
+     * @returns {number} 미터 단위 측정 길이이며, 초기화 직후에는 0
      */
     getMeasureLength(): number;
     /**
-     * 시작점과 끝점을 직접 설정하는 함수입니다.
+     * 측정 표시나 측정 길이를 갱신하지 않고 높이 표본 조회에 사용할 두 좌표 참조를 저장합니다.
      *
-     * @param {WorldPositionVector3} start 시작점 좌표 (월드 좌표, EPSG:3857)
-     * @param {WorldPositionVector3} end 끝점 좌표 (월드 좌표, EPSG:3857)
-     * @return {this | undefined}
+     * @param {WorldPositionVector3} start 표본을 배치하기 시작할 월드 좌표(EPSG:3857)
+     * @param {WorldPositionVector3} end 표본을 배치할 방향과 범위를 정하는 월드 좌표(EPSG:3857)
+     * @returns {this | undefined} 좌표를 저장한 분석 객체이며, 어느 한 좌표가 null 또는 undefined이면 undefined
      */
     setPoints(start: WorldPositionVector3, end: WorldPositionVector3): this | undefined;
     /**
-     * 경사도 분석 결과를 반환하는 함수
+     * 연결한 앱의 렌더 지형에서 시작점부터 끝점 방향으로 높이 표본을 조회합니다. <br>
+     * 조회 중 분할 수가 바뀌지 않으면, 양의 정수 분할에서 시작점이 포함되고 끝점은 제외됩니다. <br>
+     * 지형을 찾지 못하면 표본 위치의 z에 앱의 지형 없음 값을 넣고, 그 값을 환산한 값을 높이로 반환합니다.
      *
-     * @param {number} [divide] 경사도 분할 수 (설정 시 divide 값 갱신)
-     * @return {Array<{position: import('three').Vector3, height: number}> | undefined}
+     * @param {number} [divide] 표본 분할 수이며, 지정하면 좌표 검사 전에 이후 조회의 분할 수도 갱신
+     * @returns {Array<{position: import('three').Vector3, height: number}> | undefined} 월드 좌표(EPSG:3857)의 표본 위치와 미터 단위 높이 배열이며, 좌표가 없으면 undefined
      */
     getSlope(divide?: number): Array<{
         position: three.Vector3;
         height: number;
     }> | undefined;
     /**
+     * 분석 상태를 변경하지 않고 현재 분석 객체를 반환합니다.
+     *
      * @override
      *
-     * @param {import('@union3d/core/UDrawArg').UDrawArg} [drawArg]
-     * @return {this}
+     * @param {import('@union3d/core/UDrawArg').UDrawArg} [drawArg] 공통 분석 호출에서 전달하는 그리기 도구이며 이 분석에서는 사용하지 않습니다.
+     * @returns {this} 분석 객체
      */
     override update(drawArg?: UDrawArg): this;
     /**
-     * @param {number} geox
-     * @param {number} geoy
-     * @return {this}
+     * 측정점이나 분석 상태를 갱신하지 않고 현재 분석 객체를 반환합니다.
+     *
+     * @param {number} geox 측정점 추가 호출에서 전달하는 첫 좌표 성분이며 이 분석에서는 사용하지 않습니다.
+     * @param {number} geoy 측정점 추가 호출에서 전달하는 두 번째 좌표 성분이며 이 분석에서는 사용하지 않습니다.
+     * @returns {this} 분석 객체
      */
     addVertex(geox: number, geoy: number): this;
     /**
-     * 경사도 분할 수를 반환하는 함수
+     * 다음 지형 높이 조회에 사용할 분할 수를 반환합니다.
      *
-     * @return {number}
+     * @returns {number} 저장한 표본 분할 수
      */
     getDivide(): number;
     /**
-     * 경사도 분할 수를 설정하는 함수
+     * 다음 지형 높이 조회에서 사용할 분할 수를 저장합니다.
      *
-     * @param {number} divide 분할 수
-     * @return {this}
+     * @param {number} divide 구간을 나눌 수이며, 일반적인 조회에는 양의 정수를 지정합니다.
+     * @returns {this} 분할 수를 저장한 분석 객체
      */
     setDivide(divide: number): this;
     /**
-     * 인디케이터(POI)를 추가하는 함수
+     * 관심 지점(POI)을 연결한 앱에 추가하고 제거 요청에 사용할 참조로 저장합니다. <br>
+     * 앱을 연결하기 전에는 등록과 참조 저장을 수행하지 않습니다.
      *
-     * @param {import('@union3d/geometry/U3dPOI').U3dPOI} poi
-     * @return {this}
+     * @param {import('@union3d/geometry/U3dPOI').U3dPOI} poi 앱에 표시할 관심 지점
+     * @returns {this} 분석 객체
      */
     addIndicator(poi: U3dPOI): this;
     /**
-     * 인디케이터(POI)를 제거하는 함수
+     * 저장한 관심 지점(POI)을 앱에서 제거하도록 요청합니다. <br>
+     * 제거를 요청한 뒤에도 분석 객체에는 그 관심 지점의 참조가 남습니다.
      *
-     * @return {this}
+     * @returns {this} 분석 객체
      */
     removeIndicator(): this;
     /**
-     * 인디케이터(POI)를 반환하는 함수
+     * 마지막으로 저장한 관심 지점(POI) 참조를 조회합니다.
      *
-     * @return {import('@union3d/geometry/U3dPOI').U3dPOI}
+     * @returns {import('@union3d/geometry/U3dPOI').U3dPOI} 저장한 관심 지점 참조이며, 첫 등록 전 실제 반환값은 undefined
      */
     getIndicator(): U3dPOI;
     #private;
@@ -58445,7 +58825,7 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#11465@#computeVertex"(points: Array<three.Vector3>, width: number): Array<number>;
+    static "__#11649@#computeVertex"(points: Array<three.Vector3>, width: number): Array<number>;
     /**
      * @param {number} start
      * @param {number} end
@@ -58453,7 +58833,7 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#11465@#computeFace"(start: number, end: number): {
+    static "__#11649@#computeFace"(start: number, end: number): {
         indices: Array<number>;
         normals: Array<number>;
     };
@@ -58463,14 +58843,14 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#11465@#computeUV"(count: number): Array<number>;
+    static "__#11649@#computeUV"(count: number): Array<number>;
     /**
      * @param {number} v
      * @returns {Array<number>}
      *
      * @ignore
      */
-    static "__#11465@#getUV"(v: number): Array<number>;
+    static "__#11649@#getUV"(v: number): Array<number>;
     /**
      * @param {import('three').Vector3} point1 시작 점 <br>
      * @param {import('three').Vector3} point2 끝 점 <br>
@@ -58480,7 +58860,7 @@ declare class ULineGeometry extends UBufferGeometry {
      *
      * @ignore
      */
-    static "__#11465@#extractRoadPoint"(point1: three.Vector3, point2: three.Vector3, width: number, end?: boolean): Array<number>;
+    static "__#11649@#extractRoadPoint"(point1: three.Vector3, point2: three.Vector3, width: number, end?: boolean): Array<number>;
     /**
      * 라인(띠) 지오메트리를 생성합니다. <br>
      * 생성 후 `addPoint`/`setPoints`로 점을 넣으시면, spline 곡선으로 이어진 일정 너비의 띠가 만들어집니다. <br>
@@ -58815,7 +59195,11 @@ declare class UAnalyMultipleComponent extends UAnaly {
         renderOrder: number;
     };
     name: any;
-    /** 기즈모(gizmo) 생성 시 사용할 색상이며 외부에서 변경할 수 있습니다. @type {import('three').ColorRepresentation | undefined} */
+    /**
+     * 기즈모(gizmo) 생성 시 사용할 색상이며 외부에서 변경할 수 있습니다.
+     *
+     * @type {import('three').ColorRepresentation | undefined}
+     */
     color: three.ColorRepresentation | undefined;
     /**
      * 컴포넌트 생성에 추가로 전달할 옵션의 원본 참조를 반환합니다.
@@ -59079,7 +59463,8 @@ declare class UAnalyMultipleComponent extends UAnaly {
     lightAnalysis(options: any): void;
     /**
      * 대상의 첫 카메라 오버레이(overlay)에 분석을 요청합니다. <br>
-     * options.componenet이 없으면 현재 선택을 사용하며 분석 자체의 비동기 완료는 기다리지 않습니다.
+     * options.componenet이 없으면 현재 선택을 사용하며 분석 자체의 비동기 완료는 기다리지 않습니다. <br>
+     * 요청 이후의 분석 실패는 콘솔에 기록하며, 이미 반환한 요청 성공 여부는 바꾸지 않습니다.
      *
      * @deprecated 제거될 메서드입니다.
      *
@@ -59278,7 +59663,7 @@ declare class U3dRoadExtension {
     mesh: UMesh;
     _show: boolean;
     _editPoints: UGroup;
-    createAbsorption(road1: any, road2: any, type: any): DeferredObject<unknown>;
+    createAbsorption(road1: any, road2: any, type: any): DeferredPromise<void>;
     /**
      * 도로 생성을 위한 point 좌표를 추가하는 함수입니다.
      * @param {WorldPositionVector3} point 도로를 생성할 좌표 (월드 좌표, EPSG:3857)
@@ -59290,7 +59675,7 @@ declare class U3dRoadExtension {
      * 도로 컴포넌트에 이미지를 지정하는 함수
      * @param {String} imageUrl 이미지 소스 URL
      */
-    setRoadImage(imageUrl: string): DeferredObject<unknown>;
+    setRoadImage(imageUrl: string): DeferredPromise<void>;
     _roadImageUrl: string;
     /**
      * 도로 너비를 지정하는 함수
@@ -59415,13 +59800,14 @@ declare class U3dRoadExtension {
     checkDistance(point: WorldPositionVector3, target?: WorldPositionVector3): number;
     sortLineAndMesh(): void;
     createEditPoint(): void;
-    drawIntersection(line: any, points: any): DeferredObject<unknown>;
+    drawIntersection(line: any, points: any): DeferredPromise<void>;
     removeAllLine(): void;
 }
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
- * 도로 생성 및 편집 분석 클래스
+ *
+ * 도로 생성·선택·끝점 편집과 교차로·병합 처리를 앱에 연결하는 분석 클래스입니다.
  *
  * @group analysis
  * @extends {UAnaly}
@@ -59433,52 +59819,190 @@ declare class U3dRoadExtension {
  */
 declare class UAnalyRoad extends UAnaly {
     /**
-     * @param {UAnalyRoadCO} [opt={}]
+     * 도로 생성·선택·편집 분석의 기본 상태를 구성합니다. <br>
+     * 앱은 setApp()으로 연결하며 부모 생성자에는 옵션을 전달하지 않습니다. <br>
+     * scale·rotation·drawStopLine은 설정값을 보관하며 이 클래스에서 도로 생성에 추가 적용하지 않습니다.
+     *
+     * @param {UAnalyRoadCO} [opt={}] 도로 분석 생성 옵션
      */
     constructor(opt?: UAnalyRoadCO);
-    /** @type {string | undefined} */ _mouseMoveId: string | undefined;
-    /** @type {import('@union3d/3dLayer/U3dVectorLayer').U3dVectorLayer | undefined} */ _layer: U3dVectorLayer | undefined;
-    /** @type {Array<{type: string, id: string | null}>} */ _eventKeys: Array<{
+    /**
+     * 마우스 이동 등록 키입니다.
+     *
+     * @type {string | undefined}
+     */
+    _mouseMoveId: string | undefined;
+    /**
+     * 연계 벡터 레이어 원본입니다.
+     *
+     * @type {import('@union3d/3dLayer/U3dVectorLayer').U3dVectorLayer | undefined}
+     */
+    _layer: U3dVectorLayer | undefined;
+    /**
+     * 해제할 앱 입력의 종류·키 목록입니다.
+     *
+     * @type {Array<{type: string, id: string | null}>}
+     */
+    _eventKeys: Array<{
         type: string;
         id: string | null;
     }>;
-    /** @type {import('@U3dRoadExtension').U3dRoadExtension | import('three').Mesh | Array<import('@U3dRoadExtension').U3dRoadExtension> | undefined} */ _selected: U3dRoadExtension | three.Mesh | Array<U3dRoadExtension> | undefined;
-    /** @type {string} */ _editMode: string;
-    /** @type {import('three').ColorRepresentation} */ color: three.ColorRepresentation;
-    /** @type {UGizmoControlsEx | undefined} */ _control: UGizmoControlsEx | undefined;
-    /** @type {import('three').Mesh | undefined} */ _controlObj: three.Mesh | undefined;
-    /** @type {string | undefined} */ _controlId: string | undefined;
-    /** @type {import('@U3dRoadExtension').U3dRoadExtension | undefined} */ _road: U3dRoadExtension | undefined;
-    /** @type {Array<import('@U3dRoadExtension').U3dRoadExtension>} */ _roads: Array<U3dRoadExtension>;
-    /** @type {Array<{line: import('three').Object3D, points: Array<GeoPosition>}>} */ _intersections: Array<{
+    /**
+     * 선택 도로·편집점 또는 병합 선택 배열 원본입니다.
+     *
+     * @type {import('@U3dRoadExtension').U3dRoadExtension | import('three').Mesh | Array<import('@U3dRoadExtension').U3dRoadExtension> | undefined}
+     */
+    _selected: U3dRoadExtension | three.Mesh | Array<U3dRoadExtension> | undefined;
+    /**
+     * 기즈모 편집 모드입니다.
+     *
+     * @type {string}
+     */
+    _editMode: string;
+    /**
+     * 이동 기준 구를 만들 때 전달하는 색상입니다.
+     *
+     * @type {import('three').ColorRepresentation}
+     */
+    color: three.ColorRepresentation;
+    /**
+     * 현재 도로 편집 기즈모입니다.
+     *
+     * @type {UGizmoControlsEx | undefined}
+     */
+    _control: UGizmoControlsEx | undefined;
+    /**
+     * 기즈모가 조작하는 숨김 기준 구입니다.
+     *
+     * @type {import('three').Mesh | undefined}
+     */
+    _controlObj: three.Mesh | undefined;
+    /**
+     * 기즈모 관련 앱 이벤트 해제 키입니다.
+     *
+     * @type {string | undefined}
+     */
+    _controlId: string | undefined;
+    /**
+     * 입력 중인 도로입니다.
+     *
+     * @type {import('@U3dRoadExtension').U3dRoadExtension | undefined}
+     */
+    _road: U3dRoadExtension | undefined;
+    /**
+     * 현재 도로 원본 목록입니다.
+     *
+     * @type {Array<import('@U3dRoadExtension').U3dRoadExtension>}
+     */
+    _roads: Array<U3dRoadExtension>;
+    /**
+     * 교차 정보 보관용 초기 배열입니다.
+     *
+     * @type {Array<{line: import('three').Object3D, points: Array<GeoPosition>}>}
+     */
+    _intersections: Array<{
         line: three.Object3D;
         points: Array<GeoPosition>;
     }>;
-    /** @type {boolean} */ _isDrawStopLine: boolean;
-    /** @type {import('@union3d/core/UGroup.js').UGroup} */ _roadGroup: UGroup;
-    /** @type {import('@union3d/core/UGroup.js').UGroup} */ _absorptionGroup: UGroup;
-    /** @type {import('@union3d/core/UGroup.js').UGroup} */ _roadLineGroup: UGroup;
-    /** @type {string} */ _roadColor: string;
-    /** @type {number} */ _roadLine: number;
-    /** @type {number} */ _roadWidth: number;
-    /** @type {number} */ _roadHeight: number;
-    /** @type {{x: number, y: number, z: number}} */ _scale: {
-        x: number;
-        y: number;
-        z: number;
-    };
-    /** @type {{x: number, y: number, z: number}} */ _rotation: {
-        x: number;
-        y: number;
-        z: number;
-    };
-    /** @type {import('three').Object3D | undefined} */ _endPoi: three.Object3D | undefined;
-    /** @type {import('three').Object3D | undefined} */ _startPoi: three.Object3D | undefined;
-    /** @type {Record<string, unknown>} */ _layerMap: Record<string, unknown>;
-    /** @type {Array<import('three').Object3D>} */ _editPointGroup: Array<three.Object3D>;
-    /** @type {string | undefined} */ _roadImageUrl: string | undefined;
-    /** @type {import('three').Mesh | undefined} */ _grid: three.Mesh | undefined;
     /**
+     * 생성 옵션의 정지선 설정을 보관하는 상태입니다.
+     *
+     * @type {boolean}
+     */
+    _isDrawStopLine: boolean;
+    /**
+     * 도로 메시를 연결하는 그룹입니다.
+     *
+     * @type {import('@union3d/core/UGroup').UGroup}
+     */
+    _roadGroup: UGroup;
+    /**
+     * 병합 그룹 참조입니다.
+     *
+     * @type {import('@union3d/core/UGroup').UGroup}
+     */
+    _absorptionGroup: UGroup;
+    /**
+     * 차선 그룹 참조입니다.
+     *
+     * @type {import('@union3d/core/UGroup').UGroup}
+     */
+    _roadLineGroup: UGroup;
+    /**
+     * 생성자에서 초기화하는 도로 색상 보관값입니다.
+     *
+     * @type {string}
+     */
+    _roadColor: string;
+    /**
+     * 이후 생성할 도로의 차선 수입니다.
+     *
+     * @type {number}
+     */
+    _roadLine: number;
+    /**
+     * 이후 생성할 도로의 차선당 폭입니다.
+     *
+     * @type {number}
+     */
+    _roadWidth: number;
+    /**
+     * 이후 생성할 도로의 높이 설정입니다.
+     *
+     * @type {number}
+     */
+    _roadHeight: number;
+    /**
+     * 생성 옵션의 스케일 원본을 보관하는 상태입니다.
+     *
+     * @type {import('three').Vector3Like}
+     */
+    _scale: three.Vector3Like;
+    /**
+     * 생성 옵션의 회전 원본을 보관하는 상태입니다.
+     *
+     * @type {import('three').Vector3Like}
+     */
+    _rotation: three.Vector3Like;
+    /**
+     * 끝 POI 보관 참조입니다.
+     *
+     * @type {import('three').Object3D | undefined}
+     */
+    _endPoi: three.Object3D | undefined;
+    /**
+     * 시작 POI 보관 참조입니다.
+     *
+     * @type {import('three').Object3D | undefined}
+     */
+    _startPoi: three.Object3D | undefined;
+    /**
+     * 레이어별 상태 보관 객체입니다.
+     *
+     * @type {Record<string, unknown>}
+     */
+    _layerMap: Record<string, unknown>;
+    /**
+     * 선택 가능한 편집점 원본 목록입니다.
+     *
+     * @type {Array<import('three').Object3D>}
+     */
+    _editPointGroup: Array<three.Object3D>;
+    /**
+     * 이후 생성할 도로의 텍스처 주소입니다.
+     *
+     * @type {string | undefined}
+     */
+    _roadImageUrl: string | undefined;
+    /**
+     * 마지막으로 구성한 격자 메시입니다.
+     *
+     * @type {import('three').Mesh | undefined}
+     */
+    _grid: three.Mesh | undefined;
+    /**
+     * 기즈모에서 놓은 직후 선택 한 번을 억제하는 상태입니다.
+     *
      * @type {boolean}
      *
      * @ignore
@@ -59486,215 +60010,257 @@ declare class UAnalyRoad extends UAnaly {
     _isGizmoMouseUp: boolean;
     name: any;
     /**
+     * 도로 분석에 앱과 렌더링 실행 인자를 연결합니다.
+     *
      * @override
      *
-     * @param {import('@U3dApp').U3dApp} app
-     * @return {this}
+     * @param {import('@U3dApp').U3dApp} app 연결할 앱
+     * @returns {this} 이 분석 객체
      */
     override setApp(app: U3dApp): this;
     /**
+     * 분석을 활성화하고 POI 그룹을 주석 장면에 연결합니다.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     override active(): this;
     /**
+     * 앱 입력과 기즈모를 해제하고 선택·편집점 표시를 정리합니다. <br>
+     * 이미 비활성이면 아무 작업 없이 자신을 반환하며 진행 중 도로와 도로 목록은 유지합니다.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     override deactive(): this;
     /**
-     * 레이어를 설정하는 함수
+     * 연계할 벡터 레이어 원본을 저장합니다.
      *
-     * @param {import('@union3d/3dLayer/U3dVectorLayer').U3dVectorLayer | undefined} layer
-     * @return {this}
+     * @param {import('@union3d/3dLayer/U3dVectorLayer').U3dVectorLayer | undefined} layer 연계 벡터 레이어 원본
+     * @returns {this} 이 분석 객체
      */
     setLayer(layer: U3dVectorLayer | undefined): this;
     /**
-     * 설정된 레이어를 반환하는 함수
+     * 설정한 벡터 레이어 원본을 반환합니다.
      *
-     * @return {import('@union3d/3dLayer/U3dVectorLayer').U3dVectorLayer | undefined}
+     * @returns {import('@union3d/3dLayer/U3dVectorLayer').U3dVectorLayer | undefined} 설정된 레이어, 없으면 undefined
      */
     getLayer(): U3dVectorLayer | undefined;
     /**
-     * 도로 메시에 이미지 텍스처 url을 설정하는 함수
+     * 이후 생성할 도로의 텍스처 주소를 저장합니다. <br>
+     * 기존 도로의 텍스처는 변경하지 않습니다.
      *
-     * @param {string} url 도로 이미지 텍스처 url
-     * @return {this}
+     * @param {string} url 이미지 주소
+     * @returns {this} 이 분석 객체
      */
     setRoadImage(url: string): this;
     /**
-     * 선택된 도로를 반환하는 함수
+     * 현재 선택 원본을 반환합니다. <br>
+     * 모드에 따라 도로·편집점 메시·병합 선택 배열을 반환합니다.
      *
-     * @return {import('@U3dRoadExtension').U3dRoadExtension | import('three').Mesh | Array<import('@U3dRoadExtension').U3dRoadExtension> | undefined}
+     * @returns {import('@U3dRoadExtension').U3dRoadExtension | import('three').Mesh | Array<import('@U3dRoadExtension').U3dRoadExtension> | undefined} 선택 원본, 선택 전에는 undefined
      */
     getSelected(): U3dRoadExtension | three.Mesh | Array<U3dRoadExtension> | undefined;
     /**
-     * 도로 선택 모드를 활성화하는 함수
+     * 진행 중 도로를 확정하고 클릭 선택 모드를 전환합니다. <br>
+     * 이전 입력·기즈모를 먼저 해제하며 분석 자체를 활성화하지는 않습니다.
      *
-     * @param {boolean} active 모드 활성화 여부
-     * @return {this}
+     * @param {boolean} active 클릭 선택 모드를 켤지 여부
+     * @returns {this} 이 분석 객체
      */
     setSelect(active: boolean): this;
     /**
-     * 클릭으로 선택한 도로를 제거하는 함수
+     * 이전 입력·기즈모를 정리하고 클릭한 도로를 제거하는 모드를 등록합니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     removeClickedRoad(): this;
     /**
+     * 부모 정리 후 입력·기즈모·진행 도로·도로 목록·선택을 순서대로 정리합니다. <br>
+     * 격자 이미지 자원의 해제까지 수행하는 API는 아닙니다.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     override clear(): this;
     /**
-     * 현재 선택을 제거하는 함수
+     * 현재 선택의 하이라이트를 끄고 선택을 해제합니다. <br>
+     * 하이라이트 처리 중 동기 예외가 발생하면 선택 해제에 도달하지 않습니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     clearSelect(): this;
     /**
-     * 입력받은 도로를 제거하는 함수
+     * 도로 메시와 같은 이름의 목록 항목을 분리합니다. <br>
+     * 같은 이름의 첫 도로 항목만 제거하며 메시 자원을 직접 dispose하지 않습니다.
      *
-     * @param {import('@U3dRoadExtension').U3dRoadExtension} road 도로 객체
-     * @return {this}
+     * @param {import('@U3dRoadExtension').U3dRoadExtension} road 대상 도로 원본
+     * @returns {this} 이 분석 객체
      */
     removeRoad(road: U3dRoadExtension): this;
     /**
-     * 도로를 Json 데이터 형식으로 저장하는 함수
+     * 저장 가능한 도로 파라미터를 목록 순서대로 모아 반환합니다. <br>
+     * 각 getParam() 결과의 원본 참조를 새 배열에 담습니다.
      *
-     * @return {Array<object>} Json 데이터
+     * @returns {Array<object>} 정의된 getParam() 결과를 담은 새 배열
+     *
+     * @see UAnalyRoadData
      */
     saveRoad(): Array<object>;
     /**
-     * Json 형식의 데이터를 통해 도로를 설정하고 불러오는 함수
+     * 단일 도로 데이터 또는 배열에서 도로를 생성하고 교차 갱신을 시작합니다. <br>
+     * positions가 없으면 입력을 무시하며 지정하지 않은 생성 설정은 현재 기본값을 사용합니다. <br>
+     * 교차·정렬 완료를 기다리지 않고 자신을 반환하며 동기 예외는 호출 지점에 전달합니다.
      *
-     * @param {object | Array<object>} options 도로 설정 옵션
-     * @return {this}
+     * @param {object | Array<object>} options UAnalyRoadData 필드의 단일 객체 또는 배열
+     * @returns {this} 이 분석 객체
+     *
+     * @see UAnalyRoadData
      */
     setRoad(options: object | Array<object>): this;
     /**
-     * 도로 생성시 바닥에 격자 무늬 가이드 라인을 출력하는 함수
+     * 도로 그리기의 격자 평면을 구성하여 주석 장면에 연결합니다. <br>
+     * 반환 Promise는 이미지 로딩 완료를 기다리지 않으며 늦은 로딩 실패는 이미 완료된 결과를 바꾸지 않습니다. <br>
+     * 새 격자를 설정해도 이전 격자와 자원은 해제하지 않습니다.
      *
-     * @param {string} url 격자 이미지 url
-     * @param {number} [opacity=1] 이미지 투명도
-     * @return {Promise<void>} 프로미스
+     * @param {string} url 이미지 주소
+     * @param {number} [opacity=1] 격자 불투명도
+     * @returns {Promise<void>} 격자 구성 완료. 이미지 로딩 완료는 기다리지 않음
      */
     setDrawGridImage(url: string, opacity?: number): Promise<void>;
     /**
-     * 격자 무늬 가이드 라인 가시화 여부를 설정하는 함수
+     * 이미 구성한 격자의 표시 상태를 변경합니다. <br>
+     * 격자가 없으면 아무 작업도 하지 않습니다.
      *
-     * @param {boolean} [isShow=true] 가시화 여부
-     * @return {this}
+     * @param {boolean} [isShow=true] 격자를 표시할지 여부
+     * @returns {this} 이 분석 객체
      */
     gridShow(isShow?: boolean): this;
     /**
-     * 도로의 위치를 편집하는 함수
+     * 선택 도로 중심에 기즈모의 이동 기준 구를 구성합니다. <br>
+     * 선택이 없으면 아무 작업도 하지 않으며 기존 기준 구는 장면에서만 분리합니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     editPosition(): this;
     /**
-     * 기즈모 위치를 초기 위치로 리셋하는 함수
+     * 선택과 이동 기준 구를 선택 객체의 초기 위치로 되돌립니다. <br>
+     * POI가 있으면 높이 오프셋을 적용하며 기즈모가 없으면 표시 갱신 전에 반환합니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     resetGizmo(): this;
     /**
-     * 이벤트 리스너를 제거하는 함수
+     * 이 분석이 등록한 앱 입력과 자체 리스너를 모두 비웁니다. <br>
+     * 부모 메서드와 달리 개별 이벤트를 지정하는 인수를 받지 않습니다.
      *
      * @override
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     override removeEventListener(): this;
     /**
-     * 도로 추가 모드를 시작하는 함수
+     * 도로 클릭 입력 모드를 등록합니다. <br>
+     * 정의된 차선 수·폭만 갱신하며 비활성 상태이면 활성화합니다. <br>
+     * 격자를 요청해도 그 구성 완료를 기다리지 않고 입력을 등록합니다.
      *
-     * @param {number} [roadLine] 차선 수
-     * @param {number} [roadWidth] 도로 폭
-     * @param {boolean} [useDrawGrid] 격자 사용 여부
-     * @return {this}
+     * @param {number} [roadLine] 갱신할 차선 수
+     * @param {number} [roadWidth] 갱신할 도로 폭
+     * @param {boolean} [useDrawGrid] 격자 생성을 요청할지 여부
+     * @returns {this} 이 분석 객체
      */
     addRoad(roadLine?: number, roadWidth?: number, useDrawGrid?: boolean): this;
     /**
-     * 격자를 반환하는 함수
+     * 현재 격자 메시 원본을 반환합니다.
      *
-     * @return {import('three').Mesh | undefined}
+     * @returns {import('three').Mesh | undefined} 현재 격자, 없으면 undefined
      */
     getGrid(): three.Mesh | undefined;
     /**
-     * 도로 편집 모드를 시작하는 함수
+     * 도로 끝점 편집 모드를 등록합니다. <br>
+     * 공개 이름 edtiRoad를 유지하며 진행 중인 도로가 있으면 이유 값 없이 거절합니다. <br>
+     * 완료는 입력 등록을 뜻하며 후속 편집 작업 완료를 기다리지 않습니다.
      *
-     * @return {Promise<void>}
+     * @returns {Promise<void>} 편집 입력 등록 완료, 진행 도로가 있으면 이유 없이 거절
      */
     edtiRoad(): Promise<void>;
     /**
-     * 도로 병합 모드를 시작하는 함수
+     * 도로 병합 선택 모드를 등록하고 선택 배열을 새로 구성합니다. <br>
+     * 진행 중인 도로가 있으면 이유 값 없이 거절합니다. <br>
+     * 완료는 선택 모드 등록을 뜻하며 실제 두 도로의 병합 완료는 아닙니다.
      *
-     * @return {Promise<void>}
+     * @returns {Promise<void>} 병합 선택 입력 등록 완료, 진행 도로가 있으면 이유 없이 거절
      */
     combineRoad(): Promise<void>;
     /**
-     * 도로 그리기 중인지 반환하는 함수
+     * 현재 입력 중인 도로가 있는지 반환합니다.
      *
-     * @return {boolean}
+     * @returns {boolean} 진행 도로가 있으면 true
      */
     isDrawRoad(): boolean;
     /**
-     * 마지막으로 추가된 도로 좌표를 되돌리는 함수
+     * 입력 중인 도로의 마지막 구간을 되돌립니다. <br>
+     * 원점이 두 개이면 도로를 제거하고 그 외에는 중심선·원점과 끝 POI를 갱신합니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     revertRoad(): this;
     /**
-     * 모든 도로 목록을 반환하는 함수
+     * 현재 도로 배열 원본을 반환합니다. <br>
+     * 반환 배열의 외부 변경은 후속 분석에 반영됩니다.
      *
-     * @return {Array<import('@U3dRoadExtension').U3dRoadExtension>}
+     * @returns {Array<import('@U3dRoadExtension').U3dRoadExtension>} 현재 도로 배열 원본
      */
     getRoads(): Array<U3dRoadExtension>;
     /**
-     * 모든 도로를 제거하는 함수
+     * 생성 중 도로를 확정한 뒤 모든 도로의 라벨·노드·편집점을 분리합니다. <br>
+     * 도로·편집점 배열을 교체하고 도로 그룹을 장면에서 분리합니다. <br>
+     * 격자와 메시 자원을 직접 dispose하지 않습니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     clearRoad(): this;
     /**
-     * 모든 도로의 라벨을 표시하는 함수
+     * 현재 모든 도로의 라벨을 표시합니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     showLabel(): this;
     /**
-     * 모든 도로의 라벨을 숨기는 함수
+     * 현재 모든 도로의 라벨을 숨깁니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     hideLabel(): this;
     /**
-     * 이름으로 도로를 찾아 반환하는 함수
+     * 이름이 일치하는 첫 도로 원본을 반환합니다.
      *
-     * @param {string} name 도로 이름
-     * @return {import('@U3dRoadExtension').U3dRoadExtension | undefined}
+     * @param {string} name 조회할 도로 이름
+     * @returns {import('@U3dRoadExtension').U3dRoadExtension | undefined} 첫 도로 원본, 없으면 undefined
      */
     getRoadByName(name: string): U3dRoadExtension | undefined;
     /**
-     * 두 도로를 병합한 도로를 생성하는 함수
+     * 병합 도로를 먼저 등록하고 하위 병합 생성 완료를 기다립니다. <br>
+     * 하위 생성의 거절과 동기 예외는 원래 이유로 Promise에 전달합니다. <br>
+     * 새 도로 생성·등록 단계의 예외는 동기로 전달하며 실패 시 이미 등록한 도로를 되돌리지 않습니다.
      *
-     * @param {import('@U3dRoadExtension').U3dRoadExtension} road1 도로 1
-     * @param {import('@U3dRoadExtension').U3dRoadExtension} road2 도로 2
-     * @param {Array<string>} type 병합 타입
-     * @return {Promise<void>}
+     * @param {import('@U3dRoadExtension').U3dRoadExtension} road1 첫 도로
+     * @param {import('@U3dRoadExtension').U3dRoadExtension} road2 둘째 도로
+     * @param {Array<string>} type 각 도로의 start·end 조합
+     * @returns {Promise<void>} 하위 병합 생성 완료 또는 원래 실패 이유
      */
     getAbsorption(road1: U3dRoadExtension, road2: U3dRoadExtension, type: Array<string>): Promise<void>;
     /**
-     * 도로 교차로를 검사하는 함수
+     * 도로와 새 도로의 교차 구간을 계산하고 해당 차선에 반영합니다. <br>
+     * T자 교차 보정은 교차점 원본의 마지막 위치를 변경할 수 있습니다. <br>
+     * 계산은 동기로 실행하므로 예외는 Promise 반환 전에 전달되며 교차가 없으면 빈 배열로 완료합니다.
      *
-     * @param {import('@U3dRoadExtension').U3dRoadExtension} last 새로 추가된 도로
-     * @param {boolean} [isTRoad] T자 도로 여부
-     * @return {Promise<Array<{line: import('three').Object3D, points: Array<GeoPosition>}>>}
+     * @param {import('@U3dRoadExtension').U3dRoadExtension} last 새로 추가되거나 편집한 도로
+     * @param {boolean} [isTRoad] T자 교차 보정을 수행할지 여부
+     * @returns {Promise<Array<{line: import('three').Object3D, points: Array<GeoPosition>}>>} 원시 교차 목록, 교차가 없으면 빈 배열
      */
     getIntersections(last: U3dRoadExtension, isTRoad?: boolean): Promise<Array<{
         line: three.Object3D;
@@ -59936,37 +60502,16 @@ declare class UAnalyCustomModel extends UAnaly {
 }
 
 /**
- * 인스턴스 화살표 추가를 위한 콜백 함수 타입
- */
-type AddInstancesCallback = (count: number, updateFn: () => void) => void;
-/**
- * 인스턴스 화살표 렌더링 Mesh 타입
- */
-type SlopeUInstancedMesh = UInstancedMesh<three.CylinderGeometry | three.ConeGeometry, three.MeshBasicMaterial, number, UInstancedMeshCO> & {
-    addInstances: AddInstancesCallback;
-};
-/**
- * 인스턴스 화살표 추가를 위한 콜백 함수 타입
- *
- * @callback AddInstancesCallback
- * @param {number} count
- * @param {function(): void} updateFn
- * @returns {void}
- */
-/**
- * 인스턴스 화살표 렌더링 Mesh 타입
- *
- * @typedef {import('@union3d/core/mesh/UInstancedMesh').UInstancedMesh<import('three').CylinderGeometry | import('three').ConeGeometry, import('three').MeshBasicMaterial, number, import('@union3d/core/mesh/UInstancedMesh').UInstancedMeshCO> & {addInstances: AddInstancesCallback}} SlopeUInstancedMesh
- */
-/**
  * ~extends import('@UAnaly').UAnaly <br>
- * `경사향` 분석 클래스
+ *
+ * 경사향(SlopeAspect)과 경사도를 격자 셀별로 계산하고 지도에 방향 화살표를 표시합니다.
+ *
  * @group analysis
  * @extends {UAnaly}
  *
  * @example
- * var analy = app.getAnalysis('SlopeAspect');
- * await analy.active();
+ * const analy = app.getAnalysis('SlopeAspect');
+ * await analy.getSlope({x: 127.0, y: 37.5});
  */
 declare class UAnalySlopeAspect extends UAnaly {
     static WIDTH: number;
@@ -60049,6 +60594,7 @@ declare class UAnalySlopeAspect extends UAnaly {
      */
     setOpacity(opacity?: number): void;
     /**
+     * 현재 결과 셀의 스타일을 다시 평가하고 화살표의 위치·가시성·색상·투명도를 갱신합니다.
      */
     onAfterRender(): void;
     /**
@@ -60072,15 +60618,14 @@ declare class UAnalySlopeAspect extends UAnaly {
      */
     setArrowStyleFunction(arrowStyleFunction: undefined | ((arg0: SlopeAspectCell, arg1: number | undefined) => SlopeAspectArrowStryle)): void;
     /**
-     * 경사향 분석 함수.
-     * 입력받은 마우스 이벤트를 기준으로
-     * 분석 옵션에 따른 그리드를 생성하여, 경사향을 화면에 표출한다.
-     * @param {import('three').Vector3 | {x: number, y: number}} position 분석 중심 위치 위경도
-     * @param {Partial<UAnalySlopeAspectCO>} [options] 분석 옵션
-     * @return {Promise<boolean>}
-     * @throws {TypeError} 표면 샘플링 방식, 대상 레이어 목록 또는 화살표 형상 옵션 타입이 올바르지 않은 경우
-     * @throws {RangeError} 화살표 형상 옵션이 0 이하인 경우
-     * @throws {Error} 대상 레이어가 없거나 경사도·경사향을 계산할 유효 표면점이 없는 경우
+     * 지정한 중심 주변의 경사도와 경사향을 계산하고 화살표 표시를 갱신합니다. <br>
+     * 미완료 요청이 있으면 취소한 뒤 새 분석을 예약합니다.
+     * 격자 샘플링 중 취소된 요청은 화살표를 표출하지 않습니다.
+     *
+     * @param {import('three').Vector3 | {x: number, y: number}} position 분석 중심의 월드 좌표(EPSG:3857) 벡터 또는 위경도 좌표계(EPSG:4326)의 x·y 객체
+     * @param {Partial<UAnalySlopeAspectCO>} [options] 이번 분석을 시작할 때 적용할 옵션
+     * @returns {Promise<boolean>} 분석 성공 시 true로 완료되며, 취소 시 false로 거부되는 Promise <br>
+     * 옵션이 올바르지 않거나 대상 레이어 또는 유효 표면점이 없으면 분석 오류로 거부됩니다.
      */
     getSlope(position: three.Vector3 | {
         x: number;
@@ -60106,41 +60651,9 @@ declare class UAnalySlopeAspect extends UAnaly {
 }
 
 /**
- * ~extends import('@UAnaly').UAnalyCO <br>
- * UAnalyRoute 생성자 옵션
- */
-type UAnalyRouteCO_Content = {
-    /**
-     * 분석모드 명
-     */
-    name?: string;
-    /**
-     * 경로 선 너비(m)
-     */
-    lineWidth?: number;
-};
-/**
- * ~extends import('@UAnaly').UAnalyCO <br>
- * UAnalyRoute 생성자 옵션
- */
-type UAnalyRouteCO = Omit<Omit<UAnalyCO, never> & UAnalyRouteCO_Content, never>;
-/**
- * ~extends import('@UAnaly').UAnalyCO <br>
- * UAnalyRoute 생성자 옵션
- * @memberof UAnalyRoute
- * @inner
- *
- * @typedef {object} UAnalyRouteCO_Content
- * @property {string} [name='Route'] 분석모드 명
- * @property {number} [lineWidth=5] 경로 선 너비(m)
- *
- *
- * @typedef {Omit<UAnalyCO, never> & UAnalyRouteCO_Content} UAnalyRouteCO
- */
-/**
  * ~extends import('@UAnaly').UAnaly <br>
- * `모의주행` 분석 클래스 <br>
- * 경로 생성/삭제, 주행 높이 및 시점 설정, 주행속도 설정 등 모의주행 시뮬레이션 기능을 제공한다.
+ *
+ * 경로를 구성하고 카메라·모델을 이동시키는 모의주행 분석 클래스입니다.
  *
  * @group analysis
  * @extends {UAnaly}
@@ -60153,9 +60666,9 @@ type UAnalyRouteCO = Omit<Omit<UAnalyCO, never> & UAnalyRouteCO_Content, never>;
  */
 declare class UAnalyRoute extends UAnaly {
     /**
-     * @type {{UPDATE: string, COMPLETE: string, START: string, STOP: string, PROGRESS: string}}
+     * 주행 시작·갱신·진행·완료·중지 이벤트의 이름입니다.
      *
-     * @ignore
+     * @type {{UPDATE: string, COMPLETE: string, START: string, STOP: string, PROGRESS: string}}
      */
     static Event: {
         UPDATE: string;
@@ -60165,285 +60678,405 @@ declare class UAnalyRoute extends UAnaly {
         PROGRESS: string;
     };
     /**
-     * @param {import('three').Vector3} direction
-     * @return {{right: import('three').Vector3, up: import('three').Vector3}}
+     * UAnalyRoute 클래스 생성자입니다. <br>
+     * 경로는 앱에 연결한 뒤 지점을 추가해 구성하십시오. <br>
+     * 부모 분석 옵션은 부모 생성자에 전달하지 않습니다.
      *
-     * @ignore
-     */
-    static "__#11476@#getRightUpAxis"(direction: three.Vector3): {
-        right: three.Vector3;
-        up: three.Vector3;
-    };
-    /**
-     * @param {import('three').Vector3} axis
-     * @param {number} angle
-     * @param {import('three').Vector3} direction
-     * @return {import('three').Vector3}
-     *
-     * @ignore
-     */
-    static "__#11476@#rotateDirection"(axis: three.Vector3, angle: number, direction: three.Vector3): three.Vector3;
-    /**
-     * @param {UAnalyRouteCO} [options={}]
+     * @param {UAnalyRouteCO} [options={}] 분석 이름과 경로 띠 너비
      */
     constructor(options?: UAnalyRouteCO);
-    /** @type {Array<import('three').Vector3>} */ _positions: Array<three.Vector3>;
-    /** @type {Array<import('three').Vector3>} */ _geoPositions: Array<three.Vector3>;
-    /** @type {number} */ _curIdx: number;
-    /** @type {string} */ _lineColor: string;
-    /** @type {number} */ _lineOpacity: number;
-    /** @type {import('@union3d/geometry/ULineGeometry.js').ULineGeometry | undefined} */ _lineGeom: ULineGeometry | undefined;
-    /** @type {import('three').MeshLambertMaterial | undefined} */ _lineMaterial: three.MeshLambertMaterial | undefined;
-    /** @type {import('three').MeshLambertMaterial | undefined} */ _textureMaterial: three.MeshLambertMaterial | undefined;
-    /** @type {import('three').Mesh | undefined} */ _lineMesh: three.Mesh | undefined;
-    /** @type {Array<import('three').Vector3>} */ _vertices: Array<three.Vector3>;
-    /** @type {number} */ _speed: number;
-    /** @type {number} */ _currentPos: number;
-    /** @type {boolean} */ _isTween: boolean;
-    /** @type {number} */ _cameraHeight: number;
-    /** @type {number} */ _cameraPolar: number;
-    /** @type {number} */ _cameraAzimuth: number;
-    /** @type {import('three').Object3D | undefined} */ _startPoi: three.Object3D | undefined;
-    /** @type {import('three').Object3D | undefined} */ _endPoi: three.Object3D | undefined;
-    /** @type {string | undefined} */ _lineImageUrl: string | undefined;
-    /** @type {number} */ _tension: number;
-    /** @type {number} */ _segment: number;
-    /** @type {number} */ _lineWidth: number;
-    /** @type {import('@union3d/core/UTween.js').UTween | undefined} */ _tween: UTween | undefined;
+    /**
+     * 초기화 후 이 클래스에서 사용하지 않는 위치 보관 배열입니다.
+     *
+     * @type {Array<import('three').Vector3>}
+     */
+    _positions: Array<three.Vector3>;
+    /**
+     * 지리 경로의 원본 목록입니다.
+     *
+     * @type {Array<import('three').Vector3>}
+     */
+    _geoPositions: Array<three.Vector3>;
+    /**
+     * 초기화 후 사용하지 않는 지점 인덱스입니다.
+     *
+     * @type {number}
+     */
+    _curIdx: number;
+    /**
+     * 경로 기본 색상입니다.
+     *
+     * @type {string}
+     */
+    _lineColor: string;
+    /**
+     * 경로 불투명도입니다.
+     *
+     * @type {number}
+     */
+    _lineOpacity: number;
+    /**
+     * 경로의 원본 형상입니다.
+     *
+     * @type {import('@union3d/geometry/ULineGeometry').ULineGeometry | undefined}
+     */
+    _lineGeom: ULineGeometry | undefined;
+    /**
+     * 경로 기본 머터리얼입니다.
+     *
+     * @type {import('three').MeshLambertMaterial | undefined}
+     */
+    _lineMaterial: three.MeshLambertMaterial | undefined;
+    /**
+     * 경로 이미지 머터리얼입니다.
+     *
+     * @type {import('three').MeshLambertMaterial | undefined}
+     */
+    _textureMaterial: three.MeshLambertMaterial | undefined;
+    /**
+     * 경로 형상을 표시하는 메시입니다.
+     *
+     * @type {import('three').Mesh | undefined}
+     */
+    _lineMesh: three.Mesh | undefined;
+    /**
+     * 초기화 후 사용하지 않는 정점 보관 배열입니다.
+     *
+     * @type {Array<import('three').Vector3>}
+     */
+    _vertices: Array<three.Vector3>;
+    /**
+     * 저장한 주행 속도입니다.
+     *
+     * @type {number}
+     */
+    _speed: number;
+    /**
+     * 현재 주행 진행률입니다.
+     *
+     * @type {number}
+     */
+    _currentPos: number;
+    /**
+     * 주행 갱신 콜백이 설정하는 재생 상태입니다.
+     *
+     * @type {boolean}
+     */
+    _isTween: boolean;
+    /**
+     * 경로 높이에 더할 값입니다.
+     *
+     * @type {number}
+     */
+    _cameraHeight: number;
+    /**
+     * 카메라 주행의 상하 각도입니다.
+     *
+     * @type {number}
+     */
+    _cameraPolar: number;
+    /**
+     * 카메라·모델 주행의 방위각입니다.
+     *
+     * @type {number}
+     */
+    _cameraAzimuth: number;
+    /**
+     * 현재 시작 라벨 참조입니다.
+     *
+     * @type {import('three').Object3D | undefined}
+     */
+    _startPoi: three.Object3D | undefined;
+    /**
+     * 현재 끝 라벨 참조입니다.
+     *
+     * @type {import('three').Object3D | undefined}
+     */
+    _endPoi: three.Object3D | undefined;
+    /**
+     * 마지막으로 요청한 경로 이미지 URL입니다.
+     *
+     * @type {string | undefined}
+     */
+    _lineImageUrl: string | undefined;
+    /**
+     * 경로 곡선의 tension 설정입니다.
+     *
+     * @type {number}
+     */
+    _tension: number;
+    /**
+     * 추가 지점 사이의 분할 간격입니다.
+     *
+     * @type {number}
+     */
+    _segment: number;
+    /**
+     * 경로 띠의 너비입니다.
+     *
+     * @type {number}
+     */
+    _lineWidth: number;
+    /**
+     * 분석이 마지막으로 저장한 재생 객체입니다.
+     *
+     * @type {import('@union3d/core/UTween').UTween | undefined}
+     */
+    _tween: UTween | undefined;
     name: any;
     /**
+     * 분석을 앱에 연결하고 경로를 표시할 형상과 머터리얼을 준비합니다. <br>
+     * 다시 연결하면 새 표시 자원을 만들며 이전 자원을 직접 해제하지 않습니다.
+     *
      * @override
      *
-     * @param {import('@U3dApp').U3dApp} app
-     * @return {this}
+     * @param {import('@U3dApp').U3dApp} app 경로를 표시하고 지형·카메라를 제공할 앱
+     * @returns {this} 이 분석 객체
      */
     override setApp(app: U3dApp): this;
     /**
+     * 경로와 양 끝 라벨을 장면에 연결하고 분석을 활성화합니다. <br>
+     * 모의주행 재생은 start() 또는 modelStart()로 별도 요청하십시오.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     override active(): this;
     /**
+     * 분석을 비활성화하고 즉시 이미지 갱신 설정을 해제합니다. <br>
+     * 비활성 상태이면 그대로 반환하며, 활성 상태에서 지리 지점이 둘 미만이면 경로도 비웁니다.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     override deactive(): this;
     /**
+     * 경로를 장면에서 분리하고 경로 지점과 시작·끝 라벨 참조를 비웁니다. <br>
+     * 앱에 비행 중지를 요청하지만 모델 주행을 직접 취소하거나 표시 자원을 해제하지 않습니다. <br>
+     * 모델 주행을 종료한 뒤 경로를 비우십시오.
+     *
      * @override
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     override clear(): this;
     /**
-     * 모의주행 경로 지점을 추가하는 함수 (원본)
+     * 주행 경로에 지점 하나를 추가하고 양 끝 라벨을 갱신합니다. <br>
+     * 중간 지점의 지형 높이를 추가로 샘플링하지 않습니다.
      *
-     * @param {import('@U3dMouseEvent').U3dMouseEvent | import('three').Vector3 | {x: number, y:number, z:number}} point 마우스이벤트 | 3D좌표 | 위경도 좌표
-     * @return {this}
+     * @param {import('@U3dMouseEvent').U3dMouseEvent | import('three').Vector3 | import('three').Vector3Like} point 앱 마우스 이벤트, 월드 좌표(EPSG:3857)의 Vector3 또는 위경도 좌표계(EPSG:4326)의 일반 객체
+     * @returns {this} 이 분석 객체
      */
-    addPointOrg(point: U3dMouseEvent | three.Vector3 | {
-        x: number;
-        y: number;
-        z: number;
-    }): this;
+    addPointOrg(point: U3dMouseEvent | three.Vector3 | three.Vector3Like): this;
     /**
-     * 주행경로 Line Geometry의 Point들을 반환하는 함수
+     * 형상에 보관한 주행 경로의 월드 좌표(EPSG:3857) 배열 원본을 반환합니다. <br>
+     * 반환 배열을 수정하면 경로 데이터도 바뀌며 형상 갱신은 별도로 필요합니다.
      *
-     * @return {Array<import('three').Vector3>} point 목록
+     * @returns {Array<import('three').Vector3>} 경로의 월드 좌표(EPSG:3857) 배열 원본
      */
     getPoints(): Array<three.Vector3>;
     /**
-     * 주행경로에 새로운 point를 추가하는 함수
+     * 주행 경로에 지점을 추가하고 이전 지점과의 사이에 지형 높이를 반영한 중간점을 만듭니다. <br>
+     * 첫 입력은 그대로 추가하며, 이후 입력은 현재 분할 간격으로 나눈 뒤 형상을 갱신합니다.
      *
-     * @param {import('@U3dMouseEvent').U3dMouseEvent | import('three').Vector3 | {x: number, y:number, z:number}} point 추가할 point
-     * @return {this}
+     * @param {import('@U3dMouseEvent').U3dMouseEvent | import('three').Vector3 | import('three').Vector3Like} point 앱 마우스 이벤트, 월드 좌표(EPSG:3857)의 Vector3 또는 위경도 좌표계(EPSG:4326)의 일반 객체
+     * @returns {this} 이 분석 객체
      */
-    addPoint(point: U3dMouseEvent | three.Vector3 | {
-        x: number;
-        y: number;
-        z: number;
-    }): this;
+    addPoint(point: U3dMouseEvent | three.Vector3 | three.Vector3Like): this;
     /**
-     * 설정된 경로에서 모의주행을 시작시키는 함수
+     * 설정된 경로에서 현재 진행률부터 카메라 주행을 시작합니다. <br>
+     * 빈 경로이면 시작하지 않으며, 속도를 생략하면 저장한 속도를 사용합니다. <br>
+     * 시작·진행·갱신·완료 이벤트를 통지하며 무한 반복도 설정할 수 있습니다. <br>
+     * 기존 카메라 재생이 있으면 중지한 뒤 새 재생을 등록합니다.
      *
-     * @param {number} [speed=50] 모의주행 속도(km/h)
-     * @param {boolean} [repeat=false] 모의주행 반복 여부
-     * @return {this}
+     * @param {number} [speed] 주행 속도(km/h). 생략하면 저장한 속도이며 최초 설정은 50
+     * @param {boolean} [repeat=false] true이면 경로를 무한 반복
+     * @returns {this} 이 분석 객체
      */
     start(speed?: number, repeat?: boolean): this;
     /**
-     * 3D 모델을 활용하여 모의주행을 시작하는 함수
+     * 설정된 경로에서 현재 진행률부터 모델 주행을 시작합니다. <br>
+     * 기존 재생은 별도로 중지하지 않으며, 모델을 생략해도 재생 상태와 이벤트는 진행합니다. <br>
+     * 카메라 주행과 달리 진행 이벤트를 보내지 않고 시작·갱신·완료를 통지합니다.
      *
-     * @param {number} [speed=50] 모의주행 속도(km/h)
-     * @param {import('three').Object3D} [model] 주행에 사용할 3D 모델
-     * @param {boolean} [repeat=false] 모의주행 반복 여부
-     * @return {this}
+     * @param {number} [speed] 주행 속도(km/h). 생략하면 저장한 속도
+     * @param {import('three').Object3D} [model] 위치와 방향을 변경할 모델 원본
+     * @param {boolean} [repeat=false] true이면 경로를 무한 반복
+     * @returns {this} 이 분석 객체
      */
     modelStart(speed?: number, model?: three.Object3D, repeat?: boolean): this;
     /**
-     * 모의주행을 재시작하는 함수
+     * 진행률을 처음으로 되돌리고 저장한 속도로 카메라 주행을 시작합니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     restart(): this;
     /**
-     * 모의주행을 일시정지 시키는 함수
+     * 갱신 중인 주행에 중지 요청을 보내고 재생 상태를 false로 바꿉니다. <br>
+     * 첫 갱신 콜백이 실행되기 전에는 중지 요청을 보내지 않습니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     stop(): this;
     /**
-     * 모의주행 최근 위치를 설정하는 함수
+     * 다음 주행을 시작할 경로 진행률을 저장합니다. <br>
+     * 즉시 위치를 옮기거나 범위를 제한하지 않으며 falsy 입력은 0으로 저장합니다.
      *
-     * @param {number} [v=0] 위치값 (0~1)
-     * @return {this}
+     * @param {number} [v=0] 다음 시작 진행률. 0은 시작, 1은 끝이며 생략하면 0
+     * @returns {this} 이 분석 객체
      */
     setCurrentPos(v?: number): this;
     /**
-     * GLTF 모델을 로드하여 경로 위에 모의주행시키는 함수입니다.
+     * GLTF 파일의 첫 자식을 불러와 전달한 경로에서 반복 주행시킵니다. <br>
+     * 로딩 성공 시 기존 경로 지점을 바꾸고 경로 선을 숨깁니다. <br>
+     * 호출은 로딩 완료 전에 반환하며 완료 Promise와 오류 콜백을 제공하지 않습니다.
      *
-     * @param {string} loadFile 로드할 GLTF 파일 경로
-     * @param {Array<WorldPositionVector3>} positionList 경로 위치 목록 (월드 좌표, EPSG:3857)
-     * @param {string} name 모델 이름
-     * @param {number} speed 모의주행 속도(km/h)
-     * @return {this}
+     * @param {string} loadFile GLTF 파일 URL
+     * @param {Array<WorldPositionVector3>} positionList 월드 좌표(EPSG:3857)의 경로 목록. Vector3 입력으로 전달하십시오
+     * @param {string} name 로드한 모델 루트에 설정할 이름
+     * @param {number} speed 모델 주행 속도(km/h)
+     * @returns {this} 이 분석 객체
      */
     loadModel(loadFile: string, positionList: Array<WorldPositionVector3>, name: string, speed: number): this;
     /**
-     * 모의주행 상하 각도를 반환하는 함수
+     * 카메라 주행의 상하 각도 설정을 반환합니다.
      *
-     * @return {number} 모의주행 상하 각도
+     * @returns {number} 카메라 상하 각도(도)
      */
     getAngle(): number;
     /**
-     * 모의주행 상하 각도를 설정하는 함수
+     * 이후 카메라 주행에 적용할 상하 각도를 저장합니다. <br>
+     * 모델 주행의 고정 기울기는 바꾸지 않습니다.
      *
-     * @param {number} angle 모의주행 상하 각도 (0 ~ 90)
-     * @return {this}
+     * @param {number} angle 카메라 상하 각도(도). 값의 범위는 검사하지 않습니다
+     * @returns {this} 이 분석 객체
      */
     setAngle(angle: number): this;
     /**
-     * 모의주행 좌우 각도를 설정하는 함수
+     * 이후 카메라·모델 주행에 적용할 방위각(azimuth)을 저장합니다.
      *
-     * @param {number} angle 모의주행 좌우 각도 (0 ~ 360)
-     * @return {this}
+     * @param {number} angle 방위각(azimuth, 도). 값의 범위는 검사하지 않습니다
+     * @returns {this} 이 분석 객체
      */
     setAzimuth(angle: number): this;
     /**
-     * 모의주행 좌우 각도를 반환하는 함수
+     * 카메라·모델 주행의 방위각(azimuth) 설정을 반환합니다.
      *
-     * @return {number} 모의주행 좌우 각도
+     * @returns {number} 방위각(azimuth, 도)
      */
     getAzimuth(): number;
     /**
-     * 모의주행 높이를 반환하는 함수
+     * 경로 위치에 더하는 주행 높이 설정을 반환합니다.
      *
-     * @return {number} 모의주행 높이
+     * @returns {number} 경로 높이에 더할 값(월드 좌표(EPSG:3857) 단위)
      */
     getHeight(): number;
     /**
-     * 모의주행 높이를 설정하는 함수
+     * 이후 카메라·모델 주행의 경로 높이에 더할 값을 저장합니다. <br>
+     * 월드 좌표(EPSG:3857)의 z에 직접 더하며 지형 아래이면 별도 충돌 높이를 적용합니다.
      *
-     * @param {number} value 모의주행 높이
-     * @return {this}
+     * @param {number} value 경로의 월드 좌표(EPSG:3857) z에 더할 높이
+     * @returns {this} 이 분석 객체
      */
     setHeight(value: number): this;
     /**
-     * 모의주행 속도를 반환하는 함수
+     * 저장한 주행 속도를 반환합니다.
      *
-     * @return {number} 모의주행 속도(km/h)
+     * @returns {number} 저장한 주행 속도(km/h)
      */
     getSpeed(): number;
     /**
-     * 모의주행 속도를 설정하는 함수
+     * 주행 속도를 저장하고 재생 중이면 카메라 주행을 다시 시작합니다. <br>
+     * 모델 주행 중에도 start()를 호출하므로 카메라 주행으로 시작합니다.
      *
-     * @param {number} speed 모의주행 속도(km/h)
-     * @return {this}
+     * @param {number} speed 설정할 주행 속도(km/h). 정상 주행에는 유한한 양수를 사용하십시오
+     * @returns {this} 이 분석 객체
      */
     setSpeed(speed: number): this;
     /**
-     * 주행경로를 가시화하는 함수
+     * 경로 선을 분석 장면에 연결하고 양 끝 라벨을 표시합니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     showLine(): this;
     /**
-     * 주행경로를 비가시화하는 함수
+     * 경로 선을 분석 장면에서 분리하고 양 끝 라벨을 숨깁니다. <br>
+     * 주행을 중지하거나 경로 지점을 제거하지 않습니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     hideLine(): this;
     /**
-     * 시작, 끝점의 라벨을 가시화하는 함수
+     * 존재하는 시작·끝 지점 라벨을 표시합니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     showLineLabel(): this;
     /**
-     * 시작, 끝점의 라벨을 비가시화하는 함수
+     * 존재하는 시작·끝 지점 라벨을 숨깁니다.
      *
-     * @return {this}
+     * @returns {this} 이 분석 객체
      */
     hideLineLabel(): this;
     /**
-     * 모의주행 경로 색상을 반환하는 함수
+     * 저장한 경로 선 색상을 반환합니다.
      *
-     * @return {string} Hex 또는 RGB string
+     * @returns {string} 저장한 색상 문자열
      */
     getLineColor(): string;
     /**
-     * 모의주행 경로 색상을 설정하는 함수
+     * 경로 선의 기본 색상을 저장하고 현재 기본 머터리얼에 적용합니다.
      *
-     * @param {string} color Hex 또는 RGB string
-     * @return {this}
+     * @param {string} color Three.js가 해석할 16진수 또는 RGB 색상 문자열
+     * @returns {this} 이 분석 객체
      */
     setLineColor(color: string): this;
     /**
-     * 모의주행 경로 너비를 반환하는 함수
+     * 저장한 경로 띠의 너비를 반환합니다.
      *
-     * @return {number} 경로 너비
+     * @returns {number} 경로 띠 너비(월드 좌표(EPSG:3857) 단위)
      */
     getLineWidth(): number;
     /**
-     * 모의주행 경로 너비를 설정하는 함수
+     * 경로 띠의 너비를 저장하고 현재 형상을 다시 계산합니다.
      *
-     * @param {number} width 경로 너비(m)
-     * @return {this}
+     * @param {number} width 경로 띠의 너비(월드 좌표(EPSG:3857) 단위)
+     * @returns {this} 이 분석 객체
      */
     setLineWidth(width: number): this;
     /**
-     * 모의주행 경로 투명도를 반환하는 함수
+     * 저장한 경로 불투명도(opacity)를 반환합니다.
      *
-     * @return {number} 투명도
+     * @returns {number} 불투명도(opacity). 0은 완전 투명, 1은 완전 불투명
      */
     getLineOpacity(): number;
     /**
-     * 모의주행 경로 투명도를 설정하는 함수
+     * 경로 불투명도(opacity)를 저장하고 선·이미지 머터리얼 모두에 적용합니다.
      *
-     * @param {number} opacity 투명도(0 ~ 1)
-     * @return {this}
+     * @param {number} opacity 불투명도(opacity). 0은 완전 투명, 1은 완전 불투명이며 범위 검사는 하지 않습니다
+     * @returns {this} 이 분석 객체
      */
     setLineOpacity(opacity: number): this;
     /**
-     * 설정된 모의주행 경로 vertex(위경도 좌표)와 속도를 반환하는 함수
+     * 보관한 지리 경로와 주행 속도를 저장용 객체로 반환합니다. <br>
+     * 지리 경로 배열은 원본이므로 반환값을 통해 수정할 수 있습니다.
      *
-     * @return {{positions: Array<import('three').Vector3>, speed: number}}
+     * @returns {{positions: Array<import('three').Vector3>, speed: number}} 위경도 좌표계(EPSG:4326) 배열 원본과 속도(km/h)를 담은 새 객체
      */
     getParameter(): {
         positions: Array<three.Vector3>;
         speed: number;
     };
     /**
-     * 모의주행 경로에 이미지를 삽입하는 함수
+     * 경로에 표시할 이미지를 요청하고 로딩되면 현재 이미지 머터리얼에 적용합니다. <br>
+     * 호출은 로딩 완료 전에 반환하며 이미지는 불투명도 1로 적용합니다. <br>
+     * 요청 순서와 다른 완료나 실패를 별도로 통제하지 않습니다.
      *
-     * @param {string} url 이미지 url
-     * @param {number} [rotation=0] 이미지 회전값(radian)
-     * @return {this}
-     *
-     * @example
-     * const route = app.getAnalysis('Route');
-     * route.setLineImage("/image/arrow.png", Math.PI);
+     * @param {string} url 경로 이미지 URL
+     * @param {number} [rotation=0] 이미지 회전각(라디안). 생략하면 0
+     * @returns {this} 이 분석 객체
      */
     setLineImage(url: string, rotation?: number): this;
     #private;
@@ -60451,6 +61084,19 @@ declare class UAnalyRoute extends UAnaly {
 
 declare class U3DTilesMesh extends three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> {
     constructor(geometry: any, material: any, opt: any);
+    /**
+     * 데이터 사용자가 원본 콘텐츠·배치·노드 경로로 부여한 식별값입니다.
+     * 미등록·일반 복제본은 undefined이며 등록 주체가 새 사용 위치에 맞게 부여합니다.
+     *
+     * @type {string | undefined}
+     */
+    puid: string | undefined;
+    /**
+     * 자동 재로딩 대상은 puid, 일반 복제본은 현재 인스턴스의 uuid를 반환합니다.
+     *
+     * @returns {string} puid 또는 현재 객체의 uuid
+     */
+    getUid(): string;
     _ulayername: any;
     _utype: any;
     _disposed: boolean;
@@ -60470,7 +61116,6 @@ declare class U3DTilesMesh extends three.Mesh<three.BufferGeometry<three.NormalB
     getUType(): any;
     setUType(type: any): void;
     raycast(a: any, b: any): void;
-    getUid(): any;
     getLayerName(): any;
     setLayerName(name: any): void;
     getBatchGroupName(): any;
@@ -60523,10 +61168,12 @@ type UAnalyAverageHeightCO = Omit<Omit<UAnalyCO, never> & UAnalyAverageHeightCO_
  */
 /**
  * ~extends import('@UAnaly').UAnaly <br>
+ *
  * `평균 높이` 분석 클래스 <br>
- * 사용자가 선택한 모델들의 평균 높이를 계산하는 기능을 제공합니다.
+ * 사용자가 선택한 모델들의 평균 높이를 계산하며 지형 타일은 제외합니다.
+ *
  * @group analysis
- * @extends UAnaly
+ * @extends {UAnaly}
  *
  * @example
  * let analy = app.activeAnalysis('AverageHeight');
@@ -60553,9 +61200,11 @@ declare class UAnalyAverageHeight extends UAnaly {
      */
     setSelectType(type: string): void;
     /**
-     * 선택된 객체들의 높이 정보를 반환하는 함수
+     * 선택된 모델의 높이 정보를 반환하며 지형 타일은 제외합니다.
+     * 자동 재로딩 데이터는 puid를, 일반 메시는 현재 객체의 UUID를 반환하며 임의의 영속 식별값을 만들지 않습니다.
+     *
      * @param {string} key 선택된 객체들의 key 값
-     * @return {Array<{id: string, height: number}> | undefined}
+     * @returns {Array<{id: string, height: number}> | undefined} 선택 모델의 높이와 현재 조회 식별값
      */
     getSelectedModelHeight(key: string): Array<{
         id: string;
@@ -60563,6 +61212,7 @@ declare class UAnalyAverageHeight extends UAnaly {
     }> | undefined;
     /**
      * 선택 모델의 높이를 ID 중복 없이 집계한 평균을 반환합니다. <br>
+     * 지형 타일은 내부·외부 선택 목록 모두에서 계산 대상과 개수에서 제외합니다.
      * 내부 선택기가 없으면 외부 선택기를 전달해도 undefined를 반환합니다.
      * 내부 선택기가 있으면 외부 선택 목록을 사용할 수 있으며 빈 목록의 평균은 0입니다.
      * 일반 메시의 높이는 월드 축 정렬 경계의 Z축 길이이며 getModelHeight() 재정의를 호출하지 않습니다.
@@ -60582,7 +61232,7 @@ declare class UAnalyAverageHeight extends UAnaly {
      */
     getModelHeight(model: UMesh | U3DTilesMesh): number;
     /**
-     * 선택된 메시를 레이어별로 묶어 평균 높이와 함께 반환합니다. <br>
+     * 지형 타일을 제외한 선택 메시를 레이어별로 묶어 평균 높이와 함께 반환합니다. <br>
      * 외부 선택기는 레이어별 메시 목록에만 사용하고 각 평균은 내부 전체 선택으로 다시 계산합니다.
      * 내부 선택기가 없으면 평균은 0이며 반환 목록의 메시들은 원본 참조입니다.
      * 선택 조회·집계 오류는 그대로 전파합니다.
@@ -60599,9 +61249,11 @@ declare class UAnalyAverageHeight extends UAnaly {
      */
     getCalcResult(u3dSelect?: U3dSelect): Array<LayerHeightInfo>;
     /**
-     * 선택된 모델을 key 기반으로 반환하는 함수
+     * 지형 타일을 제외한 선택 모델을 선택기의 원래 키로 반환합니다.
+     * 외부 선택기를 전달해도 해당 선택기의 선택 상태는 변경하지 않습니다.
+     *
      * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 입력시 해당 객체의 선택 모델들로 반환
-     * @return {Record<string, import('@UMesh').UMesh | import('@U3DTilesMesh').U3DTilesMesh> | undefined}
+     * @returns {Record<string, import('@UMesh').UMesh | import('@U3DTilesMesh').U3DTilesMesh> | undefined} 분석 대상 모델의 키별 목록
      */
     getSelected(u3dSelect?: U3dSelect): Record<string, UMesh | U3DTilesMesh> | undefined;
     /**
@@ -60788,7 +61440,7 @@ declare class UHeightFilter extends UEventDispatcher {
         properties: any;
         box: three.Box3;
         mesh: UMesh;
-        id: number;
+        id: string | number;
     };
     /**
      * 메쉬의 높이 필터링 결과를 반환하는 함수
@@ -61531,7 +62183,8 @@ declare class UAnalyAlarm extends UAnaly {
     /**
      * 알람 목록과 선택·프레임 상태를 초기화합니다. 앱은 setApp()으로 별도 연결합니다.
      *
-     * @param {UAnalyAlarmCO} [opt={}]
+     * @param {UAnalyAlarmCO} [opt={}] 알람 생성 옵션
+     * @throws {RangeError} 건물 알람 강조 방식이 지원되지 않는 경우
      */
     constructor(opt?: UAnalyAlarmCO);
     /**
@@ -61663,6 +62316,33 @@ declare class UAnalyAlarm extends UAnaly {
      *
      * @ignore
      */ _measureFeature: UMeasureFeature | undefined;
+    /**
+     * @type {Record<string, (() => void) | undefined>}
+     * @ignore
+     */
+    _modelAlarmStops: Record<string, (() => void) | undefined>;
+    /**
+     * 그룹이 소유하는 검색 영역이며 그룹 삭제·분석 정리 때 함께 제거합니다.
+     * @type {Map<import('@UGroup').UGroup, import('@UMeasureFeature').UMeasureFeature>}
+     * @ignore
+     */
+    _groupFeatures: Map<UGroup, UMeasureFeature>;
+    /**
+     * 그룹별 병합 부분 선택을 원본 메시의 현재 선택 상태와 분리해 보관합니다.
+     * @type {Map<import('@UGroup').UGroup, Map<string, UAnalyAlarmGroupSelection>>}
+     * @ignore
+     */
+    _groupSelections: Map<UGroup, Map<string, UAnalyAlarmGroupSelection>>;
+    /**
+     * @type {'color' | 'outline' | 'ring'}
+     * @ignore
+     */
+    _modelSelectType: "color" | "outline" | "ring";
+    /**
+     * @type {KeyValue | U3dSelectRingOption | undefined}
+     * @ignore
+     */
+    _modelSelectTypeOption: KeyValue | U3dSelectRingOption | undefined;
     name: any;
     /**
      * 현재 알람에 연결된 선택기를 반환합니다.
@@ -61755,6 +62435,7 @@ declare class UAnalyAlarm extends UAnaly {
     findPOI(idList: Array<string | number>): Array<UGroup> | UGroup | undefined;
     /**
      * 등록 모델 또는 그룹을 조회하고 현재 교차 모델로 복원합니다. 단일 그룹은 원본 그룹의 children을 교체합니다.
+     * 병합 부분 선택 그룹의 자식은 원본 UID를 유지하는 그룹 전용 강조 메시입니다.
      *
      * @param {Array<string | number> | string | number} idList 찾으려는 model 객체의 ID 또는 ID 배열
      * @returns {import('@union3d/core/UGroup').UGroup | import('@union3d/core/mesh/UMesh').UMesh | undefined} 찾은 model List 반환
@@ -61781,6 +62462,15 @@ declare class UAnalyAlarm extends UAnaly {
      */
     disposedStopModelAlarm(model: UMesh): void;
     /**
+     * 이후 시작할 건물 알람의 강조 방식을 설정합니다. 실행 중인 알람의 타입은 유지합니다.
+     *
+     * @param {'color' | 'outline' | 'ring'} type 색상·외곽선·링 강조 방식
+     * @param {KeyValue | U3dSelectRingOption} [typeOption] 외곽선·링 옵션이며 생략하면 기본 옵션을 사용합니다.
+     * @returns {void} 반환값 없음
+     * @throws {RangeError} 지원하지 않는 강조 방식인 경우
+     */
+    setModelSelectType(type: "color" | "outline" | "ring", typeOption?: KeyValue | U3dSelectRingOption): void;
+    /**
      * 단일 모델 또는 배열의 모델 깜박임을 시작합니다.
      *
      * @param {import('@union3d/core/mesh/UMesh').UMesh | Array<import('@union3d/core/mesh/UMesh').UMesh>} model 알람을 설정하려는 model 객체
@@ -61790,8 +62480,9 @@ declare class UAnalyAlarm extends UAnaly {
      */
     modelFlickerMode(model: UMesh | Array<UMesh>, count: number, speed: number, color?: number | string): void;
     /**
-     * 모델의 기존 예약과 선택 색상 상태를 정리한 뒤 깜박임을 예약합니다.
-     * 정상 반복 종료에는 복원 색상을 적용하고 해당 ID의 예약 기록을 제거합니다.
+     * 기존 알람을 정리하고 전용 선택기로 모델 강조를 반복합니다.
+     * 종료·정지 시 알람 직전 표시를 복원하며 기존 사용자 선택은 유지합니다.
+     * 그룹 전용 대상의 범위와 예약은 같은 원본을 사용하는 다른 그룹과 독립적입니다.
      *
      * @param {import('@union3d/core/mesh/UMesh').UMesh} model 알람 대상 Model 객체
      * @param {number} count 알람 횟수
@@ -61861,7 +62552,7 @@ declare class UAnalyAlarm extends UAnaly {
      */
     isDisposedStopModel(model: UMesh): void;
     /**
-     * 등록 주소의 현재 모델을 조회하고 모델이 없으면 조건에 맞는 편집 모델을 조회합니다.
+     * 현재 선택 모델을 우선 사용하고 휴면 병합 원본이 조회되면 같은 ID의 분리 모델을 찾습니다.
      *
      * @param {string} id 찾고 싶은 model의 id
      * @returns {import('@union3d/core/mesh/UMesh').UMesh | undefined} selectedObject 결과 Model 반환
@@ -61894,7 +62585,8 @@ declare class UAnalyAlarm extends UAnaly {
      */
     stopAllAlarm(): void;
     /**
-     * ID별 프레임 예약을 취소합니다. 객체의 가시성·색상·크기·커서 자원은 변경하지 않습니다.
+     * ID별 프레임 예약을 취소하고 모델 알람의 강조·전용 선택기 자원을 정리합니다.
+     * POI의 가시성·크기·커서 자원은 변경하지 않습니다.
      *
      * @param {string | number} id 삭제 대상 ID
      */
@@ -61948,10 +62640,10 @@ declare class UAnalyAlarm extends UAnaly {
      */
     _polygonClick(e: U3dMouseEvent): boolean | undefined;
     /**
-     * 선택 키의 색상을 복원하고 조건에 따라 모델 로딩 리스너를 해제합니다.
+     * 같은 키의 현재 선택 객체를 우선 복원하고 조건에 따라 모델 로딩 리스너를 해제합니다.
      *
-     * @param {string} key
-     * @param {boolean} [isChecked=false]
+     * @param {string} key 해제할 선택 키
+     * @param {boolean} [isChecked=false] 소유 레이어의 로딩 연결도 해제할지 여부
      *
      * @ignore
      */
@@ -61984,9 +62676,10 @@ declare class UAnalyAlarm extends UAnaly {
      */
     _findModelSelect(layerName: string, id: string | number): UMesh | undefined;
     /**
-     * 입력한 그룹명으로 선택 그룹을 등록하고 측정 결과를 정리합니다.
+     * 입력한 그룹명으로 선택 그룹을 등록하고 확정한 검색 영역의 소유권을 해당 그룹에 보관합니다.
      *
-     * @param {import('@U3dMouseEvent').U3dMouseEvent} e
+     * @param {import('@U3dMouseEvent').U3dMouseEvent} e 선택 완료 이벤트
+     * @returns {void} 반환값 없음
      *
      * @ignore
      */
@@ -62029,11 +62722,18 @@ declare class UAnalyAlarm extends UAnaly {
      */
     _isSelected(object: UMesh): boolean;
     /**
-     * 측정점을 확정하고 선택기의 측정 피처가 있으면 앱에서 제거합니다.
-     *
+     * 미완료 측정점을 확정하고 분석·선택기에 남은 측정 피처를 중복 없이 제거합니다.
+     * @returns {void} 반환값 없음
      * @ignore
      */
     _clearMeasureFeature(): void;
+    /**
+     * 해당 그룹이 소유하는 영역과 피처 참조만 제거합니다.
+     * @param {import('@UGroup').UGroup} group 삭제할 알람 그룹
+     * @returns {void} 반환값 없음
+     * @ignore
+     */
+    _removeGroupFeature(group: UGroup): void;
     /**
      * 현재 측정점의 확정 결과가 있으면 분석의 피처 참조로 보관합니다.
      *
@@ -62049,9 +62749,10 @@ declare class UAnalyAlarm extends UAnaly {
      */
     _addSelectMode(type: string): void;
     /**
-     * 선택기의 모델·리스너 정보를 알람 목록과 다음 선택 그룹에 반영합니다.
+     * 선택기의 모델·리스너 정보를 알람 목록에 반영하고 영역 선택 모델을 자식 유무와 관계없이 다음 그룹에 보관합니다.
      *
-     * @param {import('@UEventDispatcher').DispatchInputEvent} e
+     * @param {import('@UEventDispatcher').DispatchInputEvent} e 선택기가 반환한 모델 목록을 포함한 이벤트
+     * @returns {void} 반환값 없음
      *
      * @ignore
      */
@@ -62349,145 +63050,316 @@ declare class UAnalyDepth extends UAnaly {
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
- * `횡단면` / `종단면` 영역 분석 모드 클래스
+ *
+ * 횡단면·종단면·원형·원기둥 입력 영역으로 모델을 선택하고 측정 라벨을 관리하는 분석 클래스입니다.
+ *
  * @group analysis
  * @extends {UAnaly}
  */
 declare class UAnalySection extends UAnaly {
-    /** @param {UAnalySectionCO} [opt] */
-    constructor(opt?: UAnalySectionCO);
-    /** @type {string} */ name: string;
-    /** @type {string|undefined} */ _clickId: string | undefined;
-    /** @type {string|undefined} */ _dblClickId: string | undefined;
-    /** @type {Array<import('three').Vector3>} */ _drawPoint: Array<three.Vector3>;
-    /** @type {Array<string>} */ _filteredList: Array<string>;
-    /** @type {Record<string, FilteredEntry | undefined>} */ _filteredObject: Record<string, FilteredEntry | undefined>;
-    /** @type {string} */ _extension: string;
-    /** @type {Array<import('@UMesh').UMesh>} */ _pickList: Array<UMesh>;
-    /** @type {Record<string, unknown>} */ _selected: Record<string, unknown>;
-    /** @type {Record<string, Function>} */ _loadedListeners: Record<string, Function>;
-    /** @type {import('@union3d/geometry/U3dCircle').U3dCircle | import('@UMesh').UMesh | undefined} */ _curCircle: U3dCircle | UMesh | undefined;
-    /** @type {unknown} */ _feature: unknown;
-    /** @type {Array<object>} */ _featurePoints: Array<object>;
-    /** @type {number} */ _lineWidth: number;
-    /** @type {SelectLayerLike | undefined} */ _selectLayer: SelectLayerLike | undefined;
-    /** @type {Function|undefined} */ _onChange: Function | undefined;
-    /** @type {string|undefined} */ _spriteImageUrl: string | undefined;
-    /** @type {import('three').Texture|undefined} */ _spriteMap: three.Texture | undefined;
-    /** @type {import('three').SpriteMaterial|undefined} */ _spriteMat: three.SpriteMaterial | undefined;
-    /** @type {import('three').Sprite|undefined} */ _sprite: three.Sprite | undefined;
-    /** @type {MeasurePOILike | undefined} */ _prevLine: MeasurePOILike | undefined;
-    /** @type {unknown} */ _measureFeature: unknown;
-    /** @type {import('@union3d/core/UGroup').UGroup|undefined} */ _currentGroup: UGroup | undefined;
-    /** @type {MeasurePOILike | undefined} */ _currentPoi: MeasurePOILike | undefined;
     /**
-     * @param {number} width
+     * 선택기는 즉시 선택을 반영하지만 반환 Promise의 실패도 관찰해야 합니다. <br>
+     * 공개 addSelected()의 기존 void 반환은 유지하며 비동기 실패 원본을 기록합니다.
+     *
+     * @param {unknown} error 선택기가 전달한 실패 원인
+     *
+     * @ignore
+     */
+    static "__#11669@#reportSelectionError"(error: unknown): void;
+    /**
+     * UAnalySection 클래스 생성자입니다. <br>
+     * 분석 객체만 생성하며 앱은 setApp()으로 연결합니다.
+     *
+     * @param {UAnalySectionCO} [opt] 분석 이름을 지정하는 생성 옵션
+     */
+    constructor(opt?: UAnalySectionCO);
+    /**
+     * 분석 객체의 이름입니다.
+     *
+     * @type {string}
+     */
+    name: string;
+    /**
+     * 앱에 등록한 클릭 이벤트의 식별자입니다.
+     *
+     * @type {string|undefined}
+     *
+     * @ignore
+     */
+    _clickId: string | undefined;
+    /**
+     * 앱에 등록한 더블클릭 이벤트의 식별자입니다.
+     *
+     * @type {string|undefined}
+     *
+     * @ignore
+     */
+    _dblClickId: string | undefined;
+    /**
+     * 현재 입력 중인 단면의 월드 좌표(EPSG:3857) 목록입니다.
+     *
+     * @type {Array<import('three').Vector3>}
+     *
+     * @ignore
+     */
+    _drawPoint: Array<three.Vector3>;
+    /**
+     * 확정한 영역 형상의 식별자 목록입니다.
+     *
+     * @type {Array<string>}
+     *
+     * @ignore
+     */
+    _filteredList: Array<string>;
+    /**
+     * 확정한 영역별 모델·라벨 연결 정보입니다.
+     *
+     * @type {Record<string, FilteredEntry | undefined>}
+     *
+     * @ignore
+     */
+    _filteredObject: Record<string, FilteredEntry | undefined>;
+    /**
+     * 점 라벨과 수직 보조선의 표시 방식을 선택합니다.
+     *
+     * @type {string}
+     *
+     * @ignore
+     */
+    _extension: string;
+    /**
+     * 확정하여 주석 장면에 표시한 영역 형상입니다.
+     *
+     * @type {Array<import('@UMesh').UMesh>}
+     *
+     * @ignore
+     */
+    _pickList: Array<UMesh>;
+    /**
+     * 모델의 선택·외곽선·재로딩 구독을 소유하는 전용 선택기입니다.
+     *
+     * @type {import('@union3d/select/U3dSelect').U3dSelect | undefined}
+     *
+     * @ignore
+     */
+    _selector: U3dSelect | undefined;
+    /**
+     * 입력 중인 원형 또는 원기둥 형상입니다.
+     *
+     * @type {import('@union3d/geometry/U3dCircle').U3dCircle | import('@UMesh').UMesh | undefined}
+     *
+     * @ignore
+     */
+    _curCircle: U3dCircle | UMesh | undefined;
+    /**
+     * 모델 영역 판정에 사용할 측정 도형입니다.
+     *
+     * @type {unknown}
+     *
+     * @ignore
+     */
+    _feature: unknown;
+    /**
+     * 현재 원형 입력의 위경도 측정점 목록입니다.
+     *
+     * @type {Array<object>}
+     *
+     * @ignore
+     */
+    _featurePoints: Array<object>;
+    /**
+     * 이후 생성하는 보조선의 너비입니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
+    _lineWidth: number;
+    /**
+     * 입력점과 도형을 관리하는 측정 레이어입니다.
+     *
+     * @type {SelectLayerLike | undefined}
+     *
+     * @ignore
+     */
+    _selectLayer: SelectLayerLike | undefined;
+    /**
+     * 이 분석 객체에 바인딩한 마우스 이동 리스너입니다.
+     *
+     * @type {Function|undefined}
+     *
+     * @ignore
+     */
+    _onChange: Function | undefined;
+    /**
+     * 격자 스프라이트 이미지의 주소입니다.
+     *
+     * @type {string|undefined}
+     *
+     * @ignore
+     */
+    _spriteImageUrl: string | undefined;
+    /**
+     * 격자 이미지 로딩이 반환한 텍스처입니다.
+     *
+     * @type {import('three').Texture|undefined}
+     *
+     * @ignore
+     */
+    _spriteMap: three.Texture | undefined;
+    /**
+     * 격자 스프라이트가 사용하는 머티리얼입니다.
+     *
+     * @type {import('three').SpriteMaterial|undefined}
+     *
+     * @ignore
+     */
+    _spriteMat: three.SpriteMaterial | undefined;
+    /**
+     * 화면 좌표를 단면 입력점으로 투영할 스프라이트입니다.
+     *
+     * @type {import('three').Sprite|undefined}
+     *
+     * @ignore
+     */
+    _sprite: three.Sprite | undefined;
+    /**
+     * 마우스 이동에 맞춰 갱신하는 미리보기 라벨입니다.
+     *
+     * @type {MeasurePOILike | undefined}
+     *
+     * @ignore
+     */
+    _prevLine: MeasurePOILike | undefined;
+    /**
+     * 확정 또는 제거할 측정 도형 참조입니다.
+     *
+     * @type {unknown}
+     *
+     * @ignore
+     */
+    _measureFeature: unknown;
+    /**
+     * 현재 종단면 입력의 점·거리선을 담은 그룹입니다.
+     *
+     * @type {import('@union3d/core/UGroup').UGroup|undefined}
+     *
+     * @ignore
+     */
+    _currentGroup: UGroup | undefined;
+    /**
+     * 원형 입력의 시작점 라벨입니다.
+     *
+     * @type {MeasurePOILike | undefined}
+     *
+     * @ignore
+     */
+    _currentPoi: MeasurePOILike | undefined;
+    /**
+     * 이후 생성하는 단면 보조선의 너비를 지정합니다. <br>
+     * 이미 생성한 선에는 다시 적용하지 않습니다.
+     *
+     * @param {number} width 보조선 너비
      */
     setLineWidth(width: number): void;
     /**
-     * @return {number}
+     * 이후 생성할 단면 보조선의 너비를 반환합니다.
+     *
+     * @returns {number} 설정한 보조선 너비
      */
     getLineWidth(): number;
     /**
-     * 입력받은 함수를 화면 클릭 이벤트로 등록하는 함수
-     * @param {EventCallBack} func 이벤트 동작시 실행 함수
-     * @param {string} [event] 이벤트 지정
-     * @example
-     *  function printFilteredList (){
-     *     let list = analy.getFilteredList();
-     *     list.forEach((filter)=> { console.log(filter); });
-     *  }
-     *  analy.passToClickEvent(printFilteredList); //클릭이벤트 발생 시 printFilteredList 함수 호출
+     * 단면 분석 객체에 완료 또는 선택 이벤트의 구독 함수를 등록합니다. <br>
+     * 등록 함수는 분석 객체를 this로 받아 호출됩니다.
+     *
+     * @param {EventCallBack} func 이벤트를 수신할 함수
+     * @param {string} [event] 구독할 이벤트 이름이며 생략하면 click
      */
     passToClickEvent(func: EventCallBack, event?: string): void;
     /**
-     * 격자 SPRITE의 IMAGE 설정과 크기, 투명도를 설정하는 함수
-     * @param {string} url                      - 설정하려는 격자 이미지 url
-     * @param {number} [size=1000]              - 설정하려는 격자 크기
-     * @param {number} [opacity=0.7]            - 설정하려는 격자 투명도
-     * @example
-     *let url ='../../tutorial-official/image/grid2.png';
-     *let size = 1000;
-     *let opacity = 0.7;
-     *let analy = app.getAnalysis('Depth');
-     *  analy.setGridSpriteImage(url, size, opacity);
+     * 화면 위치를 단면 입력점으로 변환할 격자 스프라이트(sprite) 이미지를 지정합니다. <br>
+     * 이미지는 비동기로 요청하며 이 호출에서 장면에 추가하지 않습니다. <br>
+     * 크기·불투명도를 생략하거나 음수로 지정하면 각각 1000·0.7을 사용하며 0은 유지합니다.
+     *
+     * @param {string} url 격자 이미지 주소
+     * @param {number} [size=1000] 격자 이미지의 세 축 표시 크기
+     * @param {number} [opacity=0.7] 격자 이미지의 불투명도
      */
     setGridSpriteImage(url: string, size?: number, opacity?: number): void;
     /**
-     * ID에 해당하는 Filter를 삭제하고, 측정 영역을 원래대로 되돌리는 함수
-     * @param {string} id               - 삭제하려는 Filter의 ID
+     * 식별자에 해당하는 확정 단면 영역과 연결된 선택 모델·라벨을 제거합니다. <br>
+     * 형상 식별자는 대소문자를 구분하지 않고 찾습니다.
+     *
+     * @param {string} id getFilteredList()로 확인한 영역 식별자
      */
     removeFilter(id: string): void;
     /**
-     * 전체 Filter를 제거하는 함수
+     * 확정 단면 영역을 모두 제거하고 연결된 모델의 선택과 외곽선을 해제합니다. <br>
+     * 앱과 주석 장면이 연결된 상태에서 호출합니다.
      */
     removeAllFilter(): void;
     /**
-     * 측정된 거리의 POI ID 리스트를 반환하는 함수
-     * @return {Array<string>}                       -  POI ID가 담긴 배열 (해당 거리 측정시 처음 찍은 점 POI의 ID)
+     * 확정한 단면 영역의 식별자 목록을 반환합니다. <br>
+     * 반환 배열은 분석 객체가 사용하는 원본입니다.
+     *
+     * @returns {Array<string>} 영역 식별자 배열
      */
     getFilteredList(): Array<string>;
     /**
-     * 측정된 영역에 필터링된 Object 객체를 반환하는 함수
-     * @return {Record<string, unknown>}  필터링된 Object 객체
-     * @example
-     * return {
-     *     arr : [UMesh, UMesh...], //Obejct가 가지는 메시 목록
-     *     height: "10",
-     *     poiGroupID :37439,
-     *     type: "longitudinal"
-     * }
+     * 확정한 각 단면 영역의 모델 목록·입력 모드·라벨 연결 정보를 반환합니다. <br>
+     * 반환 사전은 분석 객체가 사용하는 원본입니다.
+     *
+     * @returns {Record<string, unknown>} 영역 식별자를 키로 하는 결과 사전
      */
     getFilteredObject(): Record<string, unknown>;
     /**
-     * 위경도 좌표를 입력 받아 단면 분석을 수행하는 함수
-     * @param {GeoPosition} point1          - 첫번째 지점 좌표값 (경도, 위도, 높이)
-     * @param {GeoPosition} point2          - 두번째 지점 좌표값 (경도, 위도, 높이)
-     * @example
-     * point1={x: 129.1531330187, y:35.1587087531, z: 15};
-     * point2={x: 129.1551362618, y:35.1591494079, z: 35};
+     * 두 위경도 좌표의 측정 라벨을 만들고 거리선 생성을 요청합니다. <br>
+     * 앱이 연결되어 있어야 하며 거리선은 현재 측정 그룹이 있는 경우에만 추가됩니다.
      *
-     * analy.getResultFromCoordinate(point1,point2);
+     * @param {GeoPosition} point1 시작점의 위경도 좌표계(EPSG:4326) 좌표
+     * @param {GeoPosition} point2 끝점의 위경도 좌표계(EPSG:4326) 좌표
      */
     getResultFromCoordinate(point1: GeoPosition, point2: GeoPosition): void;
     /**
-     * 선택된 Object의 선택 상태를 초기화하는 함수
+     * 선택기의 모델 선택과 외곽선을 해제합니다. <br>
+     * 단면 영역 자체는 제거하지 않으며 그리기 갱신을 요청합니다.
      */
     clearSelect(): void;
     /**
-     * 입력받은 Object를 선택상태로 추가하는 함수
-     * @param {import('@UMesh').UMesh | Array<import('@UMesh').UMesh>} object Object 객체
+     * 모델을 단면 선택 결과에 추가하고 기본 외곽선을 표시합니다. <br>
+     * 배열 입력은 각 모델을 순서대로 선택합니다.
+     *
+     * @param {import('@UMesh').UMesh | Array<import('@UMesh').UMesh>} object 선택할 모델 또는 모델 배열
      */
     addSelected(object: UMesh | Array<UMesh>): void;
     /**
-     * 두 지점 사이의 거리를 구하고 그리는 함수입니다. <br>
-     * start 와 end 가 Vector3 유형일 경우만 결과 값을 출력합니다. <br>
-     * 이전에 POI 가 생성되어야 결과 값이 출력되며, DistanceLine 생성 시 마지막으로 추가된 POI 의 children 으로 추가됩니다. <br>
-     * 두 점 사이의 선과 거리 값을 지도상에 그려줍니다.
-     * @param {WorldPositionVector3} start 첫 지점의 좌표 (월드 좌표, EPSG:3857)
-     * @param {WorldPositionVector3} end 끝 지점의 좌표 (월드 좌표, EPSG:3857)
-     * @param {boolean} [getLine] 결과 라인 반환 여부
-     * @return {import('@union3d/geometry/U3dLine').U3dLine | undefined} 생성된 거리 라인
+     * 두 월드 좌표(EPSG:3857)를 잇는 흰 거리선을 생성합니다. <br>
+     * getLine을 생략하면 현재 측정 그룹에 선을 추가하며 현재 그룹이 없으면 생성하지 않습니다.
+     *
+     * @param {WorldPositionVector3} start 시작점의 월드 좌표(EPSG:3857) Vector3
+     * @param {WorldPositionVector3} end 끝점의 월드 좌표(EPSG:3857) Vector3
+     * @param {boolean} [getLine=false] true이면 현재 측정 그룹 없이 선만 생성할지 여부
+     * @returns {import('@union3d/geometry/U3dLine').U3dLine | undefined} 새 거리선이며 입력이 Vector3가 아니거나 필요한 그룹이 없으면 undefined
      */
     getDistanceLine(start: WorldPositionVector3, end: WorldPositionVector3, getLine?: boolean): U3dLine | undefined;
     /**
-     * 사용자가 그린 도형 반경의 해당하는 건물을 포함 여부 판단하여 출력
-     * @param {import('@union3d/geometry/U3dCylinder').U3dCylinder} cylinder          - 사용자가 그린 도형 ( cylinder )
-     * @param {number} bottom           - cylinder의 바닥 높이
-     * @param {number} height           - cylinder의 도형 높이
-     * @param {import('@union3d/core/mesh/UMesh').UMesh} mesh              - 사용자가 그린 도형에 포함되는지 비교할 건물
-     * @param {boolean} [invert]          - 사용자가 도형을 그릴시 첫점보다 끝점의 높이가 높을 경우 true 입력
-     * @return {boolean}               - 해당 mesh가 사용자가 그린 도형 반경에 포함된다면 true, 아닐 경우 false
+     * 원기둥의 범위와 모델의 높이 구간이 겹치는지 판정합니다. <br>
+     * 검사 중 오류는 콘솔에 기록하고 false를 반환합니다.
+     *
+     * @param {import('@union3d/geometry/U3dCylinder').U3dCylinder} cylinder 선택 범위를 표시하는 원기둥
+     * @param {number} bottom 원기둥의 기준 높이
+     * @param {number} height 기준 높이에서 검사할 높이 차
+     * @param {import('@union3d/core/mesh/UMesh').UMesh} mesh 교차를 검사할 모델
+     * @param {boolean} [invert=false] true이면 기준 높이 아래쪽을 검사할지 여부
+     * @returns {boolean} 공간 범위와 높이 구간이 모두 겹치면 true
      */
     intersectMesh(cylinder: U3dCylinder, bottom: number, height: number, mesh: UMesh, invert?: boolean): boolean;
     /**
-     * 해당 지점에서 지형과 만나는 점과 수직선을 지도상에 나타내는 함수
-     * @param {import('three').Vector3} dist         - 해당 지점의 좌표값
-     * @param {string} [name]          - 해당 함수를 호출한 유형의 이름 / 미리보기선 [ prevLine ], 클릭시 생성 되는 POI [ measure ]
-     * @example
-     *let analy = app.getAnalysis('Depth');
-     *let position = new THREE.Vector3(x:129.1531330187, y: 35.1587087531, z: 50);
-     * analy.drawVerticalLine(position,'measure')
+     * 지정한 지점에서 지형까지의 수직선과 지형 높이 라벨을 표시합니다. <br>
+     * 앱이 연결된 상태에서 호출하며 prevLine은 기존 미리보기 라벨을 갱신합니다.
+     *
+     * @param {import('three').Vector3} dist 수직선 끝점의 월드 좌표(EPSG:3857)
+     * @param {string} [name] 라벨 이름 접두어이며 prevLine이면 미리보기 갱신
      */
     drawVerticalLine(dist: three.Vector3, name?: string): void;
 }
@@ -62668,8 +63540,11 @@ declare class UAnalyParticle extends UAnaly {
     removeAllParticle(): void;
     /**
      * 모델 강제 로딩 범위의 마스크를 생성하고 값 생성 완료를 통지합니다. <br>
-     * useForceLoad가 false이면 레이어 준비 후 즉시 완료합니다. <br>
-     * 잘못된 레벨·트리 교체·로딩 실패는 설정과 이벤트를 복원한 뒤 거절합니다. <br>
+     * useForceLoad가 false이면 모델 상한을 변경하지 않고 레이어 준비 후 완료합니다. <br>
+     * 같은 앱의 강제 요청은 값 생성까지 한 번에 하나만 실행합니다. <br>
+     * 대기 중 공개 API로 모델 상한을 설정하면 임시값과 같은 값이어도 해당 설정을 유지합니다. <br>
+     * 잘못된 레벨·트리 교체·로딩 실패는 이벤트 정리와 필요한 복원을 시도한 뒤 거절합니다. <br>
+     * 정리 중 일부 단계가 실패해도 나머지 정리를 시도하며, 여러 실패는 errors에 원래 사유를 담아 전달합니다. <br>
      * opt 원본에 기본값을 보완하며 opt 누락은 동기 예외, 앱 미연결은 미완료 반환으로 남습니다.
      *
      * @param {UAnalyParticleMaskOption} opt 마스크 레이어와 모델 로딩 범위 설정
@@ -62812,11 +63687,11 @@ declare class UAnalySun extends UAnaly {
 
 /**
  * ~extends import('@UAnaly').UAnaly <br>
- * `물리 흐름` 시뮬레이션 분석 클래스 <br/>
- * 강우, 유수 흐름 등의 물리 기반 파티클 시뮬레이션 기능을 제공한다.
+ *
+ * 강우·유수의 물리 입자와 측정 영역·워커 갱신을 연결하는 분석 클래스입니다.
  *
  * @group analysis
- * @extends UAnaly
+ * @extends {UAnaly}
  *
  * @example
  * const analy = app.activeAnalysis('PhysicalFlow');
@@ -62824,133 +63699,310 @@ declare class UAnalySun extends UAnaly {
  */
 declare class UAnalyPhysicalFlow extends UAnaly {
     /**
-     * @param {object} [opt={}] 생성자 옵션
-     * @param {string} [opt.name='PhysicalFlow'] 분석 클래스 이름
-     * @param {number} [opt.resolution=2] 지면 영역 해상도
-     * @param {number} [opt.gravity=-12] 중력값
-     * @param {number} [opt.maxParticleNum=6000] 입자 생성 한계값
-     * @param {number} [opt.limitMinHeight=-10] 입자 소멸 최소 높이
-     * @param {number} [opt.limitTime=40000] 입자 생존 시간(ms)
+     * 물리 흐름 분석 상태와 기본 자원을 구성합니다. <br>
+     * 앱은 setApp()으로 연결하고 활성화 후 분석 영역을 준비합니다. <br>
+     * 생성 시 수치 옵션은 적용하지 않으며 setOption()으로 별도 설정합니다.
+     *
+     * @param {UAnalyPhysicalFlowCO} [opt={}] 분석 이름과 호환 옵션
      */
-    constructor(opt?: {
-        name?: string;
-        resolution?: number;
-        gravity?: number;
-        maxParticleNum?: number;
-        limitMinHeight?: number;
-        limitTime?: number;
-    });
-    /** @type {string | undefined} */ _clickId: string | undefined;
-    /** @type {string | undefined} */ _dblClickId: string | undefined;
-    /** @type {string} */ _updateId: string;
-    /** @type {boolean | undefined} */ _setMouseMove: boolean | undefined;
-    /** @type {import('@UMeasureFeature').UMeasureFeature | undefined} */ _feature: UMeasureFeature | undefined;
-    /** @type {import('three').Box3 | undefined} */ _targetBox: three.Box3 | undefined;
-    /** @type {WorldPositionVector3} */ _targetCenter: WorldPositionVector3;
-    /** @type {number | undefined} */ _targetWidth: number | undefined;
-    /** @type {number | undefined} */ _targetHeight: number | undefined;
-    /** @type {Float32Array | undefined} */ _heightData: Float32Array | undefined;
-    /** @type {import('@UMeasureFeature').UMeasureFeature | undefined} */ _flowFeature: UMeasureFeature | undefined;
-    /** @type {import('three').Box3 | undefined} */ _flowBox: three.Box3 | undefined;
-    /** @type {number} */ _resolution: number;
-    /** @type {number} */ _gravity: number;
-    /** @type {number} */ _maxParticleNum: number;
-    /** @type {number} */ _limitMinHeight: number;
-    /** @type {number} */ _limitTime: number;
-    /** @type {number | undefined} */ _terrainMaxHeight: number | undefined;
-    /** @type {number | undefined} */ _terrainMinHeight: number | undefined;
-    /** @type {Map<number, import('three').Mesh>} */ _flowObject: Map<number, three.Mesh>;
-    /** @type {import('@union3d/core/UClock').UClock} */ _clock: UClock;
-    /** @type {Map<string, import('three').BufferGeometry>} */ _geometries: Map<string, three.BufferGeometry>;
-    /** @type {Map<string, import('three').Material | Array<import('three').Material>>} */ _materials: Map<string, three.Material | Array<three.Material>>;
-    /** @type {import('@union3d/core/UTaskProcessor').UTaskProcessor | undefined} */ _worker: UTaskProcessor | undefined;
-    /** @type {number} */ _taskNum: number;
-    /** @type {number} */ _maxTaskNum: number;
-    /** @type {Map<string, UPhysicalFlowSimulation>} */ _simulationList: Map<string, UPhysicalFlowSimulation>;
-    /** @type {Array<import('three').Box3>} */ _modelBoxList: Array<three.Box3>;
+    constructor(opt?: UAnalyPhysicalFlowCO);
+    /**
+     * 등록한 클릭 이벤트 키입니다.
+     *
+     * @type {string | undefined}
+     *
+     * @ignore
+     */
+    _clickId: string | undefined;
+    /**
+     * 등록한 더블클릭 이벤트 키입니다.
+     *
+     * @type {string | undefined}
+     *
+     * @ignore
+     */
+    _dblClickId: string | undefined;
+    /**
+     * 렌더 전 갱신 콜백을 구분하는 키입니다.
+     *
+     * @type {string}
+     *
+     * @ignore
+     */
+    _updateId: string;
+    /**
+     * 마지막 측정점을 마우스 이동으로 갱신하는 상태입니다.
+     *
+     * @type {boolean | undefined}
+     *
+     * @ignore
+     */
+    _setMouseMove: boolean | undefined;
+    /**
+     * 물리 분석 영역의 측정 피처입니다.
+     *
+     * @type {import('@UMeasureFeature').UMeasureFeature | undefined}
+     *
+     * @ignore
+     */
+    _feature: UMeasureFeature | undefined;
+    /**
+     * 물리 분석 영역의 월드 박스입니다.
+     *
+     * @type {import('three').Box3 | undefined}
+     *
+     * @ignore
+     */
+    _targetBox: three.Box3 | undefined;
+    /**
+     * 영역 중심 원본 벡터이며 초기화 시 같은 벡터를 영벡터로 바꿉니다.
+     *
+     * @type {WorldPositionVector3}
+     *
+     * @ignore
+     */
+    _targetCenter: WorldPositionVector3;
+    /**
+     * 물리 분석 영역의 폭입니다.
+     *
+     * @type {number | undefined}
+     *
+     * @ignore
+     */
+    _targetWidth: number | undefined;
+    /**
+     * 물리 분석 영역의 높이입니다.
+     *
+     * @type {number | undefined}
+     *
+     * @ignore
+     */
+    _targetHeight: number | undefined;
+    /**
+     * 워커에 전달하는 단정밀도 고도 표본입니다.
+     *
+     * @type {Float32Array | undefined}
+     *
+     * @ignore
+     */
+    _heightData: Float32Array | undefined;
+    /**
+     * 유수 생성 목표 영역의 측정 피처입니다.
+     *
+     * @type {import('@UMeasureFeature').UMeasureFeature | undefined}
+     *
+     * @ignore
+     */
+    _flowFeature: UMeasureFeature | undefined;
+    /**
+     * 유수 생성 목표 영역의 월드 박스입니다.
+     *
+     * @type {import('three').Box3 | undefined}
+     *
+     * @ignore
+     */
+    _flowBox: three.Box3 | undefined;
+    /**
+     * 지면 표본 간격입니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
+    _resolution: number;
+    /**
+     * 현재 중력 설정입니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
+    _gravity: number;
+    /**
+     * 워커에 전달할 입자 수 한도입니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
+    _maxParticleNum: number;
+    /**
+     * 워커 입자 소멸 최소 높이입니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
+    _limitMinHeight: number;
+    /**
+     * 워커 입자 생존 시간(ms)입니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
+    _limitTime: number;
+    /**
+     * 분석 영역 최대 고도입니다.
+     *
+     * @type {number | undefined}
+     *
+     * @ignore
+     */
+    _terrainMaxHeight: number | undefined;
+    /**
+     * 분석 영역 최소 고도입니다.
+     *
+     * @type {number | undefined}
+     *
+     * @ignore
+     */
+    _terrainMinHeight: number | undefined;
+    /**
+     * 메시 ID별 화면 입자입니다.
+     *
+     * @type {Map<number, import('three').Mesh>}
+     *
+     * @ignore
+     */
+    _flowObject: Map<number, three.Mesh>;
+    /**
+     * 프레임 시간차를 측정하는 시계입니다.
+     *
+     * @type {import('@union3d/core/UClock').UClock}
+     *
+     * @ignore
+     */
+    _clock: UClock;
+    /**
+     * 시뮬레이션별 공유 지오메트리입니다.
+     *
+     * @type {Map<string, import('three').BufferGeometry>}
+     *
+     * @ignore
+     */
+    _geometries: Map<string, three.BufferGeometry>;
+    /**
+     * 시뮬레이션별 공유 머터리얼 또는 단계 배열입니다.
+     *
+     * @type {Map<string, import('three').Material | Array<import('three').Material>>}
+     *
+     * @ignore
+     */
+    _materials: Map<string, three.Material | Array<three.Material>>;
+    /**
+     * 현재 물리 영역이 소유하는 워커입니다.
+     *
+     * @type {import('@union3d/core/UTaskProcessor').UTaskProcessor | undefined}
+     *
+     * @ignore
+     */
+    _worker: UTaskProcessor | undefined;
+    /**
+     * 요청 중인 물리 작업 수입니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
+    _taskNum: number;
+    /**
+     * 프레임 요청을 중단하는 작업 수 비교 기준입니다.
+     *
+     * @type {number}
+     *
+     * @ignore
+     */
+    _maxTaskNum: number;
+    /**
+     * ID별 원본 시뮬레이션 상태입니다.
+     *
+     * @type {Map<string, UPhysicalFlowSimulation>}
+     *
+     * @ignore
+     */
+    _simulationList: Map<string, UPhysicalFlowSimulation>;
+    /**
+     * 고도 표본에 반영할 장애물 범위입니다.
+     *
+     * @type {Array<import('three').Box3>}
+     *
+     * @ignore
+     */
+    _modelBoxList: Array<three.Box3>;
     name: any;
     /**
-     * 물리 분석 옵션을 설정하는 함수.
+     * 물리 분석 설정을 저장하고 워커가 있으면 반영 완료를 기다립니다. <br>
+     * 각 falsy 수치는 기본값으로 대체합니다. <br>
+     * gravity의 대체값은 2입니다. <br>
+     * 워커에는 옵션 원본을 전달하며 실패해도 먼저 저장한 설정을 복원하지 않습니다.
      *
-     * @param {object} option 물리 분석 옵션
-     * @param {string} [option.name='PhysicalFlow'] 분석 클래스 이름
-     * @param {number} [option.resolution=2] 지면 영역 해상도
-     * @param {number} [option.gravity=-12] 중력값
-     * @param {number} [option.maxParticleNum=6000] 입자 생성 한계값
-     * @param {number} [option.limitMinHeight=-10] 입자 소멸 최소 높이
-     * @param {number} [option.limitTime=40000] 입자 생존 시간(ms)
-     * @return {Promise<boolean>}
+     * @param {UAnalyPhysicalFlowOptions} option 갱신할 물리 설정
+     * @returns {Promise<boolean>} 반영 성공이면 true, 설정·워커 요청 실패이면 false
      */
-    setOption(option: {
-        name?: string;
-        resolution?: number;
-        gravity?: number;
-        maxParticleNum?: number;
-        limitMinHeight?: number;
-        limitTime?: number;
-    }): Promise<boolean>;
+    setOption(option: UAnalyPhysicalFlowOptions): Promise<boolean>;
     /**
+     * 분석을 활성화하고 렌더 전 갱신을 등록합니다. <br>
+     * 앱이 연결되어야 하며 측정 불투명도는 0.2로 설정합니다. <br>
+     * 등록 실패 시 먼저 설정한 활성 상태를 되돌리지 않습니다.
+     *
      * @override
      *
-     * @return {Promise<boolean>}
+     * @returns {Promise<boolean>} 등록 후 true. 예외는 거절로 전달
      */
     override active(): Promise<boolean>;
     /**
+     * 렌더 갱신과 그리기를 중단합니다. <br>
+     * 워커·시뮬레이션 데이터는 유지합니다. <br>
+     * 부모 비활성화의 예외는 거절로 전달하고 이후 해제 단계의 예외는 false로 완료합니다.
+     *
      * @override
-     * @return {Promise<boolean>}
+     *
+     * @returns {Promise<boolean>} 비활성 상태·해제 실패이면 false, 정상 해제이면 true
      */
     override deactive(): Promise<boolean>;
     /**
-     * 현재 분석 영역 정보를 반환하는 함수.
+     * 현재 영역 정보를 새 객체로 반환합니다. <br>
+     * box·center는 원본 참조이며 clear()는 공유 중심을 영벡터로 변경합니다.
      *
-     * @return {{
-     *     box: import('three').Box3 | undefined,
-     *     width: number | undefined,
-     *     height: number | undefined,
-     *     center: WorldPositionVector3,
-     *     minHeight: number | undefined,
-     *     maxHeight: number | undefined
-     * }} 분석 영역 정보 (분석 Box, 영역 가로/세로 크기, 영역 중심 좌표(월드 좌표계), 지형 최소/최대 높이)
+     * @returns {UAnalyPhysicalFlowInfo} 영역 크기·중심·고도 정보
      */
-    getInfo(): {
-        box: three.Box3 | undefined;
-        width: number | undefined;
-        height: number | undefined;
-        center: WorldPositionVector3;
-        minHeight: number | undefined;
-        maxHeight: number | undefined;
-    };
+    getInfo(): UAnalyPhysicalFlowInfo;
     /**
-     * 진행 중인 영역 요청을 취소하고 분석 데이터를 초기화합니다.
+     * 진행 중인 영역 요청을 취소하고 분석 데이터를 초기화합니다. <br>
+     * 영역 정리 중 예외는 로그로 기록하고 삼키므로 일부 상태가 남을 수 있습니다. <br>
+     * 그보다 먼저 실행하는 입력 중단의 예외는 거절로 전달합니다.
      *
      * @override
      *
-     * @returns {Promise<void>} 데이터 정리 완료
+     * @returns {Promise<void>} 동기 데이터 정리 종료. 워커 종료 Promise까지 기다리지는 않음
      */
     override clear(): Promise<void>;
     /**
-     * 마우스 입력을 종료하고 진행 중인 영역 요청을 AbortError로 취소합니다.
+     * 마우스 입력을 종료하고 진행 중인 영역 요청을 AbortError로 취소합니다. <br>
      * 더블클릭 직후 아직 결과를 반영하지 않은 요청도 취소됩니다.
      *
      * @returns {import('@UMeasureFeature').UMeasureFeature | undefined} 입력된 피처 또는 입력이 없으면 undefined
      */
     stopDraw(): UMeasureFeature | undefined;
     /**
-     * 물리 분석 영역을 마우스로 그리고 워커 초기화까지 기다립니다.
-     * 초기화 실패는 원래 오류로, 중단·초기화·비활성화는 AbortError로 거절됩니다.
+     * 물리 분석 영역을 마우스로 그리고 워커 초기화까지 기다립니다. <br>
+     * 초기화 실패는 원래 오류로, 중단·초기화·비활성화는 AbortError로 거절됩니다. <br>
+     * 비활성·중복 입력은 이유 값 없이 거절하며 이벤트 등록의 동기 예외는 호출 지점에 전달합니다.
      *
      * @returns {Promise<void>} 물리 분석 영역 준비 완료
      */
     drawPhysicalArea(): Promise<void>;
     /**
-     * 목표 영역을 마우스로 그리고 분석에 반영합니다.
-     * 중단·초기화·비활성화된 요청은 AbortError로 거절되며 뒤늦게 영역을 반영하지 않습니다.
+     * 목표 영역을 마우스로 그리고 분석에 반영합니다. <br>
+     * 중단·초기화·비활성화된 요청은 AbortError로 거절되며 뒤늦게 영역을 반영하지 않습니다. <br>
+     * 비활성·중복 입력은 이유 값 없이 거절하며 이벤트 등록의 동기 예외는 호출 지점에 전달합니다.
      *
      * @returns {Promise<void>} 목표 영역 반영 완료
      */
     drawTargetArea(): Promise<void>;
     /**
-     * 그려진 영역으로 물리 분석을 초기화합니다.
+     * 그려진 영역으로 물리 분석을 초기화합니다. <br>
      * 워커 초기화·고도 조회에 실패하면 거절되며, 이전 요청의 늦은 응답은 반영하지 않습니다.
      *
      * @param {import('@UMeasureFeature').UMeasureFeature | undefined} feature 분석에 사용할 측정 피처
@@ -62958,136 +64010,81 @@ declare class UAnalyPhysicalFlow extends UAnaly {
      */
     createPhysicalArea(feature: UMeasureFeature | undefined): Promise<boolean>;
     /**
-     * 분석 영역 피처를 제거하는 함수.
+     * 분석 영역 피처를 제거합니다. <br>
+     * 박스·크기 정보는 유지합니다.
      */
     removeTargetFeature(): void;
     /**
-     * 흐름 영역 피처를 제거하는 함수.
+     * 유수 목표 피처를 제거합니다. <br>
+     * 목표 박스는 유지합니다.
      */
     removeFlowFeature(): void;
     /**
-     * 물리 시뮬레이션을 매 프레임마다 업데이트하는 함수.
+     * 활성 시뮬레이션을 실행하고 워커 응답을 화면 입자에 반영합니다.
      */
     updatePhysics(): void;
     /**
-     * 파티클 오브젝트를 생성하는 함수.
+     * 입자를 화면에 등록하고 워커 생성 완료를 기다립니다. <br>
+     * mass·radius 배열은 옵션 원본에서 CheckFloat16Array로 교체됩니다. <br>
+     * 실패 이유를 성공 완료값으로 반환하는 기존 경로가 있으며 등록한 메시를 복구하지 않습니다.
      *
-     * @param {object} [option={}] 파티클 오브젝트 옵션
-     * @param {number} [option.type] 시뮬레이션 타입
-     * @param {import('three').BufferGeometry | Array<import('three').BufferGeometry>} [option.geometry] 파티클 지오메트리
-     * @param {import('three').Material | Array<import('three').Material>} [option.material] 파티클 머터리얼
-     * @param {{x: number, y: number, z: number} | Array<{x: number, y: number, z: number}>} [option.position] 파티클 위치
-     * @param {number | Array<number> | import('@util/CheckFloat16Array').CheckFloat16Array} [option.radius=2] 파티클 반지름
-     * @param {number | Array<number> | import('@util/CheckFloat16Array').CheckFloat16Array} [option.mass] 파티클 질량
-     * @param {string | Array<string>} [option.simulationId] 시뮬레이션 ID
-     * @return {Promise<Array<import('three').Mesh> | import('three').Mesh | boolean>}
+     * @param {UAnalyPhysicalFlowGenerateOptions} [option={}] 단일·다중 입자 설정
+     * @returns {Promise<Array<import('three').Mesh> | import('three').Mesh | boolean>} 성공 시 메시 또는 배열, 위치 누락 시 false. 그 외 실패 이유와 선언 차이는 spec에서 추적
      */
-    generateObject(option?: {
-        type?: number;
-        geometry?: three.BufferGeometry | Array<three.BufferGeometry>;
-        material?: three.Material | Array<three.Material>;
-        position?: {
-            x: number;
-            y: number;
-            z: number;
-        } | Array<{
-            x: number;
-            y: number;
-            z: number;
-        }>;
-        radius?: number | Array<number> | Float32ArrayConstructor;
-        mass?: number | Array<number> | Float32ArrayConstructor;
-        simulationId?: string | Array<string>;
-    }): Promise<Array<three.Mesh> | three.Mesh | boolean>;
+    generateObject(option?: UAnalyPhysicalFlowGenerateOptions): Promise<Array<three.Mesh> | three.Mesh | boolean>;
     /**
-     * 지정된 영역의 고도 데이터를 반환하는 함수.
+     * 지정한 월드 영역의 고도 표본과 극값을 반환합니다.
      *
-     * @param {WorldPositionVector3} origin 시작 좌표 (월드 좌표계)
+     * @param {WorldPositionVector3} origin 시작 월드 좌표(EPSG:3857)
      * @param {number} width 영역 가로 크기
      * @param {number} height 영역 세로 크기
      * @param {number} resolution 해상도
-     * @return {{data: Float32Array, min: number, max: number} | undefined} 고도 데이터 배열과 최소/최대 고도
+     * @returns {UAnalyPhysicalFlowHeightData | undefined} 표본과 극값. 입력이 falsy이면 undefined이며 빈 표본의 극값 선언 차이는 spec에서 추적
      */
-    getHeightData(origin: WorldPositionVector3, width: number, height: number, resolution: number): {
-        data: Float32Array;
-        min: number;
-        max: number;
-    } | undefined;
+    getHeightData(origin: WorldPositionVector3, width: number, height: number, resolution: number): UAnalyPhysicalFlowHeightData | undefined;
     /**
-     * 강우 시뮬레이션을 시작하는 함수.
+     * 강우 시뮬레이션과 공유 자원을 등록합니다. <br>
+     * 물리 영역의 폭·높이가 먼저 준비되어야 하며 실제 생성은 프레임 갱신에서 실행합니다.
      *
-     * @param {object} [option={}] 강우 시뮬레이션 옵션
-     * @param {number} [option.amount=4] 프레임당 생성 입자 수
-     * @param {number} [option.initHeight=600] 입자 초기 생성 높이
-     * @param {number} [option.radius=1] 입자 반지름
-     * @param {number} [option.mass=8] 입자 질량
-     * @param {ColorLike} [option.color=0x85D3F2] 입자 색상
-     * @param {number} [option.opacity=0.3] 입자 불투명도
-     * @return {string | undefined} 시뮬레이션 ID
+     * @param {UAnalyPhysicalFlowRainOptions} [option={}] 강우 설정
+     * @returns {string | undefined} 등록 ID, 영역 크기가 없으면 undefined
      */
-    simulateRain(option?: {
-        amount?: number;
-        initHeight?: number;
-        radius?: number;
-        mass?: number;
-        color?: ColorLike;
-        opacity?: number;
-    }): string | undefined;
+    simulateRain(option?: UAnalyPhysicalFlowRainOptions): string | undefined;
     /**
-     * 흐름 시뮬레이션을 시작하는 함수.
+     * 유수 생성 후보와 속도별 표시 자원을 등록합니다. <br>
+     * drawTargetArea()로 목표 영역을 먼저 준비합니다. <br>
+     * truthy인 비배열·빈 steps는 영역 확인 전에 옵션 원본에서 교체됩니다.
      *
-     * @param {object} [option={}] 흐름 시뮬레이션 옵션
-     * @param {number} [option.amount=8] 프레임당 생성 입자 수
-     * @param {number} [option.initTime=5000] 시뮬레이션 유지 시간(ms)
-     * @param {number} [option.radius=1] 입자 반지름
-     * @param {number} [option.mass=20] 입자 질량
-     * @param {number} [option.resolution=0.4] 입자 생성 해상도
-     * @param {Array<{color: ColorLike, opacity: number} & Partial<{max: number}>>} [option.steps]
-     * @param {number} [option.generateRatio=1.0] 입자 생성 비율
-     * @param {number} [option.generateAmount=5] 추가 입자 생성 한계
-     * @return {string | undefined} 시뮬레이션 ID
+     * @param {UAnalyPhysicalFlowFlowOptions} [option={}] 유수 설정
+     * @returns {string | undefined} 등록 ID, 목표 영역·후보 위치가 없으면 undefined
      */
-    simulateFlow(option?: {
-        amount?: number;
-        initTime?: number;
-        radius?: number;
-        mass?: number;
-        resolution?: number;
-        steps?: Array<{
-            color: ColorLike;
-            opacity: number;
-        } & Partial<{
-            max: number;
-        }>>;
-        generateRatio?: number;
-        generateAmount?: number;
-    }): string | undefined;
+    simulateFlow(option?: UAnalyPhysicalFlowFlowOptions): string | undefined;
     /**
-     * 시뮬레이션과 관련 오브젝트를 제거하는 함수.
+     * 시뮬레이션·입자와 공유 표시 자원을 제거합니다.
      *
      * @param {string} simulationId 시뮬레이션 ID
-     * @return {boolean}
+     * @returns {boolean} ID가 존재하면 true, 없으면 false
      */
     removeSimulation(simulationId: string): boolean;
     /**
-     * 시뮬레이션을 일시 정지하는 함수.
+     * 등록된 시뮬레이션의 프레임 생성을 일시 정지합니다.
      *
      * @param {string} simulationId 시뮬레이션 ID
-     * @return {boolean}
+     * @returns {boolean} ID가 존재하면 true, 없으면 false
      */
     stopSimulation(simulationId: string): boolean;
     /**
-     * 일시 정지된 시뮬레이션을 재시작하는 함수.
+     * 시뮬레이션을 재개하고 시작 시각을 현재 시각으로 재설정합니다.
      *
      * @param {string} simulationId 시뮬레이션 ID
-     * @return {boolean}
+     * @returns {boolean} ID가 존재하면 true, 없으면 false
      */
     startSimulation(simulationId: string): boolean;
     /**
-     * 시뮬레이션 정보를 반환하는 함수.
+     * 등록한 원본 시뮬레이션 객체를 반환합니다.
      *
      * @param {string} simulationId 시뮬레이션 ID
-     * @return {UPhysicalFlowSimulation | undefined}
+     * @returns {UPhysicalFlowSimulation | undefined} 원본 시뮬레이션 상태, ID가 없으면 undefined
      */
     getSimulation(simulationId: string): UPhysicalFlowSimulation | undefined;
     #private;
@@ -63096,7 +64093,7 @@ declare class UAnalyPhysicalFlow extends UAnaly {
 /**
  * ~extends import('@UAnaly').UAnaly <br>
  *
- * 스카이라인 후처리 효과를 제어하고 화면의 영역별 픽셀 수를 집계합니다.
+ * 스카이라인(SkyLine) 후처리 효과를 제어하고 화면의 영역별 픽셀 수를 조회합니다.
  *
  * @group analysis
  * @summary `스카이라인` 분석 클래스
@@ -63110,14 +64107,15 @@ declare class UAnalyPhysicalFlow extends UAnaly {
  */
 declare class UAnalySkyLine extends UAnaly {
     /**
-     * 스카이라인 분석 인스턴스를 생성합니다.
+     * UAnalySkyLine 클래스 생성자입니다. <br>
+     * 생성 후 setApp()으로 앱을 연결하고 active()로 스카이라인(SkyLine) 분석을 시작합니다.
      *
-     * @param {UAnalySkyLineCO} [opt={}] 생성 옵션
+     * @param {UAnalySkyLineCO} [opt={}] 호환을 위해 받는 생성 옵션. 현재는 옵션 값을 적용하지 않으며 이름은 'SkyLine'으로 설정합니다.
      */
     constructor(opt?: UAnalySkyLineCO);
     name: string;
     /**
-     * 앱을 연결하고 렌더러에 등록된 스카이라인 패스를 조회합니다.
+     * 앱을 연결하여 스카이라인(SkyLine) 분석을 사용할 렌더러와 후처리 효과를 준비합니다.
      *
      * @override
      *
@@ -63126,7 +64124,8 @@ declare class UAnalySkyLine extends UAnaly {
      */
     override setApp(app: U3dApp): this;
     /**
-     * 스카이라인 패스를 활성화한 뒤 분석을 활성 상태로 변경합니다.
+     * 스카이라인(SkyLine) 후처리 효과를 켜고 분석을 활성 상태로 변경합니다. <br>
+     * setApp()으로 렌더러를 제공하는 앱을 먼저 연결해야 합니다.
      *
      * @override
      *
@@ -63134,7 +64133,8 @@ declare class UAnalySkyLine extends UAnaly {
      */
     override active(): this;
     /**
-     * 분석과 스카이라인 패스를 비활성화하고 저장된 픽셀 버퍼를 비웁니다.
+     * 스카이라인(SkyLine) 분석과 후처리 효과를 끄고 보관한 화면 집계 데이터를 비웁니다. <br>
+     * 완료되지 않은 화면 조회는 취소되어 이유 값 없이 거부됩니다.
      *
      * @override
      *
@@ -63142,24 +64142,24 @@ declare class UAnalySkyLine extends UAnaly {
      */
     override deactive(): this;
     /**
-     * 스카이라인의 경계선과 영역별 색상 스타일을 설정합니다.
+     * 스카이라인(SkyLine)의 경계선과 영역별 색상 표시를 설정합니다. <br>
+     * 사용할 후처리 효과가 없으면 스타일을 적용하지 않고 자신을 반환합니다.
      *
-     * @param {SkyLineStyle} style 스타일 옵션
+     * @param {SkyLineStyle} style 경계선·초과 영역·지면·하늘의 표시 옵션. 전달한 옵션 객체는 변경하지 않습니다.
      * @returns {this} 현재 분석 인스턴스
      */
     setStyle(style: SkyLineStyle): this;
     /**
-     * 화면 배열을 요청하여 하늘·지면·초과 영역의 픽셀 수를 집계합니다.
-     * 분석이 비활성이거나 패스를 연결하지 못하면 반환 객체를 reject합니다.
+     * 스카이라인(SkyLine) 분석 화면에서 하늘·지면·초과 영역의 픽셀 수를 조회합니다. <br>
+     * 캡처 시작 전의 조회는 같은 화면을 집계하며, 읽기 시작 후의 조회는 다음 캡처를 기다립니다. <br>
+     * 한 픽셀이 여러 영역에 포함될 수 있어 세 영역의 개수 합이 total보다 클 수 있습니다. <br>
+     * 분석이 비활성이거나 후처리 효과를 연결하지 못하면 이유 값 없이 거부합니다. <br>
+     * 화면 읽기나 집계가 비동기로 실패하면 오류를 기록한 뒤 이유 값 없이 거부합니다. <br>
+     * 비활성화·패스 해제로 취소된 조회도 이유 값 없이 거부하며 오류 로그는 남기지 않습니다.
      *
-     * @returns {Promise<{ground: number, sky: number, over: number, total: number}>} 화면 집계 결과를 전달하는 Promise
+     * @returns {Promise<UAnalySkyLineScreenInfo>} 화면 집계가 끝나면 영역별 픽셀 수와 전체 픽셀 수를 전달하는 Promise
      */
-    getScreenInfo(): Promise<{
-        ground: number;
-        sky: number;
-        over: number;
-        total: number;
-    }>;
+    getScreenInfo(): Promise<UAnalySkyLineScreenInfo>;
     #private;
 }
 
@@ -64302,7 +65302,7 @@ declare class USkinnedMesh extends three.SkinnedMesh<three.BufferGeometry<three.
  * @param {WorldPosition[]} opt.vertex 사용자 건물 3D 월드 좌표 리스트
  * @param {GeoPosition[]} opt.points 사용자 건물 위경도 좌표 리스트
  * @param {object} [opt.style] 사용자 건물 스타일
- * @param {Color} [opt.style.color=0x3399CC] 건물 색상
+ * @param {import('three').Color} [opt.style.color=0x3399CC] 건물 색상
  * @param {number} [opt.style.side=THREE.FrontSide] 렌더링 될 면 `THREE.FrontSide=0`(앞면) `THREE.BackSide=1`(뒷면) `THREE.DoubleSide=2`(양면)
  * @param {number} [opt.style.opacity=1] 건물 투명도
  * @param {boolean} [opt.style.transparent=false] 건물 투명도 적용 여부
@@ -64608,7 +65608,7 @@ declare class ULocalENUHelper extends UGroup {
  * @group helpers
  */
 declare class UBox3Helper extends LineSegments<BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> {
-    /** @type {WeakMap<import('three').BufferGeometry, number>} */ static "__#11407@#geometryReferences": WeakMap<three.BufferGeometry, number>;
+    /** @type {WeakMap<import('three').BufferGeometry, number>} */ static "__#11596@#geometryReferences": WeakMap<three.BufferGeometry, number>;
     /**
      * 색상 키별 공유 재질 저장소다.
      * 기존 공개 Map에는 외부에서 임의의 키·값을 넣을 수 있으므로 기존 any 계약을 유지한다.
@@ -64669,7 +65669,7 @@ declare class UBox3Helper extends LineSegments<BufferGeometry<three.NormalBuffer
      *
      * @ignore
      */
-    static "__#11407@#releaseMaterial"(colorKey: number, material: three.Material | Array<three.Material>): void;
+    static "__#11596@#releaseMaterial"(colorKey: number, material: three.Material | Array<three.Material>): void;
     /**
      * 표시할 box와 공유 재질을 연결한다. 색상 변환 등의 오류는 호출자에게 전달한다.
      *
@@ -65328,7 +66328,7 @@ declare class U3dNodeManager extends UEventDispatcher {
         LINK_REGISTERED: string;
         BRANCH: string;
     };
-    static "__#11495@#instance": any;
+    static "__#11680@#instance": any;
     static get Instance(): any;
     constructor();
     get nodes(): Map<any, any>;
@@ -65470,6 +66470,7 @@ declare namespace SkeletonUtils {
 
 /**
  * GeOnDT for JS API 네임스페이스 명세
+ *
  * @namespace GeOnDT
  */
 declare class GeOnDT {
@@ -65608,6 +66609,7 @@ declare class GeOnDT {
         UDRACOLoader: typeof UDRACOLoader;
         UFileLoader: typeof UFileLoader;
         UFBXLoader: typeof UFBXLoader;
+        UTDSLoader: typeof UTDSLoader;
     };
     /**
      * 3D지도 지면에 렌더링되는 `2D이미지` 레이어 관련 네임스페이스.
@@ -65644,7 +66646,6 @@ declare class GeOnDT {
         U3dVectorTileLayer: typeof U3dVectorTileLayer;
         U3dModelStaticLayer: typeof U3dModelStaticLayer;
         U3dModelI3FLayer: typeof U3dModelI3FLayer;
-        U3dModelA3FLayer: typeof U3dModelA3FLayer;
         U3dGridTileLayer: typeof U3dGridTileLayer;
         U3dLodComponentLayer: typeof U3dLodComponentLayer;
         U3dMaskLayer: typeof U3dMaskLayer;
@@ -65923,7 +66924,12 @@ declare class GeOnDT {
     static getTransCoderPath(): string;
     static loadResource(): Promise<any>;
     static checkWorker(val?: number): Promise<any>;
-    static setPath(rootPath: any): boolean;
+    /**
+     * 제품 루트를 외부 Worker 유틸과 내부 WASM의 실행 경로에 반영합니다.
+     * @param {string} rootPath 제품 루트 경로입니다.
+     * @returns {boolean} 경로를 반영했으면 true입니다.
+     */
+    static setPath(rootPath: string): boolean;
     static addon(extension: any): void;
     static getNeedModule(names: any): {};
     static initWASMModule(): Promise<any>;
@@ -66289,7 +67295,7 @@ declare global {
         radius: number;
     };
     /**
-     * 한 번의 runtime 타일 후보 검사에서 공유하고 즉시 버리는 입력입니다.
+     * runtime 타일 후보 검사 입력이며 확정 원형 payload가 유지되는 동안 재사용할 수 있습니다.
      */
     type U2dVectorRuntimeBindingInput = {
         /**
@@ -66301,9 +67307,9 @@ declare global {
          */
         searchParts?: Array<U2dVectorSearchPart>;
         /**
-         * 확정 payload의 강조 배율을 포함한 최대 테두리 폭입니다.
+         * 확정 payload의 강조·좌표 축척을 반영한 타일 교차 여유값입니다.
          */
-        maxStrokeWidth?: number;
+        strokeWorldPadding?: number;
     };
     /**
      * ~extends import('@U3dImageLayer').U3dImageLayerCO <br>
@@ -66422,7 +67428,7 @@ declare global {
          */
         terrainLodQuery?: TerrainLodQuery;
         /**
-         * 모든 Terrain vector 레이어가 공유하는 WFS 큐의 최대 동시 요청 수입니다.
+         * 모든 Terrain vector 레이어가 공유하는 WFS 큐의 최대 동시 처리 수입니다. 응답 수신부터 피처 준비·등록까지 한 슬롯을 사용합니다.
          */
         terrainWfsMaxConcurrency?: number;
         /**
@@ -66503,7 +67509,8 @@ declare global {
         maxConcurrency: number;
     };
     /**
-     * 레이어별 Terrain WFS 요청 통계와 공용 큐 통계입니다.
+     * 레이어별 Terrain WFS 요청 통계와 공용 큐 통계입니다. <br>
+     * 캐시 응답의 후처리도 대기·시작·완료 수에 포함하며 동시 실행은 피처 준비·등록까지 셉니다.
      */
     type TerrainLodPerformanceStats = TerrainWfsRequestStats & {
         sharedRequestQueue: TerrainWfsRequestStats;
@@ -66551,6 +67558,14 @@ declare global {
          * 타일 위에서 도형을 표시할지 여부입니다.
          */
         visible?: boolean;
+        /**
+         * 점의 개별 화면 반경 사용 여부입니다. 생략하면 레이어 설정을 따릅니다.
+         */
+        isDynamicRadius?: boolean;
+        /**
+         * 원본 원형 이미지에서 확정한 화면 반경입니다. <hidden>
+         */
+        dynamicRadius?: number;
     };
     /**
      * 전체 원본의 식별·조회에 제공하는 출처 정보입니다.
@@ -66727,13 +67742,19 @@ declare global {
          */
         strokeColorState: TerrainPayloadColorState;
         /**
-         * 원본 좌표 배열입니다.
+         * 원본 좌표 객체 또는 평탄 좌표의 동일성 판정에 사용하는 배열입니다.
          */
-        vectors: Array<three.Vector3>;
+        vectors: Array<three.Vector3> | Float64Array;
         /**
          * 재사용할 terrain payload입니다.
          */
         payload: TerrainFeature;
+        /**
+         * 같은 확정 원형 payload 묶음에서만 재사용할 타일 연결 입력입니다.
+         */
+        bindingInput?: U2dVectorRuntimeBindingInput & {
+            payloads: Array<TerrainFeature>;
+        };
     };
     /**
      * runtime 피처의 레벨별 숫자 범위이며 각 항목은 [레벨, 최소 X, 최소 Y, 최대 X, 최대 Y]입니다.
@@ -66752,6 +67773,15 @@ declare global {
          * 현재 등록된 표시 조각이며 대표 자신은 포함하지 않습니다.
          */
         parts: Set<UMeasureFeature>;
+        /**
+         * 같은 출처·LOD의 전체 응답끼리 비교할 읽기용 검색 형상입니다.
+         */
+        fetchedSearchGeometry?: {
+            geometry: OLGeometry;
+            level: number | undefined;
+            revision: number;
+            geometryRevision: number | undefined;
+        };
         /**
          * 레이어가 원본 도형의 해제를 담당하는지 여부입니다.
          */
@@ -66780,6 +67810,35 @@ declare global {
          * 원본 변경으로 다시 합성할 기존 타일의 키입니다.
          */
         dirtyTileKeys?: Set<string>;
+    };
+    /**
+     * 하나의 tile/source가 소유하는 payload와 같은 문맥에서 재사용할 불변 base의 약한 연결입니다.
+     */
+    type TerrainTilePayloadCacheEntry = {
+        /**
+         * 좌표 원점을 소유한 타일 mesh입니다.
+         */
+        mesh: object | undefined;
+        /**
+         * 원본 목록의 변경 번호입니다.
+         */
+        sourceRevision: number;
+        /**
+         * 레이어 스타일의 변경 번호입니다.
+         */
+        styleRevision: number;
+        /**
+         * 원점·타일 좌표·LOD·단순화·배율·세대·레이어를 결합한 문맥입니다.
+         */
+        contextKey: string;
+        /**
+         * 현재 타일이 사용하는 payload 목록입니다.
+         */
+        payloads: Array<TerrainFeature>;
+        /**
+         * 불변 피처 base와 같은 타일 문맥의 payload 연결입니다.
+         */
+        reusablePayloads: WeakMap<TerrainFeature, TerrainFeature>;
     };
 }
 
@@ -66869,27 +67928,71 @@ declare class U3dComponentInstancedPosition extends U3dComponentPosition {
      * @param {U3dComponentInstancedPositionCO} [opt={}] 생성 옵션
      */
     constructor(opt?: U3dComponentInstancedPositionCO);
-    /** mixer 활성 여부를 조회하는 선택 callback입니다. @type {undefined | function(): boolean} */
+    /**
+     * mixer 활성 여부를 조회하는 선택 callback입니다.
+     *
+     * @type {undefined | function(): boolean}
+     */
     isMixerEnabled: undefined | (() => boolean);
-    /** 한 인스턴스 그룹이 사용하는 최대 ID 범위입니다. @type {number} */
+    /**
+     * 한 인스턴스 그룹이 사용하는 최대 ID 범위입니다.
+     *
+     * @type {number}
+     */
     _instancedMaxCount: number;
-    /** 현재 인스턴스가 속한 그룹 번호입니다. @type {number | undefined} */
+    /**
+     * 현재 인스턴스가 속한 그룹 번호입니다.
+     *
+     * @type {number | undefined}
+     */
     groupIndex: number | undefined;
-    /** 현재 인스턴스의 변환과 가시성 정보입니다. @type {InstancedTRSInfo | undefined} */
+    /**
+     * 현재 인스턴스의 변환과 가시성 정보입니다.
+     *
+     * @type {InstancedTRSInfo | undefined}
+     */
     instancedInfo: InstancedTRSInfo | undefined;
-    /** 현재 인스턴스가 속한 공유 렌더 그룹입니다. @type {import('three').Group | undefined} */
+    /**
+     * 현재 인스턴스가 속한 공유 렌더 그룹입니다.
+     *
+     * @type {import('three').Group | undefined}
+     */
     instancedGroup: three.Group | undefined;
-    /** 중복을 제거한 애니메이션 식별자 목록입니다. @type {Array<string | number>} */
+    /**
+     * 중복을 제거한 애니메이션 식별자 목록입니다.
+     *
+     * @type {Array<string | number>}
+     */
     _animateList: Array<string | number>;
-    /** tween 갱신 FPS 설정값입니다. @type {number} */
+    /**
+     * tween 갱신 FPS 설정값입니다.
+     *
+     * @type {number}
+     */
     tweenFps: number;
-    /** 인스턴스 애니메이션 시작 시점을 분산하는 난수 오프셋입니다. @type {number} */
+    /**
+     * 인스턴스 애니메이션 시작 시점을 분산하는 난수 오프셋입니다.
+     *
+     * @type {number}
+     */
     offset: number;
-    /** 각 공유 mesh에서 현재 ID에 해당하는 entity 목록입니다. @type {Array<InstancedMeshInstance> | undefined} */
+    /**
+     * 각 공유 mesh에서 현재 ID에 해당하는 entity 목록입니다.
+     *
+     * @type {Array<InstancedMeshInstance> | undefined}
+     */
     instances: Array<InstancedMeshInstance> | undefined;
-    /** 현재 frustum callback에서 mixer 갱신 대상으로 선택되었는지 나타냅니다. @type {boolean} */
+    /**
+     * 현재 frustum callback에서 mixer 갱신 대상으로 선택되었는지 나타냅니다.
+     *
+     * @type {boolean}
+     */
     _updateMixer: boolean;
-    /** 우선 반환할 원본 모델 참조입니다. @type {import('three').Object3D | undefined} */
+    /**
+     * 우선 반환할 원본 모델 참조입니다.
+     *
+     * @type {import('three').Object3D | undefined}
+     */
     _rootObject: three.Object3D | undefined;
     _setInstanced: any;
     instanceId: any;
@@ -67330,15 +68433,90 @@ declare global {
         speed: number;
     };
     /**
+     * 동일한 도착 이력에서 재사용하는 예측 분석입니다.
+     */
+    type U3dPredictionAnalysis = {
+        /**
+         * 캐시 유효성을 비교할 좌표·시각의 복사본
+         */
+        records: Array<WaypointRecord>;
+        /**
+         * 잡음을 보정한 경로 추정
+         */
+        path: U3dPredictionPath;
+        /**
+         * 이력 끝의 운동 추정
+         */
+        motion: U3dPredictionMotion | undefined;
+    };
+    /**
+     * 도착 이력의 형상과 잡음을 분리한 예측용 경로 추정입니다.
+     */
+    type U3dPredictionPath = {
+        /**
+         * 잡음에 의한 왕복 이동을 보정한 이력의 총 거리(m)
+         */
+        pathLength: number;
+        /**
+         * 예측 단계당 평균 이동 거리(m)
+         */
+        stepLength: number;
+        /**
+         * 경로 형상을 제외한 위치 잡음 추정값(m)
+         */
+        noise: number;
+        /**
+         * 운동 추정에 사용할 좌표. 입력 좌표는 변경하지 않습니다.
+         */
+        points: Array<three.Vector3>;
+        /**
+         * 직선 이력의 단위 진행 방향
+         */
+        direction: three.Vector3 | undefined;
+        /**
+         * 신뢰 가능한 직선 경로인지 여부
+         */
+        linear: boolean;
+        /**
+         * 이동보다 위치 잡음으로 설명되는 이력인지 여부
+         */
+        stationary: boolean;
+    };
+    /**
+     * 미래 위치의 외삽에 사용하는 거리 기반 운동 추정입니다.
+     */
+    type U3dPredictionMotion = {
+        /**
+         * 이력 끝의 단위 진행 방향
+         */
+        direction: three.Vector3 | undefined;
+        /**
+         * 예측 단계당 수평 회전율(rad)
+         */
+        yawRate: number;
+        /**
+         * 방향으로 신뢰할 최소 이동 거리(m)
+         */
+        headingBaseline: number;
+        /**
+         * 관측 거리에서 구한 회전 감쇠 거리(m). 실제 외삽에서는 이동 시간과 누적 회전 한도를 함께 적용합니다.
+         */
+        turnDecayDistance: number;
+        /**
+         * 이동 범위가 잡음 기준보다 작은지 여부
+         */
+        stationary: boolean;
+    };
+    /**
      * `predictFuturePositions`가 반환하는 예측 지점 한 건
      */
     type PredictedPosition = {
         /**
-         * 예측된 월드 좌표 (EPSG:3857, m)
+         * 예측된 월드 좌표(EPSG:3857), m
          */
         point: WorldPositionVector3;
         /**
-         * 호출 시점부터 해당 지점 도착까지의 예상 경과 시간 (ms, 0 이상 정수). 평균 속도가 0이면 `Infinity`
+         * 호출 시점부터 해당 지점 도착까지의 예상 경과 시간 (ms, 0 이상 정수). 예약 목표는 남은 기한·속도·밀림 보정·도착 허용 범위, 이후는 잡음을 보정한 이력 평균 속도로 계산하며 일시정지 중이거나 이동 시간을 알 수 없으면 `Infinity`
          */
         time: number;
     };
@@ -69972,126 +71150,6 @@ declare global {
 
 declare global {
     /**
-     * ~extends U3dModelLayerCO <br>
-     *
-     * A3F 레이어의 선택 설정입니다. 공간/시계열 요청과 표면 로딩 설정은 후속 모듈에서 확장합니다.
-     */
-    type U3dModelA3FLayerCO_Content = {
-        /**
-         * 비어 있지 않은 데이터셋 식별자이며 생략 시 bindDataset으로 나중에 연결
-         */
-        datasetId?: string;
-        /**
-         * 양의 안전 정수인 물리 워커 수
-         */
-        workerCount?: number;
-        /**
-         * 0 이상의 안전 정수인 대기 작업 수 상한
-         */
-        maxQueuedTasks?: number;
-        /**
-         * 0 이상의 안전 정수인 대기 backing buffer 바이트 상한
-         */
-        maxQueuedBytes?: number;
-        /**
-         * 레이어 초기 표시 여부
-         */
-        visible?: boolean;
-        /**
-         * A3F 파일 확장자
-         */
-        ext?: ".a3f";
-        /**
-         * 엔진 MODEL 압축 경로 사용 안 함
-         */
-        compressModel?: false;
-        /**
-         * 메타정보의 수평 경계에 사용하는 월드 좌표(EPSG:3857)
-         */
-        crs?: "EPSG:3857";
-    };
-    /**
-     * ~extends U3dModelLayerCO <br>
-     *
-     * A3F 레이어의 선택 설정입니다. 공간/시계열 요청과 표면 로딩 설정은 후속 모듈에서 확장합니다.
-     */
-    type U3dModelA3FLayerCO = Omit<Omit<U3dModelLayerCO, never> & U3dModelA3FLayerCO_Content, never>;
-    /**
-     * 데이터셋 연결 전에 조정하는 작업 관리자 설정입니다.
-     */
-    type U3dModelA3FLayerTaskOptions = {
-        /**
-         * 양의 안전 정수인 물리 워커 수
-         */
-        workerCount: number;
-        /**
-         * 0 이상의 안전 정수인 대기 작업 수
-         */
-        maxQueuedTasks: number;
-        /**
-         * 0 이상의 안전 정수인 대기 바이트 수
-         */
-        maxQueuedBytes: number;
-    };
-    /**
-     * 성공적으로 연결한 표시 객체의 소유자가 GPU 및 공유 자원을 반납하는 동기 함수입니다.
-     * 레이어는 연결을 먼저 끊고 이 함수를 정확히 한 번 호출합니다. 객체의 자원은 직접 해제하지 않습니다.
-     */
-    type U3dModelA3FLayerRelease = () => void;
-    /**
-     * 노드 등록과 렌더 결과 연결을 추적하는 레이어 내부 자료입니다.
-     */
-    type U3dModelA3FLayerNodeEntry = {
-        /**
-         * 검증한 공간 정의 사본
-         */
-        node: UA3FNodeVo;
-        /**
-         * 양의 안전 정수인 등록 토큰
-         */
-        revision: number;
-        /**
-         * 레이어 바로 아래의 형제 그룹
-         */
-        group: UGroup;
-        /**
-         * 연결 완료한 표시 객체 또는 null
-         */
-        object: three.Object3D | null;
-        /**
-         * 연결 완료한 객체의 자원 반납 함수 또는 null
-         */
-        release: U3dModelA3FLayerRelease | null;
-        /**
-         * 연결 진행 중이며 소유권을 아직 넘겨받지 않은 객체
-         */
-        candidate: three.Object3D | null;
-    };
-    /**
-     * 부모 레이어의 ready Promise 완료 API와 이벤트 전달을 사용하는 내부 인터페이스입니다.
-     */
-    type U3dModelA3FLayerCompletion = {
-        /**
-         * deferred가 이미 종결되었는지 확인
-         */
-        isReady: () => boolean;
-        /**
-         * 부모 ready Promise의 초기화 성공 통지
-         */
-        _resolveReady: () => unknown;
-        /**
-         * 부모 ready Promise의 초기화 실패 또는 해제 통지
-         */
-        _rejectReady: (reason: unknown) => unknown;
-        /**
-         * 상속한 레이어 SHOW/HIDE 이벤트 통지
-         */
-        dispatch: (type: string) => void;
-    };
-}
-
-declare global {
-    /**
      * 2D 경계 영역 (2D AABB BoundingBox)
      */
     type BoundingBox2D = {
@@ -70140,6 +71198,10 @@ declare global {
          * 모델 데이터 형식
          */
         ext: string;
+        /**
+         * 엔진이 로딩 시작 시 기록하는 완료 Promise. 입력하지 않고 조회 결과에서 기다리며, 모델 정보 자체는 thenable이 아닙니다.
+         */
+        ready?: Promise<ModelObject3D>;
         /**
          * 형식별 로드 결과를 받는 콜백
          */
@@ -70854,6 +71916,32 @@ declare global {
 
 declare global {
     /**
+     * 한 파일의 다운로드부터 장면 반영까지 연결하는 내부 요청입니다.
+     * 타일·URL의 현재 등록과 같은 객체일 때만 결과 및 상태를 변경할 수 있습니다.
+     */
+    type U3dI3FMeshRequest = {
+        /**
+         * 모델 파일 URL
+         */
+        url: string;
+        /**
+         * 요청한 타일
+         */
+        tile: I3FTile;
+        /**
+         * 다운로드 작업
+         */
+        work?: U3dQuadTileWork;
+        /**
+         * 장면 반영 작업
+         */
+        parseWork?: U3dQuadTileWork;
+        /**
+         * 현재 단계의 완료 제어 객체
+         */
+        completion?: DeferredPromise<void>;
+    };
+    /**
      * 렌더 자료에 사용하는 RGB 색상입니다.
      */
     type U3dI3FColor = {
@@ -70989,7 +72077,11 @@ declare global {
          */
         height?: number | string;
         /**
-         * 폴리곤 외곽선을 표시할지 여부
+         * 폴리곤 외곽선을 표시할지 여부. useLine보다 우선 적용
+         */
+        outline?: boolean;
+        /**
+         * outline을 생략했을 때 적용하는 기존 외곽선 표시 옵션. 경고 없이 호환 지원
          */
         useLine?: boolean;
         /**
@@ -71353,10 +72445,6 @@ declare global {
          */
         buildHeight?: number;
         /**
-         * Feature `id` 또는 위치 기반 생성 키
-         */
-        id?: string;
-        /**
          * 마지막으로 적용한 스타일의 표시 여부
          */
         styleinfo?: {
@@ -71589,7 +72677,7 @@ declare global {
         /**
          * 애니메이션 완료를 알리는 대기 객체
          */
-        promise: DeferredObject<void>;
+        promise: DeferredPromise<void>;
     };
     /**
      * `addFeature()`가 처리하는 GeoJSON 도형입니다. <br>
@@ -72145,7 +73233,7 @@ declare global {
         /**
          * 여러 탐색 세대가 함께 기다리는 작업 Promise
          */
-        promise: DeferredObject<U3DTileset>;
+        promise: DeferredPromise<U3DTileset>;
         /**
          * 현재 다운로드·파싱 진행 단계
          */
@@ -72509,6 +73597,23 @@ declare global {
      * 재질별 원본 상태 저장소에만 접근하는 내부 보정 문맥입니다.
      */
     type ModelTileMaterialOwner = Pick<U3dModelTilesLayer, "_materialStateMap">;
+    /**
+     * 레이어 불투명도와 강조 해제 시 복원할 재질의 원본 표시 설정입니다.
+     */
+    type UModelTileMaterialState = {
+        /**
+         * 레이어 배율을 곱하기 전의 불투명도(0~1)
+         */
+        sourceOpacity: number;
+        /**
+         * 원본 투명 렌더링 여부
+         */
+        sourceTransparent: boolean;
+        /**
+         * 원본 깊이 기록 여부
+         */
+        sourceDepthWrite: boolean;
+    };
 }
 
 declare global {
@@ -72520,24 +73625,56 @@ declare global {
          * 진행 중 초기화
          */
         initialization: undefined | {
-            request: undefined | DeferredObject<object>;
+            request: undefined | DeferredPromise<object>;
             cancel: (arg0: unknown) => void;
         };
         /**
          * 이 레이어가 소유한 정보·JSON 요청
          */
-        requests: Map<DeferredObject<object>, {
+        requests: Map<DeferredPromise<object>, {
             loader: UFileLoader;
             id: string;
         }>;
+        /**
+         * 타일 키별 정보 로딩·모델 큐 등록 요청. 교체·해제한 요청은 새 타일 상태를 변경하지 않습니다.
+         */
+        tileRequests: Map<string, DeferredPromise<boolean>>;
+        /**
+         * 타일 키·URL별 다운로드부터 메시 반영까지의 요청
+         */
+        modelRequests: Map<string, Map<string, U3FModelRequest>>;
+    };
+    /**
+     * 다운로드·텍스처·병합을 하나의 타일 그룹에 연결하는 진행 중 요청입니다.
+     */
+    type U3FModelRequest = {
+        /**
+         * 요청을 시작한 타일
+         */
+        tile: U3dQuadTile;
+        /**
+         * 요청을 시작한 그룹. 같은 키의 새 그룹과 구분합니다.
+         */
+        group: three.Object3D | undefined;
+        /**
+         * 이 요청의 호출자에게 전달할 완료 결과
+         */
+        completion: DeferredPromise<unknown>;
+        /**
+         * 자기 대기와 결과 반영 권한을 종결하는 함수
+         */
+        cancel: () => void;
     };
     /**
      * U3F 파서가 생성한 불투명한 복원 입력입니다. <br>
      * 입력은 메시 생성 과정에서 소비되므로 완료 뒤 원본 버퍼의 보존을 기대하지 마십시오.
+     * 레이어의 식별 준비 이후 id는 puid이며, 원본 피처 속성은 oid에 남습니다.
+     * rootPuid는 등록 루트, composedPuid는 여러 조각으로 구성된 편집 단위를 가리킵니다.
      */
     type U3FParsedObj = KeyValue;
     /**
      * 모델의 개별 편집 대상을 식별하는 결합 구간 정보입니다.
+     * id는 합성 편집 단위의 puid(합성이 없으면 조각 puid), uid는 실제 조각 puid입니다.
      */
     type U3dModelU3FLayerComposedInfo = {
         id: string;
@@ -72706,7 +73843,7 @@ declare global {
     /**
      * restoreModelMeshes에 필요한 레이어 상태와 호출 권한입니다.
      */
-    type U3FRestoreModelMeshesOwner = Omit<Omit<U3FFinishModelOwner, never> & Pick<U3dModelU3FLayer, "_animation" | "_classtype" | "_drawArg" | "_isShareMaterial" | "_modelIds" | "_name" | "_opacity" | "_renderOrder" | "_sharedMaterial" | "_tileModelMap" | "_transparent" | "_useBaseMaterial" | "_useBoxHelper" | "_useEditMode" | "createKeyFromTile" | "createModelMesh" | "setMaterial" | "validationMeshInfo">, never>;
+    type U3FRestoreModelMeshesOwner = Omit<Omit<U3FFinishModelOwner, never> & Pick<U3dModelU3FLayer, "_animation" | "_classtype" | "_drawArg" | "_isShareMaterial" | "_modelIds" | "_name" | "_opacity" | "_renderOrder" | "_sharedMaterial" | "_tileModelMap" | "_transparent" | "_useBaseMaterial" | "_useBoxHelper" | "_useEditMode" | "createKeyFromTile" | "createModelMesh" | "getCache" | "setMaterial" | "validationMeshInfo">, never>;
     /**
      * mergeModelMesh24에 필요한 레이어 상태와 호출 권한입니다.
      */
@@ -72747,7 +73884,7 @@ declare global {
     /**
      * 복원된 메시의 삭제·편집·이벤트를 연결하는 레이어 권한입니다.
      */
-    type U3FFinishModelOwner = Pick<U3dModelU3FLayer, "removeFilter" | "editFilter" | "removedList" | "editedList" | "editedEvent" | "setEditEvent" | "setSplitEvent" | "dispatchEvent">;
+    type U3FFinishModelOwner = Pick<U3dModelU3FLayer, "removeFilter" | "editFilter" | "removedList" | "editedList" | "editedEvent" | "_restoreSplitModels" | "dispatchEvent">;
     /**
      * 한 타일의 이미지 갱신에서 공유하는 거리와 품질 기준입니다.
      */
@@ -72777,6 +73914,19 @@ declare class UWfsPointMesh extends Points<three.BufferGeometry<three.NormalBuff
      * @param {ModelMaterial | Array<ModelMaterial>} material
      */
     constructor(geometry: ModelBufferGeometry, material: ModelMaterial | Array<ModelMaterial>);
+    /**
+     * WFS 레이어가 원본 피처와 이 점의 사용 위치로 부여하는 식별값입니다.
+     * 미등록·일반 복제본에는 값이 없으며 원본 속성이나 Three.js id로 대체하지 않습니다.
+     *
+     * @type {string | undefined}
+     */
+    puid: string | undefined;
+    /**
+     * 자동 재로딩 대상은 puid, 일반 복제본은 현재 인스턴스의 uuid를 반환합니다.
+     *
+     * @returns {string} puid 또는 현재 객체의 uuid
+     */
+    getUid(): string;
     /** @type {ModelBufferGeometry} */ geometry: ModelBufferGeometry;
     /** @type {ModelMaterial | Array<ModelMaterial>} */ material: ModelMaterial | Array<ModelMaterial>;
     /** @type {string | null | undefined} */ _ulayername: string | null | undefined;
@@ -73214,7 +74364,7 @@ declare global {
      * OL 맵 인스턴스 (실제 동작에 필요한 멤버만 정의)
      */
     type OLMap = {
-        promise_?: DeferredObject<boolean>;
+        promise_?: DeferredPromise<boolean>;
         ukey_?: any;
         once: (event: string, fn: Function) => any;
         getLayers: () => {
@@ -74852,7 +76002,7 @@ declare global {
         styleFunction?: U3dVectorPBFStyleFunction;
         /**
          * 그릴 MVT 레이어 이름 목록이며 예를 들어 `['building', 'water']` 처럼 지정합니다. <br>
-         * 지정하면 목록에 없는 레이어는 해석 직후 버려져 화면과 메모리 어디에도 남지 않습니다.
+         * 지정하면 목록에 없는 레이어는 Worker의 형상 해석 전에 제외됩니다.
          */
         includeLayers?: Array<string>;
         /**
@@ -74870,7 +76020,7 @@ declare global {
          */
         featurePriority?: U3dVectorPBFFeaturePriority;
         /**
-         * Point·MultiPoint 피처를 원으로 그릴지 여부이며, `false` 면 해석 직후 버립니다.
+         * Point·MultiPoint 피처를 원으로 그릴지 여부이며, `false` 면 Worker에서 형상 해석 전에 제외합니다.
          */
         drawPoints?: boolean;
         /**
@@ -74938,7 +76088,7 @@ declare global {
     };
     /**
      * 워커가 PBF 타일에서 읽어 낸 MVT 레이어 하나입니다. <br>
-     * 좌표는 아직 지도 좌표가 아니라 `0` 부터 `extent` 까지의 타일 내부 좌표이며 y 축은 아래로 증가합니다.
+     * worldCoordinates가 없으면 타일 내부 좌표이며 y축은 아래로 증가하고, true이면 Worker에서 EPSG:3857로 변환한 좌표입니다.
      */
     type U3dVectorPBFDecodedLayer = {
         /**
@@ -74950,15 +76100,54 @@ declare global {
          */
         extent: number;
         /**
-         * 이 레이어에서 읽은 피처 목록입니다. <br>
-         * `type` 은 `Point`, `MultiPoint`, `LineString`, `MultiLineString`, `Polygon` 중 하나이고, `flatCoordinates` 는 x, y 가 번갈아 담긴 배열이며 `ends` 는 파트마다의 끝 인덱스입니다.
+         * 좌표·경계·외곽선이 이미 월드 좌표로 준비되었는지 여부입니다.
          */
-        features: Array<{
-            id: (number | undefined);
-            type: string;
-            properties: KeyValue;
+        worldCoordinates?: boolean;
+        /**
+         * 이 레이어에서 읽은 피처 목록입니다. <br>
+         * `type` 은 `Point`, `MultiPoint`, `LineString`, `MultiLineString`, `Polygon` 중 하나입니다. 일괄 형상 전송에서는 피처별 좌표 필드를 생략하고 결과의 geometry 메타데이터를 사용합니다.
+         */
+        features: Array<U3dVectorPBFDecodedFeature>;
+    };
+    /**
+     * 기존 로컬 좌표 결과와 선택적인 Worker 전처리 정보를 함께 읽습니다.
+     */
+    type U3dVectorPBFDecodedFeature = {
+        /**
+         * 원본 ID입니다.
+         */
+        id: number | undefined;
+        /**
+         * 점 필터를 적용하기 전의 알려진 피처 순번입니다.
+         */
+        _sourceIndex?: number;
+        /**
+         * MVT 형상 타입입니다.
+         */
+        type: string;
+        /**
+         * 원본 속성입니다.
+         */
+        properties: KeyValue;
+        /**
+         * 평탄 좌표이며 일괄 전송에서는 메인에서 필요한 피처만 뷰를 만듭니다.
+         */
+        flatCoordinates?: Float64Array;
+        /**
+         * 파트별 끝 인덱스이며 일괄 전송에서는 geometry 메타데이터로 대신합니다.
+         */
+        ends?: Array<number>;
+        /**
+         * 파트마다 bbox 4개·로컬 부호 면적·절단 여부를 담습니다.
+         */
+        partInfo?: Float64Array;
+        /**
+         * 타일 절단 변을 뺀 실제 외곽선입니다.
+         */
+        outlines?: Array<{
+            partIndex: number;
             flatCoordinates: Float64Array;
-            ends: Array<number>;
+            bbox: Array<number>;
         }>;
     };
     /**
@@ -74970,6 +76159,10 @@ declare global {
          * 레이어 목록
          */
         layers: Array<U3dVectorPBFDecodedLayer>;
+        /**
+         * 피처 순서대로 연결한 독립 요청 버퍼와 일괄 형상 메타데이터입니다.
+         */
+        geometry?: PbfGeometryBatch;
         /**
          * 실패 또는 abort 여부
          */
@@ -75026,6 +76219,10 @@ declare global {
          * 점은 `[x, y]`, 면은 외곽 하나와 그 홀을 묶은 `[[외곽, 홀...]]`, 선은 `[선]` 형태입니다.
          */
         coordinates: Array<number> | Triple_Array<number> | Array<Triple_Array<number>>;
+        /**
+         * 표시 타일의 bbox 선별 전까지 유지하는 내부 평탄 파트입니다. 좌표 객체 복원 시 제거합니다.
+         */
+        _flatCoordinates?: Array<Float64Array>;
         /**
          * MVT 속성이며 `layer` 키에 레이어 이름이 들어 있습니다. <br>
          * 하나의 MVT 피처에서 나뉜 조각들은 이 객체를 함께 쓰며, 스타일을 한 번만 계산해 나눠 쓰는 기준이 됩니다.
@@ -75285,7 +76482,7 @@ declare global {
         /**
          * 비동기 처리 객체
          */
-        promise?: DeferredObject<U3dQuadTile>;
+        promise?: DeferredPromise<U3dQuadTile>;
         /**
          * 완료 여부
          */
@@ -75324,3829 +76521,6 @@ declare global {
          */
         _app: Pick<U3dApp, "_camera" | "getDrawBufferHeight" | "getDrawBufferWidth">;
     };
-}
-
-declare global {
-    /**
-     * 검증한 동적 필드와 기존 wrapper를 보관하는 지역 적용 계획입니다.
-     */
-    type UA3FFrameAttributePlan = {
-        /**
-         * frame 저장 방식의 node 필드 식별자
-         */
-        fieldId: string;
-        /**
-         * 같은 wrapper를 공유할 실제 attribute 이름
-         */
-        names: Array<string>;
-        /**
-         * 검증한 원본 프레임 배열 참조
-         */
-        entry: UA3FDecodedArrayVo;
-        /**
-         * 이미 연결한 wrapper 또는 첫 연결이면 null
-         */
-        attribute: three.BufferAttribute | null;
-    };
-    /**
-     * 첫 연결용 wrapper 생성까지 마친 동기 적용 계획입니다.
-     */
-    type UA3FFrameAttributeReadyPlan = UA3FFrameAttributePlan & {
-        attribute: three.BufferAttribute;
-    };
-}
-
-/**
- * 프레임 캐시 사용량과 로딩 상태의 순간 사본을 전달합니다.
- * 생성 시 옵션을 보관하고 실행·파일 접근·자원 해제는 수행하지 않습니다.
- *
- * @group A3F
- * @summary 프레임 캐시 사용량과 로딩 상태의 순간 사본을 전달합니다.
- */
-declare class UA3FFrameCacheStatusVo {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FFrameCacheStatusVo 클래스 생성자입니다.
-     * 필드 값의 유효성은 사용하는 실행 모듈에서 검사합니다.
-     *
-     * @param {UA3FFrameCacheStatusVoCO} opt 모든 키가 필수이며 null 불가, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FFrameCacheStatusVoCO);
-    /** @type {('streaming' | 'full')} */
-    _loadMode: ("streaming" | "full");
-    /** @type {number} */
-    _totalFrameCount: number;
-    /** @type {number} */
-    _readyFrameCount: number;
-    /** @type {number} */
-    _residentBufferCount: number;
-    /** @type {number} */
-    _inFlightBufferCount: number;
-    /** @type {number} */
-    _leasedBufferCount: number;
-    /** @type {number} */
-    _residentBytes: number;
-    /** @type {number} */
-    _reservedBytes: number;
-    /** @type {number | null} */
-    _requestedFrameIndex: number | null;
-    /** @type {number} */
-    _requestId: number;
-    /** @type {boolean} */
-    _preloadComplete: boolean;
-    /** @type {Error | null} */
-    _lastError: Error | null;
-    /**
-     * 생성 시 고정한 로딩 모드 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {('streaming' | 'full')} value 생성 시 고정한 로딩 모드
-     */
-    set loadMode(value: ("streaming" | "full"));
-    /**
-     * 생성 시 고정한 로딩 모드 값을 반환합니다.
-     *
-     * @returns {('streaming' | 'full')} 생성 시 고정한 로딩 모드
-     */
-    get loadMode(): ("streaming" | "full");
-    /**
-     * 빈 프레임을 포함한 등록 수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 빈 프레임을 포함한 등록 수
-     */
-    set totalFrameCount(value: number);
-    /**
-     * 빈 프레임을 포함한 등록 수 값을 반환합니다.
-     *
-     * @returns {number} 빈 프레임을 포함한 등록 수
-     */
-    get totalFrameCount(): number;
-    /**
-     * 현재 준비 완료 버퍼로 제공 가능한 등록 프레임 수, 누적 수가 아님 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 현재 준비 완료 버퍼로 제공 가능한 등록 프레임 수, 누적 수가 아님
-     */
-    set readyFrameCount(value: number);
-    /**
-     * 현재 준비 완료 버퍼로 제공 가능한 등록 프레임 수, 누적 수가 아님 값을 반환합니다.
-     *
-     * @returns {number} 현재 준비 완료 버퍼로 제공 가능한 등록 프레임 수, 누적 수가 아님
-     */
-    get readyFrameCount(): number;
-    /**
-     * 준비 완료한 고유 backing buffer 수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 준비 완료한 고유 backing buffer 수
-     */
-    set residentBufferCount(value: number);
-    /**
-     * 준비 완료한 고유 backing buffer 수 값을 반환합니다.
-     *
-     * @returns {number} 준비 완료한 고유 backing buffer 수
-     */
-    get residentBufferCount(): number;
-    /**
-     * HTTP 또는 decode 중인 고유 버퍼 수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value HTTP 또는 decode 중인 고유 버퍼 수
-     */
-    set inFlightBufferCount(value: number);
-    /**
-     * HTTP 또는 decode 중인 고유 버퍼 수 값을 반환합니다.
-     *
-     * @returns {number} HTTP 또는 decode 중인 고유 버퍼 수
-     */
-    get inFlightBufferCount(): number;
-    /**
-     * 하나 이상 lease로 보호하는 준비 완료 고유 버퍼 수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 하나 이상 lease로 보호하는 준비 완료 고유 버퍼 수
-     */
-    set leasedBufferCount(value: number);
-    /**
-     * 하나 이상 lease로 보호하는 준비 완료 고유 버퍼 수 값을 반환합니다.
-     *
-     * @returns {number} 하나 이상 lease로 보호하는 준비 완료 고유 버퍼 수
-     */
-    get leasedBufferCount(): number;
-    /**
-     * 준비 완료한 고유 backing buffer 길이 합, 바이트 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 준비 완료한 고유 backing buffer 길이 합, 바이트
-     */
-    set residentBytes(value: number);
-    /**
-     * 준비 완료한 고유 backing buffer 길이 합, 바이트 값을 반환합니다.
-     *
-     * @returns {number} 준비 완료한 고유 backing buffer 길이 합, 바이트
-     */
-    get residentBytes(): number;
-    /**
-     * 진행 중 파일의 기대 길이 예약 합, 바이트 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 진행 중 파일의 기대 길이 예약 합, 바이트
-     */
-    set reservedBytes(value: number);
-    /**
-     * 진행 중 파일의 기대 길이 예약 합, 바이트 값을 반환합니다.
-     *
-     * @returns {number} 진행 중 파일의 기대 길이 예약 합, 바이트
-     */
-    get reservedBytes(): number;
-    /**
-     * 마지막 선택한 0 기반 순번 또는 아직 선택하지 않은 null 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number | null} value 마지막 선택한 0 기반 순번 또는 아직 선택하지 않은 null
-     */
-    set requestedFrameIndex(value: number | null);
-    /**
-     * 마지막 선택한 0 기반 순번 또는 아직 선택하지 않은 null 값을 반환합니다.
-     *
-     * @returns {number | null} 마지막 선택한 0 기반 순번 또는 아직 선택하지 않은 null
-     */
-    get requestedFrameIndex(): number | null;
-    /**
-     * 선택 전 0, 이후 양의 요청 순번 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 선택 전 0, 이후 양의 요청 순번
-     */
-    set requestId(value: number);
-    /**
-     * 선택 전 0, 이후 양의 요청 순번 값을 반환합니다.
-     *
-     * @returns {number} 선택 전 0, 이후 양의 요청 순번
-     */
-    get requestId(): number;
-    /**
-     * null 아닌 모든 등록 고유 파일이 준비 완료했는지 여부 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {boolean} value null 아닌 모든 등록 고유 파일이 준비 완료했는지 여부
-     */
-    set preloadComplete(value: boolean);
-    /**
-     * null 아닌 모든 등록 고유 파일이 준비 완료했는지 여부 값을 반환합니다.
-     *
-     * @returns {boolean} null 아닌 모든 등록 고유 파일이 준비 완료했는지 여부
-     */
-    get preloadComplete(): boolean;
-    /**
-     * 최근 로딩 오류 또는 null, 의도된 탐색 취소는 제외 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {Error | null} value 최근 로딩 오류 또는 null, 의도된 탐색 취소는 제외
-     */
-    set lastError(value: Error | null);
-    /**
-     * 최근 로딩 오류 또는 null, 의도된 탐색 취소는 제외 값을 반환합니다.
-     *
-     * @returns {Error | null} 최근 로딩 오류 또는 null, 의도된 탐색 취소는 제외
-     */
-    get lastError(): Error | null;
-}
-
-/**
- * 사용자 정의 필드의 성분별 통계를 보관합니다.<br>
- * 메타정보에서 읽은 통계를 파서와 레이어에 전달합니다.<br>
- * 필수 옵션 키를 확인한 뒤 값을 보관하며 값의 타입·범위와 필드 간 일관성은 사용하는 모듈이 검증합니다.<br>
- * 객체와 배열은 복사하지 않고 참조로 보관합니다.
- *
- * @group A3F
- * @summary 필드별 성분 통계 보관
- */
-declare class UA3FArrayStatisticsVo {
-    /**
-     * 생성자 옵션의 정본 키 목록입니다.
-     *
-     * @type {Array<string>}
-     *
-     * @ignore
-     */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FArrayStatisticsVo 클래스 생성자입니다.<br>
-     * 옵션 키를 정규화하고 필수 키의 존재를 확인한 뒤 값을 보관합니다.<br>
-     * 옵션이 객체가 아니거나 필수 키가 없으면 TypeError를 발생시키며 값 검증은 수행하지 않습니다.
-     *
-     * @param {UA3FArrayStatisticsVoCO} opt 모든 필수 키를 가진 옵션이며 null·생략 불가, 원본 옵션을 변경하지 않음, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FArrayStatisticsVoCO);
-    /** @type {string} */
-    _fieldId: string;
-    /** @type {Array<number>} */
-    _minimum: Array<number>;
-    /** @type {Array<number>} */
-    _maximum: Array<number>;
-    /** @type {Array<number>} */
-    _maxAbsoluteError: Array<number>;
-    /**
-     * 통계 대상 필드 식별자를 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {string} value 필드 정의와 일치하는 식별자이며 호출자가 검증한 값
-     */
-    set fieldId(value: string);
-    /**
-     * 통계 대상 필드 식별자를 반환합니다.
-     *
-     * @returns {string} 필드 정의와 일치하는 식별자
-     */
-    get fieldId(): string;
-    /**
-     * 성분별 최솟값 배열을 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {Array<number>} value 필드의 성분 순서에 맞춘 최솟값 배열이며 호출자가 검증한 값, 복사 없이 참조를 보관
-     */
-    set minimum(value: Array<number>);
-    /**
-     * 성분별 최솟값 배열을 반환합니다.
-     *
-     * @returns {Array<number>} 필드의 성분 순서에 맞춘 최솟값 배열, 복사하지 않은 참조
-     */
-    get minimum(): Array<number>;
-    /**
-     * 성분별 최댓값 배열을 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {Array<number>} value 필드의 성분 순서에 맞춘 최댓값 배열이며 호출자가 검증한 값, 복사 없이 참조를 보관
-     */
-    set maximum(value: Array<number>);
-    /**
-     * 성분별 최댓값 배열을 반환합니다.
-     *
-     * @returns {Array<number>} 필드의 성분 순서에 맞춘 최댓값 배열, 복사하지 않은 참조
-     */
-    get maximum(): Array<number>;
-    /**
-     * 성분별 최대 절대 오차 배열을 저장합니다.<br>
-     * 값 검증과 다른 필드의 자동 갱신은 수행하지 않습니다.
-     *
-     * @param {Array<number>} value 필드의 성분 순서에 맞춘 최대 절대 오차 배열이며 호출자가 검증한 값, 복사 없이 참조를 보관
-     */
-    set maxAbsoluteError(value: Array<number>);
-    /**
-     * 성분별 최대 절대 오차 배열을 반환합니다.
-     *
-     * @returns {Array<number>} 필드의 성분 순서에 맞춘 최대 절대 오차 배열, 복사하지 않은 참조
-     */
-    get maxAbsoluteError(): Array<number>;
-}
-
-/**
- * 프레임 메타정보와 이 프레임을 소유한 형상 식별자를 보관을 담당합니다.<br>
- * 생성 시 필수 옵션 키를 확인하고 값과 배열 참조를 보관하며 의미 검증은 UA3FFrameAttributeExecutor가 담당합니다.<br>
- * 프레임 적용과 파일 요청 및 자원 해제는 수행하지 않습니다.
- *
- * @group A3F
- * @summary 프레임 메타정보와 이 프레임을 소유한 형상 식별자를 보관
- */
-declare class UA3FFrameVo {
-    /**
-     * 생성자 옵션의 정본 키 목록입니다.
-     *
-     * @type {Array<string>}
-     *
-     * @ignore
-     */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FFrameVo 클래스 생성자입니다.<br>
-     * 필수 키를 확인하고 값과 참조를 보관하며 원본 옵션을 변경하지 않습니다.
-     *
-     * @param {UA3FFrameVoCO} opt 모든 키가 필수이며 null·생략 불가, 객체·배열은 복사 없이 참조로 보관
-     */
-    constructor(opt: UA3FFrameVoCO);
-    /** @type {string} */
-    _geometryId: string;
-    /** @type {number} */
-    _frameIndex: number;
-    /** @type {number} */
-    _time: number;
-    /** @type {string | null} */
-    _bufferId: string | null;
-    /** @type {Array<import('@union3d/a3f/vo/UA3FArrayStatisticsVo').UA3FArrayStatisticsVo>} */
-    _statistics: Array<UA3FArrayStatisticsVo>;
-    /**
-     * geometryId 값을 저장합니다.<br>
-     * 값 검증과 다른 필드 갱신 및 기존 자원 해제는 수행하지 않습니다.
-     *
-     * @param {string} value 대상 공간 노드의 공용 형상 식별자
-     */
-    set geometryId(value: string);
-    /**
-     * geometryId 값을 반환합니다.
-     *
-     * @returns {string} 대상 공간 노드의 공용 형상 식별자
-     */
-    get geometryId(): string;
-    /**
-     * frameIndex 값을 저장합니다.<br>
-     * 값 검증과 다른 필드 갱신 및 기존 자원 해제는 수행하지 않습니다.
-     *
-     * @param {number} value 0 기반 프레임 순번, 0 이상의 안전 정수
-     */
-    set frameIndex(value: number);
-    /**
-     * frameIndex 값을 반환합니다.
-     *
-     * @returns {number} 0 기반 프레임 순번, 0 이상의 안전 정수
-     */
-    get frameIndex(): number;
-    /**
-     * time 값을 저장합니다.<br>
-     * 값 검증과 다른 필드 갱신 및 기존 자원 해제는 수행하지 않습니다.
-     *
-     * @param {number} value 원본 숫자 시각, 시간 단위와 기준을 임의 환산하지 않음
-     */
-    set time(value: number);
-    /**
-     * time 값을 반환합니다.
-     *
-     * @returns {number} 원본 숫자 시각, 시간 단위와 기준을 임의 환산하지 않음
-     */
-    get time(): number;
-    /**
-     * bufferId 값을 저장합니다.<br>
-     * 값 검증과 다른 필드 갱신 및 기존 자원 해제는 수행하지 않습니다.
-     *
-     * @param {string | null} value 바이너리 파일 식별자 또는 데이터 없는 프레임의 null
-     */
-    set bufferId(value: string | null);
-    /**
-     * bufferId 값을 반환합니다.
-     *
-     * @returns {string | null} 바이너리 파일 식별자 또는 데이터 없는 프레임의 null
-     */
-    get bufferId(): string | null;
-    /**
-     * statistics 값을 저장합니다.<br>
-     * 값 검증과 다른 필드 갱신 및 기존 자원 해제는 수행하지 않습니다.
-     *
-     * @param {Array<import('@union3d/a3f/vo/UA3FArrayStatisticsVo').UA3FArrayStatisticsVo>} value 성분별 원본 통계 목록, 배열 참조
-     */
-    set statistics(value: Array<UA3FArrayStatisticsVo>);
-    /**
-     * statistics 값을 반환합니다.
-     *
-     * @returns {Array<import('@union3d/a3f/vo/UA3FArrayStatisticsVo').UA3FArrayStatisticsVo>} 성분별 원본 통계 목록, 배열 참조
-     */
-    get statistics(): Array<UA3FArrayStatisticsVo>;
-}
-
-/**
- * 108 attribute 적용에 필요한 프레임·파일·숫자 배열 참조를 보관합니다.
- * 생성 시 옵션을 보관하고 실행·파일 접근·자원 해제는 수행하지 않습니다.
- *
- * @group A3F
- * @summary 108 attribute 적용에 필요한 프레임·파일·숫자 배열 참조를 보관합니다.
- */
-declare class UA3FFrameResourceVo {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FFrameResourceVo 클래스 생성자입니다.
-     * 필드 값의 유효성은 사용하는 실행 모듈에서 검사합니다.
-     *
-     * @param {UA3FFrameResourceVoCO} opt 모든 키가 필수이며 null 불가, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FFrameResourceVoCO);
-    /** @type {import('@union3d/a3f/vo/UA3FFrameVo').UA3FFrameVo} */
-    _frameVo: UA3FFrameVo;
-    /** @type {import('@union3d/a3f/vo/UA3FBufferVo').UA3FBufferVo} */
-    _bufferVo: UA3FBufferVo;
-    /** @type {import('@union3d/a3f/vo/UA3FDecodedBufferVo').UA3FDecodedBufferVo} */
-    _decodedBufferVo: UA3FDecodedBufferVo;
-    /**
-     * previous-frame 정책으로 선택한 실제 유효 프레임, null 불가 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FFrameVo').UA3FFrameVo} value previous-frame 정책으로 선택한 실제 유효 프레임, null 불가
-     */
-    set frameVo(value: UA3FFrameVo);
-    /**
-     * previous-frame 정책으로 선택한 실제 유효 프레임, null 불가 값을 반환합니다.
-     *
-     * @returns {import('@union3d/a3f/vo/UA3FFrameVo').UA3FFrameVo} previous-frame 정책으로 선택한 실제 유효 프레임, null 불가
-     */
-    get frameVo(): UA3FFrameVo;
-    /**
-     * 해당 프레임의 파일 정의, null 불가 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FBufferVo').UA3FBufferVo} value 해당 프레임의 파일 정의, null 불가
-     */
-    set bufferVo(value: UA3FBufferVo);
-    /**
-     * 해당 프레임의 파일 정의, null 불가 값을 반환합니다.
-     *
-     * @returns {import('@union3d/a3f/vo/UA3FBufferVo').UA3FBufferVo} 해당 프레임의 파일 정의, null 불가
-     */
-    get bufferVo(): UA3FBufferVo;
-    /**
-     * 워커 결과 참조, 사용 중 변경·분리·재전송 금지 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FDecodedBufferVo').UA3FDecodedBufferVo} value 워커 결과 참조, 사용 중 변경·분리·재전송 금지
-     */
-    set decodedBufferVo(value: UA3FDecodedBufferVo);
-    /**
-     * 워커 결과 참조, 사용 중 변경·분리·재전송 금지 값을 반환합니다.
-     *
-     * @returns {import('@union3d/a3f/vo/UA3FDecodedBufferVo').UA3FDecodedBufferVo} 워커 결과 참조, 사용 중 변경·분리·재전송 금지
-     */
-    get decodedBufferVo(): UA3FDecodedBufferVo;
-}
-
-/**
- * 화면 적용 후보 또는 표시 중인 원시 버퍼의 보존 권한을 전달합니다.
- * 생성 시 옵션을 보관하고 실행·파일 접근·자원 해제는 수행하지 않습니다.
- *
- * @group A3F
- * @summary 화면 적용 후보 또는 표시 중인 원시 버퍼의 보존 권한을 전달합니다.
- */
-declare class UA3FFrameLeaseVo {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FFrameLeaseVo 클래스 생성자입니다.
-     * 필드 값의 유효성은 사용하는 실행 모듈에서 검사합니다.
-     *
-     * @param {UA3FFrameLeaseVoCO} opt 모든 키가 필수이며 null 불가, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FFrameLeaseVoCO);
-    /** @type {string} */
-    _leaseId: string;
-    /** @type {number} */
-    _requestId: number;
-    /** @type {number} */
-    _requestedFrameIndex: number;
-    /** @type {number} */
-    _taskGeneration: number;
-    /** @type {import('@union3d/a3f/vo/UA3FFrameResourceVo').UA3FFrameResourceVo} */
-    _resourceVo: UA3FFrameResourceVo;
-    /**
-     * 관리자 안에서 재사용하지 않는 보존 권한 식별자 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {string} value 관리자 안에서 재사용하지 않는 보존 권한 식별자
-     */
-    set leaseId(value: string);
-    /**
-     * 관리자 안에서 재사용하지 않는 보존 권한 식별자 값을 반환합니다.
-     *
-     * @returns {string} 관리자 안에서 재사용하지 않는 보존 권한 식별자
-     */
-    get leaseId(): string;
-    /**
-     * 선택 요청 순번, 양의 안전 정수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 선택 요청 순번, 양의 안전 정수
-     */
-    set requestId(value: number);
-    /**
-     * 선택 요청 순번, 양의 안전 정수 값을 반환합니다.
-     *
-     * @returns {number} 선택 요청 순번, 양의 안전 정수
-     */
-    get requestId(): number;
-    /**
-     * 요청한 등록 프레임의 0 기반 순번, 실제 유효 프레임과 다를 수 있음 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 요청한 등록 프레임의 0 기반 순번, 실제 유효 프레임과 다를 수 있음
-     */
-    set requestedFrameIndex(value: number);
-    /**
-     * 요청한 등록 프레임의 0 기반 순번, 실제 유효 프레임과 다를 수 있음 값을 반환합니다.
-     *
-     * @returns {number} 요청한 등록 프레임의 0 기반 순번, 실제 유효 프레임과 다를 수 있음
-     */
-    get requestedFrameIndex(): number;
-    /**
-     * 공유 워커의 0 이상 요청 세대 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 공유 워커의 0 이상 요청 세대
-     */
-    set taskGeneration(value: number);
-    /**
-     * 공유 워커의 0 이상 요청 세대 값을 반환합니다.
-     *
-     * @returns {number} 공유 워커의 0 이상 요청 세대
-     */
-    get taskGeneration(): number;
-    /**
-     * 보호하는 빌린 프레임 참조, release 후 보관하면 회수 지연 가능 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FFrameResourceVo').UA3FFrameResourceVo} value 보호하는 빌린 프레임 참조, release 후 보관하면 회수 지연 가능
-     */
-    set resourceVo(value: UA3FFrameResourceVo);
-    /**
-     * 보호하는 빌린 프레임 참조, release 후 보관하면 회수 지연 가능 값을 반환합니다.
-     *
-     * @returns {import('@union3d/a3f/vo/UA3FFrameResourceVo').UA3FFrameResourceVo} 보호하는 빌린 프레임 참조, release 후 보관하면 회수 지연 가능
-     */
-    get resourceVo(): UA3FFrameResourceVo;
-}
-
-/**
- * 프레임 로딩 모드와 저장 한도를 보관합니다.
- * 생성 시 옵션을 보관하고 실행·파일 접근·자원 해제는 수행하지 않습니다.
- *
- * @group A3F
- * @summary 프레임 로딩 모드와 저장 한도를 보관합니다.
- */
-declare class UA3FFrameCacheOptionsVo {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FFrameCacheOptionsVo 클래스 생성자입니다.
-     * 필드 값의 유효성은 사용하는 실행 모듈에서 검사합니다.
-     *
-     * @param {UA3FFrameCacheOptionsVoCO} [opt={}] 선택 정책이며 null 불가, 옵션 원본은 변경하지 않음
-     */
-    constructor(opt?: UA3FFrameCacheOptionsVoCO);
-    /** @type {('streaming' | 'full')} */
-    _loadMode: ("streaming" | "full");
-    /** @type {number} */
-    _cacheFrames: number;
-    /** @type {number} */
-    _maxConcurrentLoads: number;
-    /** @type {number | null} */
-    _maxCacheBytes: number | null;
-    /** @type {boolean} */
-    _verifyHash: boolean;
-    /**
-     * 로딩 모드, 기본 streaming 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {('streaming' | 'full')} value 로딩 모드, 기본 streaming
-     */
-    set loadMode(value: ("streaming" | "full"));
-    /**
-     * 로딩 모드, 기본 streaming 값을 반환합니다.
-     *
-     * @returns {('streaming' | 'full')} 로딩 모드, 기본 streaming
-     */
-    get loadMode(): ("streaming" | "full");
-    /**
-     * streaming의 표시·진행 중·준비 완료를 합친 고유 버퍼 슬롯 상한, 기본 3, 2 이상의 안전 정수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value streaming의 표시·진행 중·준비 완료를 합친 고유 버퍼 슬롯 상한, 기본 3, 2 이상의 안전 정수
-     */
-    set cacheFrames(value: number);
-    /**
-     * streaming의 표시·진행 중·준비 완료를 합친 고유 버퍼 슬롯 상한, 기본 3, 2 이상의 안전 정수 값을 반환합니다.
-     *
-     * @returns {number} streaming의 표시·진행 중·준비 완료를 합친 고유 버퍼 슬롯 상한, 기본 3, 2 이상의 안전 정수
-     */
-    get cacheFrames(): number;
-    /**
-     * HTTP부터 decode 완료까지 동시 파이프라인 상한, 기본 2, 양의 안전 정수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value HTTP부터 decode 완료까지 동시 파이프라인 상한, 기본 2, 양의 안전 정수
-     */
-    set maxConcurrentLoads(value: number);
-    /**
-     * HTTP부터 decode 완료까지 동시 파이프라인 상한, 기본 2, 양의 안전 정수 값을 반환합니다.
-     *
-     * @returns {number} HTTP부터 decode 완료까지 동시 파이프라인 상한, 기본 2, 양의 안전 정수
-     */
-    get maxConcurrentLoads(): number;
-    /**
-     * 원시 backing buffer와 진행 중 예약의 바이트 상한, 기본 null, 지정 시 양의 안전 정수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number | null} value 원시 backing buffer와 진행 중 예약의 바이트 상한, 기본 null, 지정 시 양의 안전 정수
-     */
-    set maxCacheBytes(value: number | null);
-    /**
-     * 원시 backing buffer와 진행 중 예약의 바이트 상한, 기본 null, 지정 시 양의 안전 정수 값을 반환합니다.
-     *
-     * @returns {number | null} 원시 backing buffer와 진행 중 예약의 바이트 상한, 기본 null, 지정 시 양의 안전 정수
-     */
-    get maxCacheBytes(): number | null;
-    /**
-     * SHA-256 검사 여부, 기본 true 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {boolean} value SHA-256 검사 여부, 기본 true
-     */
-    set verifyHash(value: boolean);
-    /**
-     * SHA-256 검사 여부, 기본 true 값을 반환합니다.
-     *
-     * @returns {boolean} SHA-256 검사 여부, 기본 true
-     */
-    get verifyHash(): boolean;
-}
-
-/**
- * 한 프레임 파일을 읽고 기존 워커에서 검증·해석하도록 연결합니다.
- * 메타정보 URL로 파일 위치를 해석하고 고정 크기 버퍼에 HTTP 응답을 읽은 뒤 입력을 이전합니다.
- * 프레임 캐시가 사용하며 빌린 TaskManager·Geometry·Material은 해제하지 않습니다.
- *
- * @group A3F
- * @summary 한 프레임 파일을 읽고 기존 워커에서 검증·해석하도록 연결합니다.
- */
-declare class UA3FFrameLoader {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FFrameLoader 클래스 생성자입니다.
-     * 외부 I/O 없이 URL·빌린 작업 관리자·통신 함수를 확인합니다.
-     *
-     * @param {UA3FFrameLoaderCO} opt 필수 생성 설정, null 불가, 입력 원본은 변경하지 않음
-     */
-    constructor(opt: UA3FFrameLoaderCO);
-    /** @type {string} */
-    _metadataUrl: string;
-    /** @type {import('@union3d/a3f/UA3FTaskManager').UA3FTaskManager} */
-    _taskManager: UA3FTaskManager;
-    /** @type {typeof fetch} */
-    _fetchFunction: typeof fetch;
-    /**
-     * 한 파일을 정확한 기대 길이로 읽고 기존 워커 결과를 반환합니다.
-     * HTTP 취소는 signal로 처리하지만 decode에 넘긴 뒤의 signal 취소는 물리 작업을 중단하지 않습니다.
-     * 워커 취소는 AbortError에 code=A3F_DECODE_CANCELLED를 기록하여 예약 공간을 조기 재사용하지 않게 합니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FTaskContextVo').UA3FTaskContextVo} contextVo null 불가, 파일·노드·0 기반 프레임·현재 워커 세대의 작업 문맥
-     * @param {import('@union3d/a3f/vo/UA3FBufferVo').UA3FBufferVo} bufferVo null 불가, 기대 길이는 양의 안전 정수인 바이트
-     * @param {import('@union3d/a3f/vo/UA3FLayoutVo').UA3FLayoutVo} layoutVo 파일의 layoutId와 일치하는 null 아닌 배치
-     * @param {AbortSignal} signal 소유한 HTTP 요청의 취소 신호, null 불가, decode 이후에는 입력 버퍼 반환을 뜻하지 않음
-     * @param {boolean} [verifyHash=true] SHA-256 검사 여부, false여도 파서의 배치·숫자 검증 유지
-     * @returns {Promise<import('@union3d/a3f/vo/UA3FDecodedBufferVo').UA3FDecodedBufferVo>} 워커가 검증한 원본 버퍼 참조, 소유권 이전으로 입력은 분리됨
-     */
-    load(contextVo: UA3FTaskContextVo, bufferVo: UA3FBufferVo, layoutVo: UA3FLayoutVo, signal: AbortSignal, verifyHash?: boolean): Promise<UA3FDecodedBufferVo>;
-    /**
-     * 관리 상태의 외부 교체를 거부합니다.
-     *
-     * @param {string} value 정규화한 메타정보 절대 URL; 기존 값 또는 참조와 동일한 경우만 허용
-     */
-    set metadataUrl(value: string);
-    /**
-     * 정규화한 메타정보 절대 URL 값을 반환합니다.
-     *
-     * @returns {string} 정규화한 메타정보 절대 URL
-     */
-    get metadataUrl(): string;
-    /**
-     * 관리 상태의 외부 교체를 거부합니다.
-     *
-     * @param {import('@union3d/a3f/UA3FTaskManager').UA3FTaskManager} value 레이어가 소유하고 로더가 빌린 작업 관리자; 기존 값 또는 참조와 동일한 경우만 허용
-     */
-    set taskManager(value: UA3FTaskManager);
-    /**
-     * 레이어가 소유하고 로더가 빌린 작업 관리자 값을 반환합니다.
-     *
-     * @returns {import('@union3d/a3f/UA3FTaskManager').UA3FTaskManager} 레이어가 소유하고 로더가 빌린 작업 관리자
-     */
-    get taskManager(): UA3FTaskManager;
-    /**
-     * 관리 상태의 외부 교체를 거부합니다.
-     *
-     * @param {typeof fetch} value 주입하거나 전역 fetch에서 얻은 통신 함수; 기존 값 또는 참조와 동일한 경우만 허용
-     */
-    set fetchFunction(value: typeof fetch);
-    /**
-     * 주입하거나 전역 fetch에서 얻은 통신 함수 값을 반환합니다.
-     *
-     * @returns {typeof fetch} 주입하거나 전역 fetch에서 얻은 통신 함수
-     */
-    get fetchFunction(): typeof fetch;
-    #private;
-}
-
-declare global {
-    /**
-     * UA3FFrameCacheManager 생성자 옵션입니다.
-     */
-    type UA3FFrameCacheManagerCO_Content = {
-        /**
-         * 로더와 같은 데이터셋 식별자
-         */
-        datasetId: string;
-        /**
-         * 선택한 공간 노드 식별자
-         */
-        nodeId: string;
-        /**
-         * 105의 양의 안전 정수인 등록 토큰
-         */
-        nodeRevision: number;
-        /**
-         * 공용 형상 식별자
-         */
-        geometryId: string;
-        /**
-         * 순번 오름차순 프레임 정의
-         */
-        frames: Array<UA3FFrameVo>;
-        /**
-         * 메타정보 파일 목록
-         */
-        buffers: Array<UA3FBufferVo>;
-        /**
-         * 메타정보 배치 목록
-         */
-        layouts: Array<UA3FLayoutVo>;
-        /**
-         * 같은 데이터셋의 프레임 로더, 해제하지 않음
-         */
-        loader: UA3FFrameLoader;
-        /**
-         * 호출자 명시값 > metadata 기본값 > streaming/3 순서로 정규화한 정책
-         */
-        optionsVo: UA3FFrameCacheOptionsVo;
-    };
-    /**
-     * UA3FFrameCacheManager 생성자 옵션입니다.
-     */
-    type UA3FFrameCacheManagerCO = UA3FFrameCacheManagerCO_Content;
-    /**
-     * 캐시 구현의 UA3FFrameCacheEntry 자료입니다.
-     */
-    type UA3FFrameCacheEntry = {
-        /**
-         * 파일 정의 사본
-         */
-        buffer: UA3FBufferVo;
-        /**
-         * 고정한 작업 문맥
-         */
-        context: UA3FTaskContextVo;
-        /**
-         * 소유 HTTP 취소 제어
-         */
-        controller: AbortController;
-        /**
-         * 실제 파이프라인 미완료 여부
-         */
-        loading: boolean;
-        /**
-         * 준비된 고정 버퍼 또는 null
-         */
-        decoded: UA3FDecodedBufferVo | null;
-        /**
-         * 버퍼 보존 식별자
-         */
-        leases: Set<string>;
-        /**
-         * 최근 사용 순번
-         */
-        sequence: number;
-    };
-    /**
-     * 캐시 구현의 UA3FFrameCacheWaiter 자료입니다.
-     */
-    type UA3FFrameCacheWaiter = {
-        /**
-         * 선택 요청 순번
-         */
-        requestId: number;
-        /**
-         * 요청한 등록 순번
-         */
-        requestedFrameIndex: number;
-        /**
-         * 실제 유효 프레임
-         */
-        frame: UA3FFrameVo;
-        /**
-         * 성공 통지
-         */
-        resolve: (value: UA3FFrameLeaseVo) => void;
-        /**
-         * 실패 통지
-         */
-        reject: (reason: unknown) => void;
-    };
-    /**
-     * 캐시 구현의 UA3FFrameCacheLease 자료입니다.
-     */
-    type UA3FFrameCacheLease = {
-        /**
-         * 반환 권한 객체
-         */
-        vo: UA3FFrameLeaseVo;
-        /**
-         * 권한 발급 시 선택 순번
-         */
-        requestId: number;
-        /**
-         * 요청한 등록 순번
-         */
-        frameIndex: number;
-        /**
-         * 발급한 자원 참조
-         */
-        resource: UA3FFrameResourceVo;
-        /**
-         * 보호 파일 식별자
-         */
-        bufferId: string;
-    };
-    /**
-     * 캐시 구현의 UA3FFrameCachePreload 자료입니다.
-     */
-    type UA3FFrameCachePreload = {
-        /**
-         * 동시 호출이 합류하는 완료
-         */
-        promise: Promise<UA3FFrameCacheStatusVo>;
-        /**
-         * 전체 성공 통지
-         */
-        resolve: (value: UA3FFrameCacheStatusVo) => void;
-        /**
-         * 전체 실패 통지
-         */
-        reject: (reason: unknown) => void;
-        /**
-         * 실패 통지 후 물리 파이프라인 정리 중 여부
-         */
-        failed: boolean;
-    };
-    /**
-     * 캐시 구현의 UA3FFrameCacheState 자료입니다.
-     */
-    type UA3FFrameCacheState = {
-        /**
-         * 데이터셋 식별자
-         */
-        datasetId: string;
-        /**
-         * 공간 노드 식별자
-         */
-        nodeId: string;
-        /**
-         * 105 노드 등록 토큰
-         */
-        nodeRevision: number;
-        /**
-         * 공용 형상 식별자
-         */
-        geometryId: string;
-        /**
-         * 생성 시 공유 워커 세대
-         */
-        generation: number;
-        /**
-         * 고정한 정책 사본
-         */
-        options: UA3FFrameCacheOptionsVo;
-        /**
-         * 프레임 순서
-         */
-        frames: Array<UA3FFrameVo>;
-        /**
-         * 등록 순번 조회
-         */
-        frameMap: Map<number, UA3FFrameVo>;
-        /**
-         * previous-frame 해석 결과
-         */
-        effective: Map<number, UA3FFrameVo | null>;
-        /**
-         * 현재 노드 고유 파일
-         */
-        buffers: Map<string, UA3FBufferVo>;
-        /**
-         * 고유 파일의 대표 문맥
-         */
-        bufferFrames: Map<string, UA3FFrameVo>;
-        /**
-         * 배치 사본
-         */
-        layouts: Map<string, UA3FLayoutVo>;
-        /**
-         * 준비 또는 진행 항목
-         */
-        entries: Map<string, UA3FFrameCacheEntry>;
-        /**
-         * 발급한 보존 권한
-         */
-        leases: Map<string, UA3FFrameCacheLease>;
-        /**
-         * 목표와 선행 파일 창
-         */
-        wanted: Array<string>;
-        /**
-         * 현재 선택에서 실패해 자동 재시도를 막은 파일
-         */
-        blocked: Set<string>;
-        /**
-         * 선택 순번, 선택 전 0
-         */
-        requestId: number;
-        /**
-         * 현재 요청 또는 null
-         */
-        requestedFrameIndex: number | null;
-        /**
-         * 최신 선택 대기
-         */
-        waiter: UA3FFrameCacheWaiter | null;
-        /**
-         * 전체 준비 대기
-         */
-        preload: UA3FFrameCachePreload | null;
-        /**
-         * 작업과 권한 발급 순번
-         */
-        sequence: number;
-        /**
-         * 작업 식별자 충돌을 막는 UUID
-         */
-        instanceId: string;
-        /**
-         * 소유 캐시 종료 여부
-         */
-        disposed: boolean;
-        /**
-         * 공유 워커 세대·취소로 인한 무효 상태
-         */
-        invalidated: boolean;
-        /**
-         * 펌프 재진입 방지
-         */
-        pumping: boolean;
-        /**
-         * 최근 실제 오류
-         */
-        lastError: Error | null;
-    };
-}
-
-declare global {
-    /**
-     * UA3FFrameLoader 생성자 옵션입니다.
-     */
-    type UA3FFrameLoaderCO_Content = {
-        /**
-         * 절대 메타정보 URL, 각 파일 uri의 기준
-         */
-        metadataUrl: string;
-        /**
-         * 레이어가 소유한 빌린 작업 관리자, 로더는 해제하지 않음
-         */
-        taskManager: UA3FTaskManager;
-        /**
-         * 주입한 fetch 함수, 생략 시 전역 fetch
-         */
-        fetchFunction?: typeof fetch;
-    };
-    /**
-     * UA3FFrameLoader 생성자 옵션입니다.
-     */
-    type UA3FFrameLoaderCO = UA3FFrameLoaderCO_Content;
-}
-
-/**
- * metadata 2.0 좌표 정의 보관을 담당합니다.<br>
- * 생성 시 옵션 키를 정규화하고 필수 키를 확인하며 값 검증은 사용하는 모듈이 담당합니다.<br>
- * 객체·배열·Geometry는 복사하지 않고 참조로 보관하며 자원 해제나 파일 요청은 수행하지 않습니다.
- *
- * @group A3F
- * @summary metadata 2.0 좌표 정의 보관
- */
-declare class UA3FCoordinateVo {
-    /**
-     * 생성자 옵션의 정본 키 목록입니다.
-     *
-     * @type {Array<string>}
-     *
-     * @ignore
-     */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FCoordinateVo 클래스 생성자입니다.<br>
-     * 옵션 키를 정규화하고 필수 값을 보관하며 필드 값의 유효성은 검증하지 않습니다.
-     *
-     * @param {UA3FCoordinateVoCO} opt 모든 키가 필수이며 null·생략 불가, 객체·배열은 참조로 보관하고 원본 옵션은 변경하지 않음
-     */
-    constructor(opt: UA3FCoordinateVoCO);
-    /** @type {string} */
-    _sourceCrs: string;
-    /**
-     * 출력 수평 좌표계를 보관합니다.
-     *
-     * @type {'EPSG:3857'} 월드 좌표(EPSG:3857)의 출력 CRS
-     */
-    _targetCrs: "EPSG:3857";
-    /** @type {'projected' | 'world'} */
-    _coordinateType: "projected" | "world";
-    /** @type {string | null} */
-    _worldProfile: string | null;
-    /** @type {'local' | 'absolute'} */
-    _positionSpace: "local" | "absolute";
-    /** @type {[number, number, number]} */
-    _origin: [number, number, number];
-    /** @type {'meters' | 'mercator-world'} */
-    _heightEncoding: "meters" | "mercator-world";
-    /** @type {'none' | 'per-node-latitude' | 'reference-y'} */
-    _heightScaleMode: "none" | "per-node-latitude" | "reference-y";
-    /** @type {string | null} */
-    _heightScaleFieldId: string | null;
-    /** @type {number | null} */
-    _heightScaleReferenceY: number | null;
-    /** @type {number | null} */
-    _heightScaleValue: number | null;
-    /** @type {[number, number, number, number]} */
-    _projectedBounds: [number, number, number, number];
-    /** @type {[number, number, number]} */
-    _baseRenderBoundsMin: [number, number, number];
-    /** @type {[number, number, number]} */
-    _baseRenderBoundsMax: [number, number, number];
-    /**
-     * sourceCrs 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {string} value 원본 좌표계 식별자이며 현재 자료는 EPSG:5187
-     */
-    set sourceCrs(value: string);
-    /**
-     * sourceCrs 값을 반환합니다.
-     *
-     * @returns {string} 원본 좌표계 식별자이며 현재 자료는 EPSG:5187
-     */
-    get sourceCrs(): string;
-    /**
-     * targetCrs 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {'EPSG:3857'} value 월드 좌표(EPSG:3857)의 출력 CRS
-     */
-    set targetCrs(value: "EPSG:3857");
-    /**
-     * targetCrs 값을 반환합니다.
-     *
-     * @returns {'EPSG:3857'} 월드 좌표(EPSG:3857)의 출력 CRS
-     */
-    get targetCrs(): "EPSG:3857";
-    /**
-     * coordinateType 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {'projected' | 'world'} value projected는 XY 투영 좌표·미터 Z, world는 엔진 월드 Z
-     */
-    set coordinateType(value: "projected" | "world");
-    /**
-     * coordinateType 값을 반환합니다.
-     *
-     * @returns {'projected' | 'world'} projected는 XY 투영 좌표·미터 Z, world는 엔진 월드 Z
-     */
-    get coordinateType(): "projected" | "world";
-    /**
-     * worldProfile 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {string | null} value world의 높이 배율 프로파일, projected는 null
-     */
-    set worldProfile(value: string | null);
-    /**
-     * worldProfile 값을 반환합니다.
-     *
-     * @returns {string | null} world의 높이 배율 프로파일, projected는 null
-     */
-    get worldProfile(): string | null;
-    /**
-     * positionSpace 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {'local' | 'absolute'} value local은 origin을 뺀 배열, absolute는 origin [0,0,0]
-     */
-    set positionSpace(value: "local" | "absolute");
-    /**
-     * positionSpace 값을 반환합니다.
-     *
-     * @returns {'local' | 'absolute'} local은 origin을 뺀 배열, absolute는 origin [0,0,0]
-     */
-    get positionSpace(): "local" | "absolute";
-    /**
-     * origin 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {[number, number, number]} value 저장한 position과 같은 공간의 고정 XYZ 기준점, 복사 없이 참조로 보관
-     */
-    set origin(value: [number, number, number]);
-    /**
-     * origin 값을 반환합니다.
-     *
-     * @returns {[number, number, number]} 저장한 position과 같은 공간의 고정 XYZ 기준점, 보관한 참조
-     */
-    get origin(): [number, number, number];
-    /**
-     * heightEncoding 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {'meters' | 'mercator-world'} value position Z의 표현 단위
-     */
-    set heightEncoding(value: "meters" | "mercator-world");
-    /**
-     * heightEncoding 값을 반환합니다.
-     *
-     * @returns {'meters' | 'mercator-world'} position Z의 표현 단위
-     */
-    get heightEncoding(): "meters" | "mercator-world";
-    /**
-     * heightScaleMode 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {'none' | 'per-node-latitude' | 'reference-y'} value 실제 metadata 2.0 이름 유지
-     */
-    set heightScaleMode(value: "none" | "per-node-latitude" | "reference-y");
-    /**
-     * heightScaleMode 값을 반환합니다.
-     *
-     * @returns {'none' | 'per-node-latitude' | 'reference-y'} 실제 metadata 2.0 이름 유지
-     */
-    get heightScaleMode(): "none" | "per-node-latitude" | "reference-y";
-    /**
-     * heightScaleFieldId 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {string | null} value 정점별 배율 필드 식별자
-     */
-    set heightScaleFieldId(value: string | null);
-    /**
-     * heightScaleFieldId 값을 반환합니다.
-     *
-     * @returns {string | null} 정점별 배율 필드 식별자
-     */
-    get heightScaleFieldId(): string | null;
-    /**
-     * heightScaleReferenceY 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {number | null} value reference-y의 기준 월드 Y
-     */
-    set heightScaleReferenceY(value: number | null);
-    /**
-     * heightScaleReferenceY 값을 반환합니다.
-     *
-     * @returns {number | null} reference-y의 기준 월드 Y
-     */
-    get heightScaleReferenceY(): number | null;
-    /**
-     * heightScaleValue 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {number | null} value 미터 높이에 곱하는 공통 월드 배율
-     */
-    set heightScaleValue(value: number | null);
-    /**
-     * heightScaleValue 값을 반환합니다.
-     *
-     * @returns {number | null} 미터 높이에 곱하는 공통 월드 배율
-     */
-    get heightScaleValue(): number | null;
-    /**
-     * projectedBounds 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {[number, number, number, number]} value 월드 좌표(EPSG:3857)의 minX,minY,maxX,maxY, 복사 없이 참조로 보관
-     */
-    set projectedBounds(value: [number, number, number, number]);
-    /**
-     * projectedBounds 값을 반환합니다.
-     *
-     * @returns {[number, number, number, number]} 월드 좌표(EPSG:3857)의 minX,minY,maxX,maxY, 보관한 참조
-     */
-    get projectedBounds(): [number, number, number, number];
-    /**
-     * baseRenderBoundsMin 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {[number, number, number]} value 저장된 바탕 position 공간의 최솟값, 복사 없이 참조로 보관
-     */
-    set baseRenderBoundsMin(value: [number, number, number]);
-    /**
-     * baseRenderBoundsMin 값을 반환합니다.
-     *
-     * @returns {[number, number, number]} 저장된 바탕 position 공간의 최솟값, 보관한 참조
-     */
-    get baseRenderBoundsMin(): [number, number, number];
-    /**
-     * baseRenderBoundsMax 값을 저장합니다.<br>
-     * 다른 필드를 갱신하거나 값의 유효성을 검증하지 않습니다.
-     *
-     * @param {[number, number, number]} value 저장된 바탕 position 공간의 최댓값, 복사 없이 참조로 보관
-     */
-    set baseRenderBoundsMax(value: [number, number, number]);
-    /**
-     * baseRenderBoundsMax 값을 반환합니다.
-     *
-     * @returns {[number, number, number]} 저장된 바탕 position 공간의 최댓값, 보관한 참조
-     */
-    get baseRenderBoundsMax(): [number, number, number];
-}
-
-declare global {
-    /**
-     * 정적 연결과 시간별 대기 필드를 보관하는 내부 처리 자료입니다.
-     */
-    type UA3FGeometryFactoryBindings = {
-        /**
-         * attribute 이름 → 정적 fieldId
-         */
-        staticBindings: Map<string, string>;
-        /**
-         * 프레임 수신 시 연결할 중복 없는 fieldId
-         */
-        pendingFieldIds: Array<string>;
-    };
-    /**
-     * Geometry의 position 공간에 맞춘 표시 경계입니다.
-     */
-    type UA3FGeometryFactoryBounds = {
-        /**
-         * 보수적인 경계 최솟값
-         */
-        min: [number, number, number];
-        /**
-         * 보수적인 경계 최댓값
-         */
-        max: [number, number, number];
-    };
-    /**
-     * 형상 구성에 사용할 배열과 출력 좌표를 보관합니다.
-     */
-    type UA3FGeometryFactoryPrepared = {
-        /**
-         * 원본 world view 또는 새 환산 배열
-         */
-        position: Float32Array;
-        /**
-         * 원본 인덱스 view
-         */
-        index: Uint16Array | Uint32Array;
-        /**
-         * 실제 position 공간을 표현하는 출력 좌표
-         */
-        coordinates: UA3FCoordinateVo;
-        /**
-         * 출력 공간의 표시 경계 최솟값
-         */
-        boundsMin: [number, number, number];
-        /**
-         * 출력 공간의 표시 경계 최댓값
-         */
-        boundsMax: [number, number, number];
-        /**
-         * projected 환산에서 만든 정점별 배율 또는 null
-         */
-        scaleArray: Float32Array | null;
-        /**
-         * 새 배율 attribute 이름 또는 null
-         */
-        scaleName: string | null;
-    };
-}
-
-declare global {
-    /**
-     * 셰이더에 연결한 실제 attribute의 작은 사본입니다.
-     */
-    type UA3FHeightAttribute = {
-        /**
-         * 실제 GLSL attribute 이름
-         */
-        name: string;
-        /**
-         * Float32 벡터 폭, 1~4
-         */
-        itemSize: number;
-    };
-    /**
-     * 순서와 중복을 유지하는 높이 피연산자입니다.
-     */
-    type UA3FHeightOperand = UA3FHeightAttribute & {
-        component: number;
-    };
-    /**
-     * 생성 시 입력 VO에서 복사한 셰이더 설정입니다.<br>
-     * 배열은 이 팩토리에서 새로 만들며 geometry와 원본 필드는 보관하지 않습니다.
-     */
-    type UA3FHeightShaderProfile = {
-        /**
-         * 연산 순서와 0 기반 성분을 보관한 입력 목록
-         */
-        inputs: Array<UA3FHeightOperand>;
-        /**
-         * 중복을 제거한 실제 attribute 이름과 벡터 폭
-         */
-        declarations: Array<[string, number]>;
-        /**
-         * 정점별 배율 attribute 이름 또는 공통 배율이면 null
-         */
-        scaleName: string | null;
-        /**
-         * 공통 월드 배율, 정점별 방식이면 사용하지 않는 1
-         */
-        scaleValue: number;
-        /**
-         * 정규화한 출력 좌표의 배율 방식
-         */
-        mode: "per-node-latitude" | "reference-y";
-        /**
-         * local이면 출력 origin의 Z, absolute이면 0, 월드 좌표(EPSG:3857) 단위
-         */
-        originZ: number;
-        /**
-         * 배율 적용 전에 더하는 표시 오프셋, 미터 단위
-         */
-        offset: number;
-    };
-}
-
-declare global {
-    /**
-     * UA3FMetadataLoader 생성자 옵션입니다.
-     */
-    type UA3FMetadataLoaderCO_Content = {
-        /**
-         * globalThis receiver로 실행할 통신 함수, 생략 시 전역 fetch
-         */
-        fetchFunction?: typeof fetch;
-    };
-    /**
-     * UA3FMetadataLoader 생성자 옵션입니다.
-     */
-    type UA3FMetadataLoaderCO = UA3FMetadataLoaderCO_Content;
-}
-
-/**
- * 하위 metadata를 요청하기 전의 공간·무결성 정보를 보관합니다.
- * 생성 시 옵션을 보관하고 실행·파일 접근·자원 해제는 수행하지 않습니다.
-     *
- * @group A3F
- * @summary 하위 metadata를 요청하기 전의 공간·무결성 정보를 보관합니다.
- */
-declare class UA3FChildMetadataVo {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FChildMetadataVo 클래스 생성자입니다.
-     * 필드 값의 유효성은 사용하는 실행 모듈에서 검사합니다.
-     *
-     * @param {UA3FChildMetadataVoCO} opt 모든 키가 필수이며 null 불가, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FChildMetadataVoCO);
-    /** @type {string} */
-    _nodeId: string;
-    /** @type {string} */
-    _metadataUri: string;
-    /** @type {UA3FNodeBoundingBoxData} */
-    _boundingBox: UA3FNodeBoundingBoxData;
-    /** @type {number} */
-    _geometricError: number;
-    /** @type {number | null} */
-    _byteLength: number | null;
-    /** @type {string | null} */
-    _sha256: string | null;
-    /**
-     * 하위 root.nodeId와 대조할 비어 있지 않은 식별자 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {string} value 하위 root.nodeId와 대조할 비어 있지 않은 식별자
-     */
-    set nodeId(value: string);
-    /**
-     * 하위 root.nodeId와 대조할 비어 있지 않은 식별자 값을 반환합니다.
-     *
-     * @returns {string} 하위 root.nodeId와 대조할 비어 있지 않은 식별자
-     */
-    get nodeId(): string;
-    /**
-     * 현재 부모 JSON 기준 상대 metadata URI 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {string} value 현재 부모 JSON 기준 상대 metadata URI
-     */
-    set metadataUri(value: string);
-    /**
-     * 현재 부모 JSON 기준 상대 metadata URI 값을 반환합니다.
-     *
-     * @returns {string} 현재 부모 JSON 기준 상대 metadata URI
-     */
-    get metadataUri(): string;
-    /**
-     * 월드 좌표(EPSG:3857) XY와 원본 미터 Z 범위 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {UA3FNodeBoundingBoxData} value 월드 좌표(EPSG:3857) XY와 원본 미터 Z 범위
-     */
-    set boundingBox(value: UA3FNodeBoundingBoxData);
-    /**
-     * 월드 좌표(EPSG:3857) XY와 원본 미터 Z 범위 값을 반환합니다.
-     *
-     * @returns {UA3FNodeBoundingBoxData} 월드 좌표(EPSG:3857) XY와 원본 미터 Z 범위
-     */
-    get boundingBox(): UA3FNodeBoundingBoxData;
-    /**
-     * 유한한 0 이상 월드 좌표(EPSG:3857) 투영 평면 단위 오차 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 유한한 0 이상 월드 좌표(EPSG:3857) 투영 평면 단위 오차
-     */
-    set geometricError(value: number);
-    /**
-     * 유한한 0 이상 월드 좌표(EPSG:3857) 투영 평면 단위 오차 값을 반환합니다.
-     *
-     * @returns {number} 유한한 0 이상 월드 좌표(EPSG:3857) 투영 평면 단위 오차
-     */
-    get geometricError(): number;
-    /**
-     * UTF-8 JSON 기대 바이트 길이 또는 null, sha256과 함께 지정 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number | null} value UTF-8 JSON 기대 바이트 길이 또는 null, sha256과 함께 지정
-     */
-    set byteLength(value: number | null);
-    /**
-     * UTF-8 JSON 기대 바이트 길이 또는 null, sha256과 함께 지정 값을 반환합니다.
-     *
-     * @returns {number | null} UTF-8 JSON 기대 바이트 길이 또는 null, sha256과 함께 지정
-     */
-    get byteLength(): number | null;
-    /**
-     * raw bytes의 64자리 SHA-256 또는 null 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {string | null} value raw bytes의 64자리 SHA-256 또는 null
-     */
-    set sha256(value: string | null);
-    /**
-     * raw bytes의 64자리 SHA-256 또는 null 값을 반환합니다.
-     *
-     * @returns {string | null} raw bytes의 64자리 SHA-256 또는 null
-     */
-    get sha256(): string | null;
-}
-
-/**
- * 한 metadata 문서의 출처·공간 정의·원본 자료를 보관합니다.
- * 생성 시 옵션을 보관하고 실행·파일 접근·자원 해제는 수행하지 않습니다.
-     *
- * @group A3F
- * @summary 한 metadata 문서의 출처·공간 정의·원본 자료를 보관합니다.
- */
-declare class UA3FMetadataVo {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FMetadataVo 클래스 생성자입니다.
-     * 필드 값의 유효성은 사용하는 실행 모듈에서 검사합니다.
-     *
-     * @param {UA3FMetadataVoCO} opt 모든 키가 필수이며 null 불가, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FMetadataVoCO);
-    /** @type {string} */
-    _metadataUrl: string;
-    /** @type {string} */
-    _nodeKey: string;
-    /** @type {string} */
-    _datasetId: string;
-    /** @type {import('@union3d/a3f/vo/UA3FNodeVo').UA3FNodeVo} */
-    _nodeVo: UA3FNodeVo;
-    /** @type {Array<import('@union3d/a3f/vo/UA3FFrameVo').UA3FFrameVo>} */
-    _frames: Array<UA3FFrameVo>;
-    /** @type {Array<import('@union3d/a3f/vo/UA3FChildMetadataVo').UA3FChildMetadataVo>} */
-    _children: Array<UA3FChildMetadataVo>;
-    /** @type {UA3FMetadataDocumentData} */
-    _source: UA3FMetadataDocumentData;
-    /**
-     * 정규화한 응답 절대 URL, 각 상대 파일 주소의 기준 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {string} value 정규화한 응답 절대 URL, 각 상대 파일 주소의 기준
-     */
-    set metadataUrl(value: string);
-    /**
-     * 정규화한 응답 절대 URL, 각 상대 파일 주소의 기준 값을 반환합니다.
-     *
-     * @returns {string} 정규화한 응답 절대 URL, 각 상대 파일 주소의 기준
-     */
-    get metadataUrl(): string;
-    /**
-     * URL과 원본 root.nodeId로 구성한 충돌 없는 클라이언트 키 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {string} value URL과 원본 root.nodeId로 구성한 충돌 없는 클라이언트 키
-     */
-    set nodeKey(value: string);
-    /**
-     * URL과 원본 root.nodeId로 구성한 충돌 없는 클라이언트 키 값을 반환합니다.
-     *
-     * @returns {string} URL과 원본 root.nodeId로 구성한 충돌 없는 클라이언트 키
-     */
-    get nodeKey(): string;
-    /**
-     * 이 문서 원본의 데이터셋 식별자 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {string} value 이 문서 원본의 데이터셋 식별자
-     */
-    set datasetId(value: string);
-    /**
-     * 이 문서 원본의 데이터셋 식별자 값을 반환합니다.
-     *
-     * @returns {string} 이 문서 원본의 데이터셋 식별자
-     */
-    get datasetId(): string;
-    /**
-     * 원본 공간 정의 사본, 독립 문서의 parentNodeId는 null 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FNodeVo').UA3FNodeVo} value 원본 공간 정의 사본, 독립 문서의 parentNodeId는 null
-     */
-    set nodeVo(value: UA3FNodeVo);
-    /**
-     * 원본 공간 정의 사본, 독립 문서의 parentNodeId는 null 값을 반환합니다.
-     *
-     * @returns {import('@union3d/a3f/vo/UA3FNodeVo').UA3FNodeVo} 원본 공간 정의 사본, 독립 문서의 parentNodeId는 null
-     */
-    get nodeVo(): UA3FNodeVo;
-    /**
-     * 형상 ID를 더해 정규화한 프레임·원본 시각·통계 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {Array<import('@union3d/a3f/vo/UA3FFrameVo').UA3FFrameVo>} value 형상 ID를 더해 정규화한 프레임·원본 시각·통계
-     */
-    set frames(value: Array<UA3FFrameVo>);
-    /**
-     * 형상 ID를 더해 정규화한 프레임·원본 시각·통계 값을 반환합니다.
-     *
-     * @returns {Array<import('@union3d/a3f/vo/UA3FFrameVo').UA3FFrameVo>} 형상 ID를 더해 정규화한 프레임·원본 시각·통계
-     */
-    get frames(): Array<UA3FFrameVo>;
-    /**
-     * 현재 문서 URL 기준 외부 metadata 참조 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {Array<import('@union3d/a3f/vo/UA3FChildMetadataVo').UA3FChildMetadataVo>} value 현재 문서 URL 기준 외부 metadata 참조
-     */
-    set children(value: Array<UA3FChildMetadataVo>);
-    /**
-     * 현재 문서 URL 기준 외부 metadata 참조 값을 반환합니다.
-     *
-     * @returns {Array<import('@union3d/a3f/vo/UA3FChildMetadataVo').UA3FChildMetadataVo>} 현재 문서 URL 기준 외부 metadata 참조
-     */
-    get children(): Array<UA3FChildMetadataVo>;
-    /**
-     * 원본 필드·배치·파일·형상·시간·재질을 보존한 독립 JSON 사본 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {UA3FMetadataDocumentData} value 원본 필드·배치·파일·형상·시간·재질을 보존한 독립 JSON 사본
-     */
-    set source(value: UA3FMetadataDocumentData);
-    /**
-     * 원본 필드·배치·파일·형상·시간·재질을 보존한 독립 JSON 사본 값을 반환합니다.
-     *
-     * @returns {UA3FMetadataDocumentData} 원본 필드·배치·파일·형상·시간·재질을 보존한 독립 JSON 사본
-     */
-    get source(): UA3FMetadataDocumentData;
-}
-
-/**
- * 현재 표시·준비·보류·회수 대상의 선택 계획 사본을 전달합니다.
- * 생성 시 옵션을 보관하고 실행·파일 접근·자원 해제는 수행하지 않습니다.
-     *
- * @group A3F
- * @summary 현재 표시·준비·보류·회수 대상의 선택 계획 사본을 전달합니다.
- */
-declare class UA3FSpatialSelectionVo {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FSpatialSelectionVo 클래스 생성자입니다.
-     * 필드 값의 유효성은 사용하는 실행 모듈에서 검사합니다.
-     *
-     * @param {UA3FSpatialSelectionVoCO} opt 모든 키가 필수이며 null 불가, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FSpatialSelectionVoCO);
-    /** @type {number} */
-    _selectionId: number;
-    /** @type {string} */
-    _contentKey: string;
-    /** @type {Array<import('@union3d/a3f/vo/UA3FMetadataVo').UA3FMetadataVo>} */
-    _requiredNodes: Array<UA3FMetadataVo>;
-    /** @type {Array<string>} */
-    _visibleNodeKeys: Array<string>;
-    /** @type {Array<string>} */
-    _pendingMetadataUrls: Array<string>;
-    /** @type {Array<string>} */
-    _releaseNodeKeys: Array<string>;
-    /** @type {Array<Error>} */
-    _errors: Array<Error>;
-    /**
-     * 관리자 안에서 증가하는 양의 선택 순번 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 관리자 안에서 증가하는 양의 선택 순번
-     */
-    set selectionId(value: number);
-    /**
-     * 관리자 안에서 증가하는 양의 선택 순번 값을 반환합니다.
-     *
-     * @returns {number} 관리자 안에서 증가하는 양의 선택 순번
-     */
-    get selectionId(): number;
-    /**
-     * 계획에 해당하는 프레임·높이 상태 키 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {string} value 계획에 해당하는 프레임·높이 상태 키
-     */
-    set contentKey(value: string);
-    /**
-     * 계획에 해당하는 프레임·높이 상태 키 값을 반환합니다.
-     *
-     * @returns {string} 계획에 해당하는 프레임·높이 상태 키
-     */
-    get contentKey(): string;
-    /**
-     * 준비할 목표·대체 표시 형상 노드, 컨테이너 제외 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {Array<import('@union3d/a3f/vo/UA3FMetadataVo').UA3FMetadataVo>} value 준비할 목표·대체 표시 형상 노드, 컨테이너 제외
-     */
-    set requiredNodes(value: Array<UA3FMetadataVo>);
-    /**
-     * 준비할 목표·대체 표시 형상 노드, 컨테이너 제외 값을 반환합니다.
-     *
-     * @returns {Array<import('@union3d/a3f/vo/UA3FMetadataVo').UA3FMetadataVo>} 준비할 목표·대체 표시 형상 노드, 컨테이너 제외
-     */
-    get requiredNodes(): Array<UA3FMetadataVo>;
-    /**
-     * 현재 표시할 준비 완료 또는 보존 중인 노드 키 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {Array<string>} value 현재 표시할 준비 완료 또는 보존 중인 노드 키
-     */
-    set visibleNodeKeys(value: Array<string>);
-    /**
-     * 현재 표시할 준비 완료 또는 보존 중인 노드 키 값을 반환합니다.
-     *
-     * @returns {Array<string>} 현재 표시할 준비 완료 또는 보존 중인 노드 키
-     */
-    get visibleNodeKeys(): Array<string>;
-    /**
-     * 아직 필요한 metadata URL, a3f 파일 요청 목록이 아님 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {Array<string>} value 아직 필요한 metadata URL, a3f 파일 요청 목록이 아님
-     */
-    set pendingMetadataUrls(value: Array<string>);
-    /**
-     * 아직 필요한 metadata URL, a3f 파일 요청 목록이 아님 값을 반환합니다.
-     *
-     * @returns {Array<string>} 아직 필요한 metadata URL, a3f 파일 요청 목록이 아님
-     */
-    get pendingMetadataUrls(): Array<string>;
-    /**
-     * 더 이상 준비·표시·대체에 필요 없어 소유자가 회수할 이전 노드 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {Array<string>} value 더 이상 준비·표시·대체에 필요 없어 소유자가 회수할 이전 노드
-     */
-    set releaseNodeKeys(value: Array<string>);
-    /**
-     * 더 이상 준비·표시·대체에 필요 없어 소유자가 회수할 이전 노드 값을 반환합니다.
-     *
-     * @returns {Array<string>} 더 이상 준비·표시·대체에 필요 없어 소유자가 회수할 이전 노드
-     */
-    get releaseNodeKeys(): Array<string>;
-    /**
-     * 하위 metadata·용량 오류의 참조 목록 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {Array<Error>} value 하위 metadata·용량 오류의 참조 목록
-     */
-    set errors(value: Array<Error>);
-    /**
-     * 하위 metadata·용량 오류의 참조 목록 값을 반환합니다.
-     *
-     * @returns {Array<Error>} 하위 metadata·용량 오류의 참조 목록
-     */
-    get errors(): Array<Error>;
-}
-
-/**
- * 한 번의 공간 선택에 사용할 카메라·화면·콘텐츠 기준을 전달합니다.
- * 생성 시 옵션을 보관하고 실행·파일 접근·자원 해제는 수행하지 않습니다.
-     *
- * @group A3F
- * @summary 한 번의 공간 선택에 사용할 카메라·화면·콘텐츠 기준을 전달합니다.
- */
-declare class UA3FSpatialViewVo {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FSpatialViewVo 클래스 생성자입니다.
-     * 필드 값의 유효성은 사용하는 실행 모듈에서 검사합니다.
-     *
-     * @param {UA3FSpatialViewVoCO} opt 모든 키가 필수이며 null 불가, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FSpatialViewVoCO);
-    /** @type {UA3FSpatialCamera} */
-    _camera: UA3FSpatialCamera;
-    /** @type {number} */
-    _viewportHeight: number;
-    /** @type {[number, number, number, number] | null} */
-    _viewBoundsXY: [number, number, number, number] | null;
-    /** @type {string} */
-    _contentKey: string;
-    /**
-     * 절대 월드 좌표(EPSG:3857)의 갱신 완료 카메라, 빌린 참조이며 변경·해제 금지 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {UA3FSpatialCamera} value 절대 월드 좌표(EPSG:3857)의 갱신 완료 카메라, 빌린 참조이며 변경·해제 금지
-     */
-    set camera(value: UA3FSpatialCamera);
-    /**
-     * 절대 월드 좌표(EPSG:3857)의 갱신 완료 카메라, 빌린 참조이며 변경·해제 금지 값을 반환합니다.
-     *
-     * @returns {UA3FSpatialCamera} 절대 월드 좌표(EPSG:3857)의 갱신 완료 카메라, 빌린 참조이며 변경·해제 금지
-     */
-    get camera(): UA3FSpatialCamera;
-    /**
-     * 양의 유한 CSS pixel 높이, DPR을 중복 적용하지 않음 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 양의 유한 CSS pixel 높이, DPR을 중복 적용하지 않음
-     */
-    set viewportHeight(value: number);
-    /**
-     * 양의 유한 CSS pixel 높이, DPR을 중복 적용하지 않음 값을 반환합니다.
-     *
-     * @returns {number} 양의 유한 CSS pixel 높이, DPR을 중복 적용하지 않음
-     */
-    get viewportHeight(): number;
-    /**
-     * 보수적인 월드 좌표(EPSG:3857) minX,minY,maxX,maxY 또는 선행 XY 필터를 생략하는 null 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {[number, number, number, number] | null} value 보수적인 월드 좌표(EPSG:3857) minX,minY,maxX,maxY 또는 선행 XY 필터를 생략하는 null
-     */
-    set viewBoundsXY(value: [number, number, number, number] | null);
-    /**
-     * 보수적인 월드 좌표(EPSG:3857) minX,minY,maxX,maxY 또는 선행 XY 필터를 생략하는 null 값을 반환합니다.
-     *
-     * @returns {[number, number, number, number] | null} 보수적인 월드 좌표(EPSG:3857) minX,minY,maxX,maxY 또는 선행 XY 필터를 생략하는 null
-     */
-    get viewBoundsXY(): [number, number, number, number] | null;
-    /**
-     * 프레임·높이 정책 등 준비 결과를 구분하는 비어 있지 않은 상태 키 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {string} value 프레임·높이 정책 등 준비 결과를 구분하는 비어 있지 않은 상태 키
-     */
-    set contentKey(value: string);
-    /**
-     * 프레임·높이 정책 등 준비 결과를 구분하는 비어 있지 않은 상태 키 값을 반환합니다.
-     *
-     * @returns {string} 프레임·높이 정책 등 준비 결과를 구분하는 비어 있지 않은 상태 키
-     */
-    get contentKey(): string;
-}
-
-/**
- * 공간 상세화와 metadata 요청·저장 상한을 보관합니다.
- * 생성 시 옵션을 보관하고 실행·파일 접근·자원 해제는 수행하지 않습니다.
-     *
- * @group A3F
- * @summary 공간 상세화와 metadata 요청·저장 상한을 보관합니다.
- */
-declare class UA3FSpatialOptionsVo {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FSpatialOptionsVo 클래스 생성자입니다.
-     * 필드 값의 유효성은 사용하는 실행 모듈에서 검사합니다.
-     *
-     * @param {UA3FSpatialOptionsVoCO} [opt={}] 선택 정책이며 null 불가, 옵션 원본은 변경하지 않음
-     */
-    constructor(opt?: UA3FSpatialOptionsVoCO);
-    /** @type {number} */
-    _maximumScreenSpaceError: number;
-    /** @type {number} */
-    _hysteresisRatio: number;
-    /** @type {number} */
-    _maxDepth: number;
-    /** @type {number} */
-    _maxConcurrentMetadataLoads: number;
-    /** @type {number} */
-    _maxMetadataBytes: number;
-    /** @type {number} */
-    _maxCachedMetadataCount: number;
-    /** @type {number} */
-    _maxCachedMetadataBytes: number;
-    /**
-     * 상세화 진입 오차, 기본 16 CSS pixel, 양의 유한값 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 상세화 진입 오차, 기본 16 CSS pixel, 양의 유한값
-     */
-    set maximumScreenSpaceError(value: number);
-    /**
-     * 상세화 진입 오차, 기본 16 CSS pixel, 양의 유한값 값을 반환합니다.
-     *
-     * @returns {number} 상세화 진입 오차, 기본 16 CSS pixel, 양의 유한값
-     */
-    get maximumScreenSpaceError(): number;
-    /**
-     * 직전 상세화의 축소 비율, 기본 0.75, 0 초과 1 이하 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 직전 상세화의 축소 비율, 기본 0.75, 0 초과 1 이하
-     */
-    set hysteresisRatio(value: number);
-    /**
-     * 직전 상세화의 축소 비율, 기본 0.75, 0 초과 1 이하 값을 반환합니다.
-     *
-     * @returns {number} 직전 상세화의 축소 비율, 기본 0.75, 0 초과 1 이하
-     */
-    get hysteresisRatio(): number;
-    /**
-     * 루트 0 기준 최대 깊이, 기본 32, 0 이상 안전 정수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 루트 0 기준 최대 깊이, 기본 32, 0 이상 안전 정수
-     */
-    set maxDepth(value: number);
-    /**
-     * 루트 0 기준 최대 깊이, 기본 32, 0 이상 안전 정수 값을 반환합니다.
-     *
-     * @returns {number} 루트 0 기준 최대 깊이, 기본 32, 0 이상 안전 정수
-     */
-    get maxDepth(): number;
-    /**
-     * metadata HTTP부터 해석까지 동시 수, 기본 2, 양의 안전 정수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value metadata HTTP부터 해석까지 동시 수, 기본 2, 양의 안전 정수
-     */
-    set maxConcurrentMetadataLoads(value: number);
-    /**
-     * metadata HTTP부터 해석까지 동시 수, 기본 2, 양의 안전 정수 값을 반환합니다.
-     *
-     * @returns {number} metadata HTTP부터 해석까지 동시 수, 기본 2, 양의 안전 정수
-     */
-    get maxConcurrentMetadataLoads(): number;
-    /**
-     * JSON 한 파일의 raw 바이트 상한, 기본 4194304, 양의 안전 정수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value JSON 한 파일의 raw 바이트 상한, 기본 4194304, 양의 안전 정수
-     */
-    set maxMetadataBytes(value: number);
-    /**
-     * JSON 한 파일의 raw 바이트 상한, 기본 4194304, 양의 안전 정수 값을 반환합니다.
-     *
-     * @returns {number} JSON 한 파일의 raw 바이트 상한, 기본 4194304, 양의 안전 정수
-     */
-    get maxMetadataBytes(): number;
-    /**
-     * 준비·진행 metadata 수 상한, 기본 64, 양의 안전 정수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 준비·진행 metadata 수 상한, 기본 64, 양의 안전 정수
-     */
-    set maxCachedMetadataCount(value: number);
-    /**
-     * 준비·진행 metadata 수 상한, 기본 64, 양의 안전 정수 값을 반환합니다.
-     *
-     * @returns {number} 준비·진행 metadata 수 상한, 기본 64, 양의 안전 정수
-     */
-    get maxCachedMetadataCount(): number;
-    /**
-     * 준비 raw 길이와 진행 예약 바이트 합 상한, 기본 16777216, 양의 안전 정수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 준비 raw 길이와 진행 예약 바이트 합 상한, 기본 16777216, 양의 안전 정수
-     */
-    set maxCachedMetadataBytes(value: number);
-    /**
-     * 준비 raw 길이와 진행 예약 바이트 합 상한, 기본 16777216, 양의 안전 정수 값을 반환합니다.
-     *
-     * @returns {number} 준비 raw 길이와 진행 예약 바이트 합 상한, 기본 16777216, 양의 안전 정수
-     */
-    get maxCachedMetadataBytes(): number;
-}
-
-/**
- * 외부 metadata JSON 한 문서를 읽고 A3F 공간 정의를 정규화합니다.
- * 응답 길이·선택적 해시를 확인하고 원본 동적 정의를 보존하며 트리 관리자가 재사용합니다.
- * 트리·프레임 바이너리·메시·공유 워커의 수명은 소유하지 않습니다.
-     *
- * @group A3F
- * @summary 외부 metadata JSON 한 문서를 읽고 A3F 공간 정의를 정규화합니다.
- */
-declare class UA3FMetadataLoader {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FMetadataLoader 클래스 생성자입니다.
-     * 통신 함수를 보관하며 I/O와 숫자 버퍼 읽기를 시작하지 않습니다.
-     *
-     * @param {UA3FMetadataLoaderCO} [opt={}] 선택 통신 설정, null 불가, 원본 변경 없음
-     */
-    constructor(opt?: UA3FMetadataLoaderCO);
-    /** @type {typeof fetch} */
-    _fetchFunction: typeof fetch;
-    /** @type {WeakMap<import('@union3d/a3f/vo/UA3FMetadataVo').UA3FMetadataVo, number>} */
-    _byteLengths: WeakMap<UA3FMetadataVo, number>;
-    /**
-     * 한 JSON을 제한된 길이로 읽고 공간·프레임 참조를 반환합니다.
-     * 파일 해시 검사는 UTF-8 해석 전 raw bytes에 적용하고 상대 주소는 redirect 후 응답 URL을 기준으로 합니다.
-     *
-     * @param {string} metadataUrl 절대 metadata URL, null 불가
-     * @param {import('@union3d/a3f/vo/UA3FChildMetadataVo').UA3FChildMetadataVo | null} expectedChildVo 부모의 기대 참조 또는 루트 요청의 null, 변경하지 않음
-     * @param {AbortSignal} signal 이 HTTP의 취소 신호, null 불가
-     * @param {number} maxBytes 읽을 raw JSON의 양의 안전 정수 바이트 상한
-     * @returns {Promise<import('@union3d/a3f/vo/UA3FMetadataVo').UA3FMetadataVo>} 독립 JSON과 정규화된 공간 메타정보, 실패는 원래 오류 전달
-     */
-    load(metadataUrl: string, expectedChildVo: UA3FChildMetadataVo | null, signal: AbortSignal, maxBytes: number): Promise<UA3FMetadataVo>;
-    /**
-     * 이 로더가 읽은 문서의 실제 raw 바이트 길이를 반환합니다.
-     * VO에 포맷 외 필드를 추가하지 않고 약한 참조로 길이를 보관합니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FMetadataVo').UA3FMetadataVo} metadataVo 이 로더에서 반환받은 문서, 변경하지 않음
-     * @returns {number} 압축 해제된 UTF-8 JSON의 실제 바이트 길이
-     */
-    getByteLength(metadataVo: UA3FMetadataVo): number;
-    /**
-     * 관리 상태의 외부 교체를 거부합니다.
-     *
-     * @param {typeof fetch} value 빌린 통신 함수; 기존 값 또는 참조와 동일한 경우만 허용
-     */
-    set fetchFunction(value: typeof fetch);
-    /**
-     * 빌린 통신 함수 값을 반환합니다.
-     *
-     * @returns {typeof fetch} 빌린 통신 함수
-     */
-    get fetchFunction(): typeof fetch;
-    /**
-     * 관리 상태의 외부 교체를 거부합니다.
-     *
-     * @param {WeakMap<import('@union3d/a3f/vo/UA3FMetadataVo').UA3FMetadataVo, number>} value 반환 문서별 raw 길이의 약한 조회표, 외부 변경 금지; 기존 값 또는 참조와 동일한 경우만 허용
-     */
-    set byteLengths(value: WeakMap<UA3FMetadataVo, number>);
-    /**
-     * 반환 문서별 raw 길이의 약한 조회표, 외부 변경 금지 값을 반환합니다.
-     *
-     * @returns {WeakMap<import('@union3d/a3f/vo/UA3FMetadataVo').UA3FMetadataVo, number>} 반환 문서별 raw 길이의 약한 조회표, 외부 변경 금지
-     */
-    get byteLengths(): WeakMap<UA3FMetadataVo, number>;
-    #private;
-}
-
-declare global {
-    /**
-     * UA3FSpatialManager 생성자 옵션입니다.
-     */
-    type UA3FSpatialManagerCO_Content = {
-        /**
-         * 빌린 metadata 로더, 해제하지 않음
-         */
-        metadataLoader: UA3FMetadataLoader;
-        /**
-         * 값 범위가 유효한 정책, 생성 시 사본 보관
-         */
-        optionsVo: UA3FSpatialOptionsVo;
-    };
-    /**
-     * UA3FSpatialManager 생성자 옵션입니다.
-     */
-    type UA3FSpatialManagerCO = UA3FSpatialManagerCO_Content;
-    /**
-     * 공간 선택 내부의 UA3FSpatialRequest 자료입니다.
-     */
-    type UA3FSpatialRequest = {
-        /**
-         * 정규화한 요청 URL
-         */
-        url: string;
-        /**
-         * 부모 요청 URL 또는 루트의 null
-         */
-        parentUrl: string | null;
-        /**
-         * 부모 참조 또는 null
-         */
-        reference: UA3FChildMetadataVo | null;
-        /**
-         * 루트 0 기준 깊이
-         */
-        depth: number;
-        /**
-         * 순환 검사에 사용할 조상 요청/응답 URL
-         */
-        ancestors: Array<string>;
-    };
-    /**
-     * metadata 요청과 물리 완료·raw 길이를 보관합니다.
-     */
-    type UA3FSpatialEntry = UA3FSpatialRequest & {
-        bytes: number;
-        doc: UA3FMetadataVo | null;
-        loading: boolean;
-        controller: AbortController;
-        task: Promise<void> | null;
-        sequence: number;
-    };
-    /**
-     * 공간 선택 내부의 UA3FSpatialCover 자료입니다.
-     */
-    type UA3FSpatialCover = {
-        /**
-         * 현재 표시할 커버 노드
-         */
-        keys: Array<string>;
-        /**
-         * 같은 콘텐츠로 유효한 공간 커버 여부
-         */
-        ready: boolean;
-    };
-    /**
-     * 공간 선택 내부의 UA3FSpatialPass 자료입니다.
-     */
-    type UA3FSpatialPass = {
-        /**
-         * 선택 시점의 카메라 사본
-         */
-        view: UA3FSpatialViewVo;
-        /**
-         * 같은 콘텐츠의 준비 완료 키
-         */
-        ready: Set<string>;
-        /**
-         * 준비·보존할 형상 문서
-         */
-        required: Map<string, UA3FMetadataVo>;
-        /**
-         * 보호할 metadata 요청 URL
-         */
-        pins: Set<string>;
-        /**
-         * 요청할 현재 문서
-         */
-        demand: Map<string, UA3FSpatialRequest>;
-        /**
-         * 아직 필요한 metadata URL
-         */
-        pending: Set<string>;
-        /**
-         * 이번 상세화 노드
-         */
-        expanded: Set<string>;
-    };
-    /**
-     * 공간 선택 내부의 UA3FSpatialState 자료입니다.
-     */
-    type UA3FSpatialState = {
-        /**
-         * 이 관리자가 발급한 계획
-         */
-        selections: WeakSet<UA3FSpatialSelectionVo>;
-        /**
-         * 고정한 정책
-         */
-        options: UA3FSpatialOptionsVo;
-        /**
-         * 준비·진행 metadata
-         */
-        entries: Map<string, UA3FSpatialEntry>;
-        /**
-         * 현재 요구 문서
-         */
-        demand: Map<string, UA3FSpatialRequest>;
-        /**
-         * 보호된 문서 경로
-         */
-        pins: Set<string>;
-        /**
-         * 현재 요구의 실패
-         */
-        failures: Map<string, Error>;
-        /**
-         * 응답 URL별 요청 소유자
-         */
-        canonicalOwners: Map<string, string>;
-        /**
-         * 준비·표시 유지 중인 노드
-         */
-        retained: Map<string, UA3FMetadataVo>;
-        /**
-         * 직전 표시 커버
-         */
-        visible: Map<string, UA3FMetadataVo>;
-        /**
-         * 직전 상세화 상태
-         */
-        expanded: Set<string>;
-        /**
-         * 고정한 루트 요청 URL
-         */
-        rootUrl: string | null;
-        /**
-         * 루트 준비 공유 Promise
-         */
-        rootPromise: Promise<UA3FMetadataVo> | null;
-        /**
-         * 선택 전 0인 순번
-         */
-        selectionId: number;
-        /**
-         * 최근 사용 순번
-         */
-        sequence: number;
-        /**
-         * 요청 펌프 재진입 방지
-         */
-        pumping: boolean;
-        /**
-         * 종료 여부
-         */
-        disposed: boolean;
-        /**
-         * 현재 보류 용량 오류
-         */
-        capacityError: Error | null;
-        /**
-         * 선택 콘텐츠 기준 또는 미선택 null
-         */
-        contentKey: string | null;
-    };
-}
-
-declare global {
-    /**
-     * 공간 선택에서 지원하는 Three 카메라입니다.
-     */
-    type UA3FSpatialCamera = three.PerspectiveCamera | three.OrthographicCamera;
-}
-
-declare global {
-    /**
-     * 한 레이어가 소유하는 A3F 작업 관리자의 생성자 옵션입니다.<br>
-     * 워커 수와 대기 한도는 첫 작업 등록 전에만 변경할 수 있습니다.
-     */
-    type UA3FTaskManagerCO_Content = {
-        /**
-         * 비어 있지 않은 데이터셋 식별자
-         */
-        datasetId: string;
-        /**
-         * 양의 안전 정수인 물리 워커 수와 동시 실행 상한
-         */
-        workerCount?: number;
-        /**
-         * 0 이상의 안전 정수인 실행 전 대기 수 상한
-         */
-        maxQueuedTasks?: number;
-        /**
-         * 0 이상의 안전 정수인 대기 backing buffer 바이트 상한
-         */
-        maxQueuedBytes?: number;
-    };
-    /**
-     * 한 레이어가 소유하는 A3F 작업 관리자의 생성자 옵션입니다.<br>
-     * 워커 수와 대기 한도는 첫 작업 등록 전에만 변경할 수 있습니다.
-     */
-    type UA3FTaskManagerCO = UA3FTaskManagerCO_Content;
-    /**
-     * A3F 워커 해석 요청의 선택 옵션입니다.<br>
-     * 입력을 전송하면 기존 버퍼는 분리되며 실패·취소 시 입력을 반환하지 않습니다.
-     */
-    type UA3FTaskManagerDecodeOptions = {
-        /**
-         * 워커 파서에서 SHA-256 확인 여부이며 false여도 배치와 숫자 검증 유지
-         */
-        verifyHash?: boolean;
-        /**
-         * 실제 전송 시 입력 버퍼 소유권 이전 여부이며 false이면 구조화 복사
-         */
-        transferInput?: boolean;
-    };
-    /**
-     * 인코딩 요청의 선택 옵션입니다.
-     */
-    type UA3FTaskManagerEncodeOptions = {
-        /**
-         * true이면 입력 backing buffer 전체를 이전하고 모든 공유 view가 분리됨
-         */
-        transferInput?: boolean;
-    };
-    /**
-     * Manager 안에서 Promise 종결과 실제 워커 슬롯을 추적하는 구현 자료입니다.
-     */
-    type UA3FTaskManagerEntry = {
-        /**
-         * 등록 시 고정한 작업 문맥
-         */
-        context: UA3FTaskContextVo;
-        /**
-         * 워커 코덱 메서드 이름
-         */
-        subType: ("decode" | "encode");
-        /**
-         * 전송 정의이며 실제 종결 후 참조 해제를 위해 null
-         */
-        data: (UA3FParserTaskDecodeRequest | UA3FParserTaskEncodeRequest | null);
-        /**
-         * 중복 없는 입력 이전 목록이며 구조화 복사 요청은 빈 배열
-         */
-        transferList: Array<ArrayBuffer>;
-        /**
-         * 공유 backing buffer를 요청 안에서 한 번씩 합산한 바이트 수
-         */
-        byteLength: number;
-        /**
-         * 양의 안전 정수인 등록 순번
-         */
-        sequence: number;
-        /**
-         * 전송 준비 대기를 포함하는 물리 작업 상태
-         */
-        state: ("queued" | "running");
-        /**
-         * 대기 중 -1이며 실행 시 0 기반 물리 슬롯
-         */
-        workerIndex: number;
-        /**
-         * 호출자 Promise의 종결 여부이며 취소된 실행 작업은 응답까지 Map에 유지
-         */
-        settled: boolean;
-        /**
-         * 성공 시 한 번 호출할 완료 함수
-         */
-        resolve: (value: UA3FDecodedBufferVo | ArrayBuffer) => void;
-        /**
-         * 실패·취소 시 한 번 호출할 거부 함수
-         */
-        reject: (reason: unknown) => void;
-    };
-}
-
-/**
- * A3F 수치 시간 재생과 캐시 설정을 보관합니다.
- * 생성 시 옵션을 보관하고 실행·파일 접근·자원 해제는 수행하지 않습니다.
-     *
- * @group A3F
- * @summary A3F 수치 시간 재생과 캐시 설정을 보관합니다.
- */
-declare class UA3FTimelineOptionsVo {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FTimelineOptionsVo 클래스 생성자입니다.
-     * 필드 값의 유효성은 사용하는 실행 모듈에서 검사합니다.
-     *
-     * @param {UA3FTimelineOptionsVoCO} [opt={}] 선택 정책이며 null 불가, 옵션 원본은 변경하지 않음
-     */
-    constructor(opt?: UA3FTimelineOptionsVoCO);
-    /** @type {string | null} */
-    _sourceTimeUnit: string | null;
-    /** @type {number} */
-    _sourceUnitsPerSecond: number;
-    /** @type {number} */
-    _playbackRate: number;
-    /** @type {boolean} */
-    _loop: boolean;
-    /** @type {import('@union3d/a3f/vo/UA3FFrameCacheOptionsVo').UA3FFrameCacheOptionsVo} */
-    _cacheOptionsVo: UA3FFrameCacheOptionsVo;
-    /**
-     * 원본 시간 단위 또는 미확정 null, 기본 null 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {string | null} value 원본 시간 단위 또는 미확정 null, 기본 null
-     */
-    set sourceTimeUnit(value: string | null);
-    /**
-     * 원본 시간 단위 또는 미확정 null, 기본 null 값을 반환합니다.
-     *
-     * @returns {string | null} 원본 시간 단위 또는 미확정 null, 기본 null
-     */
-    get sourceTimeUnit(): string | null;
-    /**
-     * 실제 경과 1초마다 진행할 원본 수치 시간량, 양의 유한값, 기본1 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 실제 경과 1초마다 진행할 원본 수치 시간량, 양의 유한값, 기본1
-     */
-    set sourceUnitsPerSecond(value: number);
-    /**
-     * 실제 경과 1초마다 진행할 원본 수치 시간량, 양의 유한값, 기본1 값을 반환합니다.
-     *
-     * @returns {number} 실제 경과 1초마다 진행할 원본 수치 시간량, 양의 유한값, 기본1
-     */
-    get sourceUnitsPerSecond(): number;
-    /**
-     * 0 아닌 유한 배속, 양수 정방향·음수 역방향, 기본1 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 0 아닌 유한 배속, 양수 정방향·음수 역방향, 기본1
-     */
-    set playbackRate(value: number);
-    /**
-     * 0 아닌 유한 배속, 양수 정방향·음수 역방향, 기본1 값을 반환합니다.
-     *
-     * @returns {number} 0 아닌 유한 배속, 양수 정방향·음수 역방향, 기본1
-     */
-    get playbackRate(): number;
-    /**
-     * 시간 범위 끝에서 반복할지 여부, 기본false 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {boolean} value 시간 범위 끝에서 반복할지 여부, 기본false
-     */
-    set loop(value: boolean);
-    /**
-     * 시간 범위 끝에서 반복할지 여부, 기본false 값을 반환합니다.
-     *
-     * @returns {boolean} 시간 범위 끝에서 반복할지 여부, 기본false
-     */
-    get loop(): boolean;
-    /**
-     * 기존109의 로딩 정책, 기본 streaming/3/2/null/true 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FFrameCacheOptionsVo').UA3FFrameCacheOptionsVo} value 기존109의 로딩 정책, 기본 streaming/3/2/null/true
-     */
-    set cacheOptionsVo(value: UA3FFrameCacheOptionsVo);
-    /**
-     * 기존109의 로딩 정책, 기본 streaming/3/2/null/true 값을 반환합니다.
-     *
-     * @returns {import('@union3d/a3f/vo/UA3FFrameCacheOptionsVo').UA3FFrameCacheOptionsVo} 기존109의 로딩 정책, 기본 streaming/3/2/null/true
-     */
-    get cacheOptionsVo(): UA3FFrameCacheOptionsVo;
-}
-
-/**
- * 시간축 표시와 외부 구독에 전달할 재생 상태 사본을 보관합니다.
- * 생성 시 옵션을 보관하고 실행·파일 접근·자원 해제는 수행하지 않습니다.
-     *
- * @group A3F
- * @summary 시간축 표시와 외부 구독에 전달할 재생 상태 사본을 보관합니다.
- */
-declare class UA3FTimelineStateVo {
-    /** @type {Array<string>} @ignore */
-    static OPT_KEYS: Array<string>;
-    /**
-     * UA3FTimelineStateVo 클래스 생성자입니다.
-     * 필드 값의 유효성은 사용하는 실행 모듈에서 검사합니다.
-     *
-     * @param {UA3FTimelineStateVoCO} opt 모든 키가 필수이며 null 불가, 객체·배열은 참조로 보관
-     */
-    constructor(opt: UA3FTimelineStateVoCO);
-    /** @type {UA3FTimelineStatus} */
-    _status: UA3FTimelineStatus;
-    /** @type {number | null} */
-    _requestedTime: number | null;
-    /** @type {number | null} */
-    _displayedTime: number | null;
-    /** @type {number | null} */
-    _requestedFrameIndex: number | null;
-    /** @type {number | null} */
-    _displayedFrameIndex: number | null;
-    /** @type {number} */
-    _frameCount: number;
-    /** @type {boolean} */
-    _playing: boolean;
-    /** @type {number} */
-    _requestId: number;
-    /** @type {import('@union3d/a3f/vo/UA3FTimelineOptionsVo').UA3FTimelineOptionsVo} */
-    _optionsVo: UA3FTimelineOptionsVo;
-    /** @type {import('@union3d/a3f/vo/UA3FFrameCacheStatusVo').UA3FFrameCacheStatusVo | null} */
-    _cacheStatusVo: UA3FFrameCacheStatusVo | null;
-    /** @type {Error | null} */
-    _error: Error | null;
-    /**
-     * idle/paused/playing/buffering/configuring/error/ended/disposed의 주요 상태 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {UA3FTimelineStatus} value idle/paused/playing/buffering/configuring/error/ended/disposed의 주요 상태
-     */
-    set status(value: UA3FTimelineStatus);
-    /**
-     * idle/paused/playing/buffering/configuring/error/ended/disposed의 주요 상태 값을 반환합니다.
-     *
-     * @returns {UA3FTimelineStatus} idle/paused/playing/buffering/configuring/error/ended/disposed의 주요 상태
-     */
-    get status(): UA3FTimelineStatus;
-    /**
-     * 현재 목표 원본 시각, 미선택 null 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number | null} value 현재 목표 원본 시각, 미선택 null
-     */
-    set requestedTime(value: number | null);
-    /**
-     * 현재 목표 원본 시각, 미선택 null 값을 반환합니다.
-     *
-     * @returns {number | null} 현재 목표 원본 시각, 미선택 null
-     */
-    get requestedTime(): number | null;
-    /**
-     * 실제 적용한 유효 프레임 원본 시각, 표시 전 null 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number | null} value 실제 적용한 유효 프레임 원본 시각, 표시 전 null
-     */
-    set displayedTime(value: number | null);
-    /**
-     * 실제 적용한 유효 프레임 원본 시각, 표시 전 null 값을 반환합니다.
-     *
-     * @returns {number | null} 실제 적용한 유효 프레임 원본 시각, 표시 전 null
-     */
-    get displayedTime(): number | null;
-    /**
-     * 요청한 등록 frameIndex, 미선택 null, 목록 위치와 구분 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number | null} value 요청한 등록 frameIndex, 미선택 null, 목록 위치와 구분
-     */
-    set requestedFrameIndex(value: number | null);
-    /**
-     * 요청한 등록 frameIndex, 미선택 null, 목록 위치와 구분 값을 반환합니다.
-     *
-     * @returns {number | null} 요청한 등록 frameIndex, 미선택 null, 목록 위치와 구분
-     */
-    get requestedFrameIndex(): number | null;
-    /**
-     * 실제 적용한 유효 frameIndex, 표시 전 null 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number | null} value 실제 적용한 유효 frameIndex, 표시 전 null
-     */
-    set displayedFrameIndex(value: number | null);
-    /**
-     * 실제 적용한 유효 frameIndex, 표시 전 null 값을 반환합니다.
-     *
-     * @returns {number | null} 실제 적용한 유효 frameIndex, 표시 전 null
-     */
-    get displayedFrameIndex(): number | null;
-    /**
-     * 등록 프레임 수, 양의 안전 정수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 등록 프레임 수, 양의 안전 정수
-     */
-    set frameCount(value: number);
-    /**
-     * 등록 프레임 수, 양의 안전 정수 값을 반환합니다.
-     *
-     * @returns {number} 등록 프레임 수, 양의 안전 정수
-     */
-    get frameCount(): number;
-    /**
-     * 사용자의 재생 의도, 로딩 중에는 true여도 시계 정지 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {boolean} value 사용자의 재생 의도, 로딩 중에는 true여도 시계 정지
-     */
-    set playing(value: boolean);
-    /**
-     * 사용자의 재생 의도, 로딩 중에는 true여도 시계 정지 값을 반환합니다.
-     *
-     * @returns {boolean} 사용자의 재생 의도, 로딩 중에는 true여도 시계 정지
-     */
-    get playing(): boolean;
-    /**
-     * 최신 요청 순번, 선택 전0 이후 양의 안전 정수 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {number} value 최신 요청 순번, 선택 전0 이후 양의 안전 정수
-     */
-    set requestId(value: number);
-    /**
-     * 최신 요청 순번, 선택 전0 이후 양의 안전 정수 값을 반환합니다.
-     *
-     * @returns {number} 최신 요청 순번, 선택 전0 이후 양의 안전 정수
-     */
-    get requestId(): number;
-    /**
-     * 적용한 재생 정책의 독립 작은 사본 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FTimelineOptionsVo').UA3FTimelineOptionsVo} value 적용한 재생 정책의 독립 작은 사본
-     */
-    set optionsVo(value: UA3FTimelineOptionsVo);
-    /**
-     * 적용한 재생 정책의 독립 작은 사본 값을 반환합니다.
-     *
-     * @returns {import('@union3d/a3f/vo/UA3FTimelineOptionsVo').UA3FTimelineOptionsVo} 적용한 재생 정책의 독립 작은 사본
-     */
-    get optionsVo(): UA3FTimelineOptionsVo;
-    /**
-     * 현재 캐시 준비·예약 순간 사본, 미초기화 null 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {import('@union3d/a3f/vo/UA3FFrameCacheStatusVo').UA3FFrameCacheStatusVo | null} value 현재 캐시 준비·예약 순간 사본, 미초기화 null
-     */
-    set cacheStatusVo(value: UA3FFrameCacheStatusVo | null);
-    /**
-     * 현재 캐시 준비·예약 순간 사본, 미초기화 null 값을 반환합니다.
-     *
-     * @returns {import('@union3d/a3f/vo/UA3FFrameCacheStatusVo').UA3FFrameCacheStatusVo | null} 현재 캐시 준비·예약 순간 사본, 미초기화 null
-     */
-    get cacheStatusVo(): UA3FFrameCacheStatusVo | null;
-    /**
-     * 현재 실패 원래 원인 참조 또는 null 값을 보관합니다.
-     * 다른 값의 변경이나 실행 처리를 수행하지 않습니다.
-     *
-     * @param {Error | null} value 현재 실패 원래 원인 참조 또는 null
-     */
-    set error(value: Error | null);
-    /**
-     * 현재 실패 원래 원인 참조 또는 null 값을 반환합니다.
-     *
-     * @returns {Error | null} 현재 실패 원래 원인 참조 또는 null
-     */
-    get error(): Error | null;
-}
-
-declare global {
-    /**
-     * UA3FTimelineController 생성자 옵션입니다.
-     */
-    type UA3FTimelineControllerCO_Content = {
-        /**
-         * 등록 순번 오름차순·시각 비감소 목록
-         */
-        frames: Array<UA3FFrameVo>;
-        /**
-         * 기본값이 정규화된 재생 정책
-         */
-        optionsVo: UA3FTimelineOptionsVo;
-        /**
-         * 빌린 단일 표시 공급자, 자체 수명은 owner 책임
-         */
-        playbackApi: UA3FTimelinePlaybackApi;
-    };
-    /**
-     * UA3FTimelineController 생성자 옵션입니다.
-     */
-    type UA3FTimelineControllerCO = UA3FTimelineControllerCO_Content;
-    /**
-     * 재생 주요 상태입니다.
-     */
-    type UA3FTimelineStatus = "idle" | "paused" | "playing" | "buffering" | "configuring" | "error" | "ended" | "disposed";
-    /**
-     * UA3FTimelinePlaybackApi의 계약입니다.
-     */
-    type UA3FTimelinePlaybackApi = {
-        /**
-         * 정책 원자 적용, full은 전체 준비 완료까지 대기, 실패 시 기존 정책 유지
-         */
-        configure: (optionsVo: UA3FFrameCacheOptionsVo) => Promise<void>;
-        /**
-         * 등록 프레임 선택과 보존 권한 발급
-         */
-        select: (frameIndex: number, direction: UA3FTimelineDirection) => Promise<UA3FFrameLeaseVo>;
-        /**
-         * 공급자의 최신 권한인지 확인
-         */
-        isCurrent: (leaseVo: UA3FFrameLeaseVo) => boolean;
-        /**
-         * 동기 적용, 실패 시 직전 표시 보존
-         */
-        apply: (leaseVo: UA3FFrameLeaseVo) => void;
-        /**
-         * 권한을 발급했던 원래 캐시 소유자에게 반납
-         */
-        release: (leaseVo: UA3FFrameLeaseVo) => void;
-        /**
-         * 현재 준비·예약 상태 조회
-         */
-        getStatus: () => UA3FFrameCacheStatusVo;
-        /**
-         * 현재 표시 경로만 제거/원복, 공유 자원 수명 종료 금지
-         */
-        clearDisplay: () => void;
-    };
-    /**
-     * UA3FTimelineRuntime의 계약입니다.
-     */
-    type UA3FTimelineRuntime = {
-        /**
-         * 독립 적용 정책
-         */
-        options: UA3FTimelineOptionsVo;
-        /**
-         * 현재 주요 상태
-         */
-        status: UA3FTimelineStatus;
-        /**
-         * 공급자 최초 정책 준비 성공 여부
-         */
-        initialized: boolean;
-        /**
-         * 실제 종료 여부
-         */
-        disposed: boolean;
-        /**
-         * 재생 의도
-         */
-        playing: boolean;
-        /**
-         * 목표 원본 시간
-         */
-        time: number | null;
-        /**
-         * 목표 등록 frameIndex
-         */
-        index: number | null;
-        /**
-         * 실제 유효 원본 시간
-         */
-        displayedTime: number | null;
-        /**
-         * 실제 적용 frameIndex
-         */
-        displayedIndex: number | null;
-        /**
-         * 요청 순번
-         */
-        requestId: number;
-        /**
-         * 현재 원인 참조
-         */
-        error: Error | null;
-        /**
-         * 현재 표시 보존 권한
-         */
-        lease: UA3FFrameLeaseVo | null;
-        /**
-         * 현재 선택 파이프라인
-         */
-        pending: Promise<void> | null;
-        /**
-         * 현재 정책 설정 파이프라인
-         */
-        configuration: Promise<void> | null;
-        /**
-         * 상태 구독 함수 집합
-         */
-        listeners: Set<UA3FTimelineStateListener>;
-    };
-    /**
-     * 등록 목록 탐색 방향입니다.
-     */
-    type UA3FTimelineDirection = 1 | -1;
-    /**
-     * 재생 상태의 구독과 해제 함수입니다.
-     */
-    type UA3FTimelineStateListener = (stateVo: UA3FTimelineStateVo) => void;
-    /**
-     * 재생 상태의 구독과 해제 함수입니다.
-     */
-    type UA3FTimelineSubscription = () => void;
-}
-
-declare global {
-    /**
-     * 배열 배치를 보관하는 UA3FArrayLayoutVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 값의 범위와 필드 간 일관성은 파서가 검증합니다.
-     */
-    type UA3FArrayLayoutVoCO_Content = {
-        /**
-         * 필드 식별자
-         */
-        fieldId: string;
-        /**
-         * Float32·Float64·Uint16·Uint32 중 바이너리 성분 타입
-         */
-        componentType: ("Float32" | "Float64" | "Uint16" | "Uint32");
-        /**
-         * node·index·triangle 중 값의 연결 대상
-         */
-        association: ("node" | "index" | "triangle");
-        /**
-         * 항목 수인 양의 안전 정수
-         */
-        count: number;
-        /**
-         * 배열 너비인 양의 안전 정수
-         */
-        width: number;
-        /**
-         * 배열 높이인 양의 안전 정수
-         */
-        height: number;
-        /**
-         * 항목당 성분 수인 1~4의 정수
-         */
-        itemSize: (1 | 2 | 3 | 4);
-        /**
-         * 정수 attribute 정규화 여부
-         */
-        normalized: boolean;
-        /**
-         * 파일 시작부터의 바이트 위치인 0 기반 8의 배수
-         */
-        byteOffset: number;
-        /**
-         * 바이트 단위 길이
-         */
-        byteLength: number;
-    };
-    /**
-     * 배열 배치를 보관하는 UA3FArrayLayoutVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 값의 범위와 필드 간 일관성은 파서가 검증합니다.
-     */
-    type UA3FArrayLayoutVoCO = UA3FArrayLayoutVoCO_Content;
-}
-
-declare global {
-    /**
-     * 성분별 통계를 보관하는 UA3FArrayStatisticsVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 세 통계 배열은 필드의 성분 순서에 맞춥니다.<br>
-     * 배열은 복사하지 않고 참조로 보관하며 값 검증은 사용하는 모듈이 담당합니다.
-     */
-    type UA3FArrayStatisticsVoCO_Content = {
-        /**
-         * 필드 식별자
-         */
-        fieldId: string;
-        /**
-         * 성분 순서별 최솟값 배열
-         */
-        minimum: Array<number>;
-        /**
-         * 성분 순서별 최댓값 배열
-         */
-        maximum: Array<number>;
-        /**
-         * 성분 순서별 최대 절대 오차 배열
-         */
-        maxAbsoluteError: Array<number>;
-    };
-    /**
-     * 성분별 통계를 보관하는 UA3FArrayStatisticsVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 세 통계 배열은 필드의 성분 순서에 맞춥니다.<br>
-     * 배열은 복사하지 않고 참조로 보관하며 값 검증은 사용하는 모듈이 담당합니다.
-     */
-    type UA3FArrayStatisticsVoCO = UA3FArrayStatisticsVoCO_Content;
-}
-
-declare global {
-    /**
-     * 파일과 공용 배치를 연결하는 UA3FBufferVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 VO는 파일 요청과 해시 검증을 수행하지 않습니다.
-     */
-    type UA3FBufferVoCO_Content = {
-        /**
-         * 바이너리 파일 식별자
-         */
-        bufferId: string;
-        /**
-         * metadata URL 기준으로 해석할 파일 URI
-         */
-        uri: string;
-        /**
-         * 바이트 단위 길이
-         */
-        byteLength: number;
-        /**
-         * 파일의 SHA-256을 나타내는 64자리 소문자 16진수
-         */
-        sha256: string;
-        /**
-         * 공용 배열 배치 식별자
-         */
-        layoutId: string;
-    };
-    /**
-     * 파일과 공용 배치를 연결하는 UA3FBufferVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 VO는 파일 요청과 해시 검증을 수행하지 않습니다.
-     */
-    type UA3FBufferVoCO = UA3FBufferVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FChildMetadataVo 생성자 옵션입니다.
-     */
-    type UA3FChildMetadataVoCO_Content = {
-        /**
-         * 하위 root.nodeId와 대조할 비어 있지 않은 식별자
-         */
-        nodeId: string;
-        /**
-         * 현재 부모 JSON 기준 상대 metadata URI
-         */
-        metadataUri: string;
-        /**
-         * 월드 좌표(EPSG:3857) XY와 원본 미터 Z 범위
-         */
-        boundingBox: UA3FNodeBoundingBoxData;
-        /**
-         * 유한한 0 이상 월드 좌표(EPSG:3857) 투영 평면 단위 오차
-         */
-        geometricError: number;
-        /**
-         * UTF-8 JSON 기대 바이트 길이 또는 null, sha256과 함께 지정
-         */
-        byteLength: number | null;
-        /**
-         * raw bytes의 64자리 SHA-256 또는 null
-         */
-        sha256: string | null;
-    };
-    /**
-     * UA3FChildMetadataVo 생성자 옵션입니다.
-     */
-    type UA3FChildMetadataVoCO = UA3FChildMetadataVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FCoordinateVo의 필수 생성자 옵션입니다.<br>
-     * 값 검증과 자원 수명 관리는 사용하는 모듈이 담당하며 객체와 배열은 참조로 보관합니다.
-     */
-    type UA3FCoordinateVoCO_Content = {
-        /**
-         * 원본 좌표계 식별자이며 현재 자료는 EPSG:5187
-         */
-        sourceCrs: string;
-        /**
-         * 월드 좌표(EPSG:3857)의 출력 CRS
-         */
-        targetCrs: "EPSG:3857";
-        /**
-         * projected는 XY 투영 좌표·미터 Z, world는 엔진 월드 Z
-         */
-        coordinateType: "projected" | "world";
-        /**
-         * world의 높이 배율 프로파일, projected는 null
-         */
-        worldProfile: string | null;
-        /**
-         * local은 origin을 뺀 배열, absolute는 origin [0,0,0]
-         */
-        positionSpace: "local" | "absolute";
-        /**
-         * 저장한 position과 같은 공간의 고정 XYZ 기준점
-         */
-        origin: [number, number, number];
-        /**
-         * position Z의 표현 단위
-         */
-        heightEncoding: "meters" | "mercator-world";
-        /**
-         * 실제 metadata 2.0 이름 유지
-         */
-        heightScaleMode: "none" | "per-node-latitude" | "reference-y";
-        /**
-         * 정점별 배율 필드 식별자
-         */
-        heightScaleFieldId: string | null;
-        /**
-         * reference-y의 기준 월드 Y
-         */
-        heightScaleReferenceY: number | null;
-        /**
-         * 미터 높이에 곱하는 공통 월드 배율
-         */
-        heightScaleValue: number | null;
-        /**
-         * 월드 좌표(EPSG:3857)의 minX,minY,maxX,maxY
-         */
-        projectedBounds: [number, number, number, number];
-        /**
-         * 저장된 바탕 position 공간의 최솟값
-         */
-        baseRenderBoundsMin: [number, number, number];
-        /**
-         * 저장된 바탕 position 공간의 최댓값
-         */
-        baseRenderBoundsMax: [number, number, number];
-    };
-    /**
-     * UA3FCoordinateVo의 필수 생성자 옵션입니다.<br>
-     * 값 검증과 자원 수명 관리는 사용하는 모듈이 담당하며 객체와 배열은 참조로 보관합니다.
-     */
-    type UA3FCoordinateVoCO = UA3FCoordinateVoCO_Content;
-}
-
-declare global {
-    /**
-     * 배열 배치와 숫자 배열을 보관하는 UA3FDecodedArrayVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 배치 VO와 TypedArray는 복사하지 않고 참조로 보관합니다.<br>
-     * TypedArray의 기반 버퍼는 공유되며 VO 자체는 버퍼 소유권을 이전하지 않습니다.
-     */
-    type UA3FDecodedArrayVoCO_Content = {
-        /**
-         * 해석에 사용한 배열 배치 VO
-         */
-        layout: UA3FArrayLayoutVo;
-        /**
-         * 원본 버퍼를 참조하는 TypedArray
-         */
-        array: (Float32Array | Float64Array | Uint16Array | Uint32Array);
-    };
-    /**
-     * 배열 배치와 숫자 배열을 보관하는 UA3FDecodedArrayVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 배치 VO와 TypedArray는 복사하지 않고 참조로 보관합니다.<br>
-     * TypedArray의 기반 버퍼는 공유되며 VO 자체는 버퍼 소유권을 이전하지 않습니다.
-     */
-    type UA3FDecodedArrayVoCO = UA3FDecodedArrayVoCO_Content;
-}
-
-declare global {
-    /**
-     * 파일 하나의 해석 결과를 보관하는 UA3FDecodedBufferVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 기반 버퍼와 배열 목록은 복사하지 않고 참조로 보관합니다.<br>
-     * 기반 버퍼와 각 TypedArray의 연결은 사용하는 모듈이 유지하며 VO 자체는 소유권을 이전하지 않습니다.
-     */
-    type UA3FDecodedBufferVoCO_Content = {
-        /**
-         * 바이너리 파일 식별자
-         */
-        bufferId: string;
-        /**
-         * 공용 배열 배치 식별자
-         */
-        layoutId: string;
-        /**
-         * 해석 결과 배열들이 참조하는 ArrayBuffer
-         */
-        arrayBuffer: ArrayBuffer;
-        /**
-         * 원소를 복사하지 않고 참조하는 배열 VO 목록
-         */
-        arrays: Array<UA3FDecodedArrayVo>;
-    };
-    /**
-     * 파일 하나의 해석 결과를 보관하는 UA3FDecodedBufferVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 기반 버퍼와 배열 목록은 복사하지 않고 참조로 보관합니다.<br>
-     * 기반 버퍼와 각 TypedArray의 연결은 사용하는 모듈이 유지하며 VO 자체는 소유권을 이전하지 않습니다.
-     */
-    type UA3FDecodedBufferVoCO = UA3FDecodedBufferVoCO_Content;
-}
-
-declare global {
-    /**
-     * 필드 의미와 저장 구분을 보관하는 UA3FFieldVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 값 검증은 사용하는 모듈이 담당합니다.<br>
-     * 성분 이름 배열과 통계 VO는 복사하지 않고 참조로 보관합니다.
-     */
-    type UA3FFieldVoCO_Content = {
-        /**
-         * 필드 식별자
-         */
-        fieldId: string;
-        /**
-         * 화면 표시 이름
-         */
-        label: string;
-        /**
-         * 필드의 의미 설명
-         */
-        description: string;
-        /**
-         * 값의 단위 또는 미확정 상태의 null
-         */
-        unit: (string | null);
-        /**
-         * node·index·triangle 중 값의 연결 대상
-         */
-        association: ("node" | "index" | "triangle");
-        /**
-         * static·frame 중 저장 구분
-         */
-        storage: ("static" | "frame");
-        /**
-         * 1~4개 성분 이름 배열
-         */
-        components: Array<string>;
-        /**
-         * 성분별 통계 VO 또는 통계가 없을 때의 null
-         */
-        statistics: (UA3FArrayStatisticsVo | null);
-    };
-    /**
-     * 필드 의미와 저장 구분을 보관하는 UA3FFieldVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 값 검증은 사용하는 모듈이 담당합니다.<br>
-     * 성분 이름 배열과 통계 VO는 복사하지 않고 참조로 보관합니다.
-     */
-    type UA3FFieldVoCO = UA3FFieldVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FFrameApplyResultVo의 필수 생성자 옵션입니다.<br>
-     * 값의 유효성과 프레임 연결은 실행 모듈이 검증하며 배열·객체는 참조로 보관합니다.
-     */
-    type UA3FFrameApplyResultVoCO_Content = {
-        /**
-         * 적용한 공용 형상 식별자
-         */
-        geometryId: string;
-        /**
-         * 적용한 0 기반 프레임 순번
-         */
-        frameIndex: number;
-        /**
-         * 변환하지 않은 원본 숫자 시각
-         */
-        time: number;
-        /**
-         * 적용한 바이너리 파일 식별자, null 불가
-         */
-        bufferId: string;
-        /**
-         * 이 프레임의 원본 배열 참조 조회표, CPU 필드 포함
-         */
-        sourceArrays: Map<string, UA3FDecodedArrayVo>;
-        /**
-         * GPU attribute에 연결한 중복 없는 frame 필드 식별자
-         */
-        updatedFieldIds: Array<string>;
-        /**
-         * 연결한 실제 attribute 이름, 같은 필드의 alias도 포함
-         */
-        updatedAttributeNames: Array<string>;
-    };
-    /**
-     * UA3FFrameApplyResultVo의 필수 생성자 옵션입니다.<br>
-     * 값의 유효성과 프레임 연결은 실행 모듈이 검증하며 배열·객체는 참조로 보관합니다.
-     */
-    type UA3FFrameApplyResultVoCO = UA3FFrameApplyResultVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FFrameCacheOptionsVo 생성자 옵션입니다.
-     */
-    type UA3FFrameCacheOptionsVoCO_Content = {
-        /**
-         * 로딩 모드, 기본 streaming
-         */
-        loadMode?: ("streaming" | "full");
-        /**
-         * streaming의 표시·진행 중·준비 완료를 합친 고유 버퍼 슬롯 상한, 기본 3, 2 이상의 안전 정수
-         */
-        cacheFrames?: number;
-        /**
-         * HTTP부터 decode 완료까지 동시 파이프라인 상한, 기본 2, 양의 안전 정수
-         */
-        maxConcurrentLoads?: number;
-        /**
-         * 원시 backing buffer와 진행 중 예약의 바이트 상한, 기본 null, 지정 시 양의 안전 정수
-         */
-        maxCacheBytes?: number | null;
-        /**
-         * SHA-256 검사 여부, 기본 true
-         */
-        verifyHash?: boolean;
-    };
-    /**
-     * UA3FFrameCacheOptionsVo 생성자 옵션입니다.
-     */
-    type UA3FFrameCacheOptionsVoCO = UA3FFrameCacheOptionsVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FFrameCacheStatusVo 생성자 옵션입니다.
-     */
-    type UA3FFrameCacheStatusVoCO_Content = {
-        /**
-         * 생성 시 고정한 로딩 모드
-         */
-        loadMode: ("streaming" | "full");
-        /**
-         * 빈 프레임을 포함한 등록 수
-         */
-        totalFrameCount: number;
-        /**
-         * 현재 준비 완료 버퍼로 제공 가능한 등록 프레임 수, 누적 수가 아님
-         */
-        readyFrameCount: number;
-        /**
-         * 준비 완료한 고유 backing buffer 수
-         */
-        residentBufferCount: number;
-        /**
-         * HTTP 또는 decode 중인 고유 버퍼 수
-         */
-        inFlightBufferCount: number;
-        /**
-         * 하나 이상 lease로 보호하는 준비 완료 고유 버퍼 수
-         */
-        leasedBufferCount: number;
-        /**
-         * 준비 완료한 고유 backing buffer 길이 합, 바이트
-         */
-        residentBytes: number;
-        /**
-         * 진행 중 파일의 기대 길이 예약 합, 바이트
-         */
-        reservedBytes: number;
-        /**
-         * 마지막 선택한 0 기반 순번 또는 아직 선택하지 않은 null
-         */
-        requestedFrameIndex: number | null;
-        /**
-         * 선택 전 0, 이후 양의 요청 순번
-         */
-        requestId: number;
-        /**
-         * null 아닌 모든 등록 고유 파일이 준비 완료했는지 여부
-         */
-        preloadComplete: boolean;
-        /**
-         * 최근 로딩 오류 또는 null, 의도된 탐색 취소는 제외
-         */
-        lastError: Error | null;
-    };
-    /**
-     * UA3FFrameCacheStatusVo 생성자 옵션입니다.
-     */
-    type UA3FFrameCacheStatusVoCO = UA3FFrameCacheStatusVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FFrameLeaseVo 생성자 옵션입니다.
-     */
-    type UA3FFrameLeaseVoCO_Content = {
-        /**
-         * 관리자 안에서 재사용하지 않는 보존 권한 식별자
-         */
-        leaseId: string;
-        /**
-         * 선택 요청 순번, 양의 안전 정수
-         */
-        requestId: number;
-        /**
-         * 요청한 등록 프레임의 0 기반 순번, 실제 유효 프레임과 다를 수 있음
-         */
-        requestedFrameIndex: number;
-        /**
-         * 공유 워커의 0 이상 요청 세대
-         */
-        taskGeneration: number;
-        /**
-         * 보호하는 빌린 프레임 참조, release 후 보관하면 회수 지연 가능
-         */
-        resourceVo: UA3FFrameResourceVo;
-    };
-    /**
-     * UA3FFrameLeaseVo 생성자 옵션입니다.
-     */
-    type UA3FFrameLeaseVoCO = UA3FFrameLeaseVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FFrameResourceVo 생성자 옵션입니다.
-     */
-    type UA3FFrameResourceVoCO_Content = {
-        /**
-         * previous-frame 정책으로 선택한 실제 유효 프레임, null 불가
-         */
-        frameVo: UA3FFrameVo;
-        /**
-         * 해당 프레임의 파일 정의, null 불가
-         */
-        bufferVo: UA3FBufferVo;
-        /**
-         * 워커 결과 참조, 사용 중 변경·분리·재전송 금지
-         */
-        decodedBufferVo: UA3FDecodedBufferVo;
-    };
-    /**
-     * UA3FFrameResourceVo 생성자 옵션입니다.
-     */
-    type UA3FFrameResourceVoCO = UA3FFrameResourceVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FFrameVo의 필수 생성자 옵션입니다.<br>
-     * 값의 유효성과 프레임 연결은 실행 모듈이 검증하며 배열·객체는 참조로 보관합니다.
-     */
-    type UA3FFrameVoCO_Content = {
-        /**
-         * 대상 공간 노드의 공용 형상 식별자
-         */
-        geometryId: string;
-        /**
-         * 0 기반 프레임 순번, 0 이상의 안전 정수
-         */
-        frameIndex: number;
-        /**
-         * 원본 숫자 시각, 시간 단위와 기준을 임의 환산하지 않음
-         */
-        time: number;
-        /**
-         * 바이너리 파일 식별자 또는 데이터 없는 프레임의 null
-         */
-        bufferId: string | null;
-        /**
-         * 성분별 원본 통계 목록, 배열 참조
-         */
-        statistics: Array<UA3FArrayStatisticsVo>;
-    };
-    /**
-     * UA3FFrameVo의 필수 생성자 옵션입니다.<br>
-     * 값의 유효성과 프레임 연결은 실행 모듈이 검증하며 배열·객체는 참조로 보관합니다.
-     */
-    type UA3FFrameVoCO = UA3FFrameVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FGeometryResultVo의 필수 생성자 옵션입니다.<br>
-     * 값 검증과 자원 수명 관리는 사용하는 모듈이 담당하며 객체와 배열은 참조로 보관합니다.
-     */
-    type UA3FGeometryResultVoCO_Content = {
-        /**
-         * 생성한 공용 형상 식별자
-         */
-        geometryId: string;
-        /**
-         * 호출자가 수명을 소유하는 생성 결과
-         */
-        geometry: three.BufferGeometry;
-        /**
-         * 실제 geometry 배열에 대응하는 출력 world 좌표 정의
-         */
-        coordinates: UA3FCoordinateVo;
-        /**
-         * 디코딩한 정적 원본 배열 참조, CPU 필드와 인덱스 포함
-         */
-        sourceArrays: Map<string, UA3FDecodedArrayVo>;
-        /**
-         * attributeBindings에 선언됐지만 시간 프레임이 와야 연결할 필드 식별자
-         */
-        pendingFieldIds: Array<string>;
-    };
-    /**
-     * UA3FGeometryResultVo의 필수 생성자 옵션입니다.<br>
-     * 값 검증과 자원 수명 관리는 사용하는 모듈이 담당하며 객체와 배열은 참조로 보관합니다.
-     */
-    type UA3FGeometryResultVoCO = UA3FGeometryResultVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FGeometryVo의 필수 생성자 옵션입니다.<br>
-     * 값 검증과 자원 수명 관리는 사용하는 모듈이 담당하며 객체와 배열은 참조로 보관합니다.
-     */
-    type UA3FGeometryVoCO_Content = {
-        /**
-         * 공용 형상 식별자
-         */
-        geometryId: string;
-        /**
-         * 정적 형상 바이너리 식별자
-         */
-        bufferId: string;
-        /**
-         * 'indexed-triangles'
-         */
-        topology: "indexed-triangles";
-        /**
-         * 양의 안전 정수인 정점 수
-         */
-        vertexCount: number;
-        /**
-         * 양의 안전 정수인 삼각형 수
-         */
-        triangleCount: number;
-        /**
-         * 삼각형 수의 3배인 인덱스 개수
-         */
-        indexCount: number;
-        /**
-         * 정수 인덱스 필드 식별자
-         */
-        indexFieldId: string;
-        /**
-         * 실제 attribute 이름 → fieldId, position 키 필수
-         */
-        attributeBindings: Record<string, string>;
-        /**
-         * CPU 조회로 유지할 정적 필드 식별자
-         */
-        cpuFieldIds: Array<string>;
-        /**
-         * 원본 메타정보의 좌표 정의
-         */
-        coordinates: UA3FCoordinateVo;
-        /**
-         * coordinates.positionSpace와 같은 공간의 표시 경계 최솟값
-         */
-        renderBoundsMin: [number, number, number];
-        /**
-         * coordinates.positionSpace와 같은 공간의 표시 경계 최댓값
-         */
-        renderBoundsMax: [number, number, number];
-        /**
-         * 'base-position' | 'all-frames-and-height-policies'
-         */
-        renderBoundsScope: "base-position" | "all-frames-and-height-policies";
-        /**
-         * 'base-position' | 'conservative-interval'
-         */
-        renderBoundsMethod: "base-position" | "conservative-interval";
-    };
-    /**
-     * UA3FGeometryVo의 필수 생성자 옵션입니다.<br>
-     * 값 검증과 자원 수명 관리는 사용하는 모듈이 담당하며 객체와 배열은 참조로 보관합니다.
-     */
-    type UA3FGeometryVoCO = UA3FGeometryVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FHeightDisplayVo의 필수 생성자 옵션입니다.<br>
-     * 값 검증은 사용하는 모듈이 담당하며 배열은 복사하지 않고 참조로 보관합니다.
-     */
-    type UA3FHeightDisplayVoCO_Content = {
-        /**
-         * 배율 적용 전에 더하는 표시 높이, 미터 단위
-         */
-        displayZOffset: number;
-        /**
-         * 빌더가 전체 렌더 경계에 반영한 오프셋 최솟값·최댓값, 미터 단위
-         */
-        displayZOffsetRange: [number, number];
-    };
-    /**
-     * UA3FHeightDisplayVo의 필수 생성자 옵션입니다.<br>
-     * 값 검증은 사용하는 모듈이 담당하며 배열은 복사하지 않고 참조로 보관합니다.
-     */
-    type UA3FHeightDisplayVoCO = UA3FHeightDisplayVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FHeightPolicyVo의 필수 생성자 옵션입니다.<br>
-     * 값 검증은 사용하는 모듈이 담당하며 배열은 복사하지 않고 참조로 보관합니다.
-     */
-    type UA3FHeightPolicyVoCO_Content = {
-        /**
-         * 높이 정책 식별자
-         */
-        policyId: string;
-        /**
-         * 화면 표시 이름
-         */
-        label: string;
-        /**
-         * 필드 하나 선택 또는 둘 이상 순서대로 합산하는 연산
-         */
-        operation: "absolute-field" | "sum-fields";
-        /**
-         * 연산 순서의 미터 단위 필드 식별자 배열, 중복 허용
-         */
-        fieldIds: Array<string>;
-        /**
-         * fieldIds와 1:1 대응하는 0 기반 성분 인덱스 배열
-         */
-        componentIndices: Array<number>;
-    };
-    /**
-     * UA3FHeightPolicyVo의 필수 생성자 옵션입니다.<br>
-     * 값 검증은 사용하는 모듈이 담당하며 배열은 복사하지 않고 참조로 보관합니다.
-     */
-    type UA3FHeightPolicyVoCO = UA3FHeightPolicyVoCO_Content;
-}
-
-declare global {
-    /**
-     * 공용 배치를 보관하는 UA3FLayoutVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 값 검증은 사용하는 모듈이 담당합니다.<br>
-     * 배열 배치 목록과 목록의 VO는 복사하지 않고 참조로 보관합니다.
-     */
-    type UA3FLayoutVoCO_Content = {
-        /**
-         * 공용 배열 배치 식별자
-         */
-        layoutId: string;
-        /**
-         * 바이트 단위 길이
-         */
-        byteLength: number;
-        /**
-         * 원소를 복사하지 않고 참조하는 배열 VO 목록
-         */
-        arrays: Array<UA3FArrayLayoutVo>;
-    };
-    /**
-     * 공용 배치를 보관하는 UA3FLayoutVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 값 검증은 사용하는 모듈이 담당합니다.<br>
-     * 배열 배치 목록과 목록의 VO는 복사하지 않고 참조로 보관합니다.
-     */
-    type UA3FLayoutVoCO = UA3FLayoutVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FMetadataVo 생성자 옵션입니다.
-     */
-    type UA3FMetadataVoCO_Content = {
-        /**
-         * 정규화한 응답 절대 URL, 각 상대 파일 주소의 기준
-         */
-        metadataUrl: string;
-        /**
-         * URL과 원본 root.nodeId로 구성한 충돌 없는 클라이언트 키
-         */
-        nodeKey: string;
-        /**
-         * 이 문서 원본의 데이터셋 식별자
-         */
-        datasetId: string;
-        /**
-         * 원본 공간 정의 사본, 독립 문서의 parentNodeId는 null
-         */
-        nodeVo: UA3FNodeVo;
-        /**
-         * 형상 ID를 더해 정규화한 프레임·원본 시각·통계
-         */
-        frames: Array<UA3FFrameVo>;
-        /**
-         * 현재 문서 URL 기준 외부 metadata 참조
-         */
-        children: Array<UA3FChildMetadataVo>;
-        /**
-         * 원본 필드·배치·파일·형상·시간·재질을 보존한 독립 JSON 사본
-         */
-        source: UA3FMetadataDocumentData;
-    };
-    /**
-     * UA3FMetadataVo 생성자 옵션입니다.
-     */
-    type UA3FMetadataVoCO = UA3FMetadataVoCO_Content;
-    /**
-     * 동적인 원본 metadata JSON의 독립 사본입니다.
-     */
-    type UA3FMetadataDocumentData = Record<string, unknown>;
-}
-
-declare global {
-    /**
-     * metadata 2.0의 공간 경계입니다.<br>
-     * 수평 경계는 월드 좌표(EPSG:3857)이며 zRange는 월드 Z로 환산하지 않은 원본 미터 높이 범위입니다.
-     */
-    type UA3FNodeBoundingBoxData = {
-        /**
-         * 수평 경계의 월드 좌표(EPSG:3857)
-         */
-        crs: "EPSG:3857";
-        /**
-         * 유한한 minX·minY·maxX·maxY이며 각 min은 max 이하
-         */
-        xy: [number, number, number, number];
-        /**
-         * 유한한 미터 높이 min·max 또는 높이 범위 없음
-         */
-        zRange: [number, number] | null;
-        /**
-         * zRange가 있으면 m, 없으면 null
-         */
-        zUnit: "m" | null;
-        /**
-         * zRange가 있으면 비어 있지 않은 기준 이름, 없으면 null이며 unknown을 보존
-         */
-        verticalReference: string | null;
-    };
-    /**
-     * 공간 노드를 보관하는 UA3FNodeVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 공간 경계는 참조로 보관합니다.<br>
-     * 노드 연결과 경계 검증 및 등록 시 사본 생성은 U3dModelA3FLayer가 담당합니다.
-     */
-    type UA3FNodeVoCO_Content = {
-        /**
-         * 레이어 안에서 유일한 노드 키
-         */
-        nodeId: string;
-        /**
-         * 부모 노드 키이며 루트는 null
-         */
-        parentNodeId: string | null;
-        /**
-         * 공용 형상 식별자이며 공간 컨테이너는 null
-         */
-        geometryId: string | null;
-        /**
-         * 월드 좌표(EPSG:3857)의 XY와 원본 높이 범위
-         */
-        boundingBox: UA3FNodeBoundingBoxData;
-        /**
-         * 유한한 0 이상의 공간 오차
-         */
-        geometricError: number;
-        /**
-         * 공간 상세화 방식
-         */
-        refine: "ADD" | "REPLACE";
-    };
-    /**
-     * 공간 노드를 보관하는 UA3FNodeVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 공간 경계는 참조로 보관합니다.<br>
-     * 노드 연결과 경계 검증 및 등록 시 사본 생성은 U3dModelA3FLayer가 담당합니다.
-     */
-    type UA3FNodeVoCO = UA3FNodeVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FSpatialOptionsVo 생성자 옵션입니다.
-     */
-    type UA3FSpatialOptionsVoCO_Content = {
-        /**
-         * 상세화 진입 오차, 기본 16 CSS pixel, 양의 유한값
-         */
-        maximumScreenSpaceError?: number;
-        /**
-         * 직전 상세화의 축소 비율, 기본 0.75, 0 초과 1 이하
-         */
-        hysteresisRatio?: number;
-        /**
-         * 루트 0 기준 최대 깊이, 기본 32, 0 이상 안전 정수
-         */
-        maxDepth?: number;
-        /**
-         * metadata HTTP부터 해석까지 동시 수, 기본 2, 양의 안전 정수
-         */
-        maxConcurrentMetadataLoads?: number;
-        /**
-         * JSON 한 파일의 raw 바이트 상한, 기본 4194304, 양의 안전 정수
-         */
-        maxMetadataBytes?: number;
-        /**
-         * 준비·진행 metadata 수 상한, 기본 64, 양의 안전 정수
-         */
-        maxCachedMetadataCount?: number;
-        /**
-         * 준비 raw 길이와 진행 예약 바이트 합 상한, 기본 16777216, 양의 안전 정수
-         */
-        maxCachedMetadataBytes?: number;
-    };
-    /**
-     * UA3FSpatialOptionsVo 생성자 옵션입니다.
-     */
-    type UA3FSpatialOptionsVoCO = UA3FSpatialOptionsVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FSpatialSelectionVo 생성자 옵션입니다.
-     */
-    type UA3FSpatialSelectionVoCO_Content = {
-        /**
-         * 관리자 안에서 증가하는 양의 선택 순번
-         */
-        selectionId: number;
-        /**
-         * 계획에 해당하는 프레임·높이 상태 키
-         */
-        contentKey: string;
-        /**
-         * 준비할 목표·대체 표시 형상 노드, 컨테이너 제외
-         */
-        requiredNodes: Array<UA3FMetadataVo>;
-        /**
-         * 현재 표시할 준비 완료 또는 보존 중인 노드 키
-         */
-        visibleNodeKeys: Array<string>;
-        /**
-         * 아직 필요한 metadata URL, a3f 파일 요청 목록이 아님
-         */
-        pendingMetadataUrls: Array<string>;
-        /**
-         * 더 이상 준비·표시·대체에 필요 없어 소유자가 회수할 이전 노드
-         */
-        releaseNodeKeys: Array<string>;
-        /**
-         * 하위 metadata·용량 오류의 참조 목록
-         */
-        errors: Array<Error>;
-    };
-    /**
-     * UA3FSpatialSelectionVo 생성자 옵션입니다.
-     */
-    type UA3FSpatialSelectionVoCO = UA3FSpatialSelectionVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FSpatialViewVo 생성자 옵션입니다.
-     */
-    type UA3FSpatialViewVoCO_Content = {
-        /**
-         * 절대 월드 좌표(EPSG:3857)의 갱신 완료 카메라, 빌린 참조이며 변경·해제 금지
-         */
-        camera: UA3FSpatialCamera;
-        /**
-         * 양의 유한 CSS pixel 높이, DPR을 중복 적용하지 않음
-         */
-        viewportHeight: number;
-        /**
-         * 보수적인 월드 좌표(EPSG:3857) minX,minY,maxX,maxY 또는 선행 XY 필터를 생략하는 null
-         */
-        viewBoundsXY: [number, number, number, number] | null;
-        /**
-         * 프레임·높이 정책 등 준비 결과를 구분하는 비어 있지 않은 상태 키
-         */
-        contentKey: string;
-    };
-    /**
-     * UA3FSpatialViewVo 생성자 옵션입니다.
-     */
-    type UA3FSpatialViewVoCO = UA3FSpatialViewVoCO_Content;
-}
-
-declare global {
-    /**
-     * 작업 문맥을 보관하는 UA3FTaskContextVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 값의 범위와 프레임·세대의 연결은 UA3FTaskManager가 검증합니다.
-     */
-    type UA3FTaskContextVoCO_Content = {
-        /**
-         * 호출자가 지정한 작업 식별자
-         */
-        taskId: string;
-        /**
-         * 공간 노드 식별자
-         */
-        nodeId: string;
-        /**
-         * 처리 대상 바이너리 식별자
-         */
-        bufferId: string;
-        /**
-         * 0 기반 프레임 순번이며 공용 형상은 null
-         */
-        frameIndex: number | null;
-        /**
-         * 0 이상의 요청 세대이며 공용 형상은 null
-         */
-        generation: number | null;
-        /**
-         * 작은 값부터 처리하는 0 이상의 우선순위
-         */
-        priority: number;
-    };
-    /**
-     * 작업 문맥을 보관하는 UA3FTaskContextVo의 필수 생성자 옵션입니다.<br>
-     * 모든 키가 필수이며 값의 범위와 프레임·세대의 연결은 UA3FTaskManager가 검증합니다.
-     */
-    type UA3FTaskContextVoCO = UA3FTaskContextVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FTimelineOptionsVo 생성자 옵션입니다.
-     */
-    type UA3FTimelineOptionsVoCO_Content = {
-        /**
-         * 원본 시간 단위 또는 미확정 null, 기본 null
-         */
-        sourceTimeUnit?: string | null;
-        /**
-         * 실제 경과 1초마다 진행할 원본 수치 시간량, 양의 유한값, 기본1
-         */
-        sourceUnitsPerSecond?: number;
-        /**
-         * 0 아닌 유한 배속, 양수 정방향·음수 역방향, 기본1
-         */
-        playbackRate?: number;
-        /**
-         * 시간 범위 끝에서 반복할지 여부, 기본false
-         */
-        loop?: boolean;
-        /**
-         * 기존109의 로딩 정책, 기본 streaming/3/2/null/true
-         */
-        cacheOptionsVo?: UA3FFrameCacheOptionsVo;
-    };
-    /**
-     * UA3FTimelineOptionsVo 생성자 옵션입니다.
-     */
-    type UA3FTimelineOptionsVoCO = UA3FTimelineOptionsVoCO_Content;
-}
-
-declare global {
-    /**
-     * UA3FTimelineStateVo 생성자 옵션입니다.
-     */
-    type UA3FTimelineStateVoCO_Content = {
-        /**
-         * idle/paused/playing/buffering/configuring/error/ended/disposed의 주요 상태
-         */
-        status: UA3FTimelineStatus;
-        /**
-         * 현재 목표 원본 시각, 미선택 null
-         */
-        requestedTime: number | null;
-        /**
-         * 실제 적용한 유효 프레임 원본 시각, 표시 전 null
-         */
-        displayedTime: number | null;
-        /**
-         * 요청한 등록 frameIndex, 미선택 null, 목록 위치와 구분
-         */
-        requestedFrameIndex: number | null;
-        /**
-         * 실제 적용한 유효 frameIndex, 표시 전 null
-         */
-        displayedFrameIndex: number | null;
-        /**
-         * 등록 프레임 수, 양의 안전 정수
-         */
-        frameCount: number;
-        /**
-         * 사용자의 재생 의도, 로딩 중에는 true여도 시계 정지
-         */
-        playing: boolean;
-        /**
-         * 최신 요청 순번, 선택 전0 이후 양의 안전 정수
-         */
-        requestId: number;
-        /**
-         * 적용한 재생 정책의 독립 작은 사본
-         */
-        optionsVo: UA3FTimelineOptionsVo;
-        /**
-         * 현재 캐시 준비·예약 순간 사본, 미초기화 null
-         */
-        cacheStatusVo: UA3FFrameCacheStatusVo | null;
-        /**
-         * 현재 실패 원래 원인 참조 또는 null
-         */
-        error: Error | null;
-    };
-    /**
-     * UA3FTimelineStateVo 생성자 옵션입니다.
-     */
-    type UA3FTimelineStateVoCO = UA3FTimelineStateVoCO_Content;
 }
 
 declare global {
@@ -79523,6 +76897,14 @@ declare global {
          * 알람 타입
          */
         _type?: string;
+        /**
+         * 건물 알람의 강조 방식
+         */
+        modelSelectType?: "color" | "outline" | "ring";
+        /**
+         * 선택 강조 방식의 외곽선·링 옵션
+         */
+        modelSelectTypeOption?: KeyValue | U3dSelectRingOption;
     };
     /**
      * ~extends UAnalyCO <br>
@@ -79562,7 +76944,7 @@ declare global {
     /**
      * 모델 레이어의 ID 조회 함수입니다. 미발견 결과는 undefined입니다.
      */
-    type UAnalyAlarmModelLookup = (id: string | number, create?: boolean) => UMesh | undefined;
+    type UAnalyAlarmModelLookup = (id: string | number, isMerged?: boolean) => UMesh | undefined;
     /**
      * 모델 레이어의 편집 이벤트 조회 함수입니다. 미발견 결과는 undefined입니다.
      */
@@ -79580,11 +76962,11 @@ declare global {
      * 알람 예약 구현에 전달하는 프레임 상태와 취소·재개 기능입니다.
      * 공개 메서드를 대체하지 않고 원래 인스턴스의 상태와 호출 결과를 그대로 사용합니다.
      */
-    type UAnalyAlarmAnimationOwner = Pick<UAnalyAlarm, "_activeAnimaition" | "_infoActiveAlarm" | "_disposedAlarmInfo" | "stopActiveAlarm" | "isDisposedStopModel">;
+    type UAnalyAlarmAnimationOwner = Pick<UAnalyAlarm, "_activeAnimaition" | "_infoActiveAlarm" | "_disposedAlarmInfo" | "_modelAlarmStops" | "_modelSelectType" | "_modelSelectTypeOption" | "getIntersectModel" | "stopActiveAlarm" | "isDisposedStopModel">;
     /**
      * 모델 그룹 복원·경계 검사에서 사용하는 선택 상태와 조회 기능입니다.
      */
-    type UAnalyAlarmSelectionOwner = Pick<UAnalyAlarm, "_selected" | "getIntersectModel" | "_isSelected">;
+    type UAnalyAlarmSelectionOwner = Pick<UAnalyAlarm, "_selected" | "_groupSelections" | "getIntersectModel" | "_isSelected">;
     /**
      * 커서 조립 결과와 애니메이션 복원 기준의 위치 참조입니다.
      */
@@ -79597,6 +76979,93 @@ declare global {
          * POI position의 원본 참조이며 이동 후 복원에도 현재 값을 사용
          */
         poiPosition: three.Vector3;
+    };
+    /**
+     * 일반 선택기의 텍스처 복원 정보까지 보존하는 알람 대상 재질입니다.
+     */
+    type UAnalyAlarmMaterial = Common_Material & {
+        _oriNormalMap?: three.Texture;
+    };
+    /**
+     * 알람이 잠시 빌려 쓰는 일반 선택의 색상·투명도·텍스처 복원 정보입니다.
+     */
+    type UAnalyAlarmMaterialState = {
+        /**
+         * 기존 선택의 복원색
+         */
+        color: three.Color | undefined;
+        /**
+         * 기존 선택의 복원 투명도
+         */
+        opacity: number | undefined;
+        /**
+         * 원래 투명 처리 여부
+         */
+        transparent: boolean;
+        /**
+         * 색상 복원에서 제외할 텍스처 정보
+         */
+        map?: three.Texture;
+        /**
+         * 색상 복원에서 제외할 법선 텍스처 정보
+         */
+        normalMap?: three.Texture;
+    };
+    /**
+     * 병합 모델에서 그룹이 선택한 건물과 독립된 강조 메시입니다. 정점 버퍼는 원본에서 빌립니다.
+     */
+    type UAnalyAlarmGroupSelection = {
+        /**
+         * 원본 모델 ID
+         */
+        id: string;
+        /**
+         * 그룹별 예약 키
+         */
+        alarmId: string;
+        /**
+         * 선택된 하위 건물 ID
+         */
+        childIds: Array<string>;
+        /**
+         * 선택 당시 인덱스 범위
+         */
+        ranges: Array<{
+            start: number;
+            count: number;
+        }>;
+        /**
+         * 현재 원본 모델
+         */
+        source: UMesh;
+        /**
+         * 현재 빌린 버퍼의 소유 지오메트리
+         */
+        geometry: three.BufferGeometry;
+        /**
+         * 복제 재질에 대응하는 원본 재질 인덱스
+         */
+        materialIndices: Array<number>;
+        /**
+         * 하위 건물 범위와 표시 상태 조회
+         */
+        layer: Pick<U3dModelU3FLayer, "getBoundingBoxInfo" | "getVisible"> | undefined;
+        /**
+         * 원본 해제 시 강조 메시를 즉시 숨기는 수신자
+         */
+        onSourceDispose: () => void;
+        /**
+         * 실행 중인 강조를 표시 자원 교체 전에 복원하는 수신자
+         */
+        beforeUpdate?: () => void;
+        /**
+         * 그룹이 소유한 강조 메시
+         */
+        view: UMesh & {
+            _isMerged: boolean;
+            _pickMaterials: Array<number>;
+            isMerged: () => boolean;
+        };
     };
 }
 
@@ -79861,7 +77330,7 @@ declare global {
 
 declare global {
     /**
-     * 편집 지형 입력 옵션. 사용자가 addCustomLand/editCustomLand에 최초 전달하는 원본 옵션
+     * addCustomLand/editCustomLand에 전달할 편집 지형 입력 옵션입니다.
      */
     type DataOPT_Input = {
         /**
@@ -79876,6 +77345,10 @@ declare global {
          * 편집 지형의 고도값 (양수: 지면 위, 음수: 지면 아래) (필수)
          */
         height: number;
+        /**
+         * getParam에서 저장한 앱 내 적용 순번. 0 이상 Number.MAX_SAFE_INTEGER 미만 안전한 정수. 생략하면 신규 순번을 발급하며 기존 편집 수정은 원래 순번을 유지
+         */
+        heightEditOrder?: number;
         /**
          * 경사면 편집 활성화 여부
          */
@@ -79916,6 +77389,10 @@ declare global {
          * 편집 지형의 고도값
          */
         height?: number;
+        /**
+         * 저장·복원할 앱 내 적용 순번. 0 이상 Number.MAX_SAFE_INTEGER 미만 안전한 정수이며 생략하면 신규 순번 발급
+         */
+        heightEditOrder?: number;
         /**
          * 경사면 편집 활성화 여부
          */
@@ -80839,6 +78316,15 @@ declare global {
 
 declare global {
     /**
+     * 공통 선택기에서 경관 분석으로 전달하는 내부 선택 결과입니다.
+     */
+    type UAnalyLandScapeSelectEvent = {
+        /**
+         * 선택 객체 또는 교차 결과 목록
+         */
+        data?: Array<USelect | three.Intersection>;
+    };
+    /**
      * ~extends UAnalyCO <br>
      *
      * 경관 분석의 이름과 층별 생성·가시영역 기본 설정입니다.
@@ -81682,7 +79168,7 @@ declare global {
         /**
          * 프레임 업데이트 함수
          */
-        fnc: (delta?: number) => void;
+        fnc: (arg0: number | undefined) => void;
         /**
          * 프레임당 생성 입자 수
          */
@@ -81723,11 +79209,7 @@ declare global {
         /**
          * 생성 위치 목록
          */
-        positions?: Array<{
-            x: number;
-            y: number;
-            z: number;
-        }>;
+        positions?: Array<three.Vector3Like>;
         /**
          * 영역 가로 크기 (rain)
          */
@@ -81737,7 +79219,7 @@ declare global {
          */
         height?: number;
         /**
-         * 영역 중심 좌표 (월드 좌표계, rain)
+         * 영역 중심 월드 좌표(EPSG:3857), rain
          */
         center?: WorldPositionVector3;
         /**
@@ -81753,12 +79235,347 @@ declare global {
          */
         opacity?: number;
     };
+    /**
+     * 물리 분석 생성 옵션입니다. <br>
+     * 생성자는 name만 적용하며 수치는 setOption()으로 별도 설정합니다.
+     */
+    type UAnalyPhysicalFlowCO = {
+        /**
+         * 분석 이름
+         */
+        name?: string;
+        /**
+         * 생성자에서 적용하지 않는 지면 해상도
+         */
+        resolution?: number;
+        /**
+         * 생성자에서 적용하지 않는 중력
+         */
+        gravity?: number;
+        /**
+         * 생성자에서 적용하지 않는 입자 한도
+         */
+        maxParticleNum?: number;
+        /**
+         * 생성자에서 적용하지 않는 최소 높이
+         */
+        limitMinHeight?: number;
+        /**
+         * 생성자에서 적용하지 않는 생존 시간
+         */
+        limitTime?: number;
+    };
+    /**
+     * 물리 분석 설정입니다. <br>
+     * 수치가 falsy이면 기본값으로 바꾸며 워커에는 원본을 전달합니다.
+     */
+    type UAnalyPhysicalFlowOptions = {
+        /**
+         * 이름은 변경하지 않음
+         */
+        name?: string;
+        /**
+         * 지면 표본 간격
+         */
+        resolution?: number;
+        /**
+         * 중력. 생성 직후 기본값 -12와 다름
+         */
+        gravity?: number;
+        /**
+         * 입자 한도
+         */
+        maxParticleNum?: number;
+        /**
+         * 입자 소멸 최소 높이
+         */
+        limitMinHeight?: number;
+        /**
+         * 생존 시간(ms)
+         */
+        limitTime?: number;
+    };
+    /**
+     * 분석 영역 정보입니다. <br>
+     * box·center는 분석 상태의 원본 참조입니다.
+     */
+    type UAnalyPhysicalFlowInfo = {
+        /**
+         * 영역 박스
+         */
+        box: three.Box3 | undefined;
+        /**
+         * 폭
+         */
+        width: number | undefined;
+        /**
+         * 높이
+         */
+        height: number | undefined;
+        /**
+         * 월드 중심
+         */
+        center: WorldPositionVector3;
+        /**
+         * 최소 고도
+         */
+        minHeight: number | undefined;
+        /**
+         * 최대 고도
+         */
+        maxHeight: number | undefined;
+    };
+    /**
+     * 고도 표본입니다. <br>
+     * 빈 표본의 undefined 극값과 선언 차이는 spec에서 추적합니다.
+     */
+    type UAnalyPhysicalFlowHeightData = {
+        /**
+         * 행 우선 고도 배열
+         */
+        data: Float32Array;
+        /**
+         * 최소 고도
+         */
+        min: number;
+        /**
+         * 최대 고도
+         */
+        max: number;
+    };
+    /**
+     * 강우 생성 옵션입니다. <br>
+     * 각 falsy 입력은 필드 기본값으로 대체합니다.
+     */
+    type UAnalyPhysicalFlowRainOptions = {
+        /**
+         * 프레임당 입자 수
+         */
+        amount?: number;
+        /**
+         * 생성 높이
+         */
+        initHeight?: number;
+        /**
+         * 반지름
+         */
+        radius?: number;
+        /**
+         * 반지름에 곱할 질량 계수
+         */
+        mass?: number;
+        /**
+         * 색상
+         */
+        color?: ColorLike;
+        /**
+         * 불투명도
+         */
+        opacity?: number;
+    };
+    /**
+     * 유수 생성 옵션입니다. <br>
+     * falsy 입력은 기본값을 사용합니다. <br>
+     * truthy인 비배열·빈 steps는 원본 옵션에서 한 단계 배열로 교체합니다.
+     */
+    type UAnalyPhysicalFlowFlowOptions = {
+        /**
+         * 프레임당 입자 수
+         */
+        amount?: number;
+        /**
+         * 생성 지속 시간(ms)
+         */
+        initTime?: number;
+        /**
+         * 반지름
+         */
+        radius?: number;
+        /**
+         * 반지름에 곱할 질량 계수
+         */
+        mass?: number;
+        /**
+         * 생성 후보 간격
+         */
+        resolution?: number;
+        /**
+         * 속도별 표시 단계. max가 falsy이면 해당 단계에서 선택 종료
+         */
+        steps?: Array<{
+            color: ColorLike;
+            opacity: number;
+        } & Partial<{
+            max: number;
+        }>>;
+        /**
+         * 추가 생성 비율
+         */
+        generateRatio?: number;
+        /**
+         * 추가 생성 검사 간격
+         */
+        generateAmount?: number;
+    };
+    /**
+     * 입자 생성 옵션입니다. <br>
+     * mass·radius 배열은 원본에서 CheckFloat16Array로 교체합니다.
+     */
+    type UAnalyPhysicalFlowGenerateOptions = {
+        /**
+         * 종류. falsy이면 RAIN(2)
+         */
+        type?: number;
+        /**
+         * 공유 형상
+         */
+        geometry?: three.BufferGeometry | Array<three.BufferGeometry>;
+        /**
+         * 공유 머터리얼
+         */
+        material?: three.Material | Array<three.Material>;
+        /**
+         * 월드 위치
+         */
+        position?: three.Vector3Like | Array<three.Vector3Like>;
+        /**
+         * 반지름
+         */
+        radius?: number | Array<number> | Float32ArrayConstructor;
+        /**
+         * 생략 시 radius × 5
+         */
+        mass?: number | Array<number> | Float32ArrayConstructor;
+        /**
+         * 소유 시뮬레이션
+         */
+        simulationId?: string | Array<string>;
+    };
+    /**
+     * 고도 계산이 표본마다 읽는 장애물 상태입니다.
+     */
+    type UAnalyPhysicalFlowHeightContext = {
+        /**
+         * 장애물 범위
+         */
+        _modelBoxList: Array<three.Box3>;
+    };
+    /**
+     * 물리 응답 계산에 필요한 상태와 조회 계약입니다.
+     */
+    type UAnalyPhysicalFlowUpdateContext = {
+        /**
+         * 현재 입자
+         */
+        _flowObject: Map<number, three.Mesh>;
+        /**
+         * 공유 표시 자원
+         */
+        _materials: Map<string, three.Material | Array<three.Material>>;
+        /**
+         * 원본 시뮬레이션 조회
+         */
+        getSimulation: UAnalyPhysicalFlowSimulationLookup;
+    };
+    /**
+     * 유수 후보 계산이 읽는 현재 목표 범위입니다.
+     */
+    type UAnalyPhysicalFlowFlowContext = {
+        /**
+         * 목표 박스
+         */
+        _flowBox: three.Box3 | undefined;
+    };
+    /**
+     * 응답 계산 후 공개 클래스에서 수행할 후속 작업입니다.
+     */
+    type UAnalyPhysicalFlowUpdateActions = {
+        /**
+         * 추가 위치
+         */
+        newFlowPosition: Array<three.Vector3Like>;
+        /**
+         * 공유 형상
+         */
+        newFlowGeometry: Array<three.BufferGeometry>;
+        /**
+         * 공유 머터리얼
+         */
+        newFlowMaterial: Array<three.Material>;
+        /**
+         * 질량
+         */
+        newFlowMass: Array<number>;
+        /**
+         * 반지름
+         */
+        newFlowRadius: Array<number>;
+        /**
+         * 시뮬레이션 ID
+         */
+        newFlowSimulId: Array<string>;
+        /**
+         * 화면에 없는 입자 ID
+         */
+        noMeshId: Array<number>;
+    };
+    /**
+     * 강우 위치 계산의 필수 상태입니다.
+     */
+    type UAnalyPhysicalFlowRainState = {
+        /**
+         * 입자 수
+         */
+        amount: number;
+        /**
+         * 폭
+         */
+        width: number;
+        /**
+         * 높이
+         */
+        height: number;
+        /**
+         * 공유 중심
+         */
+        center: WorldPositionVector3;
+        /**
+         * 생성 높이
+         */
+        initHeight: number;
+        /**
+         * 반지름
+         */
+        radius: number;
+    };
+    /**
+     * 유수 후보 구성·선택의 필수 상태입니다.
+     */
+    type UAnalyPhysicalFlowFlowState = {
+        /**
+         * 입자 수
+         */
+        amount: number;
+        /**
+         * 후보 간격
+         */
+        resolution: number;
+        /**
+         * 후보 원본
+         */
+        positions: Array<three.Vector3Like>;
+    };
+    /**
+     * 현재 원본 시뮬레이션을 조회하는 내부 경계 계약입니다.
+     */
+    type UAnalyPhysicalFlowSimulationLookup = (simulationId: string) => UPhysicalFlowSimulation | undefined;
 }
 
 declare global {
     /**
-     * ~extends import('@UAnaly').UAnalyCO <br>
-     * UAnalyRoad 생성자 옵션
+     * ~extends UAnalyCO <br>
+     *
+     * 도로 분석 생성 옵션입니다.
      */
     type UAnalyRoadCO_Content = {
         /**
@@ -81766,141 +79583,385 @@ declare global {
          */
         name?: string;
         /**
-         * 정지선 표시 여부
+         * 보관할 정지선 설정값
          */
         drawStopLine?: boolean;
         /**
-         * 스케일
+         * 보관할 스케일 원본. 생략하면 각 축 1
          */
-        scale?: {
-            x: number;
-            y: number;
-            z: number;
-        };
+        scale?: three.Vector3Like;
         /**
-         * 회전
+         * 보관할 회전 원본. 생략하면 각 축 0
          */
-        rotation?: {
-            x: number;
-            y: number;
-            z: number;
-        };
+        rotation?: three.Vector3Like;
     };
     /**
-     * ~extends import('@UAnaly').UAnalyCO <br>
-     * UAnalyRoad 생성자 옵션
+     * ~extends UAnalyCO <br>
+     *
+     * 도로 분석 생성 옵션입니다.
      */
     type UAnalyRoadCO = Omit<Omit<UAnalyCO, never> & UAnalyRoadCO_Content, never>;
     /**
-     * ~extends UGizmoControls <br>
-     * update·dispose·addEventListener 멤버를 포함한 UGizmoControls 확장 타입
+     * ~extends import('@union3d/mode/UGizmoControls').UGizmoControls <br>
+     *
+     * 도로 편집이 사용하는 기즈모의 확장 계약입니다.
      */
-    type UGizmoControlsEx = UGizmoControls & {
-        update(): void;
-        dispose(): void;
-        addEventListener(type: string, listener: Function): void;
-    };
+    type UGizmoControlsEx = UGizmoControls & Omit<UAnalyRoadGizmoMembers, never>;
     type IntersectionTarget = {
         name: string;
         _olGeom?: object;
         /**
-         * 도로 중심선 (월드 좌표, EPSG:3857)
+         * 도로 중심선의 월드 좌표(EPSG:3857)
          */
         center?: Array<WorldPositionVector3>;
         geometry?: object;
     };
+    /**
+     * 도로 기즈모가 사용하는 추가 멤버입니다.
+     */
+    type UAnalyRoadGizmoMembers = {
+        /**
+         * 표시 갱신
+         */
+        update: () => void;
+        /**
+         * 자원 해제
+         */
+        dispose: () => void;
+        /**
+         * 입력 등록
+         */
+        addEventListener: (arg0: string, arg1: Function) => void;
+    };
+    /**
+     * 저장·복원에 사용하는 도로 데이터의 필드입니다. <br>
+     * setRoad()는 positions가 없는 입력을 무시하며 그 외 필드는 새 도로의 기본값으로 보완합니다.
+     */
+    type UAnalyRoadData = {
+        /**
+         * 지리 좌표 목록
+         */
+        positions?: Array<GeoPosition>;
+        /**
+         * 차선당 폭
+         */
+        width?: number;
+        /**
+         * 차선 수
+         */
+        line?: number;
+        /**
+         * 도로 생성의 높이 설정
+         */
+        height?: number;
+        /**
+         * 도로 텍스처 주소
+         */
+        imageUrl?: string;
+    };
+    /**
+     * 선 하나와 해당 교차 구간의 원본 점입니다.
+     */
+    type UAnalyRoadIntersection = {
+        /**
+         * 교차 선 원본
+         */
+        line: three.Object3D;
+        /**
+         * 구간의 시작·끝점
+         */
+        points: Array<GeoPosition>;
+    };
+    /**
+     * 계산 도중 현재 앱을 읽는 제한된 상태입니다.
+     */
+    type UAnalyRoadAppContext = {
+        /**
+         * 현재 좌표 변환 앱
+         */
+        _app: U3dApp | undefined;
+    };
+    /**
+     * T자 보정 도중 앱·기존 도로 폭을 읽는 제한된 상태입니다.
+     */
+    type UAnalyRoadIntersectionContext = {
+        /**
+         * 현재 좌표 변환 앱
+         */
+        _app: U3dApp | undefined;
+        /**
+         * 현재 도로 목록
+         */
+        _roads: Array<U3dRoadExtension>;
+    };
+    /**
+     * 교차 선과 같은 인덱스의 반영 점 목록입니다.
+     */
+    type UAnalyRoadGroupedIntersections = {
+        /**
+         * 반영할 선 목록
+         */
+        lineGroup: Array<three.Object3D>;
+        /**
+         * 선별 원본 점 목록
+         */
+        pointList: Double_Array<GeoPosition>;
+    };
 }
 
 declare global {
     /**
-     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
-     * `횡단면` / `종단면` 영역 분석 생성자 옵션
+     * ~extends UAnalyCO <br>
+     *
+     * 모의주행 경로 분석의 생성 옵션입니다.
      */
+    type UAnalyRouteCO_Content = {
+        /**
+         * 앱에서 구분할 분석 이름
+         */
+        name?: string;
+        /**
+         * 경로 띠의 너비(월드 좌표(EPSG:3857) 단위)
+         */
+        lineWidth?: number;
+    };
+    /**
+     * ~extends UAnalyCO <br>
+     *
+     * 모의주행 경로 분석의 생성 옵션입니다.
+     */
+    type UAnalyRouteCO = Omit<Omit<UAnalyCO, never> & UAnalyRouteCO_Content, never>;
+    /**
+     * 주행 경로의 지형 조회에 필요한 현재 상태입니다.
+     */
+    type UAnalyRouteGroundContext = {
+        /**
+         * 지형 조회 앱
+         */
+        _app: U3dApp | undefined;
+    };
+    /**
+     * 주행 시선 계산에 필요한 현재 상태입니다.
+     */
+    type UAnalyRouteViewContext = {
+        /**
+         * 지형 조회 앱
+         */
+        _app: U3dApp | undefined;
+        /**
+         * 경로 높이에 더할 값
+         */
+        _cameraHeight: number;
+        /**
+         * 방위각(도)
+         */
+        _cameraAzimuth: number;
+        /**
+         * 상하 각도(도)
+         */
+        _cameraPolar: number;
+    };
+}
+
+declare global {
     type UAnalySectionCO_Content = {
         /**
-         * 분석모드 이름
+         * 분석을 식별할 이름
          */
         name?: string;
     };
     /**
-     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
-     * `횡단면` / `종단면` 영역 분석 생성자 옵션
+     * ~extends import('@UAnaly').UAnalyCO <br>
+     *
+     * 단면 영역 분석을 생성하는 옵션입니다.
      */
     type UAnalySectionCO = Omit<Omit<UAnalyCO, never> & UAnalySectionCO_Content, never>;
     type SelectLayerLike = {
+        /**
+         * 입력 도형 형식을 지정하는 함수
+         */
         setMeasureType: (type: string) => void;
+        /**
+         * 위경도 좌표계(EPSG:4326)의 측정점을 추가하는 함수
+         */
         addMeasurePoint: (geo: object) => unknown;
     };
     type FilteredEntry = {
+        /**
+         * 선택 모델 또는 레이어 이름·모델 식별자를 담은 기술자
+         */
         arr: Array<UMesh | {
             layerName: string;
             id: unknown;
         }>;
+        /**
+         * 영역을 확정한 입력 모드
+         */
         type: string;
+        /**
+         * 영역에 연결한 라벨 그룹의 식별자
+         */
         poiGroupID: string | number;
+        /**
+         * 횡단면 확정 시 입력한 높이이며 입력 취소 시 생략
+         */
         height?: number;
     };
     type MeasurePOILike_Content = {
+        /**
+         * 라벨 위치를 지정하는 함수
+         */
         setPosition?: Function;
+        /**
+         * 표시 문자를 지정하는 함수
+         */
         setLabel?: Function;
+        /**
+         * 점 표시 크기를 지정하는 함수
+         */
         setPointSize?: Function;
+        /**
+         * 점 표시 색을 지정하는 함수
+         */
         setPointColor?: Function;
+        /**
+         * 라벨 식별자를 반환하는 함수
+         */
         getUid?: Function;
     };
+    /**
+     * ~extends import('three').Object3D <br>
+     *
+     * 측정점 또는 미리보기를 표시하는 장면 객체입니다.
+     */
     type MeasurePOILike = three.Object3D & MeasurePOILike_Content;
+    /**
+     * 단면 광선·원기둥 판정이 호출 시점에 읽는 상태입니다.
+     */
+    type UAnalySectionRayContext = {
+        /**
+         * 높이 좌표를 변환할 앱
+         */
+        _app: U3dApp | undefined;
+        /**
+         * 화면 교차에 사용하는 스프라이트
+         */
+        _sprite: three.Sprite | undefined;
+    };
+    /**
+     * 원형 선택 반경 계산 시점의 입력 모드입니다.
+     */
+    type UAnalySectionRegionContext = {
+        /**
+         * 원형 또는 원기둥 모드를 구분하는 분석 유형
+         */
+        _type: string;
+    };
 }
 
 declare global {
     /**
      * ~extends import('@UAnaly').UAnalyCO <br>
      *
-     * UAnalySkyLine 생성자 옵션
+     * UAnalySkyLine 생성자에 전달할 수 있는 호환 옵션입니다. <br>
+     * 현재 생성자는 이 객체의 값을 적용하지 않습니다.
      */
     type UAnalySkyLineCO_Content = {
         /**
-         * 분석모드 명
+         * 호환을 위해 선언된 분석 이름. 현재 생성자는 전달값과 관계없이 'SkyLine'을 사용합니다.
          */
         name?: string;
     };
     /**
      * ~extends import('@UAnaly').UAnalyCO <br>
      *
-     * UAnalySkyLine 생성자 옵션
+     * UAnalySkyLine 생성자에 전달할 수 있는 호환 옵션입니다. <br>
+     * 현재 생성자는 이 객체의 값을 적용하지 않습니다.
      */
     type UAnalySkyLineCO = Omit<Omit<UAnalyCO, never> & UAnalySkyLineCO_Content, never>;
     /**
-     * 스카이라인 스타일 옵션
+     * 스카이라인(SkyLine)의 경계선과 영역별 색상 표시 옵션입니다. <br>
+     * 색상은 ColorLike 형식으로 지정하며 전달한 객체는 변경하지 않습니다. <br>
+     * 숫자 0·빈 문자열·생략값은 경계선과 초과 색상의 적용 조건에서 거짓으로 평가됩니다.
      */
     type SkyLineStyle = {
         /**
-         * 경계선 색상
+         * 경계선 색상이며 이 값이나 lineSize가 참으로 평가될 때 경계선 설정을 적용합니다.
          */
         lineColor?: ColorLike;
         /**
-         * 경계선 두께
+         * 렌더 대상 픽셀 기준의 경계선 두께이며, 후처리 효과가 1~10으로 제한하고 이 값이나 lineColor가 참으로 평가될 때 적용합니다.
          */
         lineSize?: number;
         /**
-         * 경계선 초과 모델 영역 색상
+         * 경계선을 넘는 모델 영역의 색상이며 참으로 평가되는 값만 적용합니다.
          */
         overColor?: ColorLike;
         /**
-         * 지면 색상 적용 여부
+         * 지면 색상 표시 여부이며 생략하면 유지하고 false를 전달하면 끕니다.
          */
         useGroundColor?: boolean;
         /**
-         * 지면 색상
+         * useGroundColor를 지정할 때 함께 적용할 지면 색상이며 색상만 전달하면 적용하지 않습니다.
          */
         groundColor?: ColorLike;
         /**
-         * 하늘 색상 적용 여부
+         * 하늘 색상 표시 여부이며 생략하면 유지하고 false를 전달하면 끕니다.
          */
         useSkyColor?: boolean;
         /**
-         * 하늘 색상
+         * useSkyColor를 지정할 때 함께 적용할 하늘 색상이며 색상만 전달하면 적용하지 않습니다.
          */
         skyColor?: ColorLike;
     };
+    /**
+     * 스카이라인(SkyLine) 분석 화면의 영역별 픽셀 수입니다. <br>
+     * 영역 분류는 서로 독립적이므로 각 영역의 합과 전체 픽셀 수가 같지 않을 수 있습니다.
+     */
+    type UAnalySkyLineScreenInfo = {
+        /**
+         * 지면 영역의 픽셀 수
+         */
+        ground: number;
+        /**
+         * 하늘 영역의 픽셀 수
+         */
+        sky: number;
+        /**
+         * 스카이라인 경계선을 넘는 모델 영역의 픽셀 수
+         */
+        over: number;
+        /**
+         * 집계 대상 화면의 전체 픽셀 수
+         */
+        total: number;
+    };
+}
+
+declare global {
+    /**
+     * ~extends UAnalyCO <br>
+     *
+     * 경사도(Slope) 분석의 이름과 기본 표본 분할 수를 지정하는 옵션입니다. <br>
+     * 상속한 옵션은 타입에 포함되지만 이 생성자에서 적용하지 않습니다.
+     */
+    type UAnalySlopeCO_Content = {
+        /**
+         * 앱에서 분석을 구분할 이름
+         */
+        name?: string;
+        /**
+         * 지형 높이 표본을 조회할 때 사용할 분할 수
+         */
+        divide?: number;
+    };
+    /**
+     * ~extends UAnalyCO <br>
+     *
+     * 경사도(Slope) 분석의 이름과 기본 표본 분할 수를 지정하는 옵션입니다. <br>
+     * 상속한 옵션은 타입에 포함되지만 이 생성자에서 적용하지 않습니다.
+     */
+    type UAnalySlopeCO = Omit<Omit<UAnalyCO, never> & UAnalySlopeCO_Content, never>;
 }
 
 declare global {
@@ -81922,8 +79983,9 @@ declare global {
         instanceId?: number;
     };
     /**
-     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
-     * UAnalySlopeAspect 생성자 옵션
+     * ~extends UAnalyCO <br>
+     *
+     * 경사향(SlopeAspect) 분석의 영역·표면 조회와 화살표 표출 옵션입니다.
      */
     type UAnalySlopeAspectCO_Content = {
         /**
@@ -81996,8 +80058,9 @@ declare global {
         arrowTailWidth?: number;
     };
     /**
-     * ~extends import('@union3d/analy/UAnaly').UAnalyCO <br>
-     * UAnalySlopeAspect 생성자 옵션
+     * ~extends UAnalyCO <br>
+     *
+     * 경사향(SlopeAspect) 분석의 영역·표면 조회와 화살표 표출 옵션입니다.
      */
     type UAnalySlopeAspectCO = Omit<Omit<UAnalyCO, never> & UAnalySlopeAspectCO_Content, never>;
     /**
@@ -82118,6 +80181,16 @@ declare global {
          * 경사향 격자 화살표 스타일 콜백함수
          */
         arrowStyleFunction?: (cel: SlopeAspectCell, index?: number) => SlopeAspectArrowStryle;
+    };
+    /**
+     * 인스턴스 화살표 추가를 위한 콜백 함수 타입
+     */
+    type AddInstancesCallback = (count: number, updateFn: () => void) => void;
+    /**
+     * 인스턴스 화살표 렌더링 Mesh 타입
+     */
+    type SlopeUInstancedMesh = UInstancedMesh<three.CylinderGeometry | three.ConeGeometry, three.MeshBasicMaterial, number, UInstancedMeshCO> & {
+        addInstances: AddInstancesCallback;
     };
 }
 
@@ -82978,6 +81051,19 @@ declare global {
     } | {
         type: "speed";
         speed: number;
+    };
+    /**
+     * 현재 이동 구간과 대기 경유지의 예상 도착 정보입니다.
+     */
+    type UAnimationScheduledWaypoint = {
+        /**
+         * 목표 월드 좌표(EPSG:3857)의 복사본
+         */
+        point: WorldPositionVector3;
+        /**
+         * 호출 시점부터 예상 도착까지의 시간(ms, 0 이상 정수). 재개 시점이나 이동 시간을 알 수 없으면 Infinity
+         */
+        time: number;
     };
     /**
      * 애니메이션 컨트롤러의 상태 변화와 프레임 갱신을 구분하는 이벤트 이름 모음입니다. <br>
@@ -83991,6 +82077,255 @@ declare global {
             position: three.Vector3;
         };
     };
+    /**
+     * U3dApp을 생성할 때 전달하는 초기 설정 옵션입니다.<br>
+     * 지도를 그려 넣을 화면 영역, 홈 위치와 카메라 시점, 화면 품질과 성능, 타일·레이어 처리 기준을 한 번에 지정합니다.<br>
+     * containername을 제외한 모든 속성은 생략할 수 있으며, 생략하면 각 항목에 적힌 기본값이 적용됩니다.<br>
+     * 기본값이 `기기 성능에 따라 결정`이라고 적힌 속성은 실행 기기의 성능 점수에 따라 값이 달라집니다.<br>
+     * 생성한 뒤에 값을 바꾸려면 각 항목에 대응하는 U3dApp의 설정 함수를 사용하십시오.
+     */
+    type U3dAppCO = {
+        /**
+         * 지도 화면을 그려 넣을 div 엘리먼트의 id
+         */
+        containername: string;
+        /**
+         * 지도 영역. world는 전세계, korea는 한반도, custom은 targetrectopt 범위이며 타일 옵션을 지정하면 custom으로 처리합니다.
+         */
+        type?: MapRegion;
+        /**
+         * 여러 U3dApp을 구분하기 위한 이름입니다.<br>
+         * 생략하면 'U3dApp_'에 생성 순번을 붙인 이름이 자동으로 지정됩니다.
+         */
+        name?: string;
+        /**
+         * 인덱스맵(overview, 현재 보는 곳을 넓은 범위에서 보여 주는 보조 2D 지도)을 그려 넣을 div 엘리먼트의 id입니다.<br>
+         * 값을 입력하면 앱을 만들 때 그 영역에 인덱스맵이 함께 생성되고, 생략하면 인덱스맵을 만들지 않습니다.
+         */
+        idoverview?: string;
+        /**
+         * 인덱스맵의 중심을 맞추는 기준입니다.<br>
+         * true이면 카메라가 바라보는 지점을, false이면 카메라가 있는 위치를 인덱스맵의 중심으로 사용합니다.
+         */
+        camTargetType?: boolean;
+        /**
+         * 홈 위치이며 위경도 좌표계(EPSG:4326)로 입력합니다.<br>
+         * x는 경도, y는 위도, z는 고도(m)이며 기본값은 { x: 0, y: 0, z: 0 }입니다.<br>
+         * 앱을 만들 때 이 위치로 이동하지는 않으며, updateHomePosition()을 호출하면 카메라가 이 위치로 이동합니다.
+         */
+        homePosition?: GeoPosition;
+        /**
+         * 홈 위치로 이동할 때 적용할 방위각이며 0은 북쪽을 바라보는 방향
+         */
+        homeRotateLeft?: Degree;
+        /**
+         * 홈 위치로 이동할 때 적용할 고도각이며 0은 지면을 수직으로 내려다보는 방향
+         */
+        homeRotateDown?: Degree;
+        /**
+         * 카메라 투영 방식입니다.<br>
+         * `perspective`는 멀리 있는 것이 작게 보이는 원근 투영, `orthographic`은 거리와 무관하게 크기가 유지되는 평행 투영입니다.
+         */
+        cameraType?: "perspective" | "orthographic";
+        /**
+         * 한 프레임에서 처리할 작업 개수의 상한입니다.<br>
+         * 값을 키우면 데이터가 빨리 채워지는 대신 프레임이 끊길 수 있으며, 기본값은 기기 성능에 따라 결정됩니다.
+         */
+        maxprocess?: number;
+        /**
+         * 화면 상태에 맞춰 한 프레임의 작업량을 자동으로 조절할지 여부
+         */
+        frameOptimize?: boolean;
+        /**
+         * 화면 조작이 멈춘 유휴 상태에서 사용하지 않는 리소스와 메모리를 자동으로 정리할지 여부
+         */
+        autoClear?: boolean;
+        /**
+         * 이미지·고도 타일 한 장에 사용할 해상도 비율이며 값이 작을수록 타일이 흐려지고 가벼워짐
+         */
+        ratiotilesize?: number;
+        /**
+         * 모델 검색 타일 한 장에 사용할 해상도 비율이며 값이 작을수록 모델을 성기게 검색함
+         */
+        ratiomodeltilesize?: number;
+        /**
+         * 카메라 시점 주변에서 그릴 타일을 찾는 범위의 모양입니다.<br>
+         * `sphere`는 구, `boundingbox`는 직육면체 범위로 검색합니다.
+         */
+        searchtype?: "boundingbox" | "sphere";
+        /**
+         * 지형 고도 데이터를 해석하고 타일 경계의 틈을 메우는 스커트를 만드는 방식
+         */
+        methodheight?: "raw" | "base" | "1_0";
+        /**
+         * 카메라 프러스텀(frustum, 화면에 보이는 원뿔 모양 영역)의 세로 시야각이며 도 단위
+         */
+        fov?: number;
+        /**
+         * 하늘을 생성할지 여부
+         */
+        usesky?: boolean;
+        /**
+         * 지도 화면의 배경색이며 RGB 또는 HEX 문자열
+         */
+        backgroundcolor?: string;
+        /**
+         * 먼 거리를 흐리게 보이도록 안개 효과를 적용할지 여부
+         */
+        useFog?: boolean;
+        /**
+         * 하늘에 구름 효과를 적용할지 여부
+         */
+        useCloud?: boolean;
+        /**
+         * 태양을 바라볼 때 나타나는 빛 번짐(플레어) 효과를 적용할지 여부이며, 기본값은 기기 성능에 따라 결정
+         */
+        useSunFlare?: boolean;
+        /**
+         * 그림자를 그릴지 여부
+         */
+        useShadowMap?: boolean;
+        /**
+         * 장면 전체를 밝히는 환경 광원의 세기
+         */
+        intensitylight?: number;
+        /**
+         * 최종 화면의 노출 밝기이며 값이 클수록 화면이 밝아짐
+         */
+        toneExposure?: number;
+        /**
+         * 지면 텍스처 품질 보정 단계이며, 단계가 올라갈수록 선명해지고 연산량이 늘어납니다.<br>
+         * 기본값은 기기 성능에 따라 결정됩니다.
+         */
+        improveTexture?: "none" | "low" | "medium" | "high";
+        /**
+         * 렌더링에 사용할 해상도이며 사전 정의된 이름 또는 [가로, 세로] 픽셀 배열로 입력합니다.<br>
+         * 예: 'FHD' 또는 [1122, 840]이며, 기본값은 기기 성능에 따라 결정됩니다.
+         */
+        pixelResolution?: "SD" | "HD" | "FHD" | "QHD" | "UHD" | Array<number>;
+        /**
+         * 로그 깊이 버퍼 사용 여부입니다.<br>
+         * logarithmicDepthBuffer 속성을 생략하면 기본값 true를 사용합니다.
+         */
+        logarithmicDepthBuffer?: boolean;
+        /**
+         * 해상도에 곱해지는 픽셀 밀도 배율이며 값이 클수록 선명해지고 연산량이 늘어남
+         */
+        pixelRatio?: number;
+        /**
+         * 렌더링 결과에 후처리 효과를 적용할지 여부이며, 기본값은 기기 성능에 따라 결정
+         */
+        usePostProcess?: boolean;
+        /**
+         * 후처리 효과의 세부 설정이며 생략하면 각 효과의 기본 설정 사용
+         */
+        postOption?: PostProcessParam;
+        /**
+         * 지형의 최대 분할 레벨(시작 레벨 이상, 값이 클수록 근거리 지형을 세밀하게 표현)
+         */
+        maxlevel?: number;
+        /**
+         * 카메라 프러스텀에서 가장 가까운 평면까지의 거리이며 미터 단위
+         */
+        near?: number;
+        /**
+         * 카메라 프러스텀에서 가장 먼 평면까지의 거리이며 미터 단위이고 기본값은 월드 영역 크기
+         */
+        far?: number;
+        /**
+         * custom 영역의 타일 인덱스(지정하면 custom 처리, 생략하면 type별 기본 타일 사용)
+         */
+        targetrectopt?: TargetRectOption;
+        /**
+         * 타일 경계에 생기는 틈을 가리는 스커트를 생성할지 여부
+         */
+        skirt?: boolean;
+        /**
+         * 데이터를 불러오고 그리기 시작하는 최소 타일 레벨이며, 이보다 낮은 레벨의 타일은 화면에 나타나지 않습니다.<br>
+         * 생략하면 레벨 제한을 두지 않습니다.
+         */
+        passlevel?: number;
+        /**
+         * 모든 이미지 레이어에 공통 투명도를 적용할지 여부
+         */
+        useimageopacity?: boolean;
+        /**
+         * 모든 이미지 레이어에 적용할 투명도이며 0은 완전 투명, 1은 불투명
+         */
+        imageopacity?: number;
+        /**
+         * 모든 모델 레이어에 공통 투명도를 적용할지 여부
+         */
+        usemodelopacity?: boolean;
+        /**
+         * 모든 모델 레이어에 적용할 투명도이며 0은 완전 투명, 1은 불투명
+         */
+        modelopacity?: number;
+        /**
+         * 모델 텍스처 해상도를 거리로 나누는 기준 거리이며 미터 단위입니다.<br>
+         * 카메라가 이 거리 안에 있으면 가까울수록 높은 해상도의 텍스처를 사용하고, 이 거리보다 멀면 modelimagedefaultlevel의 해상도를 사용합니다.
+         */
+        modelimagedistance?: number;
+        /**
+         * modelimagedistance보다 멀리 있는 모델에 적용할 텍스처 해상도 레벨이며 0이 가장 낮은 해상도
+         */
+        modelimagedefaultlevel?: number;
+        /**
+         * 카메라 종횡비(화면 가로 길이를 세로 길이로 나눈 값)에 곱하는 보정 배율이며 1은 컨테이너 비율을 그대로 사용
+         */
+        viewportratio?: number;
+        /**
+         * 지도 확대 단계를 세는 Zoom 레벨의 시작값입니다.<br>
+         * zoomIn()과 zoomOut()이 이 값을 1씩 올리거나 내려 화면을 확대·축소합니다.
+         */
+        zoomLevel?: number;
+        /**
+         * 원근 버튼의 최소 줌과 지역 기본 최대 거리 계산 기준. 직교 축소는 현재 영역의 최대 거리 제한을 사용
+         */
+        minZoomLevel?: number;
+        /**
+         * zoomIn()으로 올라갈 수 있는 Zoom 레벨의 상한
+         */
+        maxZoomLevel?: number;
+        /**
+         * 지면과 카메라 사이의 거리에 따라 확대·이동·회전 속도를 자동으로 조절할지 여부
+         */
+        useautospeed?: boolean;
+        /**
+         * 앱을 만들면서 렌더러·카메라·컨트롤·광원·하늘을 자동으로 생성하고 렌더링을 시작할지 여부입니다.<br>
+         * false로 지정하면 필요한 구성 요소를 직접 생성한 뒤 start()를 호출하십시오.
+         */
+        auto?: boolean;
+        /**
+         * 비행 모드에서 지정한 경로를 따라 카메라가 자동으로 이동할지 여부
+         */
+        automove?: boolean;
+        /**
+         * 앱을 만든 직후 화면 그리기를 멈춘 상태로 둘지 여부
+         */
+        stoprender?: boolean;
+        /**
+         * 지하 모드에서 안개 효과를 적용할지 여부
+         */
+        undergroundFog?: boolean;
+        /**
+         * 지하 안개의 밀도이며 값이 클수록 시야가 빨리 흐려짐
+         */
+        undergroundFogDensity?: number;
+        /**
+         * 지하 안개가 시작되는 높이이며 미터 단위
+         */
+        undergroundFogStartHeight?: number;
+        /**
+         * 지하 안개가 가장 짙어지는 높이이며 미터 단위
+         */
+        undergroundFogEndHeight?: number;
+        /**
+         * 지하 안개 색상이며 x·y·z를 각각 0 이상 1 이하의 R·G·B 값으로 입력합니다.<br>
+         * 기본값은 { x: 0.034, y: 0.034, z: 0.034 }입니다.
+         */
+        undergroundFogColor?: three.Vector3;
+    };
 }
 
 declare class UGUI extends GUI {
@@ -84043,6 +82378,23 @@ declare class UGUI extends GUI {
 }
 
 declare global {
+    /**
+     * 지도 마우스 입력 설정 행입니다.
+     */
+    type UDevToolMouseInputField = {
+        /**
+         * 물리 버튼
+         */
+        button: keyof UMapMouseButtonBindings;
+        /**
+         * 표시 이름
+         */
+        label: string;
+        /**
+         * Ctrl/Cmd 조합 여부
+         */
+        modifier: boolean;
+    };
     /**
      * ~extends THREE_GUI_Controller <br>
      *
@@ -84724,6 +83076,323 @@ declare global {
 
 declare global {
     /**
+     * 경계 보정 전의 높이·노멀과 재계산 판정 정보를 보관합니다.
+     */
+    type UTerrainBoundaryState = {
+        /**
+         * 타일 키
+         */
+        tileKey: string;
+        /**
+         * 원본 높이의 변경 번호
+         */
+        heightRevision: number;
+        /**
+         * 원본 position 속성 ID
+         */
+        positionAttributeId: number;
+        /**
+         * 보정 전 경계 높이의 독립 복사본
+         */
+        originalBoundaryHeights: Float32Array;
+        /**
+         * 보정 전 경계 노멀의 독립 복사본
+         */
+        originalBoundaryNormals: Float32Array;
+        /**
+         * 이웃 구성 비교 문자열
+         */
+        neighborSignature: string;
+        /**
+         * 전체 표면 법선 준비 여부
+         */
+        normalReady: boolean;
+        /**
+         * 경계 준비 시점의 Z 배율
+         */
+        configurationScaleZ: number;
+    };
+    /**
+     * 캐시 이웃의 스커트 연결에 필요한 이번 실행의 입력입니다.
+     */
+    type UTerrainSkirtContext = {
+        /**
+         * 현재 지형 그룹
+         */
+        terrains: Array<UTileMesh>;
+        /**
+         * 캐시 이웃을 조회할 레이어
+         */
+        terrainLayer: U3dTerrainLayer;
+        /**
+         * 스커트 갱신의 표시 범위
+         */
+        frustum: three.Frustum;
+    };
+    /**
+     * 실행기 상태와 분리된 경계 진단 자료입니다.
+     */
+    type UTerrainBoundaryDiagnostics = {
+        /**
+         * 공통 Z 배율 비교 기준
+         */
+        configurationUnit: number;
+        /**
+         * 현재 타일 배치 식별값
+         */
+        topologySignature: string;
+        /**
+         * 원본 경계의 독립 복사본
+         */
+        tileStates: Map<string, UTerrainBoundaryState>;
+        /**
+         * 타일 키별 이웃 키 목록
+         */
+        neighbors: Map<string, Array<string>>;
+        /**
+         * 같은 키로 교체된 이웃을 구분하는 위치 속성 ID
+         */
+        neighborPositionAttributeIds: Map<string, Array<number>>;
+        /**
+         * 표면 갱신 예약 키
+         */
+        pendingTiles: Set<string>;
+        /**
+         * 전파 비교 경계의 독립 복사본
+         */
+        previousBoundaries: Map<string, Float32Array>;
+        /**
+         * 스커트 갱신 예약 키
+         */
+        skirtTiles: Set<string>;
+    };
+}
+
+declare global {
+    /**
+     * 높이 편집의 식별 정보와 적용 순번입니다.
+     */
+    type UHeightEditOrder = {
+        /**
+         * 분석 이름
+         */
+        analysisName: string;
+        /**
+         * 편집 ID
+         */
+        editId: string;
+        /**
+         * 적용 순번
+         */
+        sequence: number;
+    };
+}
+
+declare global {
+    /**
+     * 평탄화 선택을 구분하는 2D 입력입니다. 높이와 Z 축척은 선택 결과에 영향을 주지 않습니다.
+     */
+    type UHeightEditSelectionInput = {
+        /**
+         * 편집 다각형
+         */
+        box: {
+            geoVertex: Array<three.Vector2Like>;
+        };
+        /**
+         * 스커트 포함 여부
+         */
+        skirt: boolean | null | undefined;
+        /**
+         * 타일 레벨
+         */
+        level: number;
+        /**
+         * XY 축척
+         */
+        scale: three.Vector2Like;
+        /**
+         * XY 오프셋
+         */
+        offset: three.Vector2Like;
+        /**
+         * 격자 영역의 최소 좌표
+         */
+        min: three.Vector2Like;
+        /**
+         * 격자 영역의 최대 좌표
+         */
+        max: three.Vector2Like;
+        /**
+         * 선택 후보 인덱스 범위
+         */
+        bounds: {
+            min: three.Vector2Like;
+            max: three.Vector2Like;
+        };
+        /**
+         * 선택에 사용하는 JSTS 도형 생성자
+         */
+        geometryFactory: Function;
+        /**
+         * 선택에 사용하는 JSTS 좌표 생성자
+         */
+        coordinate: Function;
+    };
+}
+
+declare global {
+    /**
+     * 요청 시점의 확장 범위와 레벨을 보관하는 높이 재적용 정보입니다.
+     */
+    type UHeightReapplyRequest = {
+        /**
+         * 대상 고도 레이어
+         */
+        layer: U3dHeightLayer | null;
+        /**
+         * 확장 범위의 최소 월드 X
+         */
+        minX: number;
+        /**
+         * 확장 범위의 최소 월드 Y
+         */
+        minY: number;
+        /**
+         * 확장 범위의 최대 월드 X
+         */
+        maxX: number;
+        /**
+         * 확장 범위의 최대 월드 Y
+         */
+        maxY: number;
+        /**
+         * 최소 타일 레벨
+         */
+        minLevel: number;
+        /**
+         * 최대 타일 레벨
+         */
+        maxLevel: number;
+    };
+}
+
+declare global {
+    /**
+     * 같은 XY 배치에서 재사용할 지형 편집 선택 자료입니다.
+     */
+    type UHeightEditSelection = {
+        /**
+         * 정점 순서의 독립 XY 좌표
+         */
+        xyCoordinates: Float32Array;
+        /**
+         * 선택한 정점 인덱스
+         */
+        vertexIndices: Uint32Array;
+    };
+}
+
+declare global {
+    /**
+     * 법선 계산의 입력을 비교하는 스냅샷입니다. 타일이나 앱은 보관하지 않습니다.
+     */
+    type UTerrainNormalStamp = {
+        /**
+         * 위치 배열
+         */
+        positions: three.TypedArray;
+        /**
+         * 법선 배열
+         */
+        normals: three.TypedArray;
+        /**
+         * 위치 속성 변경 번호
+         */
+        positionVersion: number;
+        /**
+         * 법선 속성 변경 번호
+         */
+        normalVersion: number;
+        /**
+         * 고도 적용 변경 번호
+         */
+        heightRevision: number;
+        /**
+         * 격자 너비
+         */
+        width: number | undefined;
+        /**
+         * 격자 높이
+         */
+        height: number | undefined;
+        /**
+         * 스커트 정점 수
+         */
+        skirt: number;
+        /**
+         * 타일 최소 X
+         */
+        minX: number;
+        /**
+         * 타일 최대 X
+         */
+        maxX: number;
+        /**
+         * 타일 최소 Y
+         */
+        minY: number;
+        /**
+         * 타일 최대 Y
+         */
+        maxY: number;
+        /**
+         * 높이 축척을 결정하는 중심 Y
+         */
+        centerY: number;
+    };
+    /**
+     * 타일의 유효한 표면 법선과 부모 상속 정책을 보관합니다.
+     */
+    type UTerrainNormalState = {
+        /**
+         * 마지막 계산을 마친 대상
+         */
+        surface: UTerrainNormalStamp;
+        /**
+         * 상속한 부모의 입력
+         */
+        source: UTerrainNormalStamp | undefined;
+        /**
+         * 부모 법선 상속 허용 여부
+         */
+        allowParent: boolean;
+        /**
+         * 전체 표면 법선 준비 여부
+         */
+        ready: boolean;
+    };
+    /**
+     * 고도 적용 시 사용하는 법선 준비 정책입니다.
+     */
+    type UTerrainNormalUpdateOptions = {
+        /**
+         * 원본 고도의 최대 레벨
+         */
+        maxLevel?: number;
+        /**
+         * 병합하지 않은 고도의 부모 법선 상속 여부
+         */
+        allowParent?: boolean;
+        /**
+         * 현재 품질에서 법선을 준비할지 여부
+         */
+        recomputeNormals?: boolean;
+    };
+}
+
+declare global {
+    /**
      * `UTDSLoader` 생성 옵션입니다. 3DS 파일을 어떤 좌표 해석·재질·텍스처 정책으로 읽을지 정합니다.
      * 모든 속성이 선택이지만 옵션 객체 자체는 반드시 전달해야 합니다(내부에서 `opt.drawarg`를 바로 읽습니다).
      */
@@ -84737,7 +83406,7 @@ declare global {
          */
         needtexture?: boolean;
         /**
-         * 결과 mesh를 그릴 렌더 컨텍스트. 로더는 `drawArg` 프로퍼티에 보관만 합니다.
+         * 텍스처 연결 뒤 화면을 갱신할 렌더 컨텍스트. 생략하면 갱신 호출을 건너뜁니다.
          */
         drawarg?: UDrawArg;
         /**
@@ -84865,7 +83534,7 @@ declare global {
         scaleTrack: UTDSTrack;
     };
     /**
-     * 하나의 재질 그룹(MSH_MAT_GROUP)이 담당하는 면 목록입니다. `UTDSLoader#readMaterialGroup`이 반환합니다.
+     * 하나의 재질 그룹(MSH_MAT_GROUP)이 담당하는 면 목록입니다. 상속된 `UTDSLoader#readMaterialGroup`이 반환합니다.
      */
     type UTDSMaterialGroup = {
         /**
@@ -84873,7 +83542,7 @@ declare global {
          */
         name: string;
         /**
-         * 이 재질로 그릴 면들의 정점 인덱스. 면 하나당 3개씩 이어져 있으며 `BufferGeometry.setIndex`에 그대로 넣을 수 있습니다
+         * 이 재질로 그릴 면 번호. `readFaceArray()`가 전체 면 배열을 참조해 정점 인덱스로 변환합니다
          */
         index: Array<number>;
     };
@@ -84895,36 +83564,6 @@ declare global {
         emissive?: three.Color;
     };
     type ModelMaterial = three.Material & ModelMaterial_Content;
-}
-
-declare global {
-    /**
-     * A3F 2.0 바이너리 디코딩의 무결성 검사 옵션입니다.
-     */
-    type UA3FParserDecodeOptions = {
-        /**
-         * SHA-256 대조 여부. false여도 배치·패딩·숫자 검사는 수행
-         */
-        verifyHash?: boolean;
-    };
-    /**
-     * 코덱이 취급하는 숫자 배열 생성자입니다.
-     */
-    type UA3FParserArrayConstructor = (Float32ArrayConstructor | Float64ArrayConstructor | Uint16ArrayConstructor | Uint32ArrayConstructor);
-    /**
-     * 비동기 디코딩 중 호출자가 배치 VO를 변경해도 영향을 받지 않는 배치 사본입니다.
-     * 숫자 버퍼는 복사하지 않습니다.
-     */
-    type UA3FParserLayoutSnapshot = {
-        /**
-         * 입력 목록 순서의 배치 사본
-         */
-        layout: UA3FLayoutVo;
-        /**
-         * byteOffset 순으로 정렬한 배치 참조 목록
-         */
-        ranges: Array<UA3FArrayLayoutVo>;
-    };
 }
 
 declare global {
@@ -85086,7 +83725,7 @@ declare global {
          */
         rotation?: UFrustumEulerLike;
         /**
-         * degree 단위 항공 자세 offset. x=pitch, y=yaw, z=roll.
+         * degree 단위 항공 자세 offset. x=pitch, y=yaw, z=roll이며 Yaw → Pitch → Roll 순서로 적용합니다. Pitch는 위(+)/아래(−), Yaw는 장착 기준 위에서 보아 시계(+), Roll은 최종 시선 방향을 바라보아 시계(+)입니다.
          */
         pitchYawRoll?: three.Vector3Like;
         /**
@@ -86411,6 +85050,85 @@ declare global {
 
 declare global {
     /**
+     * 선 재질의 요청 상태와 색상 커버리지 패스의 유효 상태를 구분합니다.
+     */
+    type ULineCoverageState = {
+        /**
+         * 색상 커버리지 패스 사용 여부
+         */
+        enabled: boolean;
+        /**
+         * 호출자가 요청한 transparent 값
+         */
+        requestedTransparent: boolean;
+        /**
+         * 호출자가 요청한 블렌딩 모드
+         */
+        requestedBlending: three.Blending;
+        /**
+         * 호출자가 요청한 MSAA 커버리지 값
+         */
+        requestedAlphaToCoverage: boolean;
+        /**
+         * 실제 GL 뷰포트를 읽는 재사용 객체
+         */
+        viewport: three.Vector4;
+        /**
+         * CPU 선 선택이 사용할 주 화면의 논리 픽셀 크기
+         */
+        mainResolution: three.Vector2;
+        /**
+         * 사용자 콜백과 내부 뷰포트 갱신을 연결하는 콜백
+         */
+        renderHook?: three.Material["onBeforeRender"];
+    };
+    /**
+     * renderer별 선 AA 연결과 원래 함수를 보관합니다.
+     * 연결 해제 후 외부 래퍼가 남아 있어도 비활성 상태로 원래 호출을 통과시킵니다.
+     */
+    type ULineRendererBinding = {
+        /**
+         * 연결 사용 여부
+         */
+        active: boolean;
+        /**
+         * 연결 전 그리기 함수
+         */
+        originalRenderBufferDirect: three.WebGLRenderer["renderBufferDirect"];
+        /**
+         * 연결 전 해제 함수
+         */
+        originalDispose: three.WebGLRenderer["dispose"];
+        /**
+         * 연결이 소유한 그리기 함수
+         */
+        renderBufferDirect: three.WebGLRenderer["renderBufferDirect"];
+        /**
+         * 연결이 소유한 해제 함수
+         */
+        dispose: three.WebGLRenderer["dispose"];
+    };
+}
+
+declare global {
+    /**
+     * 좌표 출력용 복제 재질이 수명 동안 재사용하는 동기화 상태입니다.
+     * 공개 함수의 인수·반환 계약과 분리된 구현 전용 상태입니다.
+     */
+    type ULineWorldPositionSyncState = {
+        /**
+         * 실제 GL 뷰포트 조회에 재사용할 객체
+         */
+        viewport: three.Vector4;
+        /**
+         * 마지막으로 반영한 defines의 문자열 값
+         */
+        defineValues: Map<string, string>;
+    };
+}
+
+declare global {
+    /**
      * U2dGeometry 생성자 옵션 <br>
      */
     type U2dGeometryCO = {
@@ -86521,9 +85239,13 @@ declare global {
      */
     type U2dPointCO_Content = {
         /**
-         * 점을 그리는 원의 반지름 (픽셀). 지도를 확대·축소해도 화면에서 보이는 크기는 그대로입니다 <br>
+         * 점의 반경입니다. 지형 벡터에서는 기본 지도 거리이며 `isDynamicRadius: true`이면 화면 픽셀입니다. <br>
          */
         radius?: number;
+        /**
+         * 이 점의 반경·테두리를 화면 픽셀로 유지할지 여부입니다. 생략하면 레이어의 동적 반경 설정을 따릅니다. <br>
+         */
+        isDynamicRadius?: boolean;
         /**
          * 도형을 구분하는 이름. 레이어에서 도형을 찾을 때 쓰며, 넣지 않거나 빈 문자열이면 무작위 GUID 문자열이 자동으로 만들어집니다 <br>
          */
@@ -86592,12 +85314,13 @@ declare global {
      */
     type U2dPointParam = U2dGeometryParam & Partial<{
         radius: number;
+        isDynamicRadius: boolean;
     }>;
 }
 
 declare global {
     /**
-     * ~extends import('@U3dSphere').U3dSphereCO <br>
+     * ~extends U3dSphereCO <br>
      *
      * U3dAdaptedGeometry 생성자 옵션 <br>
      */
@@ -86656,7 +85379,7 @@ declare global {
         available?: boolean;
     };
     /**
-     * ~extends import('@U3dSphere').U3dSphereCO <br>
+     * ~extends U3dSphereCO <br>
      *
      * U3dAdaptedGeometry 생성자 옵션 <br>
      */
@@ -86734,9 +85457,9 @@ declare global {
          */
         lineColor: three.ColorRepresentation;
         /**
-         * 외곽선 표시 여부. 다른 도형의 `getParam`은 이 값을 `outline`으로 담지만 어댑터는 `useline`으로 담습니다 <br>
+         * 외곽선 표시 여부 <br>
          */
-        useline: boolean;
+        outline: boolean;
     };
     /**
      * 어댑터 생성 파라미터 (getParam 반환값) <br>
@@ -86849,7 +85572,7 @@ declare global {
      *
      * `U3dBox` 생성자와 `setParam`에 전달하는 옵션입니다. <br>
      * 여기에는 육면체(Box) 고유 옵션만 적었으며, 이름·색상·투명도·좌표 같은 도형 공통 옵션은 `U3dGeometryCO`가 함께 제공합니다. <br>
-     * 외곽선(outline) 표시 옵션과 그 예전 이름들은 `U3dOutlineAliasCO`가 제공하며, 지정하지 않으면 육면체는 외곽선을 표시하지 않습니다. <br>
+     * 외곽선(outline) 표시 옵션과 그 예전 이름들은 `U3dOutlineCO`가 제공하며, 지정하지 않으면 육면체는 외곽선을 표시하지 않습니다. <br>
      * `type`과 `topimageurl`은 생성 시에만 적용되고 `setParam`으로는 바뀌지 않습니다.
      */
     type U3dBoxCO_Content = {
@@ -86899,10 +85622,10 @@ declare global {
      *
      * `U3dBox` 생성자와 `setParam`에 전달하는 옵션입니다. <br>
      * 여기에는 육면체(Box) 고유 옵션만 적었으며, 이름·색상·투명도·좌표 같은 도형 공통 옵션은 `U3dGeometryCO`가 함께 제공합니다. <br>
-     * 외곽선(outline) 표시 옵션과 그 예전 이름들은 `U3dOutlineAliasCO`가 제공하며, 지정하지 않으면 육면체는 외곽선을 표시하지 않습니다. <br>
+     * 외곽선(outline) 표시 옵션과 그 예전 이름들은 `U3dOutlineCO`가 제공하며, 지정하지 않으면 육면체는 외곽선을 표시하지 않습니다. <br>
      * `type`과 `topimageurl`은 생성 시에만 적용되고 `setParam`으로는 바뀌지 않습니다.
      */
-    type U3dBoxCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dBoxCO_Content, never>;
+    type U3dBoxCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dBoxCO_Content, never>;
     /**
      * ~extends import('@U3dGeometry').U3dGeometryStyleParam <br>
      *
@@ -87192,7 +85915,7 @@ declare global {
          */
         smoothMaxDistance?: number;
         /**
-         * 진행 방향 기준 보정 거리 (미터). 양수면 앞, 음수면 뒤로 옮깁니다. 이동 거리에 따라 방향 변화를 완화하며 정지 중에는 유지합니다. 선회 중 실제 보정 거리는 일시적으로 줄고 직선 이동 시 지정 거리로 수렴합니다. smooth와 별도로 적용합니다 <br>
+         * 진행 방향 기준 보정 거리 (미터). 양수면 앞, 음수면 뒤로 옮깁니다. 첫 유효 좌표는 출발점에 두고 오프셋을 0에서 시작해 이동 거리에 따라 지정 간격으로 수렴합니다. 정지 중에는 유지하며 선회 중 실제 보정 거리는 일시적으로 줄어듭니다. 실시간·초기·일괄 입력에 같은 규칙을 적용하며 positionOffset은 첫 좌표에도 적용합니다. smooth와 별도로 적용합니다 <br>
          */
         drawOffset?: number;
         /**
@@ -87272,11 +85995,11 @@ declare global {
          */
         pathStyle?: U3dCumulativePath_StyleOpt;
         /**
-         * 초기 경로 지점 목록. 지연 초기화 시 자원 생성 때 반영하며, 처리 후 원본 배열 참조를 해제합니다. 입력 배열 자체는 변경하지 않습니다. <br>
+         * 초기 경로 지점 목록. 지연 초기화 시 자원 생성 때 반영하며, 처리 후 원본 배열 참조를 해제합니다. 입력 배열 자체는 변경하지 않습니다. 유효한 초기 이력이 있으면 자원 생성 중 받은 실시간 입력보다 그 시작점이 우선합니다. <br>
          */
         initPositions?: Array<U3dCumulativePathPositionData>;
         /**
-         * 진행 방향 기준 보정 거리 (미터). 양수면 앞, 음수면 뒤로 옮깁니다. 이동 거리에 따라 방향 변화를 완화하며 정지 중에는 유지합니다. 선회 중 실제 보정 거리는 일시적으로 줄고 직선 이동 시 지정 거리로 수렴합니다. smooth와 별도로 적용합니다. <br>
+         * 진행 방향 기준 보정 거리 (미터). 양수면 앞, 음수면 뒤로 옮깁니다. 첫 유효 좌표는 출발점에 두고 오프셋을 0에서 시작해 이동 거리에 따라 지정 간격으로 수렴합니다. 정지 중에는 유지하며 선회 중 실제 보정 거리는 일시적으로 줄어듭니다. 실시간·초기·일괄 입력에 같은 규칙을 적용하며 positionOffset은 첫 좌표에도 적용합니다. smooth와 별도로 적용합니다. <br>
          * `pathStyle.drawOffset`보다 우선합니다 <br>
          */
         drawOffset?: number;
@@ -87392,7 +86115,7 @@ declare global {
      * U3dCylinder 생성자 옵션 <br>
      * 외곽선(`outline`)은 넣지 않으면 켜진 상태로 만들어집니다. <br>
      */
-    type U3dCylinderCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dCylinderCO_Content, never>;
+    type U3dCylinderCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dCylinderCO_Content, never>;
     /**
      * ~extends U3dGeometryStyleParam <br>
      *
@@ -87450,7 +86173,7 @@ declare global {
 
 declare global {
     /**
-     * ~extends import('@U3dGeometry').U3dGeometryCO <br>
+     * ~extends U3dGeometryCO <br>
      *
      * `U3dFault` 생성자 옵션입니다. <br>
      * `topCoordinates`가 두 개 이상이면 그 선을 따라 단층면을 만들고, 하나이면 `strike`·`length`로 단층면을 만듭니다. <br>
@@ -87550,7 +86273,7 @@ declare global {
          */
         showLabel?: boolean;
         /**
-         * 외곽 테두리 두께 (화면 픽셀). 0 이하이거나 숫자가 아니면 2를 적용합니다 <br>
+         * 외곽 테두리 두께 (outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀). 생략하면 1을 적용하며 기본 단위는 pixel입니다 <br>
          */
         lineWidth?: number;
         /**
@@ -87563,13 +86286,13 @@ declare global {
         coordinates?: Array<three.Vector3>;
     };
     /**
-     * ~extends import('@U3dGeometry').U3dGeometryCO <br>
+     * ~extends U3dGeometryCO <br>
      *
      * `U3dFault` 생성자 옵션입니다. <br>
      * `topCoordinates`가 두 개 이상이면 그 선을 따라 단층면을 만들고, 하나이면 `strike`·`length`로 단층면을 만듭니다. <br>
      * `topCoordinates`가 없으면 형상 없이 생성되며, 이후 `setFaultData`·`setGeometryData`로 형상을 적용합니다. <br>
      */
-    type U3dFaultCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dFaultCO_Content, never>;
+    type U3dFaultCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dFaultCO_Content, never>;
     /**
      * ~extends U3dGeometryStyleParam <br>
      *
@@ -87606,7 +86329,7 @@ declare global {
          */
         outline: boolean;
         /**
-         * 외곽 테두리 두께 (화면 픽셀) <br>
+         * 외곽 테두리 두께 (outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀) <br>
          */
         lineWidth: number;
         /**
@@ -88063,33 +86786,61 @@ declare global {
          * 외곽선(테두리 선) 색상. 외곽선을 그리는 도형에만 적용됩니다 <br>
          */
         lineColor?: ColorLike;
+        /**
+         * 외곽선 지원 도형의 전체 테두리 두께 (outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀). 실제 경계 중심에 두께의 절반씩 안쪽과 바깥쪽에 표시합니다. 0보다 큰 유한한 숫자이며, 생성 후 `setLineWidth` 또는 `setParam`으로 변경합니다 <br>
+         */
+        lineWidth?: number;
+        /**
+         * 본체 `opacity`와 독립된 외곽선 불투명도 (0~1). 0이면 외곽선을 렌더링하지 않습니다. `setLineOpacity` 또는 `setParam`으로 변경합니다 <br>
+         */
+        lineOpacity?: number;
+        /**
+         * (deprecated) `lineColor`로 통일되었습니다. 사용 시 변경 안내 경고를 출력합니다 <br>
+         */
+        outlineColor?: ColorLike;
+        /**
+         * (deprecated) `lineWidth`로 통일되었습니다. 사용 시 변경 안내 경고를 출력합니다 <br>
+         */
+        outlineWidth?: number;
+        /**
+         * (deprecated) `lineOpacity`로 통일되었습니다. 사용 시 변경 안내 경고를 출력합니다 <br>
+         */
+        outlineOpacity?: number;
     };
     /**
      * ~extends import('@UEventDispatcher').UEventDispatcherCO <br>
      *
      * U3dGeometry 생성자 옵션 입니다. <br>
      */
-    type U3dGeometryCO = Omit<Omit<UEventDispatcherCO, never> & U3dGeometryCO_Content, never>;
+    type U3dGeometryCO = Omit<Omit<UEventDispatcherCO, never> & U3dGeometryCO_Content & U3dOutlineCO, never>;
     /**
      * 외곽선(테두리 선) 표시 여부를 지정하는 옵션입니다. <br>
-     * 도형 종류와 무관하게 `outline` 하나로 지정하며, 나머지 셋은 예전 코드가 쓰던 같은 뜻의 이름입니다. <br>
-     * 여러 이름을 함께 넣으면 `outline` → `useline` → `useLine` → `edge` 순으로 먼저 찾은 값을 사용합니다. <br>
+     * 도형 종류와 무관하게 `outline` 하나로 지정합니다. <br>
+     * 예전 이름을 사용하면 `outline`으로 변경하라는 경고를 출력하며 호환 처리합니다. 공식 이름을 함께 지정하면 공식 값이 우선합니다. <br>
      */
-    type U3dOutlineAliasCO = {
+    type U3dOutlineCO = {
         /**
-         * 외곽선을 표시할지 여부. 켜면 면과 면이 만나는 모서리를 선으로 덧그리며, 선 색은 `lineColor`로 정합니다 <br>
+         * 외곽선 두께 단위. meter는 미터, pixel은 화면 CSS 픽셀이며 줌과 무관한 두께를 유지합니다. `setOutlineType` 또는 `setParam`으로 변경합니다 <br>
+         */
+        outlineType?: "meter" | "pixel";
+        /**
+         * 모서리 기반 외곽선의 코너 반경 비율 (0~1). 0은 각진 연결, 1은 기존의 둥근 연결입니다. 급각의 돌출은 반 두께의 네 배로 제한하며 본체·선분 경로와 곡면 실루엣의 곡률은 유지합니다. `setOutlineTension` 또는 `setParam`으로 변경합니다 <br>
+         */
+        outlineTension?: number;
+        /**
+         * U3dLine·U3dPoint를 제외한 하위 도형의 외곽선 표시 여부. 구는 분할선 없는 바깥 윤곽, 파이프는 실제 메시 윤곽과 열린 끝의 단면 테두리, 원기둥은 위·아래 테두리와 시점에 따른 옆면 윤곽, 나머지 도형은 경계 양쪽으로 돌출을 허용한 모서리를 표시합니다. 색상은 `lineColor`, 불투명도는 `lineOpacity`로 정하며 기존 지원 도형은 고유 기본값을 유지하고 나머지는 false입니다 <br>
          */
         outline?: boolean;
         /**
-         * `outline`의 예전 이름. 새 코드에서는 사용하지 않습니다 <br>
+         * (deprecated) `outline`으로 변경하세요. 사용 시 경고를 출력합니다 <br>
          */
         useline?: boolean;
         /**
-         * `outline`의 예전 이름. 새 코드에서는 사용하지 않습니다 <br>
+         * (deprecated) `outline`으로 변경하세요. 사용 시 경고를 출력합니다 <br>
          */
         useLine?: boolean;
         /**
-         * `outline`의 예전 이름. 새 코드에서는 사용하지 않습니다 <br>
+         * (deprecated) `outline`으로 변경하세요. 사용 시 경고를 출력합니다 <br>
          */
         edge?: boolean;
     };
@@ -88115,13 +86866,57 @@ declare global {
          */
         contrast?: number;
         /**
-         * 지형 표면을 기준으로 도형을 띄울 높이 (미터)
+         * `setParam`에서 지형 표면을 기준으로 도형을 띄울 높이 (미터). 현재 좌표에 한 번 적용하며 `getParam` 반환값에는 포함되지 않습니다
          */
         heightOffset?: number;
         /**
          * 외곽선(테두리 선) 색상
          */
         lineColor?: ColorLike;
+        /**
+         * 외곽선 표시 여부
+         */
+        outline?: boolean;
+        /**
+         * 외곽선 두께 단위. 기본값은 pixel
+         */
+        outlineType?: "meter" | "pixel";
+        /**
+         * 모서리 기반 외곽선의 코너 반경 비율 (0~1). 기본값은 1이며 0은 각진 연결, 1은 둥근 연결
+         */
+        outlineTension?: number;
+        /**
+         * 외곽선 지원 도형의 테두리 두께 (outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀). 0보다 큰 유한한 숫자
+         */
+        lineWidth?: number;
+        /**
+         * 본체 `opacity`와 독립된 외곽선 불투명도 (0~1)
+         */
+        lineOpacity?: number;
+        /**
+         * (deprecated) `lineColor`로 변경하세요. 사용 시 경고를 출력합니다
+         */
+        outlineColor?: ColorLike;
+        /**
+         * (deprecated) `lineWidth`로 변경하세요. 사용 시 경고를 출력합니다
+         */
+        outlineWidth?: number;
+        /**
+         * (deprecated) `lineOpacity`로 변경하세요. 사용 시 경고를 출력합니다
+         */
+        outlineOpacity?: number;
+        /**
+         * `outline`의 예전 이름
+         */
+        useline?: boolean;
+        /**
+         * `outline`의 예전 이름
+         */
+        useLine?: boolean;
+        /**
+         * `outline`의 예전 이름
+         */
+        edge?: boolean;
         /**
          * 그림자를 드리우고 받을지 여부
          */
@@ -88190,6 +86985,25 @@ declare global {
          */
         DISPOSE: string;
     };
+    type U3dOutlineAliasCO = U3dOutlineCO;
+    /**
+     * U3dLine의 엔진 API와 Line2 Mesh 믹스인을 함께 사용하는 내부 외곽선 객체입니다.
+     */
+    type UGeometryOutlineLine = U3dLine & UMesh;
+    /**
+     * 도형별 전용 띠를 그리는 외곽선 메시입니다. U3dLine의 선 API를 포함하지 않습니다.
+     */
+    type UGeometryOutlineMaterial = three.ShaderMaterial & {
+        color: three.Color;
+        linewidth: number;
+        worldUnits: boolean;
+    };
+    /**
+     * 도형별 전용 띠를 그리는 외곽선 메시입니다. U3dLine의 선 API를 포함하지 않습니다.
+     */
+    type UGeometryOutlineMesh = three.Mesh<three.BufferGeometry, UGeometryOutlineMaterial> & {
+        customWorldPositionMaterial: UGeometryOutlineMaterial;
+    };
 }
 
 declare global {
@@ -88212,7 +87026,7 @@ declare global {
         opacity?: number;
     };
     /**
-     * ~extends import('@U3dSphere').U3dSphereCO <br>
+     * ~extends U3dSphereCO <br>
      *
      * U3dHeatGeometry 생성자 옵션 <br>
      */
@@ -88247,7 +87061,7 @@ declare global {
         outerFactor?: number;
     };
     /**
-     * ~extends import('@U3dSphere').U3dSphereCO <br>
+     * ~extends U3dSphereCO <br>
      *
      * U3dHeatGeometry 생성자 옵션 <br>
      */
@@ -88310,7 +87124,7 @@ declare global {
         style: {
             color: string | null;
             opacity: number;
-            useline: boolean;
+            outline: boolean;
         };
     };
     /**
@@ -88461,9 +87275,9 @@ declare global {
          */
         buffer: Float32Array | null;
         /**
-         * 원본 머터리얼 백업 <br>
+         * 선택 강조의 복원 대상을 포함한 원본 재질 백업 <br>
          */
-        originM: Map<three.Mesh, three.Material>;
+        originM: Map<three.Mesh, three.Material | Array<three.Material>>;
         /**
          * 머터리얼 패치 여부 <br>
          */
@@ -88477,6 +87291,7 @@ declare global {
      *
      * `U3dLine` 생성자에 전달하는 옵션입니다. <br>
      * 도형 공통 옵션은 `U3dGeometryCO`에 정의되어 있으며, 이 타입은 선 고유 옵션과 주요 공통 옵션을 함께 설명합니다. <br>
+     * 선 자체를 표시하므로 별도 `outline`은 지원하지 않습니다. 선의 두께·색상은 `linewidth`·`color`로 지정합니다. <br>
      */
     type U3dLineCO_Content = {
         /**
@@ -88489,7 +87304,7 @@ declare global {
          */
         color?: three.ColorRepresentation | Array<three.ColorRepresentation>;
         /**
-         * 불투명도 (0~1). 생성 옵션으로 지정한 값은 선 재질에 적용되지 않으며, `setOpacity` 또는 `setParam`으로 지정한 값이 적용됩니다 <br>
+         * 선 재질의 불투명도 (0~1). 생성 옵션·setOpacity·setParam에 동일하게 적용됩니다 <br>
          */
         opacity?: number;
         /**
@@ -88504,6 +87319,26 @@ declare global {
          * 곡선 표본 간격 (월드 좌표(EPSG:3857) 길이, 0 초과). 값이 작을수록 곡선이 매끄러워지고 정점 수가 증가합니다 <br>
          */
         divisions?: number;
+        /**
+         * 0이면 원본 정점을 직선으로 연결하고 양수이면 Catmull-Rom 곡선으로 보간합니다. 0 이상 유한수이며 segments 지정 시 기본값은 0이고 양수는 허용하지 않습니다 <br>
+         */
+        tension?: number;
+        /**
+         * vertices를 참조하는 독립 선분의 인덱스 쌍. 각 쌍은 범위 안의 서로 다른 정수 두 개입니다. []는 선분 없음, 생략·null은 연속 경로입니다 <br>
+         */
+        segments?: Array<U3dLineSegment> | null;
+        /**
+         * 점선 표시 여부. 연속 경로는 누적 거리, 독립 선분은 각 선분 시작점부터 패턴을 계산합니다 <br>
+         */
+        dashed?: boolean;
+        /**
+         * 대시 길이. 형상 좌표(EPSG:3857) 길이 기준의 0보다 큰 유한수 <br>
+         */
+        dashSize?: number;
+        /**
+         * 대시 사이 간격. 형상 좌표(EPSG:3857) 길이 기준의 0 이상 유한수 <br>
+         */
+        gapSize?: number;
         /**
          * 닫힘 설정값. `getParam`으로 반환되지만 선 형상 생성에는 사용되지 않습니다 <br>
          */
@@ -88538,8 +87373,9 @@ declare global {
      *
      * `U3dLine` 생성자에 전달하는 옵션입니다. <br>
      * 도형 공통 옵션은 `U3dGeometryCO`에 정의되어 있으며, 이 타입은 선 고유 옵션과 주요 공통 옵션을 함께 설명합니다. <br>
+     * 선 자체를 표시하므로 별도 `outline`은 지원하지 않습니다. 선의 두께·색상은 `linewidth`·`color`로 지정합니다. <br>
      */
-    type U3dLineCO = Omit<U3dGeometryCO, keyof U3dLineCO_Content> & U3dLineCO_Content;
+    type U3dLineCO = Omit<U3dGeometryCO, keyof U3dLineCO_Content | keyof U3dOutlineCO | "lineWidth" | "lineOpacity" | "lineColor" | "outlineColor" | "outlineWidth" | "outlineOpacity"> & U3dLineCO_Content;
     /**
      * ~extends U3dGeometryStyleParam <br>
      *
@@ -88548,7 +87384,7 @@ declare global {
      */
     type U3dLineParam_Content = {
         /**
-         * 재질에 적용된 선 두께. `worldUnits`가 `true`이고 위경도 좌표가 있으면 지정한 두께에 위도 환산 배율이 곱해진 값 <br>
+         * 입력한 선 두께. 위도 보정 전 값이므로 저장 후 복원해도 중복 보정되지 않습니다 <br>
          */
         linewidth: number;
         /**
@@ -88563,6 +87399,34 @@ declare global {
          * 선 두께 단위. `true`이면 미터, `false`이면 화면 픽셀 <br>
          */
         worldUnits: boolean;
+        /**
+         * 곡선 장력. 0이면 직선 연결 <br>
+         */
+        tension: number;
+        /**
+         * 독립 선분 인덱스의 복사본. 연속 경로는 null <br>
+         */
+        segments: Array<U3dLineSegment> | null;
+        /**
+         * 점선 표시 여부 <br>
+         */
+        dashed: boolean;
+        /**
+         * 대시 길이 <br>
+         */
+        dashSize: number;
+        /**
+         * 대시 사이 간격 <br>
+         */
+        gapSize: number;
+        /**
+         * 원본 월드 정점의 복사본 <br>
+         */
+        vertices: Array<WorldPositionVector3>;
+        /**
+         * 원본 위경도 좌표의 복사본 <br>
+         */
+        coordinates: Array<GeoPositionVector3>;
     };
     /**
      * ~extends U3dGeometryStyleParam <br>
@@ -88570,10 +87434,10 @@ declare global {
      * `U3dLine.getParam`이 반환하는 현재 속성입니다. <br>
      * 도형 공통 속성(`U3dGeometryStyleParam`)에 선 고유 속성을 더한 형식입니다. <br>
      */
-    type U3dLineParam = U3dLineParam_Content & U3dGeometryStyleParam;
+    type U3dLineParam = U3dLineParam_Content & Omit<U3dGeometryStyleParam, keyof U3dOutlineCO | "lineWidth" | "lineOpacity" | "lineColor" | "outlineColor" | "outlineWidth" | "outlineOpacity">;
     /**
      * `U3dLine.drapeOnSurface`에 전달하는 옵션입니다. <br>
-     * 드레이프는 선의 원본 좌표를 유지한 채 곡선 표본별로 아래쪽 모델·지형 표면의 높이를 조회해 선의 높이를 표면에 맞추는 처리입니다. <br>
+     * 원본 좌표를 유지한 채 표본별로 아래쪽 모델·지형 표면의 높이를 조회합니다. tension이 0이면 코너를 보존하며 독립 선분은 각각 표본화합니다. <br>
      */
     type U3dLineDrapeOnSurfaceOptions = {
         /**
@@ -88614,7 +87478,318 @@ declare global {
      * 선의 변경 파라미터입니다. 공통 스타일은 생성 옵션보다 변경 API의 계약을 우선합니다. <br>
      * depthOffset의 null 해제를 지원하며, 색상 배열 변경은 setColor를 사용합니다. <br>
      */
-    type U3dLineSetParam = Omit<U3dLineCO, keyof U3dGeometryStyleParam> & U3dGeometryStyleParam;
+    type U3dLineSetParam = Omit<U3dLineCO, keyof U3dGeometryStyleParam> & Omit<U3dGeometryStyleParam, keyof U3dOutlineCO | "lineWidth" | "lineOpacity" | "lineColor" | "outlineColor" | "outlineWidth" | "outlineOpacity"> & {
+        lineWidth?: number;
+    };
+    /**
+     * 공유 정점 목록의 [시작 인덱스, 끝 인덱스]입니다. <br>
+     */
+    type U3dLineSegment = [number, number];
+    /**
+     * 드레이프 요청의 원본 상태입니다.
+     */
+    type U3dLineDrapeSource = {
+        vertices: Array<three.Vector3>;
+        divisions: number;
+        closed: boolean;
+        tension: number;
+        segments?: Array<U3dLineSegment>;
+    };
+    /**
+     * 곡선 또는 코너를 보존하는 직선 구간의 표본 계획입니다.
+     */
+    type U3dLineDrapePlan = {
+        kind: "curve";
+        spline: three.CatmullRomCurve3;
+        curveLength: number;
+        segmentCount: number;
+    } | {
+        kind: "linear";
+        sections: Array<{
+            start: number;
+            end: number;
+            count: number;
+        }>;
+    };
+}
+
+declare global {
+    /**
+     * 파이프 본체 표면을 기록했을 때의 렌더 조건입니다.
+     */
+    type UTubeOutlineSurfaceCapture = {
+        /**
+         * 본체 버퍼·재질·카메라 깊이·깊이 보정·클리핑 조건. 사용자 셰이더는 렌더 호출도 포함
+         */
+        key: string;
+        /**
+         * 본체 월드 행렬
+         */
+        world: three.Matrix4;
+        /**
+         * 카메라 뷰 행렬
+         */
+        view: three.Matrix4;
+        /**
+         * 카메라 투영 행렬
+         */
+        projection: three.Matrix4;
+        /**
+         * 출력의 물리 픽셀 뷰포트
+         */
+        viewport: three.Vector4;
+    };
+    /**
+     * 한 파이프가 빌린 화면 영역별 깊이·경로 버퍼입니다.
+     */
+    type UTubeOutlineSurfaceEntry = {
+        /**
+         * 깊이와 경로를 기록하는 타깃
+         */
+        target: three.WebGLRenderTarget;
+        /**
+         * 할당된 색상·깊이 버퍼의 픽셀 수
+         */
+        pixels: number;
+        /**
+         * 출력 픽셀에서의 원점 X·Y와 텍스처 폭·높이
+         */
+        region: three.Vector4;
+        /**
+         * 현재 타깃에 기록된 렌더 조건
+         */
+        capture?: UTubeOutlineSurfaceCapture;
+    };
+    /**
+     * 전체 화면 한 장 이내의 파이프 표면 기록 캐시입니다.
+     */
+    type UTubeOutlineSurfaceCache = {
+        /**
+         * 등록된 색상 재질과 반납 콜백
+         */
+        users: Map<three.Material, () => void>;
+        /**
+         * 최근 사용 순서의 파이프별 기록
+         */
+        entries: Map<three.Material, UTubeOutlineSurfaceEntry>;
+        /**
+         * 현재 할당 픽셀 합계
+         */
+        pixels: number;
+        /**
+         * 현재 출력 뷰포트의 전체 픽셀 수
+         */
+        budget: number;
+        /**
+         * 해제된 사용자의 GPU 버퍼 반납
+         */
+        release: () => void;
+    };
+    /**
+     * 구 외곽선들이 공유하는 기존 장면 깊이의 GPU 복사본입니다.
+     */
+    type USphereOutlineDepth = {
+        /**
+         * 복사본을 소유하는 깊이 텍스처
+         */
+        texture: three.DepthTexture | null;
+        /**
+         * 깊이만 연결한 복사 대상
+         */
+        framebuffer: WebGLFramebuffer | null;
+        /**
+         * 복사한 렌더 호출 번호
+         */
+        frame: number;
+        /**
+         * 원래 렌더 타깃
+         */
+        target: three.WebGLRenderTarget | null;
+        /**
+         * 복사한 카메라
+         */
+        camera: three.Camera | null;
+        /**
+         * 복사한 장면
+         */
+        scene: three.Scene | null;
+        /**
+         * 복사한 물리 픽셀 뷰포트
+         */
+        viewport: three.Vector4;
+        /**
+         * 복사한 뷰 행렬
+         */
+        view: three.Matrix4;
+        /**
+         * 복사한 투영 행렬
+         */
+        projection: three.Matrix4;
+        /**
+         * 복사한 큐브 면
+         */
+        face: number;
+        /**
+         * 복사한 밉 단계
+         */
+        mip: number;
+        /**
+         * 현재 색상 렌더 목록의 구 외곽선
+         */
+        objects: Array<three.Mesh>;
+        /**
+         * 복사 대상 목록의 장면
+         */
+        objectsScene: three.Scene | null;
+        /**
+         * 첫 투명 객체의 그리기 직전에 실행할 예약
+         */
+        beforeDraw: WeakMap<three.Object3D, (scene: three.Scene, camera: three.Camera, material: three.Material) => void>;
+        /**
+         * 기본 캔버스에서 확인한 깊이 형식
+         */
+        defaultFormat: {
+            format: three.DepthTexture["format"];
+            type: three.TextureDataType;
+        } | null;
+        /**
+         * 깊이를 사용하는 외곽선과 반납 콜백
+         */
+        users: Map<three.Material, () => void>;
+        /**
+         * 미실행 그리기 예약 취소
+         */
+        clearReservations: () => void;
+        /**
+         * 마지막 사용자 이후 GPU 자원과 장면 참조 반납
+         */
+        release: () => void;
+    };
+    /**
+     * 구가 있는 장면의 렌더 준비 콜백과 등록 재질입니다.
+     */
+    type USphereOutlineScene = {
+        /**
+         * 이 장면의 구 외곽선 재질
+         */
+        materials: Set<three.Material>;
+        /**
+         * 공유 장면 렌더 준비의 등록 해제
+         */
+        release: () => void;
+    };
+    /**
+     * 외곽선을 포함하는 엔진 렌더 본체입니다. 일반 도형의 UMesh와 별도 메시를 쓰는 속도 모델 필터를 포함합니다.
+     */
+    type UGeometryOutlineTarget = UMesh | USpeedModelFilterMesh;
+    /**
+     * 도형별 외곽선 렌더 객체를 만드는 내부 생성 전략입니다.
+     */
+    type U3dOutlineFactory = (geometry: three.BufferGeometry) => three.Mesh | undefined;
+    /**
+     * 모서리 연결부의 인접 정점과 재사용 투영 자료입니다.
+     */
+    type UOutlineCornerNode = {
+        /**
+         * 로컬 정점
+         */
+        position: three.Vector4;
+        /**
+         * 원근 나누기 전의 화면 X·Y와 clip W
+         */
+        screen: three.Vector3;
+        /**
+         * 근접면·원거리면 안의 유효 정점 여부
+         */
+        valid: boolean;
+        /**
+         * 화면 방향 또는 미터 원근 모드의 덮임 각도 구간
+         */
+        directions: Array<{
+            neighbor: number;
+            x: number;
+            y: number;
+            angle: number;
+            endAngle: number;
+        }>;
+    };
+    /**
+     * 보조 패스가 임시 교체한 재질과 이전 스타일 연결입니다.
+     */
+    type U3dOutlineMaterialState = {
+        /**
+         * 교체한 객체
+         */
+        object: three.Mesh;
+        /**
+         * 복원할 재질
+         */
+        material: three.Material | Array<three.Material>;
+        /**
+         * 이전 스타일 연결
+         */
+        styleMaterial: three.Material | Array<three.Material> | undefined;
+    };
+    /**
+     * 구의 축소 실루엣과 지형 가림을 기록하는 공유 마스크입니다.
+     */
+    type USphereOutlineMask = {
+        /**
+         * 색상 마스크 버퍼
+         */
+        target: three.WebGLRenderTarget;
+        /**
+         * 축소 구를 그리는 메시
+         */
+        mesh: three.Mesh;
+        /**
+         * 기존 지형 깊이 복사본
+         */
+        depth: {
+            value: three.DepthTexture | null;
+        };
+        /**
+         * 복사한 뷰포트
+         */
+        captured: {
+            value: three.Vector4;
+        };
+        /**
+         * 깊이 텍스처 크기
+         */
+        size: {
+            value: three.Vector2;
+        };
+        /**
+         * 마스크 크기
+         */
+        viewport: {
+            value: three.Vector2;
+        };
+        /**
+         * 지형 가림 검사 여부
+         */
+        enabled: {
+            value: boolean;
+        };
+        /**
+         * 마스크를 사용하는 외곽선과 반납 콜백
+         */
+        users: Map<three.Material, () => void>;
+        /**
+         * 사용자가 빌린 형상과 마지막 GPU 자원 반납
+         */
+        release: () => void;
+    };
+    type UOutlineParentCullingRecord = {
+        previous: three.Object3D["intersectsFrustum"];
+        descriptor: PropertyDescriptor | undefined;
+        check: three.Object3D["intersectsFrustum"];
+        users: Set<three.Object3D>;
+        epoch: number;
+        frustum: three.Frustum | three.FrustumArray | undefined;
+        visible: boolean;
+    };
 }
 
 declare global {
@@ -88782,7 +87957,7 @@ declare global {
      *
      * `U3dPathGeometry` 생성자 옵션입니다. <br>
      * 지정한 값은 `draw()`에서 경로 속성을 생략한 항목의 기본값으로 사용됩니다. <br>
-     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`에 정의되어 있습니다. <br>
+     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineCO`에 정의되어 있습니다. <br>
      */
     type U3dPathGeometryCO_Content = {
         /**
@@ -88835,16 +88010,21 @@ declare global {
      *
      * `U3dPathGeometry` 생성자 옵션입니다. <br>
      * 지정한 값은 `draw()`에서 경로 속성을 생략한 항목의 기본값으로 사용됩니다. <br>
-     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`에 정의되어 있습니다. <br>
+     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineCO`에 정의되어 있습니다. <br>
      */
-    type U3dPathGeometryCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dPathGeometryCO_Content, never>;
+    type U3dPathGeometryCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dPathGeometryCO_Content, never>;
     /**
-     * ~extends U3dOutlineAliasCO <br>
+     * ~extends U3dOutlineCO <br>
      *
      * `U3dPathGeometry.setParam`에 전달하는 경로 속성입니다. <br>
+     * 동일한 형상 값과 외곽선 스타일 변경은 기존 자원을 유지하며, 실제 형상·표시 상태가 달라질 때만 다시 생성합니다. <br>
      * 높이 항목은 별칭을 함께 받으며, 여러 이름을 지정하면 `minheight` → `minHeight` → `height`, `maxheight` → `maxHeight` → `pathheight` 순서로 사용합니다. <br>
      */
     type U3dPathGeometrySetParam_Content = {
+        /**
+         * 외곽선 두께. outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀 <br>
+         */
+        lineWidth?: number;
         /**
          * 경로 색상 <br>
          */
@@ -88891,19 +88071,24 @@ declare global {
         pathheight?: number;
     };
     /**
-     * ~extends U3dOutlineAliasCO <br>
+     * ~extends U3dOutlineCO <br>
      *
      * `U3dPathGeometry.setParam`에 전달하는 경로 속성입니다. <br>
+     * 동일한 형상 값과 외곽선 스타일 변경은 기존 자원을 유지하며, 실제 형상·표시 상태가 달라질 때만 다시 생성합니다. <br>
      * 높이 항목은 별칭을 함께 받으며, 여러 이름을 지정하면 `minheight` → `minHeight` → `height`, `maxheight` → `maxHeight` → `pathheight` 순서로 사용합니다. <br>
      */
-    type U3dPathGeometrySetParam = U3dPathGeometrySetParam_Content & Omit<U3dOutlineAliasCO, never>;
+    type U3dPathGeometrySetParam = U3dPathGeometrySetParam_Content & Omit<U3dOutlineCO, never>;
     /**
-     * ~extends U3dOutlineAliasCO <br>
+     * ~extends U3dOutlineCO <br>
      *
      * 경로 형상 생성 메서드(`draw`·`createPathMesh`·`createMesh`·`createMeshFromVec3`·`import`)에 전달하는 경로 속성입니다. <br>
      * 메서드마다 사용하는 항목과 기본값이 다르며, `createPathMesh`로 생성한 경로의 속성은 `export`로 저장할 수 있습니다. <br>
      */
     type PathGeometryInfo_Content = {
+        /**
+         * 외곽선 두께. outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀 <br>
+         */
+        lineWidth?: number;
         /**
          * 좌표 변환과 지형 조회에 사용하는 앱(`U3dApp`). `createPathMesh`와 `createMesh`에는 필수입니다 <br>
          */
@@ -88994,12 +88179,12 @@ declare global {
         pathcolor?: string;
     };
     /**
-     * ~extends U3dOutlineAliasCO <br>
+     * ~extends U3dOutlineCO <br>
      *
      * 경로 형상 생성 메서드(`draw`·`createPathMesh`·`createMesh`·`createMeshFromVec3`·`import`)에 전달하는 경로 속성입니다. <br>
      * 메서드마다 사용하는 항목과 기본값이 다르며, `createPathMesh`로 생성한 경로의 속성은 `export`로 저장할 수 있습니다. <br>
      */
-    type PathGeometryInfo = PathGeometryInfo_Content & Omit<U3dOutlineAliasCO, never>;
+    type PathGeometryInfo = PathGeometryInfo_Content & Omit<U3dOutlineCO, never>;
     /**
      * `U3dPathGeometry.export`가 반환하는 경로 저장 정보입니다. <br>
      * `import`에 전달하면 같은 경로를 복원합니다. <br>
@@ -89009,7 +88194,9 @@ declare global {
          * 경로 형상을 다시 생성하는 데 필요한 속성 <br>
          */
         pathOption: {
-            edge: boolean;
+            outline: boolean;
+            outlineType: "meter" | "pixel";
+            lineWidth: number;
             maxheight: number;
             minheight: number;
             tension: number;
@@ -89299,7 +88486,7 @@ declare global {
      * ~extends import('@U3dGeometry').U3dGeometryCO <br>
      *
      * `U3dPolygonLoftGeometry` 생성자에 전달하는 옵션입니다. <br>
-     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`에 정의되어 있습니다. <br>
+     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineCO`에 정의되어 있습니다. <br>
      * 로프트 도형은 `outline`을 지정하지 않으면 외곽선을 표시합니다. <br>
      */
     type U3dPolygonLoftGeometryCO_Content = {
@@ -89336,10 +88523,10 @@ declare global {
      * ~extends import('@U3dGeometry').U3dGeometryCO <br>
      *
      * `U3dPolygonLoftGeometry` 생성자에 전달하는 옵션입니다. <br>
-     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`에 정의되어 있습니다. <br>
+     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineCO`에 정의되어 있습니다. <br>
      * 로프트 도형은 `outline`을 지정하지 않으면 외곽선을 표시합니다. <br>
      */
-    type U3dPolygonLoftGeometryCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dPolygonLoftGeometryCO_Content, never>;
+    type U3dPolygonLoftGeometryCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dPolygonLoftGeometryCO_Content, never>;
     /**
      * loft 측면 연결 정보 <br>
      */
@@ -89424,6 +88611,70 @@ declare global {
      * 도형 공통 속성(`U3dGeometryStyleParam`)에 로프트 고유 속성을 더한 형식이며, `setParam`에 그대로 전달할 수 있습니다. <br>
      */
     type U3dPolygonLoftGeometryParam = U3dPolygonLoftGeometryParam_Content & U3dGeometryStyleParam;
+}
+
+declare global {
+    /**
+     * ~extends U3dGeometryCO <br>
+     *
+     * U3dSphere(구체) 생성자에 넘기는 옵션입니다. <br>
+     * 외곽선 옵션(`outline`과 별칭)은 `U3dOutlineCO`가, 색상·투명도 같은 도형 공통 옵션은 `U3dGeometryCO`가 정의합니다. <br>
+     */
+    type U3dSphereCO_Content = {
+        /**
+         * 구체의 반지름 (미터). 화면에 그릴 때는 좌표가 지정된 위도의 보정 배율이 곱해집니다 <br>
+         */
+        radius?: number;
+        /**
+         * 가로(둘레) 방향 분할 수. 클수록 옆에서 본 윤곽이 원에 가까워지고 정점 수가 늘어납니다. <br>
+         * 최소 3 <br>
+         */
+        widthSegments?: number;
+        /**
+         * 세로(위아래) 방향 분할 수. 클수록 표면이 매끄러워지고 정점 수가 늘어납니다. <br>
+         * 최소 2 <br>
+         */
+        heightSegments?: number;
+        /**
+         * 가로 방향으로 그리기 시작할 각도 (라디안) <br>
+         */
+        phiStart?: number;
+        /**
+         * 가로 방향으로 그릴 각도 범위 (라디안). 기본값은 `Math.PI * 2`(360도)로 둘레 전체를 그리며, 줄이면 수박 조각처럼 일부만 남습니다 <br>
+         */
+        phiLength?: number;
+        /**
+         * 세로 방향으로 그리기 시작할 각도 (라디안) <br>
+         */
+        thetaStart?: number;
+        /**
+         * 세로 방향으로 그릴 각도 범위 (라디안). 기본값은 `Math.PI`(180도)로 위아래 전체를 그리며, `Math.PI / 2`를 넣으면 반구가 됩니다 <br>
+         */
+        thetaLength?: number;
+        /**
+         * 불투명도. 0이면 완전 투명, 1이면 불투명하며 1보다 작으면 투명 처리가 켜집니다 <br>
+         */
+        opacity?: number;
+        /**
+         * 카메라 거리에 따라 색과 밝기가 달라지는 셰이더 재질을 쓸지 여부. false면 단색 재질을 사용하며, 생성 시에만 적용되고 `setParam`으로는 바꿀 수 없습니다 <br>
+         */
+        setDistanceMaterial?: boolean;
+        /**
+         * 구체 표면 색상. 16진수 숫자(`0xff0000`), CSS 색 문자열(`'#ff0000'`) 또는 `THREE.Color`를 넣습니다 <br>
+         */
+        color?: three.ColorRepresentation;
+        /**
+         * 도형 종류 식별자 (기본값 `'basic'`). 구체는 이 값으로 재질이 달라지지 않으며, 재질 종류는 `setDistanceMaterial`이 정합니다 <br>
+         */
+        type?: string;
+    };
+    /**
+     * ~extends U3dGeometryCO <br>
+     *
+     * U3dSphere(구체) 생성자에 넘기는 옵션입니다. <br>
+     * 외곽선 옵션(`outline`과 별칭)은 `U3dOutlineCO`가, 색상·투명도 같은 도형 공통 옵션은 `U3dGeometryCO`가 정의합니다. <br>
+     */
+    type U3dSphereCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dSphereCO_Content, never>;
 }
 
 declare global {
@@ -92306,6 +91557,17 @@ declare global {
          * 같은 구간의 합성이 진행 중일 때 재사용할 Worker 결과입니다.
          */
         workerResult: TerrainWorkerResult | undefined;
+        /**
+         * 해시·배열을 다시 만들지 않고 비교할 확정 입력의 값과 렌더러 정체성입니다.
+         */
+        inputState?: {
+            featureCount: number;
+            values: Array<unknown>;
+        };
+        /**
+         * 전체 계획에 재사용할 구간별 불변 표시 조각입니다.
+         */
+        compositionInputs?: Array<TerrainDecalCompositionFeatureInput>;
     };
     /**
      * 레이어가 관측한 입력·장면 사실입니다. Source 승인과 GPU 상태는 관리자가 직접 확인합니다.
@@ -92502,6 +91764,10 @@ declare global {
          */
         sourceUpdates: Set<object>;
         /**
+         * 등록에서 분리했지만 물리 해제가 남은 자원의 정리 작업
+         */
+        cleanups: Set<() => void>;
+        /**
          * 현재 적용 완료
          */
         promise: Promise<Array<boolean>> | undefined;
@@ -92590,6 +91856,10 @@ declare global {
          * feature payload 기대 여부입니다.
          */
         expectsPayload?: boolean;
+        /**
+         * 합성 순서 진단 자료를 포함할지 여부입니다. false여도 준비·표시 판정은 같습니다.
+         */
+        includeComposition?: boolean;
     };
     /**
      * ~extends TerrainManagerOption <br>
@@ -93416,6 +92686,10 @@ declare global {
          * 좌표 목록입니다.
          */
         vectors?: Array<TerrainPoint | Array<number>>;
+        /**
+         * 내부 전송까지 유지하는 불변 월드 좌표이며 X·Y를 번갈아 담습니다.
+         */
+        _flatCoordinates?: Float64Array | Float32Array;
         /**
          * path와 area를 제한할 평면 범위입니다.
          */
@@ -94275,13 +93549,20 @@ declare global {
          */
         errorReason?: string;
         /**
-         * 요청 실패 이후 이전 벡터 또는 벡터 없는 지형 표시를 허용합니다. 첫 요청 대기와 GPU 처리 실패는 완화하지 않습니다.
+         * 원격 입력 대기와 요청 실패 중 이전 벡터 또는 벡터 없는 지형 표시를 허용합니다. 실제 요청 상태와 취소 수집은 유지하며 GPU 처리 실패는 완화하지 않습니다.
          */
         allowFailureFallback?: boolean;
         /**
          * 최신 권위 source identity입니다.
          */
         sourceIdentity?: TerrainSourceIdentity;
+        /**
+         * 부모 표시를 상속한 출처와 버전입니다. 자체 입력 동기화 시 해제합니다.
+         */
+        inheritedSource?: Readonly<{
+            tileKey: string;
+            dataRevision: number;
+        }>;
         /**
          * 입력 비교값과 확정한 입력 버전입니다. 데이터 승인·GPU 적용 버전과 분리합니다.
          */
@@ -94587,7 +93868,7 @@ declare global {
          */
         presentationSameRevisionApplyCount?: number;
         /**
-         * 숨은 자식의 quadtree 재평가를 요청한 generation/revision key입니다.
+         * quadtree 재평가를 요청한 generation/revision/최신 준비 여부 key입니다.
          */
         lodReevaluationKey?: string;
         /**
@@ -94678,6 +93959,10 @@ declare global {
          */
         sourceIdentity?: TerrainSourceIdentity;
         /**
+         * 부모 상속 입력의 출처입니다. 생략한 자체 입력은 기존 상속 이력을 해제합니다.
+         */
+        inheritedSource?: TerrainSourceState["inheritedSource"];
+        /**
          * 정규화 중 Base Cache 범위에 결합할 내부 key입니다.
          */
         sourceIdentityKey?: string;
@@ -94702,7 +93987,7 @@ declare global {
          */
         sourceStatus?: TerrainSourceStatus;
         /**
-         * source 요청 실패 이후의 대체 표시 허용 여부입니다.
+         * 원격 source 입력 대기와 요청 실패 중 대체 표시 허용 여부입니다.
          */
         allowFailureFallback?: boolean;
         /**
@@ -95300,6 +94585,10 @@ declare global {
          */
         compositionPlan?: TerrainDecalCompositionPlan;
         /**
+         * 정적 RTT 준비 여부와 별개로 보존하는 혼합 구간의 전체 순서 계획입니다.
+         */
+        orderedCompositionPlan?: TerrainDecalCompositionPlan;
+        /**
          * 정적 합성 결과 재사용 판정에 쓸 cache key입니다. hybrid 계획이 아니면 없습니다.
          */
         staticCompositeKey?: string;
@@ -95454,8 +94743,8 @@ declare class UTerrainDecalCompositeComposer {
     /**
      * batch draw 하나를 정수 격자 조각으로 나눠 여러 step에 이어 그릴 때의 조각 한 변 상한(target texel)입니다.
      *
-     * `TERRAIN_COMPOSITE_BATCH_SPLIT_DISABLED`이면 분할하지 않고 기존 경로를 그대로 씁니다. 개발용 옵션이며
-     * 제품 기본값은 비활성입니다.
+     * `TERRAIN_COMPOSITE_BATCH_SPLIT_DISABLED`이면 분할하지 않고 기존 경로를 그대로 씁니다.
+     * 직접 생성할 때의 기본값은 비활성이며, 엔진 스케줄러는 큰 타일의 draw를 나누도록 설정합니다.
      *
      * @type {number}
      */
@@ -96004,7 +95293,7 @@ declare global {
         /**
          * stroke를 포함한 tile-local `[minX, minY, maxX, maxY]` 범위입니다. 없으면 겹친다고 보수적으로 판정합니다.
          */
-        bounds?: Array<number>;
+        bounds?: ReadonlyArray<number>;
         /**
          * 호출부가 정규화한 Feature 변경 안정성입니다. 값이 없으면 미분류로 보고 기존 판정을 유지합니다.
          */
@@ -96090,6 +95379,10 @@ declare global {
          * Feature의 변경 안정성이며 미분류면 `undefined`입니다.
          */
         compositionStability: TerrainDecalCompositionStability | undefined;
+        /**
+         * 표시 조각과 구멍을 모두 포함한 tile-local 원자 Feature 범위의 동결 사본입니다. 범위를 모르는 조각이 있으면 `undefined`입니다.
+         */
+        bounds?: ReadonlyArray<number>;
     };
     type TerrainDecalCompositionFeature = Readonly<TerrainDecalCompositionFeatureState>;
     /**
@@ -96162,9 +95455,13 @@ declare global {
          */
         batches: Array<TerrainDecalCompositionBatchState>;
         /**
-         * 전체 Feature stream을 기존 path, area, circle 직접 합성으로 그대로 재현할 수 있는지 여부입니다. 안정성 분류 정책과 무관한 stream 속성입니다.
+         * 전체 Feature stream을 기본 순서 또는 타입별 연속 구간 순서의 직접 합성으로 재현할 수 있는지 여부입니다. 안정성 분류 정책과 무관한 stream 속성입니다.
          */
         directCompatible: boolean;
+        /**
+         * 전체 `direct` 실행의 타입 순열입니다. `0`은 path-area-circle, `1`은 path-circle-area, `2`는 area-path-circle, `3`은 area-circle-path, `4`는 circle-path-area, `5`는 circle-area-path이며 `hybrid`·`precomposed`는 기존 순서인 `0`을 사용합니다.
+         */
+        directTypeOrder: 0 | 1 | 2 | 3 | 4 | 5;
         /**
          * 합성 실행 방식입니다.
          */
@@ -96172,7 +95469,7 @@ declare global {
         /**
          * 합성 방식 선택 이유입니다.
          */
-        modeReason: "type-stream-compatible" | "type-stream-requires-precompose" | "polygon-local-hole-requires-precompose" | "order-inversion-disjoint-geometry" | "stability-metadata-incomplete" | "stability-static-only-precomposed" | "stability-hybrid-disjoint" | "stability-cross-intersects-precomposed" | "stability-separation-unverifiable-precomposed" | "stability-dynamic-subset-requires-precompose";
+        modeReason: "type-stream-compatible" | "type-block-order-compatible" | "type-stream-requires-precompose" | "polygon-local-hole-requires-precompose" | "order-inversion-disjoint-geometry" | "stability-metadata-incomplete" | "stability-static-only-precomposed" | "stability-hybrid-disjoint" | "stability-hybrid-ordered" | "stability-cross-intersects-precomposed" | "stability-separation-unverifiable-precomposed" | "stability-dynamic-subset-requires-precompose";
         /**
          * source 경계를 제외한 canonical 합성 순서 식별자입니다.
          */
@@ -96857,6 +96154,69 @@ declare global {
 
 declare global {
     /**
+     * 키 하나에 지정할 지도 조작입니다. pan은 화면 이동, rotate는 target 중심 회전이며 none은 컨트롤러에서 처리하지 않습니다.
+     */
+    type UMapKeyAction = "panUp" | "panDown" | "panLeft" | "panRight" | "rotateUp" | "rotateDown" | "rotateLeft" | "rotateRight" | "none";
+    /**
+     * KeyboardEvent.code별 지도 조작입니다. 예: ArrowUp, KeyW, Digit1, Numpad8.
+     * 키를 누를 때 한 번 적용하고 누르고 있으면 운영체제의 키 반복 입력으로 조작합니다.
+     * Ctrl/Alt/Cmd 단축키와 입력 요소에서는 동작하지 않으며 Shift 임시 일인칭 키는 별도 설정을 따릅니다.
+     */
+    type UMapKeyBindings = Record<string, UMapKeyAction>;
+    /**
+     * 마우스 드래그에 연결할 카메라 동작입니다.
+     */
+    type UMapMouseAction = "pan" | "rotate" | "none";
+    /**
+     * 물리적인 왼쪽·가운데·오른쪽 버튼의 드래그 동작입니다.
+     */
+    type UMapMouseButtonBindings = {
+        /**
+         * 왼쪽 버튼의 동작
+         */
+        left: UMapMouseAction;
+        /**
+         * 가운데 버튼의 동작
+         */
+        middle: UMapMouseAction;
+        /**
+         * 오른쪽 버튼의 동작
+         */
+        right: UMapMouseAction;
+    };
+    /**
+     * 지도 컨트롤러의 마우스 입력 매핑입니다. 터치·휠·Shift 전환은 포함하지 않습니다.
+     * 기본값은 왼쪽 pan, 가운데 none, 오른쪽 rotate이며 Ctrl/Cmd+왼쪽은 rotate입니다.
+     * Ctrl 또는 Cmd를 누르면 ctrlOrMeta를 먼저 적용하고 inherit이면 해당 버튼의 기본 동작을 사용합니다.
+     */
+    type UMapMouseBindings = {
+        /**
+         * 물리 버튼별 동작
+         */
+        mouse: UMapMouseButtonBindings;
+        /**
+         * Ctrl/Cmd 조합별 동작
+         */
+        modifiers: {
+            ctrlOrMeta: Record<"left" | "middle" | "right", UMapMouseAction | "inherit">;
+        };
+    };
+    /**
+     * 변경할 마우스 매핑만 전달하는 옵션입니다. 생략한 항목은 현재 값을 유지합니다.
+     */
+    type UMapMouseBindingsPatch = {
+        /**
+         * 변경할 물리 버튼별 동작
+         */
+        mouse?: Partial<UMapMouseButtonBindings>;
+        /**
+         * 변경할 Ctrl/Cmd 조합별 동작
+         */
+        modifiers?: Partial<{
+            ctrlOrMeta: Partial<Record<"left" | "middle" | "right", UMapMouseAction | "inherit">>;
+        }>;
+    };
+    /**
      * 지도 입력 감도와 관성 설정이다. getFactor()가 반환한 객체의 속성을 직접 변경한다.
      * 관성 숫자 설정의 누락·비유한 값·음수는 계산 시 해당 기본값으로 대체하며 저장된 원본 값은 유지한다. 각 속성에 명시한 범위를 함께 따른다.
      * 감속·최소 속도·최대 속도·표본 시간의 0도 기본값으로 대체한다. 최대 속도가 최소 속도 이하이면 관성을 시작하지 않는다.
@@ -96890,7 +96250,7 @@ declare global {
          */
         interZoomSpeed: number;
         /**
-         * 지면 충돌 사용시, 지면 고도와 이값이 더해져, 카메라 고도와 충돌 판정이 이루어 진다, 기본값=6
+         * 지면 충돌 사용시, 지면 고도와 이값이 더해져, 카메라 고도와 충돌 판정이 이루어 진다, 기본값=40
          */
         collisionFactor: number;
         /**
@@ -96970,7 +96330,7 @@ declare global {
          */
         rotateInertiaSampleTime?: number;
         /**
-         * 마우스 회전시, 회전 속도(민감도), 기본값=1.0
+         * 마우스·터치 회전 감도이며 키보드에는 1회 회전 각도(도)로 사용합니다. 기본값=1.0
          */
         rotateSpeed: number;
         /**
@@ -97029,6 +96389,94 @@ declare global {
          * 줌 이동시, 앵커를 생성할때, 앵커 좌표를 계산하기위한 객체 검색 제외 반경, 카메라 기준 이값 이내의 객체들을 앵커를 생성하기 위한 검색에 제외된다. 기준값=2
          */
         nearExceptionRange: number;
+    };
+}
+
+declare global {
+    /**
+     * 평탄 XY 파트를 보관하는 좌표 입력 원본입니다. 공개 좌표 복원은 같은 원본을 사용하는 입력끼리 공유합니다.
+     */
+    type UMeasureCoordinateSource = {
+        /**
+         * 복원한 GeoJSON 좌표입니다.
+         */
+        coordinates: Array<number> | Double_Array<number> | Triple_Array<number> | Array<Triple_Array<number>>;
+        /**
+         * 아직 복원하지 않은 XY 파트입니다.
+         */
+        _flatCoordinates?: Array<Float64Array>;
+        /**
+         * 원본 속성입니다.
+         */
+        properties: KeyValue;
+    };
+    /**
+     * 공통 피처 준비에 전달하는 지연 좌표 형상입니다.
+     */
+    type UMeasureCoordinateGeometry = {
+        /**
+         * GeoJSON 형상 종류입니다.
+         */
+        type: string;
+        /**
+         * 공개 조회·교체 좌표입니다.
+         */
+        coordinates: UMeasureCoordinateSource["coordinates"];
+        /**
+         * 점 버퍼의 월드 반경입니다.
+         */
+        radius?: number;
+        /**
+         * 원본에서 선택한 표시 링 번호입니다.
+         */
+        _coordinatePartIndex: number | undefined;
+        /**
+         * 내부 검색에 사용하는 원본 파트입니다.
+         */
+        _getCoordinateParts: () => Array<Float64Array> | undefined;
+        /**
+         * 표시할 단일 파트입니다.
+         */
+        _getFlatCoordinates: () => Float64Array | undefined;
+        /**
+         * 원본을 공유하는 표시 링을 만듭니다.
+         */
+        _createPart: (index: number) => UMeasureCoordinateGeometry;
+    };
+    /**
+     * 원본 형식과 무관하게 스타일·표시 준비에 전달하는 입력 피처입니다. 완성된 UMeasureFeature와는 수명이 다릅니다.
+     */
+    type UMeasureCoordinateFeature = {
+        /**
+         * 입력 피처 식별자입니다.
+         */
+        id: string | number;
+        /**
+         * 원본 속성입니다.
+         */
+        properties: KeyValue;
+        /**
+         * 지연 좌표 형상입니다.
+         */
+        geometry: UMeasureCoordinateGeometry;
+        /**
+         * 현재 입력 객체의 식별자를 반환합니다.
+         */
+        getId: () => string | number;
+        /**
+         * 속성값을 반환합니다.
+         */
+        get: (key: string) => unknown;
+        /**
+         * 속성 원본을 반환합니다.
+         */
+        getProperties: () => KeyValue;
+        /**
+         * 스타일용 원본 형상 종류를 반환합니다.
+         */
+        getGeometry: () => {
+            getType: () => string;
+        };
     };
 }
 
@@ -97189,6 +96637,18 @@ declare global {
 
 declare global {
     /**
+     * 한 번의 화면 캡처를 기다리는 완료 객체입니다.
+     */
+    type USkyLineCaptureRequest = {
+        /**
+         * 같은 캡처 요청자들이 공유하는 완료 객체
+         */
+        promise: DeferredPromise<Float32Array>;
+    };
+}
+
+declare global {
+    /**
      * 한 번의 동기 타일 순회에서 공유하는 카메라·레이어 판단 값입니다.
      * 타일별 거리, 가시성, 레벨별 배율과 분화 이력은 포함하지 않습니다.
      */
@@ -97263,7 +96723,6 @@ declare global {
     };
     /**
      * 부모·자식 표시 전환에서 사용하는 호출별 준비 상태 집계입니다.
-     * 상세 조회 재정의의 결과도 수용하므로 차단 레이어 목록은 선택 속성입니다.
      */
     type U3dQuadTilePresentationSummary = {
         /**
@@ -97282,10 +96741,6 @@ declare global {
          * 준비와 부착이 모두 완료되었는지 여부
          */
         handoffReady: boolean;
-        /**
-         * 수집을 요청했고 차단이 있을 때만 생성하는 레이어 목록
-         */
-        blockingLayers?: Array<U3dLayer>;
     };
 }
 
@@ -97751,6 +97206,50 @@ declare global {
          * 세로 위치(-1 ~ 1, 위가 +). 계산 전이면 undefined
          */
         normalizedY: number | undefined;
+    };
+    /**
+     * 같은 부모 로드 구독에 속한 선택 한 건의 복원 기준입니다.
+     * 부모 ID와 선택 대상 ID는 다를 수 있으며 교차 정보는 대상별로 보관합니다.
+     */
+    type U3dSelectLoadTarget = {
+        /**
+         * 선택한 데이터 대상의 puid
+         */
+        id: string;
+        /**
+         * 부분 교차 정보 없이 병합 모델 전체를 선택했는지 여부
+         */
+        wholeMerged: boolean;
+        /**
+         * 선택 당시의 교차 정보 사본
+         */
+        intersect: U3dIntersectLike | undefined;
+    };
+    /**
+     * 한 선택기가 같은 부모 데이터에 등록한 로드 구독입니다.
+     * 대상이 모두 해제될 때만 이벤트를 제거하며 분리 결과는 로드 객체별로 재사용합니다.
+     */
+    type U3dSelectLoadSubscription = {
+        /**
+         * 구독 소유 선택기
+         */
+        owner: U3dSelect;
+        /**
+         * 이벤트를 등록한 레이어
+         */
+        layer: U3dModelLayer;
+        /**
+         * 부모 또는 직접 선택 모델의 puid
+         */
+        parentId: string;
+        /**
+         * 현재 구독에 속한 선택 키와 복원 기준
+         */
+        targets: Map<string, U3dSelectLoadTarget>;
+        /**
+         * 로드 객체별 분리 결과와 재진입 방지용 빈 목록
+         */
+        divisions: WeakMap<three.Object3D, Array<ModelMesh>>;
     };
 }
 
@@ -98356,6 +97855,10 @@ declare global {
          */
         visible?: boolean;
         /**
+         * 점의 반경·테두리를 화면 픽셀로 유지할지 지정하는 확장 속성입니다.
+         */
+        isDynamicRadius?: boolean;
+        /**
          * 채움 스타일을 설정합니다.
          */
         setFill: (arg0: OLFill) => void;
@@ -98458,83 +97961,6 @@ declare global {
 }
 
 declare global {
-    type DeferredCallback = (val: unknown) => unknown;
-    type DeferredFinallyCallback = (val?: unknown) => unknown;
-    /**
-     * DeferredCatchFunc 콜백 함수 타입
-     */
-    type DeferredCatchFunc<T = unknown> = (onRejected?: ((arg0: unknown) => (unknown | PromiseLike<unknown>)) | undefined) => Promise<unknown>;
-    type DeferredFinallyFunc<T = unknown> = (callback?: DeferredCallback | null) => Promise<unknown>;
-    type DeferredResolveFunc<T = unknown> = (object?: T) => DeferredObject<T>;
-    type DeferredRejectFunc<T = unknown> = (object?: unknown) => DeferredObject<T>;
-    type DeferredReadyFunc<T = unknown> = (success?: (arg0: T) => (unknown | PromiseLike<unknown>), error?: (arg0: unknown) => (unknown | PromiseLike<unknown>)) => Promise<unknown>;
-    type DeferredReadyFuncProps<T = unknown> = {
-        /**
-         * 자기 자신 참조. `ready.then(cb)` 체이닝용
-         */
-        then?: DeferredReadyFunc<T>;
-        /**
-         * 실패 콜백 등록. `ready.catch(cb)` 사용 가능
-         */
-        catch?: DeferredCatchFunc<T>;
-        /**
-         * catch 별칭. `ready.fail(cb)` 사용 가능
-         */
-        fail?: DeferredCatchFunc<T>;
-    };
-    type ReadyPromise = {
-        /**
-         * 고유 식별자 (자동 증가)
-         */
-        id: number;
-        /**
-         * 현재 상태 (PENDING: 0, RESOLVE: 1, REJECT: -1)
-         */
-        state: number;
-        /**
-         * 성공 시 실행할 콜백 목록
-         */
-        resolveCallbacks: Array<DeferredCallback>;
-        /**
-         * 실패 시 실행할 콜백 목록
-         */
-        rejectCallbacks: Array<DeferredCallback>;
-        /**
-         * 항상 실행할 콜백 목록
-         */
-        finallyCallbacks: Array<DeferredCallback>;
-        /**
-         * resolve/reject 호출 시 전달된 값
-         */
-        param: unknown;
-        /**
-         * 순환 참조 방지용 임시 저장소
-         */
-        avoidSelfCheck: unknown;
-    };
-    type DeferredObject_Content<T = unknown> = {
-        _readyPromise: ReadyPromise;
-        resolve: DeferredResolveFunc<T>;
-        reject: DeferredRejectFunc<T>;
-        then: DeferredReadyFunc<T>;
-        ready: DeferredReadyFunc<T>;
-        done: DeferredReadyFunc<T>;
-        catch: DeferredCatchFunc<T>;
-        fail: DeferredCatchFunc<T>;
-        finally: DeferredFinallyFunc<T>;
-        isReady: () => boolean;
-        promise: () => Promise<T>;
-        takeOver: (promise: DeferredObject<T>) => DeferredObject<T>;
-        reset: () => DeferredObject<T>;
-    };
-    /**
-     * 내부 제어용 Deferred 객체.
-     * Promise 인터페이스에 resolve/reject 등 제어 메서드를 추가로 포함한다.
-     */
-    type DeferredObject<T = unknown> = Promise<T> & DeferredObject_Content<T>;
-}
-
-declare global {
     /**
      * 표준 Promise에 추가하는 완료 제어 기능입니다.
      * `isReady()`는 최초 완료 요청의 접수 여부를 반환합니다.
@@ -98566,179 +97992,155 @@ declare global {
 
 declare global {
     /**
-     * 워커에서 사용하는 일반 파일 정의입니다.
+     * 형상 디코딩의 입력 범위와 소속 레이어입니다.
      */
-    type UA3FParserTaskBufferData = {
+    type PbfGeometryRecord = {
+        offset: number;
+        type: number;
+        extent: number;
+        group: number;
+    };
+    /**
+     * 점 객체를 만들기 전의 형상과 실제 외곽선입니다. partInfo는 파트마다 bbox 4개·면적·절단 여부를 담습니다.
+     */
+    type PbfGeometryInput = {
+        flatCoordinates: Array<number> | Float64Array;
+        ends: Array<number>;
+        partInfo?: Float64Array;
+        outlines?: Array<{
+            partIndex: number;
+            flatCoordinates: Array<number> | Float64Array;
+            bbox: Array<number>;
+        }>;
+    };
+    /**
+     * 레이어별 독립 전송 버퍼를 공유하는 형상입니다.
+     */
+    type PbfPackedGeometry = {
+        flatCoordinates: Float64Array;
+        ends: Array<number>;
+        partInfo?: Float64Array;
+        outlines?: Array<{
+            partIndex: number;
+            flatCoordinates: Float64Array;
+            bbox: Array<number>;
+        }>;
+    };
+    /**
+     * 피처별 뷰를 만들지 않고 Worker에서 전송하는 요청 단위 형상 버퍼입니다.
+     * metadata는 피처마다 좌표 시작·길이, 파트 시작·개수, 외곽선 시작·개수를 담습니다.
+     * outlineMetadata는 외곽선마다 전역 파트 번호·좌표 시작·길이·bbox 네 값을 담습니다.
+     * parts가 없으면 로컬 좌표이며 metadata의 외곽선 위치·개수는 사용하지 않습니다.
+     */
+    type PbfGeometryBatch = {
         /**
-         * metadata의 바이너리 식별자
+         * 내부 버퍼 배치 버전입니다.
          */
-        bufferId: string;
+        formatVersion: 1;
         /**
-         * 파일 참조이며 이 태스크에서는 네트워크 요청을 실행하지 않음
+         * 피처별 여섯 값입니다.
          */
-        uri: string;
+        metadata: Uint32Array;
         /**
-         * 양의 안전 정수인 전체 바이트 수
+         * 전체 X·Y 좌표입니다.
+         */
+        coordinates: Float64Array;
+        /**
+         * 피처 내부를 기준으로 한 파트 끝 위치입니다.
+         */
+        ends: Uint32Array;
+        /**
+         * 월드 변환 시 파트별 bbox·면적·절단 여부입니다.
+         */
+        parts?: Float64Array;
+        /**
+         * 월드 변환 시 외곽선별 일곱 값입니다.
+         */
+        outlineMetadata?: Float64Array;
+        /**
+         * 월드 변환 시 실제 외곽선 좌표입니다.
+         */
+        outlineCoordinates?: Float64Array;
+    };
+    /**
+     * Rust 형상 모듈의 내부 내보내기입니다.
+     */
+    type PbfGeometryWasmExports = {
+        memory: WebAssembly.Memory;
+        create: () => number;
+        destroy: (context: number) => void;
+        input: (context: number, length: number) => number;
+        records: (context: number, count: number) => number;
+        decode: (context: number, count: number) => number;
+        coordinates: (context: number) => number;
+        ends: (context: number) => number;
+        parts: (context: number) => number;
+        features: (context: number) => number;
+        outline_coordinates: (context: number) => number;
+        outlines: (context: number) => number;
+    };
+}
+
+declare global {
+    /**
+     * Rust 경로 모듈의 숫자·메모리 전용 내부 호출 계약입니다.
+     */
+    type TerrainDecalWasmExports = WebAssembly.Exports & {
+        create: () => number;
+        destroy: (context: number) => void;
+        input: (context: number, length: number) => number;
+        prepare: (context: number, paths: number, x: number, y: number, threshold: number) => number;
+        prepare_incremental: (context: number, paths: number, x: number, y: number, threshold: number) => number;
+        cache_statistics: (context: number) => number;
+        retained_bytes: (context: number) => number;
+        prepare_shapes: (context: number, count: number, x: number, y: number, kind: number) => number;
+        shape_points: (context: number) => number;
+        shape_meta: (context: number) => number;
+        output: (context: number) => number;
+        output_len: (context: number) => number;
+        bounds: (context: number) => number;
+        segment_count: (context: number) => number;
+        style_count: (context: number) => number;
+        bucket_values: (context: number) => number;
+        memory: WebAssembly.Memory;
+    };
+    /**
+     * 속성 증분에서 유지되는 좌표 참조와 버킷 계산에 영향을 주는 형상 조건입니다.
+     */
+    type TerrainDecalWasmPathState = {
+        /**
+         * Rust 내부 경로 식별자입니다.
+         */
+        id: number;
+        /**
+         * 피처가 소유하는 불변 좌표 배열입니다.
+         */
+        coordinates: Float32Array;
+        /**
+         * 단순화·선 굵기·클리핑 조건입니다.
+         */
+        geometry: Array<number>;
+    };
+    /**
+     * 타일별 Rust 컨텍스트의 소유권과 LRU 관리 정보입니다.
+     */
+    type TerrainDecalWasmTileState = {
+        /**
+         * Rust 컨텍스트 포인터입니다.
+         */
+        context: number;
+        /**
+         * 경로별 마지막 입력입니다.
+         */
+        paths: Map<string, TerrainDecalWasmPathState>;
+        /**
+         * 다음 경로 식별자입니다.
+         */
+        nextId: number;
+        /**
+         * Rust 할당과 JS 좌표 참조의 보수적 추정 크기입니다.
          */
         byteLength: number;
-        /**
-         * 파일의 64자리 16진 SHA-256
-         */
-        sha256: string;
-        /**
-         * 공용 배치 식별자
-         */
-        layoutId: string;
-    };
-    /**
-     * 일반 객체로 전송하는 한 필드의 바이너리 배치입니다.
-     */
-    type UA3FParserTaskArrayLayoutData = {
-        /**
-         * 대소문자를 구분하는 동적 필드 식별자
-         */
-        fieldId: string;
-        /**
-         * 숫자 성분 타입
-         */
-        componentType: ("Float32" | "Float64" | "Uint16" | "Uint32");
-        /**
-         * 값의 연결 대상
-         */
-        association: ("node" | "index" | "triangle");
-        /**
-         * 양의 안전 정수인 항목 수이며 width*height와 같음
-         */
-        count: number;
-        /**
-         * 양의 안전 정수인 배열 너비
-         */
-        width: number;
-        /**
-         * 양의 안전 정수인 배열 높이
-         */
-        height: number;
-        /**
-         * 항목당 성분 수
-         */
-        itemSize: (1 | 2 | 3 | 4);
-        /**
-         * 정수 attribute 정규화 여부
-         */
-        normalized: boolean;
-        /**
-         * 파일 시작부터 0 기반 바이트 위치이며 8의 배수
-         */
-        byteOffset: number;
-        /**
-         * 성분 타입·항목 수·itemSize와 일치하는 바이트 수
-         */
-        byteLength: number;
-    };
-    /**
-     * 여러 파일에서 참조하는 공용 배치의 전송 정의입니다.
-     */
-    type UA3FParserTaskLayoutData = {
-        /**
-         * 공용 배치 식별자
-         */
-        layoutId: string;
-        /**
-         * 양의 안전 정수인 전체 바이트 수
-         */
-        byteLength: number;
-        /**
-         * 필드별 배치 목록이며 원래 순서를 보존
-         */
-        arrays: Array<UA3FParserTaskArrayLayoutData>;
-    };
-    /**
-     * 배치와 실제 숫자 view의 연결입니다.
-     */
-    type UA3FParserTaskDecodedArrayData = {
-        /**
-         * 숫자 배열의 배치 정의
-         */
-        layout: UA3FParserTaskArrayLayoutData;
-        /**
-         * 숫자 view이며 인코딩 입력은 부분 view 허용
-         */
-        array: (Float32Array | Float64Array | Uint16Array | Uint32Array);
-    };
-    /**
-     * decode 정적 메서드에 전달할 일반 객체 요청입니다.
-     * 입력 버퍼를 전송하면 메인의 원본과 같은 버퍼를 공유한 모든 view가 분리됩니다.
-     */
-    type UA3FParserTaskDecodeRequest = {
-        /**
-         * 파일 정의
-         */
-        buffer: UA3FParserTaskBufferData;
-        /**
-         * 공용 배치
-         */
-        layout: UA3FParserTaskLayoutData;
-        /**
-         * 고정·미분리 버퍼이며 완료까지 변경 금지
-         */
-        arrayBuffer: ArrayBuffer;
-        /**
-         * 기본값은 빈 객체이며 verifyHash 기본값 true
-         */
-        opt?: UA3FParserDecodeOptions;
-    };
-    /**
-     * decode 결과이며 모든 숫자 view가 반환 버퍼를 공유합니다.
-     * UWorker는 내부 전송 목록을 제거하고 버퍼 소유권을 수신자에게 이전합니다.
-     */
-    type UA3FParserTaskDecodeResult = {
-        /**
-         * 해석한 파일 식별자
-         */
-        bufferId: string;
-        /**
-         * 해석한 배치 식별자
-         */
-        layoutId: string;
-        /**
-         * 원본 버퍼이며 UWorker 반환 전송 후 수신자 소유
-         */
-        arrayBuffer: ArrayBuffer;
-        /**
-         * 숫자 복사 없이 같은 버퍼를 공유하는 필드 목록
-         */
-        arrays: Array<UA3FParserTaskDecodedArrayData>;
-        /**
-         * 내부 전송 지시이며 태스크 반환 시 버퍼 한 개, 메인 수신 시 제거됨
-         */
-        _transferables?: Array<ArrayBuffer>;
-    };
-    /**
-     * encode 정적 메서드에 전달할 출력 배치와 숫자 목록입니다.
-     * 요청에서 이전한 입력 버퍼는 자동 반환하지 않으며 원본 보존은 호출자가 관리합니다.
-     */
-    type UA3FParserTaskEncodeRequest = {
-        /**
-         * 출력 공용 배치
-         */
-        layout: UA3FParserTaskLayoutData;
-        /**
-         * 필드별 배치와 숫자 view이며 순서가 달라도 fieldId로 연결
-         */
-        arrays: Array<UA3FParserTaskDecodedArrayData>;
-    };
-    /**
-     * encode가 할당한 새 바이너리 버퍼입니다.
-     */
-    type UA3FParserTaskEncodeResult = {
-        /**
-         * 출력 버퍼이며 UWorker 반환 전송 후 수신자 소유
-         */
-        arrayBuffer: ArrayBuffer;
-        /**
-         * 내부 전송 지시이며 태스크 반환 시 버퍼 한 개, 메인 수신 시 제거됨
-         */
-        _transferables?: Array<ArrayBuffer>;
     };
 }
 
@@ -98800,7 +98202,7 @@ declare namespace SLDParser {
     };
 }
 
-export { CONTROL_CASE, CONTROL_TYPE, DEFAULT_CONTROL_FACTOR, GeOnDT, Gradient, SLDParser, SkeletonUtils, snapPointToMesh as SnapPointToMesh, snapWorldPointToMesh as SnapWorldPointToMesh, U2dDxfLayer, U2dGeometry, U2dLine, U2dPoint, U2dPolygon, U2dShpLayer, U2dVectorShaderLayer as U2dVectorLayer, U2dVectorShaderLayer, U3dApp as U3dAPP, U3dAdaptedGeometry, U3dBilboard, U3dBox, U3dCircle, U3dCumulativePath, U3dCustomModel, U3dCylinder, U3dEvent, U3dFault, U3dFaultGeometry, U3dFlowPipe, U3dGeometry, U3dGeometryFactory, U3dGeometryUtil, U3dGridTileLayer, U3dHeatGeometry, U3dHeightLayer, U3dHeightXYZLayer, U3dImageLayer, U3dImagePBFLayer, U3dImageWMSLayer, U3dImageWMTSLayer, U3dImageXYZLayer, U3dLayer, U3dLine, U3dLodComponentLayer, U3dMaskLayer, U3dShaderMeasureLayer as U3dMeasureLayer, U3dMessage, U3dModelA3FLayer, U3dModelBIMObjLayer, U3dModelBasicLayer, U3dModelDxfLayer, U3dModelI3FLayer, U3dModelKmlLayer, U3dModelLayer, U3dModelShapeLayer, U3dModelStaticLayer, U3dModelTilesLayer, U3dModelU3FLayer, U3dModelWFSLayer, U3dMouseEvent, U3dMultipleComponentLayer, U3dNodeManager, U3dObject, U3dObjectBarrier, U3dOpenLayer, U3dOverlay, U3dPOI, U3dPathGeometry, U3dPatternXYZLayer, U3dPipe, U3dPoint, U3dPolygonLoftGeometry, U3dSelect, U3dShaderMeasureLayer, U3dSimpleView, U3dSphere, U3dTerrainLayer, U3dUserGeometry, U3dVectorLayer, U3dVectorPBFLayer, U3dVectorTileLayer, U3dView, U3dViewLight, UAnaly, UAnalyAlarm, UAnalyAlignModel, UAnalyArea, UAnalyAverageHeight, UAnalyClipping, UAnalyContour, UAnalyCustomLand, UAnalyCustomModel, UAnalyDepth, UAnalyDistance, UAnalyGizmoModel, UAnalyHeight, UAnalyHeightLimit, UAnalyLandScape, UAnalyMultipleComponent, UAnalyParticle, UAnalyPhysicalFlow, UAnalyRoad, UAnalyRoute, UAnalySection, UAnalySkyLine, UAnalySlope, UAnalySlopeAspect, UAnalySun, UAnalySurfaceVolume, UAnalyViewCone, UBox3Helper, UBufferGeometry, UClipModelFilter, UCollider, UCollisionAdapter, UCollisionManager, UControls, UDEF, UDRACOLoader, UDefaultSource, UDirectionArrowGroup, UDraw, UDxfParser, UEventDispatcher, UFBXLoader, UFileLoader, UFlyControls, UFrustum, UFrustumTerrainProjectionHelper, UGLTFLoader, UGPoint, UGroup, UGroupBoundaryHelper, UImageWriter, UIndoorLight, UInstancedMesh, ULandNormalDirectionHelper, ULocalENUHelper, UMTLWriter, UMapControlBase, UMapControls, UMathEngine, UMesh, UMeshParser, UMeshWriter, UOBJParser, UOBJWriter, UParticle, UParticleEngine, UPolygonCollider, UShpParser, USkinnedMesh, USpeedModelFilter, USphereCollider, USpotLight, UTerrainStamp, UWalkControls, UWater, computeBoundingIntersectionRatio, computeIntersectionRatio, deferredPromise as deferred };
+export { CONTROL_CASE, CONTROL_TYPE, DEFAULT_CONTROL_FACTOR, GeOnDT, Gradient, SLDParser, SkeletonUtils, snapPointToMesh as SnapPointToMesh, snapWorldPointToMesh as SnapWorldPointToMesh, U2dDxfLayer, U2dGeometry, U2dLine, U2dPoint, U2dPolygon, U2dShpLayer, U2dVectorShaderLayer as U2dVectorLayer, U2dVectorShaderLayer, U3dApp as U3dAPP, U3dAdaptedGeometry, U3dBilboard, U3dBox, U3dCircle, U3dCumulativePath, U3dCustomModel, U3dCylinder, U3dEvent, U3dFault, U3dFaultGeometry, U3dFlowPipe, U3dGeometry, U3dGeometryFactory, U3dGeometryUtil, U3dGridTileLayer, U3dHeatGeometry, U3dHeightLayer, U3dHeightXYZLayer, U3dImageLayer, U3dImagePBFLayer, U3dImageWMSLayer, U3dImageWMTSLayer, U3dImageXYZLayer, U3dLayer, U3dLine, U3dLodComponentLayer, U3dMaskLayer, U3dShaderMeasureLayer as U3dMeasureLayer, U3dMessage, U3dModelBIMObjLayer, U3dModelBasicLayer, U3dModelDxfLayer, U3dModelI3FLayer, U3dModelKmlLayer, U3dModelLayer, U3dModelShapeLayer, U3dModelStaticLayer, U3dModelTilesLayer, U3dModelU3FLayer, U3dModelWFSLayer, U3dMouseEvent, U3dMultipleComponentLayer, U3dNodeManager, U3dObject, U3dObjectBarrier, U3dOpenLayer, U3dOverlay, U3dPOI, U3dPathGeometry, U3dPatternXYZLayer, U3dPipe, U3dPoint, U3dPolygonLoftGeometry, U3dSelect, U3dShaderMeasureLayer, U3dSimpleView, U3dSphere, U3dTerrainLayer, U3dUserGeometry, U3dVectorLayer, U3dVectorPBFLayer, U3dVectorTileLayer, U3dView, U3dViewLight, UAnaly, UAnalyAlarm, UAnalyAlignModel, UAnalyArea, UAnalyAverageHeight, UAnalyClipping, UAnalyContour, UAnalyCustomLand, UAnalyCustomModel, UAnalyDepth, UAnalyDistance, UAnalyGizmoModel, UAnalyHeight, UAnalyHeightLimit, UAnalyLandScape, UAnalyMultipleComponent, UAnalyParticle, UAnalyPhysicalFlow, UAnalyRoad, UAnalyRoute, UAnalySection, UAnalySkyLine, UAnalySlope, UAnalySlopeAspect, UAnalySun, UAnalySurfaceVolume, UAnalyViewCone, UBox3Helper, UBufferGeometry, UClipModelFilter, UCollider, UCollisionAdapter, UCollisionManager, UControls, UDEF, UDRACOLoader, UDefaultSource, UDirectionArrowGroup, UDraw, UDxfParser, UEventDispatcher, UFBXLoader, UFileLoader, UFlyControls, UFrustum, UFrustumTerrainProjectionHelper, UGLTFLoader, UGPoint, UGroup, UGroupBoundaryHelper, UImageWriter, UIndoorLight, UInstancedMesh, ULandNormalDirectionHelper, ULocalENUHelper, UMTLWriter, UMapControlBase, UMapControls, UMathEngine, UMesh, UMeshParser, UMeshWriter, UOBJParser, UOBJWriter, UParticle, UParticleEngine, UPolygonCollider, UShpParser, USkinnedMesh, USpeedModelFilter, USphereCollider, USpotLight, UTDSLoader, UTerrainStamp, UWalkControls, UWater, computeBoundingIntersectionRatio, computeIntersectionRatio, deferredPromise as deferred };
 
 export type { AddInstancesCallback };
 export type { Alarm_DetailOpt };
@@ -98823,6 +98225,7 @@ export type { CancelableTextureRequest };
 export type { ChangeObjectOpt };
 export type { CharacterControls };
 export type { CharacterControlsBase };
+export type { Chunk };
 export type { ClipImageMesh };
 export type { ClipImageMesh_Content };
 export type { ClipMaterial };
@@ -98865,19 +98268,9 @@ export type { DebugTerrainTileState };
 export type { DebugTileState };
 export type { DebugTileStateCacheMesh };
 export type { DecalOption };
-export type { DeferredCallback };
-export type { DeferredCatchFunc };
-export type { DeferredFinallyCallback };
-export type { DeferredFinallyFunc };
-export type { DeferredObject };
-export type { DeferredObject_Content };
 export type { deferredPromise };
 export type { DeferredPromise };
 export type { DeferredPromise_Content };
-export type { DeferredReadyFunc };
-export type { DeferredReadyFuncProps };
-export type { DeferredRejectFunc };
-export type { DeferredResolveFunc };
 export type { Degree };
 export type { DegreeEuler };
 export type { DegreeEulerLike };
@@ -99119,6 +98512,11 @@ export type { PathShaderMaterial };
 export type { PathShaderUniforms };
 export type { PathSphere };
 export type { PathSphere_Content };
+export type { PbfGeometryBatch };
+export type { PbfGeometryInput };
+export type { PbfGeometryRecord };
+export type { PbfGeometryWasmExports };
+export type { PbfPackedGeometry };
 export type { PBFStyleFunction };
 export type { PickableObject3D };
 export type { PickableObject3DExt };
@@ -99134,7 +98532,6 @@ export type { Quad_Array };
 export type { Radian };
 export type { RadianEuler };
 export type { RadianEulerLike };
-export type { ReadyPromise };
 export type { retarget };
 export type { retargetClip };
 export type { RGBColor };
@@ -99199,6 +98596,7 @@ export type { SurfaceVolumeVisualizationHandle };
 export type { SurfaceVolumeVisualizationOption };
 export type { SurfaceVolumeVisualizationOptions };
 export type { TargetRectOption };
+export type { TDSLoader };
 export type { TempPalette };
 export type { terminalSourceState };
 export type { TerrainAtomicPresentationGroup };
@@ -99257,6 +98655,9 @@ export type { TerrainDecalLodProfile };
 export type { TerrainDecalLodSelection };
 export type { TerrainDecalRasterType };
 export type { TerrainDecalUvTransform };
+export type { TerrainDecalWasmExports };
+export type { TerrainDecalWasmPathState };
+export type { TerrainDecalWasmTileState };
 export type { TerrainDynamicRadiusEntry };
 export type { TerrainEdge };
 export type { TerrainEdgeSample };
@@ -99326,7 +98727,6 @@ export type { TerrainProjectionData };
 export type { TerrainQuery };
 export type { TerrainQueuedWorkerTask };
 export type { TerrainRuntimeTile };
-export type { TerrainShaderProgramDiagnosticBinding };
 export type { TerrainSourceGeometryLoader };
 export type { TerrainSourceIdentity };
 export type { TerrainSourceState };
@@ -99345,6 +98745,7 @@ export type { TerrainStampTransition };
 export type { TerrainStyle };
 export type { TerrainSwapWaiter };
 export type { TerrainTileEntry };
+export type { TerrainTilePayloadCacheEntry };
 export type { TerrainTileReadinessHost };
 export type { TerrainTileReadinessSelector };
 export type { TerrainTileReadinessSnapshot };
@@ -99565,6 +98966,7 @@ export type { U3dHeightXYZParsedSettings };
 export type { U3dHeightXYZSampleState };
 export type { U3dI3FColor };
 export type { U3dI3FMaterialGroup };
+export type { U3dI3FMeshRequest };
 export type { U3dI3FRenderObject };
 export type { U3dImageLayerClippingState };
 export type { U3dImageLayerCO };
@@ -99601,8 +99003,11 @@ export type { U3dLineCO };
 export type { U3dLineCO_Content };
 export type { U3dLineDrapeOnSurfaceOptions };
 export type { U3dLineDrapeOnSurfaceResult };
+export type { U3dLineDrapePlan };
+export type { U3dLineDrapeSource };
 export type { U3dLineParam };
 export type { U3dLineParam_Content };
+export type { U3dLineSegment };
 export type { U3dLineSetParam };
 export type { U3dLodComponentCameraSnapshot };
 export type { U3dLodComponentChildSearch };
@@ -99619,12 +99024,6 @@ export type { U3dMaskLayerCO_Content };
 export type { U3dMaskLayerGridData };
 export type { U3dMaskLayerNeighborIndices };
 export type { U3dMaskLayerPolygon };
-export type { U3dModelA3FLayerCO };
-export type { U3dModelA3FLayerCO_Content };
-export type { U3dModelA3FLayerCompletion };
-export type { U3dModelA3FLayerNodeEntry };
-export type { U3dModelA3FLayerRelease };
-export type { U3dModelA3FLayerTaskOptions };
 export type { U3dModelBasicLayerCO };
 export type { U3dModelBasicLayerCO_Content };
 export type { U3dModelBasicLayerCompletion };
@@ -99730,6 +99129,9 @@ export type { U3dOpenLayerTileInternal };
 export type { U3dOpenLayerTileRange };
 export type { U3dOpenLayerTimingSummary };
 export type { U3dOutlineAliasCO };
+export type { U3dOutlineCO };
+export type { U3dOutlineFactory };
+export type { U3dOutlineMaterialState };
 export type { U3dOverlay_Content };
 export type { U3dOverlayCO };
 export type { U3dOverlayManaged };
@@ -99768,6 +99170,9 @@ export type { U3dPolygonLoftGeometryCO };
 export type { U3dPolygonLoftGeometryCO_Content };
 export type { U3dPolygonLoftGeometryParam };
 export type { U3dPolygonLoftGeometryParam_Content };
+export type { U3dPredictionAnalysis };
+export type { U3dPredictionMotion };
+export type { U3dPredictionPath };
 export type { U3dProcess };
 export type { U3dQuadModelTile };
 export type { U3dQuadSet };
@@ -99795,6 +99200,8 @@ export type { U3dSelectHoverOption };
 export type { U3dSelectHoverTarget };
 export type { U3dSelectionBox };
 export type { U3dSelectionRing };
+export type { U3dSelectLoadSubscription };
+export type { U3dSelectLoadTarget };
 export type { U3dSelectRingEndStyle };
 export type { U3dSelectRingOption };
 export type { U3dSelectRingTailStyle };
@@ -99838,6 +99245,7 @@ export type { U3dVectorLayerCO };
 export type { U3dVectorLayerCO_Content };
 export type { U3dVectorLayerEMI };
 export type { U3dVectorLayerEMI_Content };
+export type { U3dVectorPBFDecodedFeature };
 export type { U3dVectorPBFDecodedLayer };
 export type { U3dVectorPBFDecodeResult };
 export type { U3dVectorPBFFeatureFilter };
@@ -99871,6 +99279,7 @@ export type { U3FMergeModelMesh24Owner };
 export type { U3FMergeModelMesh25Owner };
 export type { U3FMergeModelOwner };
 export type { U3FModelHooks };
+export type { U3FModelRequest };
 export type { U3FModelRuntime };
 export type { U3fPackagedInfo };
 export type { U3FParsedObj };
@@ -99880,143 +99289,15 @@ export type { U3FReadLayerInfoOwner };
 export type { U3FRestoreModelMeshesOwner };
 export type { U3FSetGroupsDivisionRefineOwner };
 export type { U3FValidationMeshInfoOwner };
-export type { UA3FArrayLayoutVo };
-export type { UA3FArrayLayoutVoCO };
-export type { UA3FArrayLayoutVoCO_Content };
-export type { UA3FArrayStatisticsVo };
-export type { UA3FArrayStatisticsVoCO };
-export type { UA3FArrayStatisticsVoCO_Content };
-export type { UA3FBufferVo };
-export type { UA3FBufferVoCO };
-export type { UA3FBufferVoCO_Content };
-export type { UA3FChildMetadataVo };
-export type { UA3FChildMetadataVoCO };
-export type { UA3FChildMetadataVoCO_Content };
-export type { UA3FCoordinateVo };
-export type { UA3FCoordinateVoCO };
-export type { UA3FCoordinateVoCO_Content };
-export type { UA3FDecodedArrayVo };
-export type { UA3FDecodedArrayVoCO };
-export type { UA3FDecodedArrayVoCO_Content };
-export type { UA3FDecodedBufferVo };
-export type { UA3FDecodedBufferVoCO };
-export type { UA3FDecodedBufferVoCO_Content };
-export type { UA3FFieldVoCO };
-export type { UA3FFieldVoCO_Content };
-export type { UA3FFrameApplyResultVoCO };
-export type { UA3FFrameApplyResultVoCO_Content };
-export type { UA3FFrameAttributePlan };
-export type { UA3FFrameAttributeReadyPlan };
-export type { UA3FFrameCacheEntry };
-export type { UA3FFrameCacheLease };
-export type { UA3FFrameCacheManagerCO };
-export type { UA3FFrameCacheManagerCO_Content };
-export type { UA3FFrameCacheOptionsVo };
-export type { UA3FFrameCacheOptionsVoCO };
-export type { UA3FFrameCacheOptionsVoCO_Content };
-export type { UA3FFrameCachePreload };
-export type { UA3FFrameCacheState };
-export type { UA3FFrameCacheStatusVo };
-export type { UA3FFrameCacheStatusVoCO };
-export type { UA3FFrameCacheStatusVoCO_Content };
-export type { UA3FFrameCacheWaiter };
-export type { UA3FFrameLeaseVo };
-export type { UA3FFrameLeaseVoCO };
-export type { UA3FFrameLeaseVoCO_Content };
-export type { UA3FFrameLoader };
-export type { UA3FFrameLoaderCO };
-export type { UA3FFrameLoaderCO_Content };
-export type { UA3FFrameResourceVo };
-export type { UA3FFrameResourceVoCO };
-export type { UA3FFrameResourceVoCO_Content };
-export type { UA3FFrameVo };
-export type { UA3FFrameVoCO };
-export type { UA3FFrameVoCO_Content };
-export type { UA3FGeometryFactoryBindings };
-export type { UA3FGeometryFactoryBounds };
-export type { UA3FGeometryFactoryPrepared };
-export type { UA3FGeometryResultVoCO };
-export type { UA3FGeometryResultVoCO_Content };
-export type { UA3FGeometryVoCO };
-export type { UA3FGeometryVoCO_Content };
-export type { UA3FHeightAttribute };
-export type { UA3FHeightDisplayVoCO };
-export type { UA3FHeightDisplayVoCO_Content };
-export type { UA3FHeightOperand };
-export type { UA3FHeightPolicyVoCO };
-export type { UA3FHeightPolicyVoCO_Content };
-export type { UA3FHeightShaderProfile };
-export type { UA3FLayoutVo };
-export type { UA3FLayoutVoCO };
-export type { UA3FLayoutVoCO_Content };
-export type { UA3FMetadataDocumentData };
-export type { UA3FMetadataLoader };
-export type { UA3FMetadataLoaderCO };
-export type { UA3FMetadataLoaderCO_Content };
-export type { UA3FMetadataVo };
-export type { UA3FMetadataVoCO };
-export type { UA3FMetadataVoCO_Content };
-export type { UA3FNodeBoundingBoxData };
-export type { UA3FNodeVo };
-export type { UA3FNodeVoCO };
-export type { UA3FNodeVoCO_Content };
-export type { UA3FParserArrayConstructor };
-export type { UA3FParserDecodeOptions };
-export type { UA3FParserLayoutSnapshot };
-export type { UA3FParserTaskArrayLayoutData };
-export type { UA3FParserTaskBufferData };
-export type { UA3FParserTaskDecodedArrayData };
-export type { UA3FParserTaskDecodeRequest };
-export type { UA3FParserTaskDecodeResult };
-export type { UA3FParserTaskEncodeRequest };
-export type { UA3FParserTaskEncodeResult };
-export type { UA3FParserTaskLayoutData };
-export type { UA3FSpatialCamera };
-export type { UA3FSpatialCover };
-export type { UA3FSpatialEntry };
-export type { UA3FSpatialManagerCO };
-export type { UA3FSpatialManagerCO_Content };
-export type { UA3FSpatialOptionsVo };
-export type { UA3FSpatialOptionsVoCO };
-export type { UA3FSpatialOptionsVoCO_Content };
-export type { UA3FSpatialPass };
-export type { UA3FSpatialRequest };
-export type { UA3FSpatialSelectionVo };
-export type { UA3FSpatialSelectionVoCO };
-export type { UA3FSpatialSelectionVoCO_Content };
-export type { UA3FSpatialState };
-export type { UA3FSpatialViewVo };
-export type { UA3FSpatialViewVoCO };
-export type { UA3FSpatialViewVoCO_Content };
-export type { UA3FTaskContextVo };
-export type { UA3FTaskContextVoCO };
-export type { UA3FTaskContextVoCO_Content };
-export type { UA3FTaskManager };
-export type { UA3FTaskManagerCO };
-export type { UA3FTaskManagerCO_Content };
-export type { UA3FTaskManagerDecodeOptions };
-export type { UA3FTaskManagerEncodeOptions };
-export type { UA3FTaskManagerEntry };
-export type { UA3FTimelineControllerCO };
-export type { UA3FTimelineControllerCO_Content };
-export type { UA3FTimelineDirection };
-export type { UA3FTimelineOptionsVo };
-export type { UA3FTimelineOptionsVoCO };
-export type { UA3FTimelineOptionsVoCO_Content };
-export type { UA3FTimelinePlaybackApi };
-export type { UA3FTimelineRuntime };
-export type { UA3FTimelineStateListener };
-export type { UA3FTimelineStateVo };
-export type { UA3FTimelineStateVoCO };
-export type { UA3FTimelineStateVoCO_Content };
-export type { UA3FTimelineStatus };
-export type { UA3FTimelineSubscription };
 export type { UAlignControls };
 export type { UAnalyAlarmAnimationOwner };
 export type { UAnalyAlarmCO };
 export type { UAnalyAlarmCO_Content };
 export type { UAnalyAlarmCursorResult };
 export type { UAnalyAlarmEditedLookup };
+export type { UAnalyAlarmGroupSelection };
+export type { UAnalyAlarmMaterial };
+export type { UAnalyAlarmMaterialState };
 export type { UAnalyAlarmModelLookup };
 export type { UAnalyAlarmSelectionOwner };
 export type { UAnalyAlignModelCO };
@@ -100070,6 +99351,7 @@ export type { UAnalyLandScapeCollision };
 export type { UAnalyLandScapeCollision_Content };
 export type { UAnalyLandScapeLineOptions };
 export type { UAnalyLandScapeLineOptions_Content };
+export type { UAnalyLandScapeSelectEvent };
 export type { UAnalyLandScapeUpdateCallback };
 export type { UAnalyMeasureRightClickState };
 export type { UAnalyMergedMeshLayer };
@@ -100095,14 +99377,39 @@ export type { UAnalyParticleMaskOption };
 export type { UAnalyParticleModelExtents };
 export type { UAnalyParticleString };
 export type { UAnalyParticleTarget };
+export type { UAnalyPhysicalFlowCO };
+export type { UAnalyPhysicalFlowFlowContext };
+export type { UAnalyPhysicalFlowFlowOptions };
+export type { UAnalyPhysicalFlowFlowState };
+export type { UAnalyPhysicalFlowGenerateOptions };
+export type { UAnalyPhysicalFlowHeightContext };
+export type { UAnalyPhysicalFlowHeightData };
+export type { UAnalyPhysicalFlowInfo };
+export type { UAnalyPhysicalFlowOptions };
+export type { UAnalyPhysicalFlowRainOptions };
+export type { UAnalyPhysicalFlowRainState };
+export type { UAnalyPhysicalFlowSimulationLookup };
+export type { UAnalyPhysicalFlowUpdateActions };
+export type { UAnalyPhysicalFlowUpdateContext };
+export type { UAnalyRoadAppContext };
 export type { UAnalyRoadCO };
 export type { UAnalyRoadCO_Content };
+export type { UAnalyRoadData };
+export type { UAnalyRoadGizmoMembers };
+export type { UAnalyRoadGroupedIntersections };
+export type { UAnalyRoadIntersection };
+export type { UAnalyRoadIntersectionContext };
 export type { UAnalyRouteCO };
 export type { UAnalyRouteCO_Content };
+export type { UAnalyRouteGroundContext };
+export type { UAnalyRouteViewContext };
 export type { UAnalySectionCO };
 export type { UAnalySectionCO_Content };
+export type { UAnalySectionRayContext };
+export type { UAnalySectionRegionContext };
 export type { UAnalySkyLineCO };
 export type { UAnalySkyLineCO_Content };
+export type { UAnalySkyLineScreenInfo };
 export type { UAnalySlopeAspectCO };
 export type { UAnalySlopeAspectCO_Content };
 export type { UAnalySlopeCO };
@@ -100119,6 +99426,7 @@ export type { UAnimationControllerCO_Content };
 export type { UAnimationControllerEMI };
 export type { UAnimationManager };
 export type { UAnimationNextFrameCommand };
+export type { UAnimationScheduledWaypoint };
 export type { UAppCommand };
 export type { UArrowHelper };
 export type { UArrowHelper_base };
@@ -100156,6 +99464,7 @@ export type { UCustomProcess };
 export type { UDevToolGraphSeriesInfo };
 export type { UDevToolGraphSeriesOpt };
 export type { UDevToolMapControlField };
+export type { UDevToolMouseInputField };
 export type { UDevToolPlacement };
 export type { UDevToolView };
 export type { UDevToolViewCO };
@@ -100237,6 +99546,10 @@ export type { UFrustumTerrainProjectionLifecyclePublication };
 export type { UFrustumTerrainProjectionLifecycleQueue };
 export type { UFrustumTerrainProjectionRetiredResource };
 export type { UFrustumTerrainProjectionStamp };
+export type { UGeometryOutlineLine };
+export type { UGeometryOutlineMaterial };
+export type { UGeometryOutlineMesh };
+export type { UGeometryOutlineTarget };
 export type { UGeoRect };
 export type { UGizmoControls };
 export type { UGizmoControlsCO };
@@ -100267,12 +99580,16 @@ export type { UGroupMember };
 export type { UGUI };
 export type { UGUICO };
 export type { UGUICSSStyle };
+export type { UHeightEditOrder };
+export type { UHeightEditSelection };
+export type { UHeightEditSelectionInput };
 export type { UHeightFilter };
 export type { UHeightFilter3D };
 export type { UHeightFilter3DCO };
 export type { UHeightFilter3DCO_Content };
 export type { UHeightFilterCO };
 export type { UHeightFilterCO_Content };
+export type { UHeightReapplyRequest };
 export type { UIndexManager };
 export type { UInstancedBatchedSkinnedMesh };
 export type { UInstancedMeshCO };
@@ -100285,12 +99602,24 @@ export type { ULandNormalDirectionIntersectionMesh };
 export type { ULandNormalDirectionLineStyle };
 export type { ULensFlare };
 export type { ULight };
+export type { ULineCoverageState };
 export type { ULineGeometry };
 export type { ULineGeometryCO };
+export type { ULineRendererBinding };
+export type { ULineWorldPositionSyncState };
 export type { ULocalENUHelperCO };
 export type { UMapControlHelper };
 export type { UMapControlHelperCO };
+export type { UMapKeyAction };
+export type { UMapKeyBindings };
+export type { UMapMouseAction };
+export type { UMapMouseBindings };
+export type { UMapMouseBindingsPatch };
+export type { UMapMouseButtonBindings };
 export type { UMapTween };
+export type { UMeasureCoordinateFeature };
+export type { UMeasureCoordinateGeometry };
+export type { UMeasureCoordinateSource };
 export type { UMeasureFeature };
 export type { UMeasureFeatureExtent };
 export type { UMercator };
@@ -100302,7 +99631,7 @@ export type { UMeta };
 export type { UMetaData };
 export type { UMixerManager };
 export type { UModelMesh };
-export type { UModelTileMaterialStateVo };
+export type { UModelTileMaterialState };
 export type { UMTLWriterImgResource };
 export type { UMTLWriterResult };
 export type { UnknownRecord };
@@ -100312,6 +99641,7 @@ export type { UOrbitAndPanControls_base };
 export type { UOrthographicCamera };
 export type { UOrthographicCameraCO };
 export type { UOrthographicCameraCO_Content };
+export type { UOutlineCornerNode };
 export type { UOutlineFarPointDraw };
 export type { UOutlineFarPointFrame };
 export type { UOutlineFarPointMember };
@@ -100320,6 +99650,7 @@ export type { UOutlineFarPointOption };
 export type { UOutlineFarPointRenderer };
 export type { UOutlineFarPointVertex };
 export type { UOutlineMode };
+export type { UOutlineParentCullingRecord };
 export type { UOutlinePass };
 export type { UOutlineStyleOption };
 export type { UParticleEngineParam };
@@ -100383,6 +99714,7 @@ export type { USimpleTailNode };
 export type { USimpleTailPointMetadata };
 export type { USimpleTailShader };
 export type { USky };
+export type { USkyLineCaptureRequest };
 export type { USpeedModelFilterCO };
 export type { USpeedModelFilterCO_Content };
 export type { USpeedModelFilterDataBuffer };
@@ -100398,24 +99730,34 @@ export type { USphereColliderCO };
 export type { USphereColliderCO_Content };
 export type { USphereColliderIntersectionDetails };
 export type { USphereColliderIntersectionDetailsOptions };
+export type { USphereOutlineDepth };
+export type { USphereOutlineMask };
+export type { USphereOutlineScene };
 export type { UTaskProcessor };
 export type { UTaskProcessorScheduleOption };
 export type { UTDSChunk };
 export type { UTDSLoaderCO };
 export type { UTDSMaterialGroup };
+export type { UTDSNode };
 export type { UTDSNodeInfo };
 export type { UTDSTrack };
 export type { UTDSTrackKey };
+export type { UTerrainBoundaryDiagnostics };
+export type { UTerrainBoundaryState };
 export type { UTerrainDecalCompositeComposer };
 export type { UTerrainDecalCompositionOrderRegistry };
 export type { UTerrainFrameScheduler };
 export type { UTerrainMaterial };
 export type { UTerrainMesh };
+export type { UTerrainNormalStamp };
+export type { UTerrainNormalState };
+export type { UTerrainNormalUpdateOptions };
 export type { UTerrainPayloadBuilder };
 export type { UTerrainPayloadBuilderCO };
 export type { UTerrainPayloadCache };
 export type { UTerrainShaderPrewarm };
 export type { UTerrainShaderPrewarmCO };
+export type { UTerrainSkirtContext };
 export type { UTerrainStampCircleValue };
 export type { UTerrainStampParam };
 export type { UTerrainStampParamInput };
@@ -100432,6 +99774,9 @@ export type { UTestManager };
 export type { UTexture };
 export type { UTextureLoader };
 export type { UTileMesh };
+export type { UTubeOutlineSurfaceCache };
+export type { UTubeOutlineSurfaceCapture };
+export type { UTubeOutlineSurfaceEntry };
 export type { UTween };
 export type { UTweenChain };
 export type { UUnderground };

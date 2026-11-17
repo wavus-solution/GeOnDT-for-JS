@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -9,11 +9,14 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { U3dObject } from "../core/U3dObject.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
+import type { UFrameState } from "../core/UFrameState.js";
 import type { UTileMesh } from "../core/mesh/UTileMesh.js";
 import type { UPlaneBufferGeometry } from "../geometry/UPlaneBufferGeometry.js";
 import type { UGeoRect } from "../math/UGeoRect.js";
 
 /**
+ * ~extends U3dObject
+ *
  * @extends {U3dObject}
  */
 declare class U3dQuadTile extends U3dObject {
@@ -36,16 +39,30 @@ declare class U3dQuadTile extends U3dObject {
     static getStartLevel: () => number;
     constructor(minx: any, maxx: any, miny: any, maxy: any, level: any, scene: any, drawArg: any, type: any, parent: any, startlevel: any, quadname: any, quadset: any);
     /**
+     * 이 타일에 고도 지오메트리를 적용한 횟수입니다.
+     *
+     * @type {number}
+     */
+    _heightRevision: number;
+    /**
+     * 고도 적용 변경 번호를 설정합니다.
+     *
+     * @param {number} value 고도 적용 변경 번호(0 이상의 정수)
+     */
+    set heightRevision(value: number);
+    /**
+     * 이웃 스커트 비교에 사용할 고도 적용 변경 번호를 반환합니다.
+     *
+     * @returns {number} 고도 적용 변경 번호입니다.
+     */
+    get heightRevision(): number;
+    /**
      * LOD 전환 prepare는 끝났지만 commit되지 않아 노출만 보류 중인지 여부입니다.
      * 준비가 진행 중인 타일을 반복해서 숨기거나 되돌리지 않기 위한 표식입니다.
      *
      * @type {boolean}
      */
     _lodPresentPending: boolean;
-    /** @type {Array<string>} */
-    _lodBlockingLayerNames: Array<string>;
-    /** @type {boolean} */
-    _lodRuntimeBlocked: boolean;
     isU3dQuadTile: boolean;
     _classtype: string;
     _scene: any;
@@ -123,9 +140,13 @@ declare class U3dQuadTile extends U3dObject {
      */
     _setHeightScale(scale: number): void;
     /**
+     * 표면 경계 보정 후 공유 지오메트리·LOD·피킹 경계를 갱신합니다.
+     */
+    _refreshSurfaceBounds(): void;
+    /**
      * 고도 지오메트리의 자료를 연결하고 현재 표시 배율에 맞는 공간 경계를 갱신합니다.
      *
-     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} geometry 연결할 고도 지오메트리
+     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} geometry 타일에서 공유할 고도 지오메트리
      */
     changeGeometry(geometry: UPlaneBufferGeometry): void;
     /**
@@ -148,20 +169,13 @@ declare class U3dQuadTile extends U3dObject {
      */
     updatePossible(): boolean;
     /**
-     * 현재 LOD 전환 판단과 작업 상태를 반환합니다.
+     * 진단 객체 생성 없이 이번 순회의 분화 의도를 조회합니다.
      *
-     * @returns {{refineRequested:boolean, lodPresentPending:boolean, blockingLayerNames:Array<string>, runtimeBlocked:boolean, processed:number, worked:number, waitWorkNames:Array<string>, endWorkNames:Array<string>}} LOD 전환 진단 상태
+     * @returns {boolean} 직접 자식의 준비를 요청한 상태인지 여부입니다.
+     *
+     * @ignore
      */
-    getLodTransitionDebugState(): {
-        refineRequested: boolean;
-        lodPresentPending: boolean;
-        blockingLayerNames: Array<string>;
-        runtimeBlocked: boolean;
-        processed: number;
-        worked: number;
-        waitWorkNames: Array<string>;
-        endWorkNames: Array<string>;
-    };
+    _isLodRefinementRequested(): boolean;
     getMesh(): UTileMesh;
     getWaitWork(workName: any): any;
     setWaitWork(work: any): void;
@@ -198,7 +212,13 @@ declare class U3dQuadTile extends U3dObject {
     };
     intersect(vecx: any, vecy: any, vecz: any): boolean;
     computeChild(minX: any, maxX: any, minY: any, maxY: any, level: any, scene: any, drawArg: any, type: any, parent: any, startlevel: any, quadindex: any, quadset: any): any;
-    computeChildren(drawArg: any, type: any): void;
+    /**
+     * 네 분면의 자식을 구성하고 단독 폐기된 자식은 새 타일로 교체합니다.
+     *
+     * @param {import('@UDrawArg').UDrawArg} drawArg 기존 호출과의 호환용 프레임 인수
+     * @param {string} type 생성할 타일 종류
+     */
+    computeChildren(drawArg: UDrawArg, type: string): void;
     _childTiles: any[];
     getType(): any;
     getChildTiles(): any[];
@@ -260,7 +280,17 @@ declare class U3dQuadTile extends U3dObject {
     getWeight(level: any): number;
     getTileSize(): any;
     traverse(callback: any): void;
-    update(drawArg: any, frameState: any, force?: boolean): boolean;
+    /**
+     * 살아 있는 지형 타일의 분화·병합을 갱신하고 검색 계수와 LOD 호출 범위를 복원합니다.
+     * 해제된 타일은 계수 증가나 프레임 작업 등록 전에 종료합니다.
+     *
+     * @param {import('@UDrawArg').UDrawArg | undefined} drawArg 그리기 인수. 기본값 this._drawArg
+     * @param {import('@union3d/core/UFrameState').UFrameState} frameState 작업과 표시 전환을 담당하는 프레임 상태
+     * @param {boolean} [force=false] 강제 갱신 여부
+     * @returns {false | void} 그리기 인수가 없거나 해제된 타일이면 false, 갱신 후에는 반환값 없음
+     * @throws {unknown} 분화 판정·자식 준비·프레임 작업 등록 중 발생한 오류
+     */
+    update(drawArg: UDrawArg | undefined, frameState: UFrameState, force?: boolean): false | void;
     getProcessStep(): string;
     getWorkStep(): string;
     disposeDetail(): void;
@@ -294,18 +324,13 @@ declare class U3dQuadTile extends U3dObject {
     intersectByMesh(mesh: any): boolean;
     checkHeightLoaded(): boolean;
     /**
-     * 타일의 지오메트리에서 입력받은 x,y(google 좌표)에 해당하는 z 값을 추출하는 함수, 4점을 추출하여 mix한 값이다.(구글 스케일이 적용된 z 값)
-     * @param {number} x google 좌표 X
-     * @param {number} y google 좌표 Y
-     * @return {number} 구글 스케일이 적용된 z
-     */
-    getHeightAtPointPrev(x: number, y: number): number;
-    /**
-     * 타일의 지오메트리에서 입력받은 x,y(google 좌표)에 해당하는 z 값을 추출하는 함수, 4점을 추출하여 mix한 값이다.(구글 스케일이 적용된 z 값)
+     * 타일 지오메트리에서 입력한 Google 좌표의 표시 고도를 계산합니다.<br>
+     * 주변 네 정점의 Z를 보간한 뒤 현재 타일 메시의 Z축 배율을 적용합니다.<br>
+     * 자료 없음 값은 배율을 적용하지 않고 그대로 반환합니다.
      *
      * @param {number} x google 좌표 X
      * @param {number} y google 좌표 Y
-     * @return {number} 구글 스케일이 적용된 z
+     * @returns {number} 타일 메시의 Z축 배율이 적용된 표시 고도 또는 자료 없음 값
      */
     getHeightAtPoint(x: number, y: number): number;
     isDisposed(): boolean;
@@ -391,7 +416,6 @@ declare class U3dQuadTile extends U3dObject {
 
 /**
      * 부모·자식 표시 전환에서 사용하는 호출별 준비 상태 집계입니다.
-     * 상세 조회 재정의의 결과도 수용하므로 차단 레이어 목록은 선택 속성입니다.
      */
     type U3dQuadTilePresentationSummary = {
         /**
@@ -410,10 +434,6 @@ declare class U3dQuadTile extends U3dObject {
          * 준비와 부착이 모두 완료되었는지 여부
          */
         handoffReady: boolean;
-        /**
-         * 수집을 요청했고 차단이 있을 때만 생성하는 레이어 목록
-         */
-        blockingLayers?: Array<U3dLayer>;
     };
 
 export type { U3dQuadTile, U3dQuadTileLodContext, U3dQuadTileLodParameters, U3dQuadTilePresentationLayerState, U3dQuadTilePresentationSummary };

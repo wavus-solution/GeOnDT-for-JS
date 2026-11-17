@@ -1,5 +1,17 @@
 /** 의미 있는 설정 구획을 실제 적용 코드와 현재 엔진 값에 연결합니다. */
 export const apiHelp = {
+    'control.keyboard': {
+        title: 'setKeyBindings() · 키보드 조작 설정',
+        description: 'ArrowUp·KeyW 등 키별로 팬 이동과 회전을 지정합니다. none은 사용 안 함이며 resetKeyBindings()는 기본 방향키 팬 이동을 복원합니다. Ctrl/Alt/Cmd 단축키와 입력·편집 요소에서는 조작하지 않습니다.',
+        mode: 'dynamic',
+        getCode(context, example) { return example.getKeyCode(); }
+    },
+    'control.input': {
+        title: 'setMouseBindings() · 마우스 조작 설정',
+        description: '왼쪽·가운데·오른쪽 드래그와 Ctrl/Cmd 조합에 팬 이동·회전·사용 안 함을 지정합니다. 생략한 항목은 유지하고, 변경 시 드래그와 관성을 취소합니다. resetMouseBindings()는 기본 조작을 복원합니다.',
+        mode: 'dynamic',
+        getCode(context, example) { return example.getMouseCode(); }
+    },
     'control.presets': {
         title: '컨트롤 프리셋 전체 적용',
         description: '같은 초기 factor에서 세 프리셋을 만듭니다. 카메라 위치는 유지하고 모든 설정을 함께 바꿉니다.',

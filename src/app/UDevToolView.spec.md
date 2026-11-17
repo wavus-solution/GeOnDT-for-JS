@@ -9,6 +9,29 @@
 ## 3. 정규 자연어 수도코드
 
 ```spec
+const MOUSE_INPUT_PRESETS: Record<string, UMapMouseBindings>
+    default는 왼쪽 pan·가운데 none·오른쪽 rotate와 Ctrl/Cmd+왼쪽 rotate이다.
+    swapped는 왼쪽 rotate·가운데 none·오른쪽 pan과 Ctrl/Cmd+왼쪽 pan이다.
+    나머지 보조키 조합은 inherit이다.
+
+const MOUSE_INPUT_LABELS: Record<UMapMouseAction | 'inherit', string>
+    pan·rotate·none·inherit을 각각 팬 이동·회전·사용 안 함·기본 동작 따르기로 표시한다.
+
+const MOUSE_INPUT_FIELDS: Array<UDevToolMouseInputField>
+    물리 버튼 세 개와 Ctrl/Cmd 조합 세 개의 설정 행이다.
+
+const KEY_INPUT_LABELS: Record<UMapKeyAction, string>
+    여덟 방향의 팬 이동·회전과 사용 안 함을 표시한다.
+
+const KEY_INPUT_PRESETS: Record<string, UMapKeyBindings>
+    pan은 방향키 팬 이동, rotate는 방향키 회전이며 다른 사용자 키는 프리셋 적용 시 보존한다.
+
+UDevToolMouseInputField 타입 명세
+    button: keyof UMapMouseButtonBindings
+    label: string
+    modifier: boolean
+        Ctrl/Cmd 조합 또는 일반 물리 버튼의 설정 행이다.
+
 UDevToolViewCO 부분 타입 명세
     이 명세에서 사용하는 필드:
         element?: HTMLDivElement
@@ -147,6 +170,10 @@ UDevToolView 클래스 정의
         생성 시점의 품질 설정이며 refresh로 갱신하지 않는다.
     #initialControlFactors: FactorOption | undefined
         컨트롤러 영역 생성 시 factor의 얕은 복사본이다.
+    #initialMouseBindings: UMapMouseBindings | undefined
+        컨트롤러 영역 생성 시 마우스 매핑의 중첩 복사본이다.
+    #initialKeyBindings: UMapKeyBindings | undefined
+        컨트롤러 영역 생성 시 키보드 매핑의 독립 복사본이다.
     #refreshFeedbackTimer: number = 0
         갱신 완료 문구를 복원하는 타이머이다.
 
@@ -475,8 +502,10 @@ UDevToolView 클래스 정의
             U3dMessage — 로그 기록; 함수: {__GInfo__()}
         동작:
             앱 컨트롤·Settings 탭·GUI 중 하나라도 없으면 종료한다.
-            현재 factor를 얕게 복사하여 초기 기준을 보관하고 입력 state를 현재 값으로 채운다.
+            현재 factor와 중첩 입력 매핑의 복사본을 초기 기준으로 보관하고 입력 state를 현재 값으로 채운다.
             컨트롤러 폴더와 적용 상태·초기 복원 행을 추가한다.
+            감도 프리셋과 별도의 마우스 조작 폴더를 구성한다.
+            키보드 입력 매핑도 초기 복원 기준에 포함하고 키 선택·동작 설정 폴더를 구성한다.
             MAP_CONTROL_FIELDS에 따라 팬·회전 관성, 감도, 줌, 앵커, 입력 방식·충돌의 닫힌 하위 폴더와 입력을 만든다.
             각 입력은 listen false이며 모드 선택은 표시 문자열, 각도는 도 단위이다. 정수 필드만 step 1을 지정한다.
             입력 완료 시 검증·적용하고 성공 로그 또는 오류 메시지를 상태 행과 도움말에 표시한다.
@@ -487,7 +516,7 @@ UDevToolView 클래스 정의
     #setMapControlFactor(field: UDevToolMapControlField, value: Controller_VALUE) -> void
         의존:
             U3dApp — 앱 설정과 실행 상태 연계; 함수: {getMapControl()}
-            UMapControlBase — 지도 입력 factor 연계; 함수: {getFactor(), setControlType()}; 상수: {CONTROL_CASE.PAN}
+            UMapControlBase — 지도 입력 factor 연계; 함수: {getFactor(), setFirstPersonModeKey(), setControlType()}; 상수: {CONTROL_CASE.PAN}
         동작:
             컨트롤러가 없으면 Error를 던진다. factor 원본을 조회한다.
             boolean 필드는 불리언 외 입력에 TypeError를 던진다.
@@ -496,7 +525,33 @@ UDevToolView 클래스 정의
             minDistance의 0과 firstPersonModeKey의 37~40은 RangeError를 던진다.
             degrees 필드는 도를 라디안으로 변환하고 변경 필드를 덮은 factor 복사본으로 관계를 검사한다.
             최소 줌 거리가 최대보다 크거나 팬 앵커 최소 거리가 최대보다 크면 RangeError를 던진다.
+            firstPersonModeKey 변경은 엔진의 setFirstPersonModeKey로 먼저 검증·반영한다. 이동·회전 매핑과 충돌하면 기존 factor와 입력을 보존한 채 오류를 전달한다.
             setControlType에 복사본의 moveType과 PAN을 전달한 뒤 원본 factor의 해당 필드만 대입한다.
+
+    #buildMouseInputSettings(gui: UGUI, tab: GUI_TAB_INFO, folder: THREE_GUI) -> void
+        의존:
+            U3dApp — 지도 컨트롤 조회; 함수: {getMapControl()}
+            UMapControlBase — 입력 매핑 적용과 복원; 함수: {setMouseBindings(), resetMouseBindings()}
+            UGUI — 입력 행 추가; 함수: {addController()}
+            THREE_GUI — 조작 폴더 생성·닫기; 함수: {addFolder(), close()}
+        동작:
+            조작 설정 폴더에 기본·좌우 반전·사용자 지정 프리셋과 물리 버튼·Ctrl/Cmd 조합 여섯 입력을 추가한다.
+            각 입력은 팬 이동·회전·사용 안 함을 제공하고 Ctrl/Cmd 입력만 기본 동작 따르기를 추가한다.
+            입력 완료 시 엔진 설정 API로 적용하고 성공 또는 오류 상태를 표시한 뒤 실제 앱 값을 다시 동기화한다.
+            현재 조작 안내와 제품 기본 매핑 복원 버튼을 추가한다. 사용자 지정 프리셋 선택은 현재 값을 유지한다.
+
+    #buildKeyInputSettings(gui: UGUI, tab: GUI_TAB_INFO, folder: THREE_GUI) -> void
+        의존:
+            U3dApp — 지도 컨트롤 조회; 함수: {getMapControl()}
+            UMapControlBase — 키 매핑 조회·적용·복원; 함수: {getKeyBindings(), setKeyBindings(), resetKeyBindings()}
+            UGUI — 입력 행 구성; 함수: {addController()}
+            THREE_GUI — 키보드 폴더 생성·닫기; 함수: {addFolder(), close()}
+            Web API — 키 직접 선택; 함수: {Element.querySelector(), HTMLElement.addEventListener(), KeyboardEvent.preventDefault(), KeyboardEvent.stopPropagation()}; 속성 읽기: {KeyboardEvent.code, KeyboardEvent.key}
+        동작:
+            키보드 조작 설정 폴더에 방향키 팬 이동·회전 프리셋, 사용할 키와 동작 선택, 적용·기본 복원 버튼 및 현재 매핑 안내를 추가한다.
+            키 선택란은 읽기 전용이며 Tab·Esc 외 키를 누르면 code를 기록하고 현재 동작을 표시한다. 키 기록 중 브라우저 기본 동작과 지도 전파를 막는다.
+            적용 버튼은 선택한 물리 키와 동작을 엔진 API로 전달한다. 성공·실패 상태를 표시하고 현재 엔진 값을 다시 표시한다.
+            초기 입력 state를 채우고 폴더를 닫는다. 키 이벤트는 소유한 입력 DOM에서만 구독한다.
 
     #syncMapControlState() -> void
         의존:
@@ -505,12 +560,14 @@ UDevToolView 클래스 정의
         동작:
             컨트롤러 또는 Settings state가 없으면 종료한다.
             각 factor를 mapcontrol_ 접두사 키에 복사하며 options는 엔진 값의 표시명, 숫자 각도는 라디안에서 도로 변환한다.
+            현재 마우스 매핑으로 프리셋·버튼과 보조키 입력·조작 안내를 갱신한다. 프리셋과 전체 값이 같지 않으면 사용자 지정으로 표시한다.
+            키보드 매핑에서 방향키 프리셋, 선택한 키의 동작과 활성 키 안내를 갱신한다. none은 현재 키 안내에서 제외한다.
 
     #resetMapControlSettings() -> void
         의존:
             U3dApp — 앱 설정과 실행 상태 연계; 함수: {getMapControl()}
             UMapControlBase — 지도 입력 factor 연계; 함수: {setControlType(), getFactor()}; 상수: {CONTROL_CASE.PAN}
-        동작: 컨트롤러 또는 초기 factor가 없으면 종료한다. 초기 moveType과 PAN으로 컨트롤 방식을 설정한 뒤 초기 factor를 실제 factor 원본에 덮어쓴다.
+        동작: 컨트롤러 또는 초기 factor가 없으면 종료한다. 초기 moveType과 PAN으로 컨트롤 방식을 설정한 뒤 초기 factor를 실제 factor 원본에 덮어쓴다. 초기 마우스 매핑도 setMouseBindings로 복원한다. 키보드는 resetKeyBindings 뒤 초기 매핑을 setKeyBindings로 적용해 나중에 추가한 키까지 제거한다.
 
     #captureTemplateFromApp() -> GUI_TemplateState
         의존:

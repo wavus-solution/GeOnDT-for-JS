@@ -352,7 +352,7 @@ U3dModelWFSLayer extends U3dModelLayer 클래스 정의
             _drawLine, _useBox, _useTerrain에 외곽선·경계 상자 표시·지형 사용 여부를 저장한다.
             _textureUrl, _defaultHeight, _defaultZOffset에 기본 텍스처 URL·기본 높이·높이 보정값을 저장하고 _checkTime에 갱신 주기 검사기를 만든다.
             _textures·_textureMaterials를 비우고 _materialType·_useDefaultTexture·_color에 재질 종류·기본 텍스처 사용·기본 색상을 저장한다.
-            텍스처 URL이 있으면 텍스처를 미리 로드한다.
+            _textureUrl이 defined이면 텍스처를 미리 로드한다.
             프록시를 사용하지 않으면 프록시 접두를 빈 문자열로 바꾼다.
             _baseUrl·_ext·_crs·_version·_width·_height에 요청 URL·응답 형식·좌표계·버전·요청 크기를 저장하고 _minlevel을 설정한 뒤 _maxlevel을 같은 값으로 만든다.
             _cql·_floorHeight·_pipeRadius에 조회 조건·층 높이·파이프 반지름을 저장한다.
@@ -361,10 +361,10 @@ U3dModelWFSLayer extends U3dModelLayer 클래스 정의
             _sldUrl이 정의되어 있으면 프록시 접두를 붙인 URL로 바꾼다.
             _sldLoaded를 false로, _sld를 rules 값이 undefined인 객체로, _sldcolor를 빈 객체로 초기화한다.
             타일 콜백에서 사용할 수 있도록 createModel을 현재 객체에 묶는다.
-            SLD URL이 있으면 SLD를 로드하고, 없으면 준비 완료로 표시하여 모델 생성을 바로 허용한다.
+            _sldUrl이 defined이면 SLD를 로드하고, 없으면 준비 완료로 표시하여 모델 생성을 바로 허용한다.
             filter는 undefined로 초기화하고 styleFunction·heightFunction·depthFunction·labelFunction에 사용자 콜백을 저장한다.
             _tileModelMap·_modelIds에 빈 타일별 모델 맵과 모델 식별자 집합을, _loader에 json 응답 로더를, _labelMap에 빈 라벨 맵을 준비한다.
-            _resolveReady를 호출하여 ready를 자기 자신으로 완료한다.
+            _resolveReady가 정의되어 있으면 호출하여 ready를 자기 자신으로 완료한다. SLD와 텍스처 전송 완료는 기다리지 않는다.
 
     밝기와 대비 책임 그룹
         역할: 생성한 mesh의 밝기·대비 표현 값을 조회하고 현재 렌더 그룹 전체에 반영한다.
@@ -461,8 +461,7 @@ U3dModelWFSLayer extends U3dModelLayer 클래스 정의
         처리 기준:
             키가 없으면 아무 것도 하지 않는다.
             편집 이벤트 중 뒤 타일이 없는 항목과 뒤 타일 키가 이 타일과 같은 항목은 추가 상태를 해제한다.
-            타일별 모델 맵의 식별자는 지정한 `_fieldPk` 값 또는 feature id이지만 라벨 맵의 키는 feature id 또는 mesh uuid이므로 두 키가 다르면 식별자 경로에서 라벨 맵 항목을 제거하지 못한다. 이후 기반 타일 처분은 mesh에 연결된 화면 라벨을 별도로 해제한다. [확인 Q-025]
-            숫자 모델 식별자는 일반 객체의 속성 키로 기록되면서 문자열로 바뀌지만 라벨 맵은 숫자 feature id를 그대로 키로 유지할 수 있어, 값이 같아도 이 경로의 문자열 키로 라벨을 찾지 못할 수 있다. [확인 Q-055]
+            타일별 모델 맵의 키는 원본 피처 ID이지만 라벨 맵의 키는 메시 puid이므로 이 식별자 경로에서는 라벨 맵 항목을 찾지 못한다. 이후 기반 타일 처분은 mesh에 연결된 화면 라벨을 별도로 해제한다. [확인 Q-025]
 
         의존:
             defined — 키와 편집 이벤트의 뒤 타일 존재 여부 판정; 함수: {defined()}
@@ -470,11 +469,11 @@ U3dModelWFSLayer extends U3dModelLayer 클래스 정의
             U3dLayer — 타일 작업 버퍼 정리; 속성 읽기·쓰기·삭제: {_workBuffer}
 
         동작:
-            키가 없으면 종료한다.
-            편집 이벤트를 순회하여 뒤 타일이 없거나 뒤 타일 키가 이 타일과 같은 항목의 추가 상태를 해제한다.
-            이 타일이 만든 모델 식별자마다 같은 키의 라벨을 찾아 제거하고 전역 모델 식별자 집합에서 지운다.
-            타일별 모델 맵과 작업 버퍼에서 이 키를 제거한다.
-            기반 레이어의 타일 처분을 수행한다.
+            key가 defined이면:
+                편집 이벤트를 순회하여 뒤 타일이 없거나 뒤 타일 키가 이 타일과 같은 항목의 추가 상태를 해제한다.
+                이 타일이 만든 모델 식별자마다 같은 키의 라벨을 찾아 제거하고 전역 모델 식별자 집합에서 지운다.
+                타일별 모델 맵과 작업 버퍼에서 이 키를 제거한다.
+                기반 레이어의 타일 처분을 수행한다.
 
     override disposeTile(tile: U3dQuadTile) -> void
         역할: 타일 객체를 타일 키로 바꾸어 키 기준 처분에 위임한다.
@@ -486,8 +485,7 @@ U3dModelWFSLayer extends U3dModelLayer 클래스 정의
             U3dLayer — 타일 키 조회; 함수: {createKeyFromTile()}
 
         동작:
-            타일이 없으면 종료한다.
-            타일 키를 구해 키 기준 타일 처분을 수행한다.
+            tile이 defined이면 타일 키를 구해 키 기준 타일 처분을 수행한다.
 
     override show(show: boolean) -> void
         역할: 레이어 가시성과 라벨 가시성을 함께 전환한다.
@@ -506,10 +504,10 @@ U3dModelWFSLayer extends U3dModelLayer 클래스 정의
 
         동작:
             draw argument에서 app을 읽는다. draw argument 자체가 없으면 이 단계에서 예외가 발생할 수 있다. [확인 Q-041]
-            app이 없으면 종료한다.
-            입력 가시성 값을 라벨 가시성 상태에 그대로 저장한다.
-            라벨 그룹과 각 라벨의 표시를 현재 상태에 맞춘다.
-            기반 레이어의 가시성 전환을 수행한다.
+            _drawArg._app이 defined이면:
+                입력 show가 truthy이면 라벨 가시성을 true로, falsy이면 false로 저장한다.
+                라벨 그룹과 각 라벨의 표시를 현재 상태에 맞춘다.
+                기반 레이어의 가시성 전환을 수행한다.
 
     setFilterFunction(fnc: U3dModelWFSLayerFeatureFilterFn) -> void
         역할: 사용자 feature 필터 콜백을 저장한다.
@@ -635,7 +633,7 @@ U3dModelWFSLayer extends U3dModelLayer 클래스 정의
             U3dQuadTile — 타일 영역, 레벨과 draw argument 조회; 속성 읽기: {_rectangle, _rlevel, _drawArg}; 함수: {URectangle.centerMap()}
             UMathEngine — 타일 중심을 최소 레벨의 타일 인덱스로 환산; 정적 함수: {getGoogleToIndexXY()}
             UDEF — 타일 상태 상수 사용; 상수: {TILE_STATE.{_loading, _end}}
-            deferred — 요청 완료를 알릴 promise 생성; 함수: {deferred()}
+            deferredPromise — 요청 완료를 알릴 promise 생성; 함수: {deferredPromise()}
             UFileLoader — GetFeature 요청 전송과 응답·오류 콜백 연결; 함수: {load()}
             __GError__ — 요청 실패 보고; 함수: {__GError__()}
 
@@ -667,7 +665,7 @@ U3dModelWFSLayer extends U3dModelLayer 클래스 정의
             U3dQuadTile — 타일 영역, 레벨과 draw argument 조회; 속성 읽기: {_rectangle, _rlevel, _drawArg}; 함수: {URectangle.centerMap()}
             UMathEngine — 타일 중심을 최소 레벨의 타일 인덱스로 환산; 정적 함수: {getGoogleToIndexXY()}
             defined — draw argument와 cql 존재 여부 판정; 함수: {defined()}
-            deferred — 처리 완료를 알릴 promise 생성; 함수: {deferred()}
+            deferredPromise — 처리 완료를 알릴 promise 생성; 함수: {deferredPromise()}
             U3dLayer — 타일 상태 변경, 캐시 조회와 로딩 수 증가; 함수: {setStateTile(), getCache(), plusLoadingTile()}
             U3dModelLayer — 타일 캐시 그룹 생성; 함수: {createGroup()}
             UDEF — 타일 상태 상수 사용; 상수: {TILE_STATE._loading}
@@ -701,7 +699,7 @@ U3dModelWFSLayer extends U3dModelLayer 클래스 정의
         동작:
             XML 응답 형식으로 요청을 준비하고 전송한다.
             응답이 200이면 SLD 문서를 규칙 목록으로 파싱하여 저장하고 준비 완료로 표시한다.
-            filter가 있는 규칙마다 CQL 파서를 만들어 규칙에 붙인다.
+            모든 규칙마다 CQL 파서를 만들고, filter가 undefined나 빈 문자열이 아닐 때만 파싱하여 규칙에 붙인다.
             저장한 규칙으로 이미 만들어진 모델의 스타일을 다시 적용한다.
 
             응답이 404이면 규칙 없이 준비 완료로만 표시한다.
@@ -812,7 +810,7 @@ parseFeature(option: {self: U3dModelWFSLayer, key: string, buffer: Record<string
     처리 기준:
         버퍼 또는 이 타일 키의 항목이 없으면 배열 정규화와 feature 처리를 시작하지 않는다.
         타일 캐시 그룹이 없으면 해당 feature를 실패로 끝낸다.
-        식별자는 지정한 id 필드값이 참일 때 그 값을, 아니면 feature id를 사용한다. 값이 0 또는 빈 문자열이면 feature id로 대체된다. [확인 Q-038]
+        피처 중복 판정·타일 소속은 지정한 id 필드값을 사용하며 null·undefined일 때만 feature id로 대체한다. 숫자 0과 빈 문자열은 이 선택 단계에서 보존한다. 메시 삭제·편집은 이 데이터 식별자에 원본 부품 경로를 더한 puid로 구분한다.
         이미 생성한 식별자는 편집 대기 항목으로 확인되지 않는 한 다시 만들지 않는다.
         feature 하나의 처리 실패는 오류만 기록하고 나머지 처리를 계속한다.
         반환 promise는 묶음의 모든 feature 처리가 종결된 시점을 알리며 그 안에서 만든 mesh의 렌더 반영까지 보장하지 않는다.
@@ -828,7 +826,8 @@ parseFeature(option: {self: U3dModelWFSLayer, key: string, buffer: Record<string
         버퍼나 이 타일 키의 항목이 없으면 종료한다.
         feature가 배열이 아니면 option의 목록만 배열로 바꾸고 실제 순회에 쓰는 지역 값은 바꾸지 않는다. parseModel 경로에서는 앞서 기록한 버퍼 값도 undefined이므로 이 단계 전에 종료한다. [확인 Q-003]
         각 feature마다 타일 캐시 그룹을 확인하고 없으면 그 feature를 실패로 끝낸다.
-        속성에서 식별자를 정하고 편집 대기 항목이 아니면서 이미 생성한 식별자이면 건너뛴다.
+        속성에서 식별자를 정한다. 편집 이벤트의 현재 mesh._ufeature에서 같은 필드·feature id 규칙으로 원본 피처를 찾으며, 원본 ID가 일치하고 _isAdd가 false인 이벤트와 buffer.id가 일치하는 항목이 있을 때 편집 대기로 인정한다.
+        편집 대기 항목이 아니면서 이미 생성한 피처 식별자이면 건너뛴다. 편집 이벤트 자체의 puid를 원본 피처 ID와 직접 비교하지 않는다.
         레이어의 출력 형태 상태를 좌표 종류 인수로 만들어 각 파싱 경로에 넘기지만 어느 경로도 이 값을 읽지 않는다.
         기하 종류가 Point·PointZ이면 점 파싱, LineString·MultiLineString이면 선 파싱, Polygon·MultiPolygon이면 면 파싱으로 넘긴다.
 
@@ -854,7 +853,7 @@ updateLabel(mesh: U3dModelWFSLayerMesh, camera?: THREE.Camera, height?: number) 
         mesh 경계 상자 중심을 구하고 라벨 높이 보정값이 있으면 더한다. 새 라벨 생성에서 보정값이 생략되어도 이전 저장값이 남아 있으면 다시 적용된다. [확인 Q-044]
         계산한 위치를 라벨 위치로 설정한다.
 
-parseModel(self: U3dModelWFSLayer, json: U3dModelWFSLayerServiceJson, tile: U3dQuadTile, drawArg: UDrawArg, promise: DeferredObject<boolean>) -> Promise<boolean> | void
+parseModel(self: U3dModelWFSLayer, json: U3dModelWFSLayerServiceJson, tile: U3dQuadTile, drawArg: UDrawArg, promise: DeferredPromise<boolean>) -> Promise<boolean> | void
     역할: GetFeature 응답을 4개 단위 작업으로 나누어 타일 작업 큐에 등록하고 타일 상태를 종료로 확정한다.
 
     인터페이스:
@@ -885,7 +884,7 @@ parseModel(self: U3dModelWFSLayer, json: U3dModelWFSLayerServiceJson, tile: U3dQ
         features가 빈 배열이면 파싱 작업을 등록하지 않고 값 0인 작업 버퍼 항목을 남긴다. [확인 Q-028]
         타일 상태를 종료로 바꾸고 작업 등록 성공을 true로 완료한다.
 
-parseEditModel(self: U3dModelWFSLayer, json: U3dModelWFSLayerServiceJson, tile: U3dQuadTile, mesh: U3dModelWFSLayerMesh, drawArg: UDrawArg, promise: DeferredObject<boolean>) -> Promise<boolean> | void
+parseEditModel(self: U3dModelWFSLayer, json: U3dModelWFSLayerServiceJson, tile: U3dQuadTile, mesh: U3dModelWFSLayerMesh, drawArg: UDrawArg, promise: DeferredPromise<boolean>) -> Promise<boolean> | void
     역할: 편집한 mesh의 feature가 서버 응답에 남아 있는지에 따라 편집 대기 버퍼와 작업 버퍼를 갱신한다.
 
     인터페이스:
@@ -958,9 +957,10 @@ parsePoint(self: U3dModelWFSLayer, feature: U3dModelWFSLayerFeature, coordType: 
         z 좌표가 없으면 0으로 본다.
         사용자 높이 콜백이 있으면 레이어를 수신 객체로 지정해 호출하고 그 값을 렌더 좌표 배율로 환산하여 밑면 높이로 사용한다.
         높이 보정값이 참이면 환산 값을 mesh에 보관하고 높이에 더한다.
-        모델 중복 판정과 타일별 기록에는 `_fieldPk`로 선택한 식별자를 사용하지만 삭제 필터에는 feature의 gid를 사용한다. 두 값이 다르거나 `_fieldPk` 값이 0·빈 문자열이면 식별자 기준이 일치하지 않는다. [확인 Q-038]
+        모델 중복 판정과 타일별 기록은 원본 피처 식별자를 사용하며 메시 삭제는 부품까지 구분한 puid로 판정한다.
 
     의존:
+        UMesh — 데이터 사용자·피처·원본 부품의 식별자 생성; 정적 함수: {_createPuid()}
         UGPoint — 좌표를 렌더 좌표 벡터로 표현; 생성자: {new UGPoint()}
         THREE — 구 기하와 기본 재질 생성, mesh 위치·렌더 순서·가시성 설정과 높이 보정값 보관; 생성자: {new SphereGeometry(), new MeshBasicMaterial()}; 속성 쓰기: {Object3D.renderOrder, Object3D.visible, Object3D.position}; 속성 읽기·쓰기: {Object3D.userData}
         THREE — 현재 실행되지 않는 점 분기에 남아 있는 기하·재질 조립; 생성자: {new BufferGeometry(), new Float32BufferAttribute(), new PointsMaterial()}; 함수: {BufferGeometry.setAttribute()}
@@ -971,15 +971,16 @@ parsePoint(self: U3dModelWFSLayer, feature: U3dModelWFSLayerFeature, coordType: 
         UGroup — 완성한 mesh를 타일 캐시 그룹으로 소유권 이전; 함수: {add()}
 
     동작:
+        레이어 종류·이름, 전달받은 피처 id, 기하 종류와 점 순번 0으로 puid를 만든다. 유효하지 않은 식별자는 기하 생성 전에 TypeError로 거부한다.
         사용자 높이 콜백이 있으면 feature 높이를 먼저 계산한다.
         좌표로 위치 벡터를 만들고 구 기하와 레이어 기본 색상의 기본 재질을 준비한다.
-        생성한 mesh에 레이어 렌더 순서를 적용한다.
+        생성한 mesh의 전용 puid 속성에 식별자를 넣고 레이어 렌더 순서를 적용한다. 이후 로드 이벤트를 통지하므로 수신자는 puid를 읽을 수 있다.
         사용자 높이가 있으면 렌더 좌표 배율로 환산해 밑면 높이로 넣고 높이 보정값이 참이면 더한다.
         지형 높이와 자동 갱신 등록을 적용한다. 이 호출 안의 로드 이벤트 뒤에도 스타일·라벨·외곽선·그룹 연결을 계속한다. [확인 Q-040]
         스타일을 적용한다.
         라벨을 만든다.
         타일별 모델 맵과 전역 모델 식별자 집합에 이 식별자를 기록한다.
-        feature의 gid가 삭제 필터에 걸리면 mesh와 라벨을 숨긴 뒤 mesh를 타일 캐시 그룹에 추가한다. 이 판정은 타일별 기록에 쓴 식별자와 다를 수 있다. [확인 Q-038]
+        mesh.puid가 삭제 필터에 걸리면 mesh와 라벨을 숨긴 뒤 mesh를 타일 캐시 그룹에 추가한다.
 
 parseString(self: U3dModelWFSLayer, feature: U3dModelWFSLayerFeature, coordType: string, tile: U3dQuadTile, id: string | number, key: string, groupWFS: UGroup) -> void
     역할: LineString 계열 feature를 곡선 경로의 파이프 mesh로 만들어 스타일·라벨·지형 높이를 적용하고 타일 그룹에 넣는다.
@@ -994,10 +995,11 @@ parseString(self: U3dModelWFSLayer, feature: U3dModelWFSLayerFeature, coordType:
         경로 좌표는 평균 중심을 뺀 지역 좌표로 바꾼 뒤 곡선을 만든다.
         파이프 반지름은 사용자 깊이 콜백이 있으면 레이어를 수신 객체로 지정해 호출한 결과를, 없으면 레이어 기본 반지름을 사용하며 렌더 좌표 배율로 환산하지 않는다.
         경로 분할 수는 96, 원주 분할 수는 8이며 파이프 양 끝은 닫지 않는다.
-        모델 중복 판정과 타일별 기록에는 `_fieldPk`로 선택한 식별자를 사용하지만 삭제 필터에는 feature의 gid를 사용한다. [확인 Q-038]
-        MultiLineString이 여러 mesh를 만들고 각각 라벨을 생성하면 같은 feature id가 라벨 맵 키로 반복 사용되어 마지막 라벨만 맵에 남는다. [확인 Q-042]
+        모델 중복 판정과 타일별 기록은 원본 피처 식별자를 사용하며 각 선의 삭제는 원본 선 순번까지 구분한 puid로 판정한다.
+        MultiLineString에서 원본 선 순번이 다르면 메시 puid와 그 라벨 맵 키도 다르다.
 
     의존:
+        UMesh — 데이터 사용자·피처·원본 선 경로의 식별자 생성; 정적 함수: {_createPuid()}
         UGPoint — 좌표를 렌더 좌표 벡터로 표현; 생성자: {new UGPoint()}
         THREE — 중심 계산, 곡선과 파이프 기하 생성, 경계 상자 계산과 mesh 위치·가시성 설정, 높이 보정값 보관; 생성자: {new Vector3(), new CatmullRomCurve3(), new TubeGeometry()}; 함수: {Vector3.set(), Vector3.sub(), BufferGeometry.computeBoundingBox()}; 속성 쓰기: {Object3D.position, Object3D.visible}; 속성 읽기·쓰기: {Object3D.userData}
         U3dModelLayer — 삭제 필터 판정; 함수: {removeFilter()}
@@ -1007,18 +1009,19 @@ parseString(self: U3dModelWFSLayer, feature: U3dModelWFSLayerFeature, coordType:
 
     동작:
         사용자 높이 콜백이 있으면 feature 높이를 먼저 계산한다.
-        기하 종류에 따라 좌표를 하나 또는 여러 경로로 나누고 지원하지 않는 종류이면 종료한다.
+        기하 종류에 따라 좌표를 하나 또는 여러 경로로 나누고 지원하지 않는 종류이면 종료한다. 빈 선을 제외해도 원본 선 순번은 보관한다.
+        경로마다 레이어 종류·이름, 피처 id, 기하 종류와 원본 선 순번으로 puid를 만든다. 유효하지 않은 식별자는 해당 경로의 기하 생성 전에 TypeError로 거부한다.
         경로마다 좌표 평균을 중심으로 잡고 좌표를 중심 기준 지역 좌표로 바꾼다.
         지역 좌표로 곡선을 만들고 반지름을 정해 파이프 기하를 만든다.
         기하의 경계 상자를 계산한다.
+        mesh의 전용 puid 속성에 식별자를 넣는다. 이 값은 이후 스타일 처리·로드 이벤트 전에 준비된다.
         사용자 높이가 있으면 렌더 좌표 배율로 환산해 밑면 높이로 넣고 높이 보정값이 참이면 더한다.
         스타일을 적용한다.
         지형 높이와 자동 갱신 등록을 적용한다. 이 호출 안의 로드 이벤트 뒤에도 라벨·외곽선·그룹 연결을 계속한다. [확인 Q-040]
         라벨을 만든다.
         _drawLine이 truthy이면:
         mesh를 타일 캐시 그룹에 넣고 타일별 모델 맵과 전역 모델 식별자 집합에 `_fieldPk`로 선택한 식별자를 기록한다.
-        feature의 gid가 삭제 필터에 걸리면 mesh와 라벨을 숨긴다. 이 판정은 앞에서 기록한 식별자와 다를 수 있다. [확인 Q-038]
-        MultiLineString의 각 mesh에 라벨을 만들면 같은 feature id 키가 재사용되어 라벨 맵에는 마지막 라벨만 남을 수 있다. [확인 Q-042]
+        mesh.puid가 삭제 필터에 걸리면 해당 mesh와 라벨을 숨긴다.
 
 parsePolygon(self: U3dModelWFSLayer, feature: U3dModelWFSLayerFeature, coordType: string, tile: U3dQuadTile, id: string | number, key: string, groupWFS: UGroup) -> void
     역할: Polygon 계열 feature의 각 좌표 고리를 독립된 돌출 건물 mesh로 만들어 스타일·라벨·지형 높이와 편집 상태를 적용하고 타일 그룹에 넣는다.
@@ -1036,11 +1039,11 @@ parsePolygon(self: U3dModelWFSLayer, feature: U3dModelWFSLayerFeature, coordType
         초기 생성에서는 `setStyle()`을 호출하지 않으므로 style.label을 만들지 않는다. [확인 Q-032]
         스타일 투명도는 실제 재질에 반영하지 않는다. [확인 Q-031]
         텍스처 재질에는 스타일 색상을 반영하지 않는다. [확인 Q-034]
-        각 mesh의 삭제·편집 필터는 선택한 모델 식별자로 덮어쓴 userData.id 또는 userData.oid를 사용한다. 반복이 끝난 뒤에는 feature gid로 삭제 필터를 다시 판정한다. [확인 Q-038]
-        유효한 고리나 생성 가능한 기하가 하나도 없어 mesh를 만들지 못해도 모델 식별자를 기록한다. 이때 미리 만든 재질은 소유권을 넘기거나 해제하지 않으며, feature gid가 삭제 필터에 걸리면 생성되지 않은 마지막 mesh를 참조해 오류가 발생한다. [확인 Q-037]
-        여러 고리가 각각 라벨을 만들면 같은 feature id가 라벨 맵 키로 반복 사용되어 마지막 라벨만 맵에 남는다. [확인 Q-042]
+        각 mesh의 삭제·편집 필터는 전용 puid를 사용하며 다른 고리와 구분한다.
+        유효한 고리나 생성 가능한 기하가 하나도 없어 mesh를 만들지 못해도 모델 식별자를 기록한다. 이때 미리 만든 재질은 소유권을 넘기거나 해제하지 않는다. [확인 Q-037]
 
     의존:
+        UMesh — 데이터 사용자·피처·원본 폴리곤 고리 경로의 식별자 생성; 정적 함수: {_createPuid()}
         U3dLayer — 레이어 렌더 순서 조회; 속성 읽기: {_renderOrder}
         U3dModelLayer — 삭제·편집 필터 판정과 편집 이벤트 등록; 함수: {removeFilter(), editFilter(), setEditEvent()}
         defined — 스타일, 높이와 라벨 존재 여부 판정; 함수: {defined()}
@@ -1051,20 +1054,22 @@ parsePolygon(self: U3dModelWFSLayer, feature: U3dModelWFSLayerFeature, coordType
     동작:
         사용자 높이 콜백이 있으면 feature 높이를 먼저 계산한다.
         Polygon과 MultiPolygon의 외곽·내부 고리를 구분하지 않고 고리별로 좌표 변환을 요청한다. 내부 고리도 hole로 연결하지 않아 이후 독립된 채움 solid mesh가 된다. [확인 Q-047]
-        변환 결과가 있는 고리만 목록에 보관한다.
+        변환 결과가 있는 고리만 목록에 보관하되 원본 폴리곤·고리 순번도 함께 유지한다. 앞 고리를 제외해도 뒤 고리의 식별 경로가 당겨지지 않는다.
         feature 스타일을 계산하고 없거나 보이지 않으면 종료한다.
+        변환된 모든 고리의 원본 경로와 레이어 종류·이름, 피처 id로 puid 목록을 먼저 만든다. 유효하지 않은 식별자는 재질 생성 전에 TypeError로 거부한다.
         스타일에 맞는 재질과 이미지 URL, 스타일 정보를 고리 반복 전에 한 번 만들고 재질이 없으면 종료한다.
         각 고리마다 다음 처리를 수행한다.
+            현재 고리의 미리 준비한 puid를 사용한다. 앞 고리의 변환·기하 생성 실패로 뒤 고리의 경로를 당기지 않는다.
             중심 위도의 렌더 좌표 배율을 계산하고 평면 shape 생성 함수인 buildShape를 기하 생성에 전달한다.
             기하를 만들지 못했으면 이 고리를 건너뛴다.
-            렌더 순서를 적용하고 식별자, 텍스처 스타일 여부, 중심·좌표·좌표 종류·배율과 이미지·스타일 정보를 mesh 사용자 데이터에 기록한다.
+            mesh의 전용 puid 속성에 식별자를 넣어 이후 로드 이벤트 전에 준비한다.
+            렌더 순서를 적용하고 텍스처 스타일 여부, 중심·좌표·좌표 종류·배율과 이미지·스타일 정보를 mesh 사용자 데이터에 기록한다. puid는 전용 속성에만 둔다.
             사용자 높이가 있으면 렌더 좌표 배율로 환산해 밑면 높이로 넣고 높이 보정값이 참이면 더한다.
             지형 높이와 자동 갱신 등록을 적용한다. 이 호출 안의 로드 이벤트 뒤에도 라벨·외곽선·그룹 연결을 계속한다. [확인 Q-040]
             사용자 라벨 콜백 결과로 라벨 생성을 시도한다.
             _drawLine이 truthy이면:
-            삭제 필터에 걸리면 숨기고 편집 필터에 걸리면 편집 이벤트 대상으로 등록한 뒤 mesh를 타일 캐시 그룹에 추가한다.
+            mesh.puid가 삭제 필터에 걸리면 메시와 라벨을 숨긴다. 같은 puid가 편집 필터에 걸리면 편집 상태를 적용한 뒤 mesh를 타일 캐시 그룹에 추가한다.
         반복을 마치면 생성된 mesh 수와 관계없이 타일별 모델 맵과 전역 모델 식별자 집합에 `_fieldPk`로 선택한 식별자를 기록한다.
-        feature gid가 삭제 필터에 걸리면 마지막으로 만든 mesh와 그 라벨만 숨긴다. 여러 고리를 만들었으면 앞선 mesh와 라벨은 그대로 남는다. [확인 Q-038] [확인 Q-054]
 
 _createPOI(self: U3dModelWFSLayer, mesh: U3dModelWFSLayerMesh, opt: Record<string, any>) -> void
     역할: mesh 경계 상자 중심에 POI 라벨을 만들어 mesh, 라벨 맵과 라벨 그룹에 함께 연결한다.
@@ -1076,15 +1081,13 @@ _createPOI(self: U3dModelWFSLayer, mesh: U3dModelWFSLayerMesh, opt: Record<strin
         zOffset이 정의되어 있으면 mesh에 보관하고 라벨 위치 z에 더한다.
         zOffset이 생략되면 이전에 mesh에 저장한 labelZoffset을 지우지 않으므로 이후 라벨 위치 갱신은 이전 보정값을 다시 사용한다. [확인 Q-044]
         textLabel이 참이 아니면 imgLabel이 있어도 라벨을 만들지 않으므로 zOffset만 mesh에 남는다. 이 함수는 `_fieldLabel`도 읽지 않는다. [확인 Q-046] [확인 Q-053]
-        라벨 이름과 라벨 맵 키는 feature id를 우선 사용하고 없으면 mesh uuid를 사용하며, feature 파싱에서 `_fieldPk`로 정한 모델 식별자와 다를 수 있다. [확인 Q-025]
-        feature id가 숫자이면 라벨 맵은 숫자 키를 보존하지만 타일별 일반 객체에 기록한 같은 ID는 문자열 키가 되어 식별자 기반 제거에서 일치하지 않을 수 있다. [확인 Q-055]
-        같은 feature에서 여러 mesh를 만들면 각 라벨이 같은 이름과 맵 키를 사용한다. 맵 항목은 마지막 라벨로 덮어쓰지만 앞선 라벨도 라벨 그룹에는 남는다. [확인 Q-042]
-        만든 라벨 참조는 mesh 사용자 데이터, 라벨 맵과 라벨 그룹에 함께 저장되지만 mesh 경로 제거에서는 라벨 맵과 mesh 사용자 데이터 참조를 지우지 않는다. [확인 Q-033]
+        라벨 이름과 라벨 맵 키는 mesh.puid를 사용하여 같은 feature의 서로 다른 메시를 구분한다. 타일별 모델 맵의 원본 피처 ID와는 다르다. [확인 Q-025]
+        만든 라벨 참조는 mesh 사용자 데이터, 라벨 맵과 라벨 그룹에 함께 저장된다. mesh 경로 제거는 같은 POI가 보관된 맵 항목도 지우지만 mesh.userData.label 참조는 남긴다. [확인 Q-033]
 
     의존:
         defined — 높이 보정값과 라벨 그룹 존재 여부 판정; 함수: {defined()}
-        defaultValue — 라벨 이름과 표현 옵션 기본값 적용; 함수: {defaultValue()}
-        THREE — 라벨 위치 벡터 생성과 mesh 사용자 데이터 기록; 생성자: {new Vector3()}; 속성 쓰기: {Object3D.userData}; 속성 읽기: {Object3D.uuid}
+        defaultValue — 표현 옵션 기본값 적용; 함수: {defaultValue()}
+        THREE — 라벨 위치 벡터 생성과 mesh 사용자 데이터 기록; 생성자: {new Vector3()}; 속성 쓰기: {Object3D.userData}
         UMesh — mesh 경계 상자 조회; 함수: {getBBox()}
         U3dPOI — POI 라벨 생성; 생성자: {new U3dPOI()}; 속성 읽기: {name}
         UGroup — 라벨 그룹에 라벨 추가; 함수: {add()}
@@ -1101,8 +1104,8 @@ _removePOI(self: U3dModelWFSLayer, item: U3dModelWFSLayerMesh | string | number)
     인터페이스: item이 WFS mesh 또는 Mesh이면 mesh 사용자 데이터의 라벨을, 그 외에는 라벨 맵의 식별자를 대상으로 삼는다.
 
     처리 기준:
-        mesh 경로는 라벨을 해제하고 그룹에서만 제거하며 라벨 맵과 mesh.userData.label에는 해제된 참조를 남긴다. [확인 Q-033]
-        식별자 경로는 그 값이 feature id 또는 mesh uuid로 만든 라벨 맵 키와 일치할 때만 라벨을 찾는다. [확인 Q-025]
+        mesh 경로는 라벨을 해제하고 그룹에서 제거하며 맵에 같은 POI가 남아 있으면 해당 키도 제거한다. mesh.userData.label에는 해제된 참조를 남긴다. [확인 Q-033]
+        식별자 경로는 그 값이 mesh.puid로 만든 라벨 맵 키와 일치할 때만 라벨을 찾는다. [확인 Q-025]
 
     의존:
         UWfsMesh — mesh 종류 판정; 생성자: {UWfsMesh}
@@ -1112,7 +1115,7 @@ _removePOI(self: U3dModelWFSLayer, item: U3dModelWFSLayerMesh | string | number)
         U3dModelLayer — 라벨 그룹 조회; 속성 읽기: {_labelGroup}
 
     동작:
-        mesh이면 사용자 데이터의 라벨을 해제하고 라벨 그룹에서 제거하되 라벨 맵과 mesh 사용자 데이터 참조는 지우지 않는다. [확인 Q-033]
+        mesh이면 사용자 데이터의 라벨을 해제하고 그룹에서 제거한다. _labelMap.get(label.name)이 해당 라벨과 같은 참조일 때만 맵 항목을 지워 새 라벨을 보존하며 mesh 사용자 데이터 참조는 지우지 않는다. [확인 Q-033]
         식별자이면 라벨 맵에서 라벨을 찾아 해제하고 라벨 그룹과 라벨 맵에서 함께 제거한다.
 
 createStyle(self: U3dModelWFSLayer, feature: U3dModelWFSLayerFeature) -> U3dModelWFSLayerFeatureStyle
@@ -1142,7 +1145,7 @@ setStyle(self: U3dModelWFSLayer, mesh: U3dModelWFSLayerMesh) -> void
         feature 속성이나 기하가 없으면 아무 것도 하지 않는다.
         가시성이 false이면 가시성 블록 안의 라벨 생성과 텍스처·재질·폴리곤 기하 전환을 건너뛴다. 다만 구 기하 재생성과 단일 재질의 색상·투명도·스타일 정보 갱신은 가시성과 관계없이 수행한다.
         구 기하의 텍스처 이미지 경로는 기존 POI가 있으면 이미지를 바꾸지만, POI가 없으면 textLabel 없는 이미지 옵션으로 `_createPOI()`를 호출하므로 새 이미지 라벨을 만들지 못한다. [확인 Q-053]
-        단일 재질일 때만 색상·투명도를 적용한다. 원본 색상은 속성 존재 여부로 갱신하지만 원본 투명도는 `_oriOpacity`가 truthy일 때만 갱신하므로 값 0이면 실제 opacity만 바뀌고 원본 값은 남는다. [확인 Q-056]
+        단일 재질일 때만 색상·투명도를 적용한다. `_oriColor`가 truthy이면 원본 색상에, 아니면 재질 색상에 반영한다. `_oriOpacity`도 truthy일 때만 갱신하므로 값 0이면 실제 opacity만 바뀌고 원본 값은 남는다. [확인 Q-056]
         재질이 배열이면 스타일 정보 기록을 건너뛴다.
         폴리곤 고리들이 재질을 공유한 경우 한 mesh에서 기존 재질을 해제하면 다른 고리 mesh도 같은 해제된 재질을 계속 참조할 수 있다. [확인 Q-024]
         style.label이 있으면 라벨을 먼저 만들지만 생성 경로가 뒤이어 `setLabel()`을 호출하면 사용자 라벨 옵션으로 교체되거나 옵션이 비어 있을 때 제거될 수 있다. [확인 Q-026]
@@ -1157,27 +1160,27 @@ setStyle(self: U3dModelWFSLayer, mesh: U3dModelWFSLayerMesh) -> void
         UDEF — 재질 배열 생성 결과 검증; 정적 함수: {assert()}
 
     동작:
-        feature 속성이나 기하가 없으면 종료한다.
-        현재 스타일을 계산한다.
-        기존 geometry가 구 기하이면 가시성과 관계없이 해제하고 스타일 크기와 분할 수의 새 기하를 mesh.geometry에 저장한다.
-        visible이 truthy이면:
-            style.label이 있으면 라벨을 다시 만든다.
-            텍스처 스타일이면:
-                mesh.userData.setTextureStyle이 정의되어 있고 falsy이면:
-                    저장된 좌표·중심·스케일·좌표 종류와 평면 고리를 만드는 buildShape를 기하 생성에 전달한다.
-                    생성한 geometry가 있으면 기존 기하를 해제하고 mesh.geometry에 저장한 뒤 setTextureStyle을 true로 바꾸고 styleinfo를 비운다.
-                style.imgurl이 정의되어 있고 style.imgvisible이 truthy이면 해당 URL의 저장된 텍스처를 고른다. 그 외에는 기본 URL을 사용하며 목록이면 첫 URL을 고르고, 선택한 URL을 refimgurl에 기록한다.
-                기존 구 기하이면 POI에 고른 이미지를 반영하고 POI가 없으면 이미지 옵션으로 생성을 시도한다.
-                그 밖의 기하이면:
-                    두 재질을 배열로 묶어 검증하고 기존 재질을 해제한 뒤 mesh.material에 저장한다.
-            텍스처 스타일이 아니면:
-                기존 재질을 해제한다.
-                생성한 재질을 mesh.material에 저장한다.
-                mesh.userData.setTextureStyle이 truthy이면:
-                    저장된 좌표·중심·스케일·좌표 종류와 buildShape()를 기하 생성에 전달한다.
-                    생성한 geometry가 있으면 기존 기하를 해제하고 mesh.geometry에 저장한 뒤 setTextureStyle을 false로 바꾼다.
-        가시성과 관계없이 단일 재질이면 색상과 투명도를 적용하고 투명 여부와 스타일 정보를 사용자 데이터에 기록한다.
-        visible은 가시성과 관계없이 항상 mesh.visible에 반영한다.
+        mesh.geometry가 defined이고 feature 속성 properties가 정의되어 있으면:
+            현재 스타일을 계산한다.
+            기존 geometry가 구 기하이면 가시성과 관계없이 해제하고 스타일 크기와 분할 수의 새 기하를 mesh.geometry에 저장한다.
+            visible이 truthy이면:
+                style.label이 있으면 라벨을 다시 만든다.
+                텍스처 스타일이면:
+                    mesh.userData.setTextureStyle이 정의되어 있고 falsy이면:
+                        저장된 좌표·중심·스케일·좌표 종류와 평면 고리를 만드는 buildShape를 기하 생성에 전달한다.
+                        생성한 geometry가 있으면 기존 기하를 해제하고 mesh.geometry에 저장한 뒤 setTextureStyle을 true로 바꾸고 styleinfo를 비운다.
+                    style.imgurl이 정의되어 있고 style.imgvisible이 truthy이면 해당 URL의 저장된 텍스처를 고른다. 그 외에는 기본 URL을 사용하며 목록이면 첫 URL을 고르고, 선택한 URL을 refimgurl에 기록한다.
+                    기존 구 기하이면 POI에 고른 이미지를 반영하고 POI가 없으면 이미지 옵션으로 생성을 시도한다.
+                    그 밖의 기하이면:
+                        두 재질을 배열로 묶어 검증하고 기존 재질을 해제한 뒤 mesh.material에 저장한다.
+                텍스처 스타일이 아니면:
+                    기존 재질을 해제한다.
+                    생성한 재질을 mesh.material에 저장한다.
+                    mesh.userData.setTextureStyle이 truthy이면:
+                        저장된 좌표·중심·스케일·좌표 종류와 buildShape()를 기하 생성에 전달한다.
+                        생성한 geometry가 있으면 기존 기하를 해제하고 mesh.geometry에 저장한 뒤 setTextureStyle을 false로 바꾼다.
+            가시성과 관계없이 단일 재질이면 색상과 투명도를 적용하고 투명 여부와 스타일 정보를 사용자 데이터에 기록한다.
+            visible은 가시성과 관계없이 항상 mesh.visible에 반영한다.
 
 setMaterial(self: U3dModelWFSLayer, feature: U3dModelWFSLayerFeature, style: U3dModelWFSLayerFeatureStyle, setStyle: boolean = false) -> {material?: ModelMaterial | Array<ModelMaterial>, imgUrl?: string, styleInfo: Record<string, any>} | undefined
     역할: 폴리곤 mesh 생성에 사용할 재질과 참조 이미지 URL, 스타일 정보를 만든다.
@@ -1189,7 +1192,7 @@ setMaterial(self: U3dModelWFSLayer, feature: U3dModelWFSLayerFeature, style: U3d
     처리 기준:
         스타일이 보이지 않으면 재질을 만들지 않고 스타일 정보만 반환하므로 호출자가 mesh 생성을 중단한다.
         스타일 이미지가 있고 이미지 표시가 참이면 그 이미지를, 아니면 기본 텍스처 URL을 사용하며 목록이면 첫 원소를 쓴다.
-        단일 재질에서는 원본 색상 속성이 있으면 그쪽에, 없으면 재질 색상에 스타일 색을 반영한다.
+        단일 재질에서는 `_oriColor`가 truthy이면 그쪽에, 아니면 재질 색상에 스타일 색을 반영한다.
         단일 재질과 텍스처 재질 모두 스타일 opacity를 실제 재질에 반영하지 않고 스타일 정보에만 기록한다. [확인 Q-031]
         텍스처 재질에는 스타일 color를 반영하지 않는다. [확인 Q-034]
         스타일 정보의 투명 여부는 투명도가 1보다 작은지로 정한다.
@@ -1222,10 +1225,10 @@ setLabel(self: U3dModelWFSLayer, mesh: U3dModelWFSLayerMesh) -> void
         U3dModelLayer — 상속한 라벨 가시성 기본값 조회; 속성 읽기: {_labelVisible}
 
     동작:
-        feature 속성이 없으면 종료한다.
-        사용자 라벨 콜백이 있으면 레이어의 멤버로 호출하여 라벨 옵션을 얻는다.
-        라벨 가시성이 참이면 기존 라벨을 제거한 뒤 옵션의 textLabel이 참일 때 새 POI를 만든다. [확인 Q-026]
-        라벨 가시성이 false이면 기존 라벨 상태를 바꾸지 않고 종료한다. [확인 Q-027]
+        mesh._uproperties가 defined이면:
+            사용자 라벨 콜백이 있으면 레이어의 멤버로 호출하여 라벨 옵션을 얻는다.
+            계산한 visible이 truthy이면 기존 라벨을 제거한 뒤 옵션의 textLabel이 참일 때 새 POI를 만든다. [확인 Q-026]
+            visible이 falsy이면 기존 라벨 상태를 바꾸지 않고 종료한다. [확인 Q-027]
 
 updateLabelVisible(self: U3dModelWFSLayer) -> void
     역할: 라벨 가시성 상태에 맞추어 라벨 그룹을 주석 장면에 붙이고 각 라벨의 표시를 전환한다.

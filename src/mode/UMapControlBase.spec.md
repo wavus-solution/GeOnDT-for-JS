@@ -14,6 +14,7 @@
 
 - 입력 이벤트 등록과 해제, 조작 상태 전이 및 `start`, `change`, `end` 이벤트 발생을 담당한다.
 - camera pose, `target`, polar/azimuth 범위, zoom scale과 충돌 높이를 갱신한다.
+- 카메라의 최종 XY를 자동 높이 인덱스와 렌더 직전에 동기화하고 새 terrain LOD 고도와 지형 표시 배율 변경을 충돌 높이에 반영한다.
 - 고정 앵커 pan, 회전, zoom을 위한 picking, NDC 저장과 pose 보정을 조정한다.
 - camera reset, 각도 tween, perspective/orthographic 비행 tween의 시작·중지·완료 상태를 관리한다.
 - `UMapControlHelper`의 생성, 가시성, 위치, 크기와 해제를 관리한다.
@@ -30,6 +31,8 @@ mouse down 또는 wheel 입력에서 제어 종류가 `FIX_ANCHOR`이면 picking
 
 고정 앵커 회전은 같은 world-space delta quaternion을 앵커 기준 camera position과 camera quaternion에 적용하여 앵커의 camera-space 좌표를 유지한다. 이어서 앵커를 재투영한 NDC 잔차를 camera image-plane translation으로 보정하고 충돌, 중앙 `target`, 구면 좌표를 갱신한다.
 
+충돌을 사용하는 동안에는 입력 이벤트마다 공간 인덱스를 고치지 않고 렌더 직전 최종 카메라 XY가 바뀌었을 때만 ID 기반 자동 높이 등록을 갱신한다. 새 terrain 타일 고도 콜백은 등록 위치와 현재 카메라 XY가 같을 때만 최소 높이를 다시 적용하므로, LOD 교체 뒤 두 번째 렌더에서 지면 아래 카메라가 노출되지 않게 한다.
+
 ### 1.4 주요 사용처와 연계 대상
 
 - `UMapControls`가 직접 상속하여 공개 지도 컨트롤러를 구성한다.
@@ -41,6 +44,30 @@ mouse down 또는 wheel 입력에서 제어 종류가 `FIX_ANCHOR`이면 picking
 ## 3. 정규 자연어 수도코드
 
 ```spec
+UMapKeyAction 타입 정의
+    'panUp' | 'panDown' | 'panLeft' | 'panRight' | 'rotateUp' | 'rotateDown' | 'rotateLeft' | 'rotateRight' | 'none'
+
+UMapKeyBindings 타입 정의
+    Record<string, UMapKeyAction>
+    KeyboardEvent.code별 팬 이동·target 중심 회전이며 none은 처리하지 않는다.
+
+UMapMouseAction 타입 정의
+    'pan' | 'rotate' | 'none'
+
+UMapMouseButtonBindings 타입 명세
+    left, middle, right: UMapMouseAction
+        물리 버튼별 드래그 동작이다.
+
+UMapMouseBindings 타입 명세
+    mouse: UMapMouseButtonBindings
+    modifiers: {ctrlOrMeta: Record<'left' | 'middle' | 'right', UMapMouseAction | 'inherit'>}
+        Ctrl/Cmd 조합은 inherit이면 해당 물리 버튼의 기본 동작을 사용한다.
+
+UMapMouseBindingsPatch 타입 명세
+    mouse?: Partial<UMapMouseButtonBindings>
+    modifiers?: Partial<{ctrlOrMeta: Partial<Record<'left' | 'middle' | 'right', UMapMouseAction | 'inherit'>>}>
+        생략한 항목은 현재 매핑을 유지하며 터치·휠·Shift는 이 계약에 포함하지 않는다.
+
 export const STATE: object
     NONE: number = 0
     ROTATE_UP: number = 1
@@ -69,7 +96,7 @@ export const DEFAULT_CONTROL_FACTOR: object
     INTER_ZOOM_SPEED: number = 10
     INTER_ROTATION_SPEED: number = 3
     INTER_MOVE_SPEED: number = 50
-    COLLISION_FACTOR: number = 6
+    COLLISION_FACTOR: number = 40
     COLLISION_OFFSET: number = 0
     MIN_DISTANCE: number = -1
     MAX_DISTANCE: number = 306824
@@ -114,7 +141,7 @@ FactorOption 타입 정의
     interMoveSpeed: number = 50
     interRotationSpeed: number = 3
     interZoomSpeed: number = 10
-    collisionFactor: number = 6
+    collisionFactor: number = 40
     collisionOffset: number = 0
     firstPersonModeKey: number = 16
     minDistance: number = -1
@@ -199,7 +226,19 @@ UMapControlBase extends UEventDispatcher 클래스 정의
     autoRotate: boolean = false
         입력이 없는 `update()`에서 자동 azimuth 회전을 적용할지 여부
     mouseButtons: object
-        LEFT, MIDDLE, RIGHT 입력을 Three mouse button 상수와 연결한다.
+        기존 버튼 번호 매핑이다. 새 입력 API를 설정하기 전과 resetMouseBindings 이후에 적용한다.
+    #mouseBindings: UMapMouseBindings | null = null
+        null이면 기존 mouseButtons 경로를 사용하고 그 외에는 물리 버튼 매핑을 우선한다.
+    #activeMouseButton: number | null = null
+        현재 드래그를 시작한 물리 버튼이며 다른 버튼 해제는 무시한다.
+    #mouseInputGeneration: number = 0
+        설정 취소와 종료 콜백 재진입 이후 이전 입력의 후속 처리를 차단한다.
+    #keyBindings: UMapKeyBindings | null = null
+        null이면 기존 keys의 숫자 매핑을 변환해 사용하며 설정 후에는 새 물리 키 매핑을 우선한다.
+    #pressedNavigationKeys: Set<string> = 빈 Set
+        실제 처리한 이동·회전 키의 눌림 상태를 각각 보관한다.
+    #pressedFirstPersonKeys: Set<string> = 빈 Set
+        좌우 Shift를 포함해 실제 처리한 임시 일인칭 키의 눌림 상태를 보관한다.
     keys: object
         LEFT, UP, RIGHT, BOTTOM, SHIFT key code를 보유한다.
     isKeyMoving, onShift: boolean = false
@@ -226,6 +265,17 @@ UMapControlBase extends UEventDispatcher 클래스 정의
         현재 각도 또는 비행 tween
     isUpdated: boolean | undefined
         직전 `update()`가 camera 변화를 판정한 결과
+
+    #autoHeightUpdateId: symbol | null = null
+        현재 카메라 XY의 자동 높이 등록 ID이며 미등록 상태는 null이다.
+    #autoHeightPosition: THREE.Vector2 = (NaN, NaN)
+        공간 인덱스에 마지막으로 반영한 카메라 XY다.
+    #autoHeightRenderKey: string
+        컨트롤러마다 고유한 렌더 전 콜백 key다.
+    #autoHeightRenderCallback: Function
+        렌더 직전 최종 XY를 동기화하도록 현재 인스턴스에 바인딩한 콜백이다.
+    #autoHeightUpdateCallback: Function
+        새 terrain LOD 고도를 적용하도록 현재 인스턴스에 바인딩한 콜백이다.
 
     #panInertia: object
         velocity: THREE.Vector3
@@ -284,7 +334,7 @@ UMapControlBase extends UEventDispatcher 클래스 정의
             three — Z-up camera offset 변환과 초기 pose 복사; 생성자: {new Vector3()}; 함수: {Quaternion.setFromUnitVectors(), Quaternion.invert(), Vector3.clone()}
             Web API — DOM 입력 기본 대상; 상수: {document}
         동작:
-            draw argument, 앱, picking 객체, camera와 DOM 대상을 연결하고 pan·회전 관성 프레임 callback을 현재 인스턴스에 바인딩한다.
+            draw argument, 앱, picking 객체, camera와 DOM 대상을 연결하고 pan·회전 관성 프레임 callback과 자동 높이 렌더·갱신 callback을 현재 인스턴스에 바인딩한다.
             camera `up`을 Three 구면 좌표의 Y-up 기준으로 변환하는 quaternion과 역 quaternion을 준비한다.
             초기 target, camera position과 zoom을 reset 기준으로 복사한다.
 
@@ -342,20 +392,20 @@ UMapControlBase extends UEventDispatcher 클래스 정의
                 U3dApp(app) — 앱이 중계하는 입력 event; 콜백: {mousedown, mousewheel, touchstart, touchend, touchmove, keydown, keyup}
                 Web API — 포커스와 문서 가시성 event 대상; 상수: {window, document}
             동작:
-                window blur와 document visibilitychange에 각각 관성 취소 callback을 등록한다.
+                window blur와 document visibilitychange에 각각 마우스 입력 취소와 가시성 callback을 등록한다.
                 앱 입력 event에 현재 control의 public handler를 후속 callback으로 등록한다.
 
         removeEvents() -> void
             의존: Web API — 전역 drag·포커스·문서 가시성 event 대상; 상수: {window, document}
             동작:
-                pan·회전 관성과 이전 속도 표본을 취소한다.
-                앱 입력 event와 window의 mousemove, mouseup, blur 및 document의 visibilitychange listener를 해제한다.
+                취소 이벤트를 전달하는 동안만 enabled를 false로 두고 finally에서 이전 값을 복원하여 종료 콜백이 새 드래그를 시작하지 못하게 한다.
+                드래그·관성과 이전 속도 표본을 취소하고 앱·전역 입력과 가시성 listener를 해제한다.
 
         active() -> void
-            동작: control을 활성화하고 입력 event를 등록한 뒤 저장 상태 reset을 시도한다.
+            동작: control을 활성화하고 입력 event와 자동 높이 동기화를 시작한 뒤 저장 상태 reset을 시도한다.
 
         deactive() -> void
-            동작: control을 비활성화하고 등록한 입력 event를 해제한다.
+            동작: 자동 높이 동기화를 먼저 해제하고 control을 비활성화한 뒤 등록한 입력 event를 해제한다.
 
         dispose() -> void
             동작: event와 앵커 helper를 해제한다.
@@ -372,7 +422,7 @@ UMapControlBase extends UEventDispatcher 클래스 정의
         역할: control mode, factor, angle과 collision 상태를 외부에서 설정·조회하게 한다.
 
         setUseCollision(value: boolean) -> UMapControlBase
-            동작: `useCollison`에 입력값을 저장하고 현재 control을 반환한다.
+            동작: 입력의 불리언 값을 `useCollison`에 저장한다. 활성 control에서 true이면 자동 높이 동기화를 시작하고 false이면 현재 자동 높이 등록을 제거한 뒤 현재 control을 반환한다.
 
         getUseCollision() -> boolean
             동작: 현재 `useCollison`을 반환한다.
@@ -431,7 +481,7 @@ UMapControlBase extends UEventDispatcher 클래스 정의
                 case가 없으면 pan, 회전, zoom type을 모두 바꾸고 case가 있으면 대응하는 factor type만 바꾼다.
 
         getTerrainHeight() -> number
-            동작: 마지막 terrain 높이에 factor의 collision offset을 더해 반환한다.
+            동작: 마지막 terrain 높이에 factor의 collision offset을 더해 반환한다. offset이 nullish일 때만 기본값을 사용하므로 명시적인 0은 유지한다.
 
         getFocalDistance() -> number
             동작: orthographic camera이면 현재 view 높이를, 그 외에는 camera와 target의 거리를 반환한다.
@@ -514,17 +564,78 @@ UMapControlBase extends UEventDispatcher 클래스 정의
         역할: 원본 DOM event를 해제하고 증분 입력, state와 anchor 초기화를 조정한다.
 
         onKeyDown(event: KeyboardEvent | U3dMouseEvent) -> void
-            처리 기준: 입력 요소, UI slider/form, 앱 mode 7, 비활성 key 또는 pan에서는 처리하지 않는다.
+            처리 기준: 입력·편집 요소, UI slider/form, 앱 mode 7, 비활성 key와 해당 동작 비활성에서는 처리하지 않는다.
             의존:
                 U3dApp(app) — renderer와 앱 mode 확인; 함수: {getRenderer(), getMode()}
-                Web API — keyboard event와 입력 요소 판정; 속성 읽기: {KeyboardEvent.keyCode, EventTarget.localName, EventTarget.className}
+                Web API — 키·입력 대상 판정과 기본 동작 억제; 함수: {Element.closest(), KeyboardEvent.preventDefault()}; 속성 읽기: {KeyboardEvent.keyCode, KeyboardEvent.code, KeyboardEvent.ctrlKey, KeyboardEvent.altKey, KeyboardEvent.metaKey, HTMLElement.isContentEditable}
+                three — 키 회전 각도 변환; 정적 함수: {MathUtils.degToRad()}
             동작:
-                처리 가능한 방향 key 또는 일인칭 전환 key이면 관성과 표본을 취소한다.
-                factor에서 key pan 속도와 일인칭 전환 key를 읽고, 방향 key이면 pan delta와 이동 상태를 설정하여 `update()`하며 전환 key이면 `onShift`를 설정한다.
+                앱·renderer·이벤트가 없거나 컨트롤·키 입력이 비활성이거나 mode 7이면 반환한다. input·textarea·select·편집 가능한 요소·textbox·slider 안의 입력도 무시한다.
+                키 매핑 조회에는 code를 사용하며 값이 없거나 빈 문자열일 때만 기존 숫자 키를 호환 이름으로 변환한다. 임시 일인칭 키이면 관성을 취소하고 해당 키를 눌림 집합에 추가해 onShift를 켠 뒤 반환한다.
+                Ctrl·Alt·Cmd 조합은 무시한다. 설정 또는 기존 keys에서 선택한 키 이름의 동작만 조회하며 미지정·none과 해당 enablePan 또는 enableRotate 비활성은 반환한다.
+                처리할 키이면 관성과 비행을 중단하고 눌림 집합·isKeyMoving을 설정한 뒤 기본 브라우저 동작을 막는다.
+                pan 동작은 keyPanSpeed로 화면 방향 delta를 지정한다. rotate 동작은 rotateSpeed를 도 단위 1회 입력 각도로 변환해 구면 회전량을 누적한다.
+                update의 키 입력 경로로 한 번 적용한다. 반복 keydown은 같은 방식으로 한 단계씩 적용하며 키보드 입력에 관성이나 앵커 picking을 시작하지 않는다.
 
         onKeyUp(event: KeyboardEvent | U3dMouseEvent) -> void
-            의존: Web API — keyboard key code 확인; 속성 읽기: {KeyboardEvent.keyCode}
-            동작: factor의 일인칭 전환 key를 확인하여 방향 key 이동 상태 또는 일인칭 전환 상태를 해제한다.
+            의존: Web API — 해제한 물리 키 확인; 속성 읽기: {KeyboardEvent.keyCode, KeyboardEvent.code}
+            동작: 이벤트가 없으면 반환한다. code 또는 숫자 호환 이름의 키만 두 눌림 집합에서 제거하고 남은 키로 isKeyMoving과 onShift를 갱신한다. 입력 요소에서 놓은 키도 해제한다.
+
+        getKeyBindings() -> UMapKeyBindings
+            동작: 설정된 키 매핑이 있으면 독립 복사본을 반환한다. 없으면 기존 keys의 UP·BOTTOM·LEFT·RIGHT를 물리 키 이름으로 변환해 각각 panUp·panDown·panLeft·panRight로 반환한다.
+
+        setKeyBindings(patch: UMapKeyBindings) -> this
+            의존: UEventDispatcher — 설정 변경 통지; 함수: {dispatchEvent()}
+            동작:
+                객체 외 입력과 배열·null은 TypeError이다. 현재 매핑을 복사하고 현재 임시 일인칭 키의 호환 이름을 조회한다.
+                자체 키는 지원하는 KeyboardEvent.code 또는 기존 숫자 호환 이름만 허용하며 알 수 없는 키는 RangeError이다. 동작의 문자열 외 값은 TypeError이며 여덟 방향 동작과 none 외 값 또는 임시 일인칭 키에 대한 이동·회전 지정은 RangeError이다. 임시 일인칭 키 코드 13은 Enter와 NumpadEnter 모두와 충돌한다.
+                검증한 항목만 복사본에 병합한 뒤 새 정본으로 보관한다. 실제 값이 바뀌면 눌림·드래그·관성을 취소하고 inputbindingschange를 발생시키며 현재 객체를 반환한다. 실패 또는 동일 값은 이전 입력을 보존한다.
+
+        setFirstPersonModeKey(keyCode: number) -> this
+            의존: UEventDispatcher — 설정 변경 통지; 함수: {dispatchEvent()}
+            동작:
+                숫자 외 입력은 TypeError, 1~255 범위의 정수가 아닌 값과 기본 이동 복원에 필요한 방향키 코드 37~40은 RangeError를 던진다.
+                키 코드를 물리 키 이름으로 바꾸고 현재 매핑이 none 외 동작이면 RangeError를 던진다. 코드 13이면 NumpadEnter 매핑도 함께 검사한다. 실패 시 설정과 진행 중인 입력을 보존한다.
+                현재 factor의 firstPersonModeKey가 다를 때만 새 값을 저장하고 눌림·드래그·관성을 취소하며 inputbindingschange를 발생시킨다. 같은 값은 입력을 유지한다. 현재 객체를 반환한다.
+
+        resetKeyBindings() -> this
+            의존: UEventDispatcher — 기본 키 복원 통지; 함수: {dispatchEvent()}
+            동작: 새 매핑을 해제하고 keys를 기본 방향키 번호와 Shift로 복원한다. 눌림·드래그·관성을 취소하고 inputbindingschange를 발생시킨 뒤 현재 객체를 반환한다. 마우스 매핑과 factor의 임시 일인칭 키는 변경하지 않는다.
+
+        #keyCodeName(keyCode: number) -> string
+            동작: 기존 영문·숫자·숫자패드·기능키·방향키와 알려진 특수 키 번호는 물리 키 이름으로 변환하고 나머지는 KeyCode 접두사와 번호로 반환한다.
+
+        getMouseBindings() -> UMapMouseBindings
+            동작: 새 매핑이 있으면 중첩 객체까지 복사해 반환한다. 없으면 기존 mouseButtons의 LEFT를 pan과 Ctrl/Cmd rotate, RIGHT를 rotate로 물리 버튼에 변환하며 나머지는 none과 inherit으로 반환한다.
+
+        setMouseBindings(patch: UMapMouseBindingsPatch) -> this
+            의존: UEventDispatcher — 설정 변경 통지; 함수: {dispatchEvent()}
+            동작:
+                최상위·mouse·modifiers·ctrlOrMeta 객체와 키를 검사한다. 잘못된 객체 타입은 TypeError, 알 수 없는 키는 RangeError이며 기존 상태를 보존한다.
+                현재 매핑의 복사본에 전달한 버튼만 검증해 병합한다. 문자열 외 값은 TypeError, pan·rotate·none 외 값은 RangeError이며 Ctrl/Cmd 조합만 inherit을 허용한다.
+                검증이 모두 끝나면 복사본을 새 정본으로 보관한다. 실제 값이 바뀐 경우에만 드래그·관성을 취소하고 inputbindingschange를 발생시킨 뒤 현재 객체를 반환한다.
+
+        resetMouseBindings() -> this
+            의존: UEventDispatcher — 기본 설정 복원 통지; 함수: {dispatchEvent()}
+            동작: 새 매핑을 해제하고 mouseButtons를 0·1·2로 복원한다. 드래그·관성을 취소하고 inputbindingschange를 발생시킨 뒤 현재 객체를 반환한다.
+
+        #validateBindingKeys(value: unknown, keys: Array<string>, name: string) -> void
+            동작: 배열·null·객체 외 값은 TypeError이며 허용 목록에 없는 자체 키는 RangeError이다. 오류에는 설정 이름을 포함한다.
+
+        #mergeButtonBindings(target: object, patch: object, allowInherit: boolean) -> void
+            동작: 전달한 버튼 동작의 문자열 타입과 허용 값을 검사해 복사본에 반영한다. allowInherit일 때만 inherit을 허용하며 실패는 원본 매핑에 영향을 주지 않는다.
+
+        #resolveMouseAction(event: MouseEvent) -> UMapMouseAction
+            동작: 물리 버튼이 0·1·2가 아니면 none이다. 새 매핑이 없으면 기존 LEFT·RIGHT와 Ctrl/Cmd 규칙을 적용한다. 새 매핑이 있으면 Ctrl 또는 Cmd 조합을 먼저 읽고 inherit이면 기본 버튼 동작을 반환한다.
+
+        #cancelMouseInput() -> void
+            의존:
+                Web API — 전역 이벤트와 타이머 정리; 함수: {clearTimeout()}; 상수: {window}
+                UMapControlHelper — 앵커 숨김; 함수: {setVisible()}
+                UEventDispatcher — 입력 취소 통지; 함수: {dispatchEvent()}
+            동작:
+                관성·표본과 전역 mousemove·mouseup을 해제하고 활성 버튼을 비우며 입력 세대를 증가시킨다. 키 눌림 집합과 isKeyMoving·onShift도 초기화한다.
+                활성 마우스 입력이 있었으면 타이머와 누적 pan·회전량, 변경 플래그와 state를 초기화하고 앵커를 숨긴 뒤 data.cancelled가 true인 end를 한 번 발생시킨다. 터치 state는 변경하지 않는다.
 
         onMouseDown(event: MouseEvent | U3dMouseEvent) -> void
             의존:
@@ -532,15 +643,16 @@ UMapControlBase extends UEventDispatcher 클래스 정의
                 Web API — 기본 동작 억제와 전역 drag 추적; 함수: {MouseEvent.preventDefault()}; 상수: {window}
                 UEventDispatcher — control 시작 통지; 함수: {dispatchEvent()}
             동작:
-                pan·회전 관성과 이전 속도 표본을 취소한다.
-                left 입력은 modifier가 있으면 회전, 없으면 pan을 시작하고 right 입력은 회전을 시작한다.
+                다른 마우스 드래그나 touch 조작 중에는 새 누름을 무시한다. 매핑 결과가 none이거나 해당 기능이 꺼져 있으면 상태를 바꾸지 않는다.
+                처리할 입력이면 pan·회전 관성과 이전 표본을 취소하고 활성 버튼과 입력 세대를 기록한다.
+                선택한 동작에 따라 pan 또는 회전을 시작하고 state를 설정한다. 비행 상태에서도 입력으로 중단할 수 있다.
                 활성 state이면 window에 mousemove와 mouseup을 등록하고 down 좌표를 저장한 뒤 `start`를 발생시킨다.
 
         onMouseMove(event: MouseEvent | U3dMouseEvent) -> void
             의존:
                 U3dApp(app) — renderer 유효성 확인; 함수: {getRenderer()}
                 Web API — mouse 기본 동작 억제; 함수: {MouseEvent.preventDefault()}
-            동작: 현재 state에 따라 회전 또는 pan mouse move 경로로 위임한다.
+            동작: 비활성이면 진행 중인 마우스 입력을 취소하고 활성 버튼이 없으면 무시한다. 시작 시 확정한 state에 따라 회전 또는 pan으로 위임하며 중간 modifier 변경으로 동작을 바꾸지 않는다.
 
         onMouseUp(event: MouseEvent | U3dMouseEvent) -> void
             의존:
@@ -549,7 +661,8 @@ UMapControlBase extends UEventDispatcher 클래스 정의
                 UMapControlHelper — 앵커 숨김; 함수: {setVisible()}
                 Web API — drag listener와 변경 상태 timeout 관리; 함수: {clearTimeout(), setTimeout()}; 상수: {window}
             동작:
-                전역 drag listener를 해제하고 실제 갱신 또는 좌표 이동이 있었으면 `change`, `end`를 발생시킨다.
+                비활성이면 마우스 입력을 취소한다. 활성 버튼이 없거나 다른 버튼을 뗐으면 무시한다.
+                활성 버튼과 전역 drag listener를 해제하고 종료한 동작을 보존한 뒤 state·변경 플래그를 먼저 초기화한다. 실제 갱신 또는 좌표 이동이 있었으면 change와 end를 발생시킨다.
                 종료 통지 중 새 입력이나 취소로 pan 또는 회전 관성 세대가 바뀌었으면 이후 정리를 중단하여 새 조작을 보존한다.
                 state를 NONE으로 바꾸고 종료된 입력이 pan이면 pan 관성, 회전이면 회전 관성 시작을 시도한다.
                 helper를 숨기고 이전 wheel timeout을 취소한다. 관성이 시작되면 변경 중 상태를 유지하고, 시작하지 않으면 200ms 후 변경 중 상태를 false로 만든다.
@@ -625,7 +738,7 @@ UMapControlBase extends UEventDispatcher 클래스 정의
 
         #onInertiaVisibilityChange() -> void
             의존: Web API — 문서 가시성 확인; 속성 읽기: {document.hidden}
-            동작: 문서가 숨겨졌으면 관성과 표본을 취소한다. listener 이름을 키로 사용하는 이벤트 등록을 위해 blur와 별도 callback을 유지한다.
+            동작: 문서가 숨겨졌으면 드래그·관성과 표본을 취소한다. listener 이름을 키로 사용하는 이벤트 등록을 위해 blur와 별도 callback을 유지한다.
 
         #stopInertia() -> void
             동작: pan과 회전의 예약 프레임·표본을 모두 취소하여 입력 종류가 바뀌어도 이전 속도를 이어받지 않게 한다.
@@ -863,7 +976,7 @@ UMapControlBase extends UEventDispatcher 클래스 정의
                 현재 camera orientation 축을 매 mouse move마다 갱신한다.
                 factor 속도, DOM 크기, camera FOV와 입력 pixel delta로 heading과 pitch delta를 계산하고 최소 고정 앵커 polar를 확인한다.
                 `object.up`과 시작 world direction에서 heading·pitch delta quaternion을 구성하고, 같은 delta를 앵커 기준 camera position vector와 시작 quaternion에 각각 적용한다.
-                아래 방향 pitch이면 다음 위치의 terrain 높이를 선조회하고, 충돌 높이 아래일 때 pitch를 제외한 heading만 재귀 적용한 뒤 그 재사용 가능 여부를 반환한다.
+                아래 방향 pitch이면 다음 위치의 terrain 높이를 선조회한다. 실제 유효 고도이고 offset과 collision factor까지 더한 충돌 높이 아래일 때 pitch를 제외한 heading만 재귀 적용한 뒤 그 재사용 가능 여부를 반환한다.
                 회전 뒤 앵커를 재투영하고 저장 NDC와의 잔차를 camera matrix의 image-plane right/up, projection scale과 perspective view-space depth로 world translation에 환산해 camera position에 더한다.
                 collision 뒤 camera matrix를 갱신하고 중앙 target 계산에 직전 행렬의 재사용을 허용한다. 구면 좌표를 갱신한 뒤 target 계산이 반환한 재사용 가능 여부를 반환한다.
 
@@ -877,7 +990,7 @@ UMapControlBase extends UEventDispatcher 클래스 정의
     camera animation 책임 그룹
         역할: 각도와 position·target을 tween으로 보간하고 상태와 event를 갱신한다.
 
-        lookAtAngle(azimuth?: number | null, polar?: number | null, duration: number = 1000) -> DeferredObject<void>
+        lookAtAngle(azimuth?: number | null, polar?: number | null, duration: number = 1000) -> Promise<void>
             인터페이스: `azimuth`와 `polar`는 degree 단위로 해석하며 생략한 각도는 현재 값을 유지한다.
             의존:
                 TWEEN — degree 각도 보간; 생성자: {new Tween()}; 함수: {to(), easing(), onUpdate(), onComplete(), onStop(), start()}; 상수: {Interpolation.Bezier, Easing.Cubic.InOut}
@@ -890,14 +1003,14 @@ UMapControlBase extends UEventDispatcher 클래스 정의
                 update callback은 frame별 degree 차이를 회전 delta로 적용하고 단순 회전, collision과 camera 방향을 갱신한다.
                 완료 또는 중지 시 `FLY` state를 해제하고 변경 event와 deferred 결과를 완료한다.
 
-        lookAtPolar(polar: number = DEFAULT_CONTROL_FACTOR.MIN_POLAR_ANGLE, duration: number = 1000) -> DeferredObject<void>
+        lookAtPolar(polar: number = DEFAULT_CONTROL_FACTOR.MIN_POLAR_ANGLE, duration: number = 1000) -> Promise<void>
             인터페이스: `polar`는 `lookAtAngle()`에서 degree 단위로 해석된다.
             동작: azimuth를 유지하고 입력 polar로 `lookAtAngle()`을 실행한다. [확인 Q-002]
 
-        lookAtAzimuth(azimuth: number = 0, duration: number = 1000) -> DeferredObject<void>
+        lookAtAzimuth(azimuth: number = 0, duration: number = 1000) -> Promise<void>
             동작: polar를 유지하고 입력 azimuth로 `lookAtAngle()`을 실행한다.
 
-        lookAtNorth(duration: number = 1000) -> DeferredObject<void>
+        lookAtNorth(duration: number = 1000) -> Promise<void>
             동작: azimuth 0으로 `lookAtAzimuth()`을 실행한다.
 
         #createFlyTween(from: object, to: object, duration: number = 3000, interpolation: Function = TWEEN.Interpolation.CatmullRom, callbacks?: object, chainTween?: TWEEN.Tween) -> TWEEN.Tween
@@ -931,6 +1044,8 @@ UMapControlBase extends UEventDispatcher 클래스 정의
                 perspective camera이면 기존 비행을 중지하고 현재·중간·목표 position의 두 tween 구간을 만든다.
                 target이 있으면 입력 target의 y에 `1e-6`을 더하고 target도 두 구간으로 보간한다.
                 첫 tween을 시작하고 현재 tween을 반환한다.
+                카메라 출발점과 목적지의 3차원 거리가 월드 좌표 기준 1 이하이면 duration을 0으로 적용하며, 1을 초과하면 지정 시간 또는 기본 3000ms 동안 이동한다.
+                duration이 0이면 원근·직교 모두 첫 갱신에서 최종 pose를 적용하고 기존 완료 callback과 flyend event를 실행한다. 원근은 중간 지점을 거치지 않는 단일 tween을 사용한다.
 
         stopFly() -> void
             의존: TWEEN — 현재 tween 중지; 함수: {stop()}
@@ -956,16 +1071,76 @@ UMapControlBase extends UEventDispatcher 클래스 정의
             의존: three — camera-target offset의 구면 좌표 변환; 함수: {Spherical.setFromVector3()}
             동작: camera position과 target 차이를 Y-up 변환한 뒤 내부 구면 좌표를 갱신한다.
 
-        #updateCollision(useCollision: boolean) -> void
-            처리 기준: 현재 collision 설정, 현재 호출의 collision 허용, mode가 `fpv`가 아님, terrain 높이가 유효함을 모두 만족할 때만 높이를 제한한다.
+        #startAutoHeightUpdate() -> void
+            처리 기준: app이 없거나 해제되었으면 등록하지 않는다.
             의존:
-                U3dApp(app) — camera 위치의 terrain 높이 조회; 함수: {getRenderHeightAtPoint()}
-                UDEF — 유효하지 않은 높이와 no-data 값; 상수: {INVALID, TERRAIN_NO_DATA}
-                defined — 높이 존재 확인; 함수: {defined()}
-                isWrong — no-data 판정; 함수: {isWrong()}
+                U3dApp(app) — 렌더 전 콜백 등록·중복 확인; 함수: {isDisposed(), hasRenderBefore(), setRenderBefore()}
             동작:
-                camera 위치의 terrain 높이를 `_terrainHeight`에 저장하고 유효하지 않으면 no-data로 바꾼다.
-                collision 제한 조건을 확인하고 camera z가 terrain 높이, factor의 offset과 collision factor의 합 이하이면 그 높이로 올린다.
+                인스턴스 전용 key의 렌더 전 콜백이 없을 때만 #autoHeightRenderCallback을 등록하고 현재 XY 동기화를 즉시 실행한다.
+
+        #stopAutoHeightUpdate() -> void
+            의존: U3dApp(app) — 렌더 전 콜백 해제; 함수: {removeRenderBefore()}
+            동작: 인스턴스 전용 렌더 전 콜백을 지우고 현재 자동 높이 등록도 제거한다.
+
+        #removeAutoHeightUpdate() -> void
+            의존: U3dApp(app) — ID 기반 자동 높이 등록 해제; 함수: {removeAutoHeightUpdateById()}
+            동작:
+                #autoHeightUpdateId가 null이 아니면 앱에서 같은 ID 등록을 제거하고 ID를 null로 만든다.
+                마지막 등록 XY를 NaN으로 초기화한다.
+
+        #syncAutoHeightUpdate() -> void
+            처리 기준:
+                app·camera 위치가 없거나 앱이 해제되었거나 control·collision이 비활성이거나 fpv mode이면 현재 ID 등록을 제거한다.
+                XY가 유한수가 아니면 현재 ID 등록을 제거한다.
+                이전 등록 XY와 현재 XY가 같고 ID가 있으면 공간 인덱스를 바꾸거나 고도를 다시 조회하지 않는다.
+            의존:
+                U3dApp(app) — ID 기반 자동 높이 등록·위치 수정; 함수: {isDisposed(), addAutoHeightUpdate(), updateAutoHeightUpdate()}
+            동작:
+                ID가 없으면 현재 XY·control·#autoHeightUpdateCallback을 등록하고 반환 symbol을 보관한다. ID가 있으면 같은 ID의 XY만 수정한다.
+                기존 ID 수정이 실패하면 이전 등록을 제거한 뒤 현재 XY에 한 번만 새 ID를 등록한다.
+                성공한 현재 XY를 저장하고 현재 렌더 지형 고도를 즉시 확인한다. 카메라가 올라갔으면 비동기 보정 후처리를 실행한다.
+
+        #onAutoHeightUpdate(controller: UMapControlBase, tile: U3dQuadTile, terrainHeight: number) -> void
+            처리 기준:
+                콜백 대상이 현재 control이 아니거나 등록·camera·collision이 유효하지 않거나 fpv mode이면 적용하지 않는다.
+                등록 XY와 현재 camera XY의 거리 제곱이 `1e-9`를 넘으면 이전 위치의 지형 결과로 보고 적용하지 않는다.
+            동작:
+                새 terrain 고도로 충돌 높이를 적용하고 camera가 올라갔으면 다음 렌더 전 pose와 변경 상태를 동기화한다.
+
+        #isValidTerrainHeight(terrainHeight: *) -> boolean
+            의존:
+                UDEF — 무효값과 유한한 no-data sentinel; 상수: {INVALID, TERRAIN_NO_DATA}
+                defined — 높이 존재 확인; 함수: {defined()}
+                isWrong — 비유한수와 무효 수치 판정; 함수: {isWrong()}
+            동작: 값이 정의되었고 INVALID·TERRAIN_NO_DATA가 아니며 isWrong 판정을 통과하면 true를 반환한다.
+
+        #getCollisionHeight(terrainHeight: number) -> number
+            동작: 실제 지형 고도에 collisionOffset과 collisionFactor를 더해 반환한다. 각 설정이 nullish일 때만 기본값을 사용하여 명시적인 0을 유지한다.
+
+        #applyCollisionHeight(terrainHeight: *, useCollision: boolean) -> boolean
+            처리 기준: 유효 높이, 현재 collision 설정, 호출 경로의 collision 허용, fpv가 아닌 mode를 모두 만족할 때만 camera 높이를 제한한다.
+            동작:
+                유효한 입력은 `_terrainHeight`에 저장하고 무효 입력은 TERRAIN_NO_DATA로 바꾼다.
+                camera z가 계산된 최소 높이 이하이면 그 높이로 올리고 실제 z가 증가했는지 반환한다.
+
+        #finishAutoHeightCollision() -> void
+            의존:
+                UOrthographicCamera — pitch 변화에 따른 clip 갱신; 함수: {updateAutoClip()}
+                U3dApp(app) — 다음 렌더 활성화; 함수: {drawWork()}
+                UEventDispatcher — camera 변경 통지; 함수: {dispatchEvent()}
+            동작:
+                보정된 camera 행렬을 갱신하고 기존 시선 quaternion을 유지한 지면 교점으로 target을 다시 계산한 뒤 구면 좌표와 orthographic clip을 갱신한다.
+                마지막 pose와 변경 상태를 현재 camera로 맞추고 draw work와 change event를 발생시킨다.
+
+        _refreshCollisionHeight() -> boolean
+            처리 기준: control이 비활성화되어 있거나 collision을 사용하지 않거나 fpv mode이면 false를 반환한다.
+            동작:
+                대기 중인 입력량을 처리하지 않고 현재 camera 위치의 렌더 지형 고도로 collision을 다시 적용한다.
+                camera z가 올라갔으면 비동기 고도 보정과 같은 후처리를 실행한 뒤 true를 반환하고, 그렇지 않으면 false를 반환한다.
+
+        #updateCollision(useCollision: boolean) -> boolean
+            의존: U3dApp(app) — camera 위치의 현재 terrain 높이 조회; 함수: {getRenderHeightAtPoint()}
+            동작: 현재 camera 위치의 렌더 지형 고도를 조회해 공통 충돌 적용에 전달하고 camera z가 증가했는지 반환한다.
 
         #isChange() -> boolean
             의존: three — position 거리 제곱과 quaternion 내적 비교; 함수: {Vector3.distanceToSquared(), Quaternion.dot()}

@@ -28,6 +28,7 @@
     gap: 6px;
 }
 
+#analy-popup .model-alarm-type,
 #analy-popup .panel-body input:not([type="radio"]):not([type="checkbox"]):not([type="color"]) {
     max-width: 100%;
     min-height: 28px;
@@ -38,6 +39,7 @@
     border-radius: 5px;
 }
 
+#analy-popup .model-alarm-type:focus,
 #analy-popup .panel-body input:not([type="radio"]):not([type="checkbox"]):not([type="color"]):focus {
     outline: none;
     background: rgba(15, 48, 67, .9);

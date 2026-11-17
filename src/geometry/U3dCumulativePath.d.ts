@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -21,16 +21,16 @@ import type { WorldPosition, WorldPositionVector3 } from "../types/global.js";
  */
 declare class U3dCumulativePath {
     /** @type {Set<U3dCumulativePath>} */
-    static "__#11382@#drawPaths": Set<U3dCumulativePath>;
+    static "__#11557@#drawPaths": Set<U3dCumulativePath>;
     /** @type {number | undefined} */
-    static "__#11382@#drawFrame": number | undefined;
-    static "__#11382@#tickDraw"(): void;
-    static "__#11382@#scheduleDraw"(): void;
+    static "__#11557@#drawFrame": number | undefined;
+    static "__#11557@#tickDraw"(): void;
+    static "__#11557@#scheduleDraw"(): void;
     /**
      * @param {U3dCumulativePath} path
      * @param {boolean} enabled
      */
-    static "__#11382@#watchDraw"(path: U3dCumulativePath, enabled: boolean): void;
+    static "__#11557@#watchDraw"(path: U3dCumulativePath, enabled: boolean): void;
     /**
      * @param {U3dCumulativePathStyleFunc | null | undefined} value
      * @returns {U3dCumulativePathStyleFunc | null | undefined}
@@ -190,6 +190,7 @@ declare class U3dCumulativePath {
      * 음수면 경로가 진행 방향 뒤쪽에 표시됩니다.<br>
      * 이동 거리에 따라 방향을 완화해 짧은 구간의 방향 흔들림이 증폭되지 않게 합니다.<br>
      * 선회 중에는 실제 보정 거리가 일시적으로 줄어들며, 직선 이동을 이어가면 지정 거리로 수렴합니다.
+     * 첫 유효 지점은 출발점에 두고 오프셋을 0에서 시작해 이동하면서 지정 거리로 수렴합니다.
      *
      * @param {number} offset 지점을 진행 방향으로 옮길 거리
      */
@@ -234,7 +235,8 @@ declare class U3dCumulativePath {
      * 현재 위치를 경로 끝에 추가합니다.<br>
      * 숨김 여부와 관계없이 경로를 갱신하고 단순화·GPU 표시 설정을 적용합니다.<br>
      * 별도 원본 입력 대기열은 만들지 않습니다.<br>
-     * drawOffset이 0이 아니면 첫 지점은 진행 방향을 알 수 있는 다음 이동점이 올 때 함께 추가합니다.<br>
+     * 첫 유효 좌표는 drawOffset 없이 출발점에 기록하며 positionOffset은 적용합니다.<br>
+     * 자원 생성 중에는 최초 유효 좌표 하나만 복사해 보관합니다. 유효한 초기 이력이 있으면 그 시작점이 우선합니다.<br>
      * `pos`는 복사해 사용하므로 호출 뒤 같은 객체를 재사용할 수 있습니다.
      *
      * @param {WorldPosition} pos 추가할 지점이며 x, y, z가 모두 있어야 함
@@ -247,7 +249,7 @@ declare class U3dCumulativePath {
      * 생성 직후의 초기 경로는 생성 옵션 initPositions로 지정하십시오.<br>
      * 유효한 입력 지점을 모두 전달하며 지점 축소는 tailPolicy의 단순화·GPU 표시 설정에 따릅니다.<br>
      * 자원 생성을 지연한 경우에도 호출 시 초기 경로를 먼저 반영한 뒤 입력을 추가합니다.<br>
-     * drawOffset이 0이 아니고 입력 지점이 모두 같은 위치이면 첫 이동점이 올 때 시작점을 추가합니다.<br>
+     * 첫 유효 좌표는 실시간 입력과 동일하게 drawOffset 없이 출발점에 기록합니다.<br>
      * 기존 경로 뒤에 지점을 추가합니다.<br>
      * `hide`후 첫 호출에서는 기존 경로를 지우고 새 경로로 표시됩니다.
      *
@@ -393,7 +395,7 @@ declare class U3dCumulativePath {
          */
         smoothMaxDistance?: number;
         /**
-         * 진행 방향 기준 보정 거리 (미터). 양수면 앞, 음수면 뒤로 옮깁니다. 이동 거리에 따라 방향 변화를 완화하며 정지 중에는 유지합니다. 선회 중 실제 보정 거리는 일시적으로 줄고 직선 이동 시 지정 거리로 수렴합니다. smooth와 별도로 적용합니다 <br>
+         * 진행 방향 기준 보정 거리 (미터). 양수면 앞, 음수면 뒤로 옮깁니다. 첫 유효 좌표는 출발점에 두고 오프셋을 0에서 시작해 이동 거리에 따라 지정 간격으로 수렴합니다. 정지 중에는 유지하며 선회 중 실제 보정 거리는 일시적으로 줄어듭니다. 실시간·초기·일괄 입력에 같은 규칙을 적용하며 positionOffset은 첫 좌표에도 적용합니다. smooth와 별도로 적용합니다 <br>
          */
         drawOffset?: number;
         /**
@@ -476,11 +478,11 @@ declare class U3dCumulativePath {
          */
         pathStyle?: U3dCumulativePath_StyleOpt;
         /**
-         * 초기 경로 지점 목록. 지연 초기화 시 자원 생성 때 반영하며, 처리 후 원본 배열 참조를 해제합니다. 입력 배열 자체는 변경하지 않습니다. <br>
+         * 초기 경로 지점 목록. 지연 초기화 시 자원 생성 때 반영하며, 처리 후 원본 배열 참조를 해제합니다. 입력 배열 자체는 변경하지 않습니다. 유효한 초기 이력이 있으면 자원 생성 중 받은 실시간 입력보다 그 시작점이 우선합니다. <br>
          */
         initPositions?: Array<U3dCumulativePathPositionData>;
         /**
-         * 진행 방향 기준 보정 거리 (미터). 양수면 앞, 음수면 뒤로 옮깁니다. 이동 거리에 따라 방향 변화를 완화하며 정지 중에는 유지합니다. 선회 중 실제 보정 거리는 일시적으로 줄고 직선 이동 시 지정 거리로 수렴합니다. smooth와 별도로 적용합니다. <br>
+         * 진행 방향 기준 보정 거리 (미터). 양수면 앞, 음수면 뒤로 옮깁니다. 첫 유효 좌표는 출발점에 두고 오프셋을 0에서 시작해 이동 거리에 따라 지정 간격으로 수렴합니다. 정지 중에는 유지하며 선회 중 실제 보정 거리는 일시적으로 줄어듭니다. 실시간·초기·일괄 입력에 같은 규칙을 적용하며 positionOffset은 첫 좌표에도 적용합니다. smooth와 별도로 적용합니다. <br>
          * `pathStyle.drawOffset`보다 우선합니다 <br>
          */
         drawOffset?: number;

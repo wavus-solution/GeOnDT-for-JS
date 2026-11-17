@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -40,9 +40,17 @@ declare class U3dAppEventHandler {
     constructor(container: any, app: any);
     /** 여러 앱의 로딩 대기와 타이머를 분리합니다. */
     _eventsWorking: {};
-    /** 완료 예약별 이벤트 종류입니다. @type {Map<ReturnType<typeof setTimeout>, string>} */
+    /**
+     * 완료 예약별 이벤트 종류입니다.
+     *
+     * @type {Map<ReturnType<typeof setTimeout>, string>}
+     */
     _workingTimers: Map<ReturnType<typeof setTimeout>, string>;
-    /** 일부 종류만 취소해도 이전 완료 콜백을 구분합니다. @type {Record<string, number>} */
+    /**
+     * 일부 종류만 취소해도 이전 완료 콜백을 구분합니다.
+     *
+     * @type {Record<string, number>}
+     */
     _workingEventGenerations: Record<string, number>;
     _workingGeneration: number;
     _initialized: boolean;
@@ -63,7 +71,14 @@ declare class U3dAppEventHandler {
     _preMoveEvent: any;
     get listeners(): any;
     onchange(): void;
-    createWorkingEndEvent(): void;
+    /**
+     * 현재 검색의 완료 감시를 시작하고 LOAD 알림 중 교체된 종류는 제외합니다.
+     *
+     * @param {unknown} [name] 기존 호출과의 호환용 인수이며 감시 범위에는 사용하지 않습니다.
+     * @param {boolean} [modelOnly=false] 내부 모델 검색에서 모델·거리별 완료만 감시할지 여부
+     * @returns {void}
+     */
+    createWorkingEndEvent(name?: unknown, modelOnly?: boolean): void;
     isValidEventTarget(event: any): boolean;
     /**
      * renderer가 전달한 WebGL context 손실을 app 이벤트로 중계합니다.

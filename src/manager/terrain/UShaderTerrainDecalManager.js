@@ -10,14 +10,13 @@ import {
 import {UTerrainFrameScheduler} from '@union3d/manager/terrain/UTerrainFrameScheduler';
 import {UTerrainWorkerScheduler} from '@union3d/manager/terrain/UTerrainWorkerScheduler';
 import {UTerrainPayloadBuilder} from '@union3d/manager/terrain/UTerrainPayload';
-import {TERRAIN_PERFORMANCE_PROFILER} from '@union3d/manager/terrain/UTerrainPerformanceProfiler';
 import {UTerrainShaderPrewarm} from '@union3d/manager/terrain/UTerrainShaderPrewarm';
-import {UTerrainMaterial} from '@union3d/shader/UTerrainMaterial';
 import {
     UTerrainDecalCompositionOrderRegistry,
 } from '@union3d/manager/terrain/UTerrainDecalCompositionOrderRegistry';
 import {
     cancelTerrainCompositeJob,
+    continueTerrainCompositeRevision,
     createTerrainComposeSchedulerState,
     disposeTerrainCompositeJobs,
     invalidateTerrainCompositeHostVariants,
@@ -44,6 +43,7 @@ import {
     resolveTerrainTaskPriority,
     resolveTerrainTileMesh,
     resolveTerrainTileOrigin,
+    reuseTerrainPathStyleResult,
     cloneTerrainOrigin,
     shouldUseImmediateTerrainBuild,
     TERRAIN_DECAL_BUCKET_COUNT,
@@ -65,6 +65,7 @@ const {
     updateTerrainTileSourceRenderOrderState,
     bindTerrainFeatureToTile,
     cacheTerrainWorkerResult,
+    getCachedTerrainWorkerResult,
     cleanupEmptyTerrainTileSourceMap,
     clearTerrainTileDecalState,
     clearTerrainTileSwapWaiters: clearTerrainTileSwapWaitersRaw,
@@ -73,7 +74,6 @@ const {
     getTerrainTileSourceFeatureMap: getTerrainTileSourceFeatureMapRaw,
     hasSharedTerrainFeatureKeys,
     linkTerrainTileParent: linkTerrainTileParentRaw,
-    emitTerrainTileDebugEvent,
     normalizeTerrainSourceKey,
     normalizeTerrainTileSourceState,
     notifyTerrainTileSwapReady: notifyTerrainTileSwapReadyRaw,
@@ -248,15 +248,6 @@ function createTerrainPayloadSyncStatistics() {
 }
 
 /**
- * Worker 응답 표본의 기록·미측정 개수를 생성합니다.
- *
- * @returns {{recordedCount:number,unmeasuredCount:number,roundTripCount:number,roundTripUnmeasuredCount:number}} 초기 계측값입니다.
- */
-function createTerrainWorkerExecutionStatistics() {
-    return {recordedCount: 0, unmeasuredCount: 0, roundTripCount: 0, roundTripUnmeasuredCount: 0};
-}
-
-/**
  * Presentation 명령의 생성·병합·적용 통계를 생성합니다.
  *
  * @returns {Record<string, number>} 초기 Presentation 통계입니다.
@@ -372,78 +363,6 @@ function isTerrainPayloadStateMissResult(result) {
 }
 
 /**
- * Worker가 결과에 실어 보낸 실행 경과 시간을 진단 통계로 기록합니다.
- *
- * `UTerrainDecalPrepareTask`의 `prepareTileBuffers`가 함수 진입부터 정상 결과 생성 직후까지를 재어
- * `_performance.elapsed`로 싣습니다. Worker 메시지 처리 시작 전 대기, 결과 전송, 메인 스레드 수신 대기,
- * 결과 적용은 포함하지 않으므로 "순수 packing 시간"이나 "worker 왕복 시간"이 아니라
- * **`prepareTileBuffers` 실행 경과 시간**입니다. CPU 사용 시간과도 같지 않습니다.
- *
- * Worker 시계와 메인 스레드 시계를 섞지 않도록 시간축 위치를 만들지 않고 duration 통계로만 남깁니다.
- * state miss처럼 `_performance`가 없는 조기 반환은 0ms 표본으로 넣으면 평균을 낮추므로 미측정으로만 셉니다.
- *
- * 함께 dispatch 왕복(postMessage 완료 → 메인 스레드 결과 수신)도 기록합니다. 이쪽은 두 시각이 모두
- * 메인 스레드 `performance.now()` 라 실제 구간이므로 Performance Timeline에도 올립니다.
- * 왕복 안에는 worker 대기·실행·결과 전송·메인 스레드 event loop 대기가 함께 들어 있어 분해되지 않습니다.
- *
- * @param {UShaderTerrainDecalManager} manager 계측값을 누적할 Manager입니다.
- * @param {unknown} workerResult Worker가 돌려준 결과입니다.
- * @param {{tileKey:string,generation:number,revision:number,workerIndex:number,forceFull:boolean,phaseTiming:any}} context 요청 문맥입니다.
- * @returns {void}
- */
-function recordTerrainWorkerExecutionSample(manager, workerResult, context) {
-    // profiler가 꺼져 있으면 detail 객체도 만들지 않습니다.
-    if (TERRAIN_PERFORMANCE_PROFILER.getMode() === 'off') return;
-    const receivedAt = performance.now();
-    const workerPerformance = /** @type {{_performance?:{elapsed?:number,featureCount?:number}}|undefined} */ (
-        workerResult
-    )?._performance;
-    const statistics = manager.diagnostics.workerExecutionStatistics;
-    // `Number()` 로 변환하면 null·false·빈 문자열이 모두 0ms 표본이 되므로 원래 값의 타입부터 확인합니다.
-    const rawElapsed = workerPerformance?.elapsed;
-    const hasExecutionSample = typeof rawElapsed === 'number'
-        && Number.isFinite(rawElapsed)
-        && rawElapsed >= 0;
-    const elapsed = hasExecutionSample ? rawElapsed : 0;
-    if (hasExecutionSample) {
-        statistics.recordedCount++;
-        TERRAIN_PERFORMANCE_PROFILER.recordExternalDuration('TerrainWorkerExecution', elapsed, {
-            tileKey: context.tileKey,
-            generation: context.generation,
-            revision: context.revision,
-            workerIndex: context.workerIndex,
-            // 전체 상태 재전송 재시도분을 최초 시도와 구분합니다.
-            retryAfterStateMiss: context.forceFull,
-            featureCount: Number(workerPerformance?.featureCount) || 0,
-        });
-    } else {
-        statistics.unmeasuredCount++;
-    }
-
-    // dispatch 왕복. scheduler가 postMessage 직후 phaseTiming에 남긴 값을 소비만 합니다.
-    // phaseTiming은 deferWorkerSchedule 경로에서만 만들어지므로 그 밖의 요청은 미측정으로 셉니다.
-    const rawDispatchCompletedAt = context.phaseTiming?.dispatchCompletedAt;
-    const dispatchCompletedAt = typeof rawDispatchCompletedAt === 'number'
-        ? rawDispatchCompletedAt
-        : Number.NaN;
-    if (!Number.isFinite(dispatchCompletedAt) || receivedAt < dispatchCompletedAt) {
-        statistics.roundTripUnmeasuredCount++;
-        return;
-    }
-    statistics.roundTripCount++;
-    TERRAIN_PERFORMANCE_PROFILER.record('TerrainWorkerRoundTrip', receivedAt - dispatchCompletedAt, {
-        tileKey: context.tileKey,
-        generation: context.generation,
-        revision: context.revision,
-        workerIndex: context.workerIndex,
-        retryAfterStateMiss: context.forceFull,
-        // 같은 응답의 worker 실행 시간을 함께 실어 분석이 두 값을 tile 단위로 짝지을 수 있게 합니다.
-        // 왕복에서 실행을 빼는 계산은 제품 코드에서 하지 않습니다(경계가 검증된 구간이 아닙니다).
-        workerExecutionMs: hasExecutionSample ? elapsed : null,
-    }, dispatchCompletedAt);
-}
-
-/**
  * tile·feature registry와 진행 복구 대상처럼 tile 단위로 유지하는 상태입니다.
  *
  * @typedef {object} TerrainManagerTileState
@@ -496,9 +415,7 @@ function recordTerrainWorkerExecutionSample(manager, workerResult, context) {
  * @typedef {object} TerrainManagerDiagnosticsState
  * @property {Record<string, number>} stabilityCounters Coverage 공백·handoff 복구 누적 계수입니다.
  * @property {{snapshotFastSkipCount:number,fastSkipRejectCounts:Record<string,number>}} payloadSyncStatistics payload 동기화 fast-skip 계측입니다.
- * @property {{recordedCount:number,unmeasuredCount:number,roundTripCount:number,roundTripUnmeasuredCount:number}} workerExecutionStatistics Worker 실행 경과 시간과 dispatch 왕복 표본의 기록·미측정 개수입니다.
  * @property {Record<string, number>} presentationStatistics presentation 명령 생성·병합·적용 통계입니다.
- * @property {'unspecified'|'cold'|'warm'} benchmarkRunType 벤치마크 실행 유형입니다.
  * @property {WeakMap<TerrainTileEntry, number>} falseCompleteRecoveredRevisions tile entry별로 false-complete 복구를 계측한 revision입니다.
  */
 /**
@@ -668,10 +585,6 @@ class UShaderTerrainDecalManager {
     get TERRAIN_SHADER_TEMPLATE_CACHE() { return this.shaderPrewarm.templateCache; }
     /** @param {Map<string, import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>} value 새 값입니다. */
     set TERRAIN_SHADER_TEMPLATE_CACHE(value) { this.shaderPrewarm.templateCache = value; }
-    /** @returns {Map<import('three').Mesh, import('@union3d/manager/terrain/UTerrainShaderPrewarm').TerrainShaderProgramDiagnosticBinding>} `shaderPrewarm.programDiagnosticBindings` 입니다. */
-    get TERRAIN_SHADER_PROGRAM_DIAGNOSTIC_BINDINGS() { return this.shaderPrewarm.programDiagnosticBindings; }
-    /** @param {Map<import('three').Mesh, import('@union3d/manager/terrain/UTerrainShaderPrewarm').TerrainShaderProgramDiagnosticBinding>} value 새 값입니다. */
-    set TERRAIN_SHADER_PROGRAM_DIAGNOSTIC_BINDINGS(value) { this.shaderPrewarm.programDiagnosticBindings = value; }
     /** @returns {number} `shaderPrewarm.warmupPendingCount` 입니다. */
     get TERRAIN_SHADER_WARMUP_PENDING_COUNT() { return this.shaderPrewarm.warmupPendingCount; }
     /** @param {number} value 새 값입니다. */
@@ -763,9 +676,7 @@ class UShaderTerrainDecalManager {
         this.diagnostics = Object.seal({
             stabilityCounters: createTerrainStabilityCounters(),
             payloadSyncStatistics: createTerrainPayloadSyncStatistics(),
-            workerExecutionStatistics: createTerrainWorkerExecutionStatistics(),
             presentationStatistics: createTerrainPresentationStatistics(),
-            benchmarkRunType: 'unspecified',
             // false-complete 복구를 계측한 revision을 tile entry별로 기억합니다. entry가 사라지면 함께 사라집니다.
             falseCompleteRecoveredRevisions: /** @type {WeakMap<TerrainTileEntry, number>} */ (new WeakMap()),
         });
@@ -1253,10 +1164,6 @@ class UShaderTerrainDecalManager {
             delete presentEntry.presentationOwnerKey;
             delete presentEntry.presentationOwnerRevision;
             delete presentEntry.presentationGroupId;
-            emitTerrainTileDebugEvent(this, 'TerrainAtomicMemberDetached', tileKey, {
-                presentType: presentEntry.type,
-                buildBlockedReason: 'hidden-member-plan-unavailable',
-            });
             detached = true;
         }
         return detached;
@@ -1264,12 +1171,13 @@ class UShaderTerrainDecalManager {
 
     /**
      * 겹친 tile을 공유하는 모든 그룹이 준비되면 apply와 clear를 한 번에 커밋합니다.
+     * 준비가 막힌 그룹은 건너뛰어 관련 없는 표시 그룹의 진행을 보장합니다.
      *
      * @returns {number} 이번 frame에 함께 처리한 tile present 수입니다.
      * @ignore
      */
     #flushReadyAtomicPresentationGroup() {
-        for (const group of this.present.atomicGroups.values()) {
+        atomicGroupLoop: for (const group of this.present.atomicGroups.values()) {
             if (group.ready !== true || group.committing === true) continue;
             const relatedGroups = Array.from(this.present.atomicGroups.values())
                 .filter(candidate => candidate.tileKeys === group.tileKeys);
@@ -1318,7 +1226,7 @@ class UShaderTerrainDecalManager {
                             && (tileEntry.pendingBuild === true
                                 || (!hasAppliedRevision && !hasCompletedEmptyRevision))) {
                             this.#recordAtomicPresentationBlock(group, 'member-not-applied', tileKey);
-                            return 0;
+                            continue atomicGroupLoop;
                         }
                     }
                     continue;
@@ -1342,7 +1250,7 @@ class UShaderTerrainDecalManager {
                             reason: 'atomic-member-revision-advanced',
                         });
                         this.#recordAtomicPresentationBlock(group, 'member-revision-advancing', tileKey);
-                        return 0;
+                        continue atomicGroupLoop;
                     }
                     hasStaleMember = true;
                     if (!tileEntry
@@ -1391,7 +1299,7 @@ class UShaderTerrainDecalManager {
                     && (this.#hasPendingHandoffTerrainApply(tileKey)
                         || this.shouldDeferTerrainSceneRemoval(tileKey) === true)) {
                     this.#recordAtomicPresentationBlock(group, 'clear-handoff-deferred', tileKey);
-                    return 0;
+                    continue atomicGroupLoop;
                 }
             }
             if (applyEntries.length === 0 && clearEntries.length === 0) {
@@ -1443,7 +1351,7 @@ class UShaderTerrainDecalManager {
                         ? applyEntries[missingApplyIndex]?.[0]
                         : clearEntries[missingClearIndex]?.[0],
                 );
-                return 0;
+                continue atomicGroupLoop;
             }
             group.lastBlock = undefined;
             const plans = /** @type {Array<TerrainAtomicPresentCommitPlan>} */ (
@@ -1564,18 +1472,8 @@ class UShaderTerrainDecalManager {
 
         this.present.flushDepth++;
         try {
-            const presentationToken = TERRAIN_PERFORMANCE_PROFILER.begin('TerrainPresentation');
             const presentationStartedAt = performance.now();
-            const atomicPresentationToken = TERRAIN_PERFORMANCE_PROFILER.begin(
-                'TerrainAtomicPresentation',
-            );
             const atomicProcessedCommandCount = this.#flushReadyAtomicPresentationGroup();
-            const atomicPresentationDurationMs = performance.now() - presentationStartedAt;
-            TERRAIN_PERFORMANCE_PROFILER.end(atomicPresentationToken, {
-                processedCommandCount: atomicProcessedCommandCount,
-                exceededFrameBudget: atomicPresentationDurationMs
-                    >= this.present.frameBudgetMs,
-            });
             const applyEntries = Array.from(this.present.queue.entries())
                 .filter(([, presentEntry]) => !this.#isCurrentAtomicPresentationEntry(presentEntry));
             let clearEntries = Array.from(this.present.clearQueue.entries())
@@ -1623,7 +1521,6 @@ class UShaderTerrainDecalManager {
                     && Number(tileEntry.failedRevision ?? -1) < Number(tileEntry.revision ?? 0)
                     && !TerrainTileState.canFlushTerrainTileApplyPresent(this, tileKey, presentEntry)) continue;
                 this.present.queue.delete(tileKey);
-                const applyToken = TERRAIN_PERFORMANCE_PROFILER.begin('TerrainPresentationApply');
                 try {
                     flushTerrainTileApplyPresent(this, tileKey, presentEntry);
                 } catch (error) {
@@ -1637,12 +1534,6 @@ class UShaderTerrainDecalManager {
                             error,
                         );
                     }
-                } finally {
-                    TERRAIN_PERFORMANCE_PROFILER.end(applyToken, {
-                        tileKey,
-                        revision: Number(presentEntry?.revision ?? 0),
-                        remainingApplyQueueLength: this.present.queue.size,
-                    });
                 }
                 processedApplyCount++;
                 processedCommandCount++;
@@ -1687,25 +1578,11 @@ class UShaderTerrainDecalManager {
                     continue;
                 }
                 this.present.clearQueue.delete(tileKey);
-                const clearToken = TERRAIN_PERFORMANCE_PROFILER.begin('TerrainPresentationClear');
-                try {
-                    flushTerrainTileClearPresent(this, tileKey, presentEntry);
-                } finally {
-                    TERRAIN_PERFORMANCE_PROFILER.end(clearToken, {
-                        tileKey,
-                        revision: Number(presentEntry?.revision ?? 0),
-                        remainingClearQueueLength: this.present.clearQueue.size,
-                    });
-                }
+                flushTerrainTileClearPresent(this, tileKey, presentEntry);
                 processedClearCount += 1;
                 processedCommandCount++;
             }
             const result = processedCommandCount > 0;
-            TERRAIN_PERFORMANCE_PROFILER.end(presentationToken, {
-                applyQueueLength: this.present.queue.size,
-                clearQueueLength: this.present.clearQueue.size,
-                processedCommandCount,
-            });
             if (this.present.queue.size > 0
                 || this.present.clearQueue.size > 0) {
                 this._app?.drawWork?.(1);
@@ -1732,7 +1609,6 @@ class UShaderTerrainDecalManager {
             const app = layer?._app;
             const camera = app?._camera;
             if (!layer || !app || !camera) continue;
-            if (layer._isDynamicRadius !== true) continue;
 
             const now = Date.now();
             const updateInterval = 250;
@@ -1777,7 +1653,7 @@ class UShaderTerrainDecalManager {
         this.tiles.dynamicRadiusLayers.set(layer, {
             layer,
             radius: Number(opt.radius ?? 8),
-            lastUpdateTime: 0,
+            lastUpdateTime: this.tiles.dynamicRadiusLayers.get(layer)?.lastUpdateTime ?? 0,
         });
 
         return true;
@@ -1863,6 +1739,69 @@ class UShaderTerrainDecalManager {
             this.shaderPrewarm.prewarmPrograms(binding.mesh, material, material.defines, tileKey);
         }
         this.#invalidateTerrainCompositeHostVariants(tileKey);
+        return true;
+    }
+
+    /**
+     * 등록된 같은 메시의 표시 조건만 갱신하고 필요한 합성·재적용을 예약합니다.
+     * 소유자와 해제 요청은 유지하며 피처 재수집과 즉시 빌드를 수행하지 않습니다.
+     *
+     * @param {string} tileKey 표시 조건을 갱신할 타일 키
+     * @param {TerrainMaterial} material 기존에 등록된 재질
+     * @param {TerrainManagerOption} [opt={}] 같은 메시와 현재 표시·순서·준비 조건
+     * @returns {boolean} 기존 binding을 갱신했으면 참
+     *
+     * @ignore
+     */
+    _refreshTerrainMaterialPresentation(tileKey, material, opt = {}) {
+        const tileEntry = this.tiles.registry.get(tileKey);
+        const binding = tileEntry?.materialBindings?.get(material);
+        if (!tileEntry || !binding || !opt.mesh || binding.mesh !== opt.mesh || tileEntry.cancelled === true) return false;
+
+        if (opt.mesh.position) this.tiles.meshOriginWaitingTiles.delete(tileKey);
+        binding.visible = opt.visible ?? binding.visible;
+        if (opt.visible !== undefined) binding.visibilityCommitted = true;
+        if (Number.isFinite(opt.renderOrder)) binding.renderOrder = Number(opt.renderOrder);
+        binding.textureReady = TerrainTileState.resolveTerrainTileTextureReady(material, opt);
+        TerrainTileState.syncTerrainMaterialBindingState(tileEntry);
+        tileEntry.desiredVisible = tileEntry.visible === true;
+        if (opt.parentTileKey !== undefined) linkTerrainTileParent(this, tileKey, opt.parentTileKey);
+
+        const sourceUpdate = reconcileTileSourceRenderOrders(this, tileKey);
+        const hostChanged = this.#invalidateTerrainCompositeHostVariants(tileKey);
+
+        const revision = Number(tileEntry.revision ?? 0);
+        const queued = this.present.queue.get(tileKey) ?? this.present.clearQueue.get(tileKey);
+        const hasCurrentPresent = !!queued && Number(queued.revision) === revision
+            && (!Number.isFinite(queued.generation) || queued.generation === tileEntry.generation);
+        if (!hostChanged && !sourceUpdate.hasRenderFeatureChange) {
+            if (tileEntry.featureCount <= 0) {
+                if (!hasCurrentPresent && (tileEntry.dirty === true || tileEntry.activeBuffer || tileEntry.inactiveBuffer)) {
+                    queueTerrainTilePresent(this, tileKey, 'clear');
+                }
+            } else {
+                const inactive = tileEntry.inactiveBuffer;
+                const state = Number(inactive?.revision ?? -1) === revision ? inactive
+                    : tileEntry.dirty !== true && Number(tileEntry.appliedRevision ?? 0) >= revision
+                        ? tileEntry.activeBuffer : undefined;
+                if (state) {
+                    const targets = TerrainTileState.resolveTerrainApplyTargetBindings(this, tileKey, tileEntry);
+                    for (const target of targets) {
+                        if (!target?.mesh || target.textureReady !== true) continue;
+                        this.shaderPrewarm.prewarmPrograms(target.mesh, target.material, state.defines, tileKey);
+                    }
+                    if (!hasCurrentPresent) queueTerrainTilePresent(this, tileKey, 'apply', {
+                        generation: tileEntry.generation,
+                        revision,
+                        featureSignature: tileEntry.featureSignature ?? tileEntry.appliedSignature,
+                    });
+                } else if (tileEntry.dirty === true) {
+                    scheduleTerrainTileFlush(this, tileKey, opt);
+                }
+            }
+        }
+        notifyTerrainTileSwapReady(this, tileKey);
+        this._app?.drawWork?.(1);
         return true;
     }
 
@@ -1959,7 +1898,6 @@ class UShaderTerrainDecalManager {
      */
     unregisterTerrainMesh(tileKey, mesh, opt = {}) {
         if (!tileKey) return false;
-        if (mesh) this.shaderPrewarm.disposeProgramDiagnostics(mesh);
         return this.unregisterTerrainMaterial(tileKey, /** @type {TerrainMaterial} */ (mesh?.material), opt);
     }
 
@@ -2041,7 +1979,7 @@ class UShaderTerrainDecalManager {
      * 특정 source의 최신 revision이 현재 terrain material에 반영됐는지 반환합니다.
      *
      * @param {string} tileKey 상태를 확인할 terrain tile key 입니다.
-     * @param {TerrainManagerOption} [opt={}] sourceKey, sourceRevision, mesh 등 확인 조건입니다.
+     * @param {TerrainPresentationOption} [opt={}] Source·mesh 확인 조건과 합성 진단 자료 포함 여부입니다.
      * @returns {TerrainPresentationState | undefined} TerrainPresentationState presentation 조회 결과입니다.
      */
     getTerrainTilePresentationState(tileKey, opt = {}) {
@@ -2251,10 +2189,12 @@ class UShaderTerrainDecalManager {
                 reason: opt.reason ?? 'child-visible',
             });
             this.tryFinalizeTerrainMeshDispose(parentTileKey);
+            this._scheduleTerrainGpuCacheRelease(parentTileKey);
         }
         this.#invalidateTerrainCompositeHostVariants(tileKey);
         notifyTerrainTileSwapReady(this, tileKey);
         this.tryFinalizeTerrainMeshDispose(tileKey);
+        if (tileEntry.visible !== true) this._scheduleTerrainGpuCacheRelease(tileKey);
         this.ensureTileProgress(tileKey, {
             generation: tileEntry.generation,
             reason: 'visibility-changed',
@@ -2330,32 +2270,9 @@ class UShaderTerrainDecalManager {
         if (pending === true) tileEntry.disposeRequested = false;
         const sourceKey = normalizeTerrainSourceKey(opt.sourceKey ?? 'default');
         normalizeTerrainTileSourceState(tileEntry);
-        const requestToken = opt.sourceRequestToken;
         if (!TerrainTileState.transitionTerrainTileSourceRequest(this, tileKey, tileEntry, sourceKey, pending, opt)) return false;
         if (opt.parentTileKey !== undefined) {
             linkTerrainTileParent(this, tileKey, opt.parentTileKey);
-        }
-        // 같은 source 상태(사유·status·revision·token)의 반복 통지는 전이가 아니므로 한 번만 기록합니다.
-        const nextSourceState = tileEntry.sourceStates.get(sourceKey);
-        const sourceBlockedReason = pending === true && nextSourceState?.visible !== false
-            && !TerrainTileState.canUseTerrainSourceFailureFallback(nextSourceState)
-            ? 'source-pending'
-            : undefined;
-        const sourceTransitionSignature = [
-            sourceBlockedReason ?? null,
-            nextSourceState?.status ?? null,
-            nextSourceState?.revision ?? null,
-            requestToken ?? null,
-        ].join('|');
-        if (TerrainTileState.shouldEmitTerrainTransition(tileEntry, `source:${sourceKey}`, sourceTransitionSignature)) {
-            emitTerrainTileDebugEvent(this, 'TerrainSourceSettleCheck', tileKey, {
-                sourceKey,
-                sourceStatus: nextSourceState?.status,
-                sourceRevision: nextSourceState?.revision,
-                sourceRequestToken: requestToken,
-                sourceSettled: !TerrainTileState.isTerrainSourcePending(nextSourceState),
-                buildBlockedReason: sourceBlockedReason,
-            });
         }
         if (pending !== true) {
             tryFinalizeTerrainTileVisibilityHandoff(this, tileEntry.parentTileKey, {
@@ -2684,7 +2601,7 @@ class UShaderTerrainDecalManager {
         const current=this.#featureOwners.get(owner);
         if(current && current._disposed!==true){current.callbacks=callbacks;return;}
         this.#featureOwners.set(owner,{sources:sources ?? new Map(),callbacks,updates:new Map(),sourceUpdates:new Set(),
-            promise:undefined,scheduled:false,retryCount:0,_disposed:false});
+            promise:undefined,scheduled:false,retryCount:0,_disposed:false,cleanups:new Set()});
     }
 
     /**
@@ -2756,6 +2673,58 @@ class UShaderTerrainDecalManager {
         const unsubscribe=entry.changeListener;
         entry.changeListener=undefined;
         unsubscribe?.();
+    }
+
+    /**
+     * 등록에서 분리한 원본 자원을 기존 결과 큐로 나누어 회수합니다.
+     *
+     * @param {object} owner 자원 해제를 책임지는 등록 소유자입니다.
+     * @param {string} key 대기 작업의 고유 진단 식별자입니다.
+     * @param {function():void} cleanup 구독과 소유 도형을 회수하는 작업입니다.
+     * @throws {unknown} 예약할 수 없어 동기 회수할 때 발생한 오류를 전달합니다.
+     *
+     * @ignore
+     */
+    _deferTerrainSourceCleanup(owner,key,cleanup) {
+        const record=this.#featureOwners.get(owner);
+        const scheduler=this.worker.resultScheduler;
+        if(!record || record._disposed || typeof scheduler?.enqueue!=='function'){cleanup();return;}
+        const priority=resolveTerrainTaskPriority({visibleDirty:true});
+        record.cleanups.add(cleanup);
+        if(record.cleanups.size>1)return;
+        const drain=()=>{
+            const next=record.cleanups.values().next().value;
+            if(!next)return;
+            record.cleanups.delete(next);
+            const errors=[];
+            try{next();}catch(error){errors.push(error);}
+            try{
+                if(record.cleanups.size>0 && !scheduler.enqueue(key,drain,priority))this._flushTerrainSourceCleanups(owner);
+            }catch(error){errors.push(error);}
+            if(errors.length===1)throw errors[0];
+            if(errors.length>1)throw Object.assign(new Error('terrain 원본 자원 회수 중 오류가 발생했습니다.'),{errors});
+        };
+        if(!scheduler.enqueue(key,drain,priority))this._flushTerrainSourceCleanups(owner);
+    }
+
+    /**
+     * 소유자의 남은 물리 해제를 모두 완료하며 실패한 작업 뒤의 자원도 회수합니다.
+     *
+     * @param {object} owner 정리할 등록 소유자입니다.
+     * @throws {unknown} 한 작업의 원래 오류 또는 여러 작업의 오류를 모아 전달합니다.
+     *
+     * @ignore
+     */
+    _flushTerrainSourceCleanups(owner) {
+        const cleanups=this.#featureOwners.get(owner)?.cleanups;
+        if(!cleanups)return;
+        const errors=[];
+        for(const cleanup of cleanups){
+            cleanups.delete(cleanup);
+            try{cleanup();}catch(error){errors.push(error);}
+        }
+        if(errors.length===1)throw errors[0];
+        if(errors.length>1)throw Object.assign(new Error('terrain 원본 자원 회수 중 오류가 발생했습니다.'),{errors});
     }
 
     /**
@@ -2930,6 +2899,7 @@ class UShaderTerrainDecalManager {
         record._disposed=true;
         record.updates.clear();record.sourceUpdates.clear();
         const errors=[];
+        try{this._flushTerrainSourceCleanups(owner);}catch(error){errors.push(error);}
         for(const entry of [...record.sources.values()]){
             try{this._unobserveTerrainSource(owner,entry);}catch(error){errors.push(error);}
             try{record.callbacks.disposeSource?.(entry.feature);}catch(error){errors.push(error);}
@@ -3049,7 +3019,7 @@ class UShaderTerrainDecalManager {
             // 권위 snapshot이 없던 기존 호출은 지정한 버전·표시 대상만으로 비교하던 계약을 유지합니다.
             if(opt.sourceIdentity || opt.origin || opt.lodProfileId || opt.lodProfileVersion !== undefined
                 || opt.sourceFeatureCount !== undefined || opt.renderFeatureCount !== undefined)return false;
-            const presentation=this.getTerrainTilePresentationState(tileKey,opt);
+            const presentation=this.getTerrainTilePresentationState(tileKey,{...opt,includeComposition:false});
             return TerrainTileState.isTerrainTileSourceDataReady(this,tileKey,sourceKey)
                 && presentation?.isSourceRevisionCurrent===true && presentation.isLiveMeshCurrent===true
                 && presentation.isTargetRenderOrderCurrent===true && presentation.hasSourceFeatures===opt.expectsPayload;
@@ -3109,6 +3079,8 @@ class UShaderTerrainDecalManager {
      * `sourceKeys`가 지정되면 각 source의 revision뿐 아니라 표시 feature가 선택한 target material의
      * active commit까지 확인합니다. 빈 source는 target material 적용 대신 최신 clear 적용을 기다립니다.
      * 연속 편집의 적용본 재사용은 해당 source의 첫 성공 snapshot 이후에 허용하며 숨긴 source는 차단하지 않습니다.
+     * 기본 이미지도 해당 표시 프로그램의 예열이 진행 중이면 완료까지 기다리며, 다른 프로그램의 대기는 차단하지 않습니다.
+     * 타일 전체도 실제 표시 개수를 사용하며, 표시 개수가 없는 이전 상태만 원본 개수로 판정합니다.
      *
      * @param {string} tileKey 준비 상태를 확인할 terrain tile key 입니다.
      * @param {TerrainManagerOption} [opt={}] source, mesh 또는 material binding 조회 옵션입니다.
@@ -3147,15 +3119,16 @@ class UShaderTerrainDecalManager {
                 if (sourceState?.visible === false) return true;
                 const renderFeatureCount = Number(sourceState?.renderFeatureCount
                     ?? getTerrainTileSourceFeatureMap(this, tileKey, sourceKey, false)?.size ?? 0);
-                // 첫 원격 실패의 빈 대체 표시는 지울 source 적용본과 승인 데이터가 없습니다.
+                // 입력 대기·실패의 빈 대체 표시는 지울 source 적용본과 승인 데이터가 없습니다.
                 if (renderFeatureCount <= 0 && sourceState?.dataRevision === undefined
-                    && TerrainTileState.canUseTerrainSourceFailureFallback(sourceState)) return true;
+                    && (TerrainTileState.canUseTerrainSourcePendingPresentation(sourceState)
+                        || TerrainTileState.canUseTerrainSourceFailureFallback(sourceState))) return true;
                 const isSourceRevisionApplied = sourceState?.appliedRevision !== undefined
                     ? sourceState.appliedRevision === (sourceState.dataRevision ?? 0)
                     : appliedRevision >= currentRevision;
                 if (isSourceRevisionApplied) return true;
-                // 빈 결과의 clear는 이전 도형을 지워야 하므로 적용본 재사용으로 건너뛰지 않습니다.
-                return isRevisionInFlight && renderFeatureCount > 0
+                // 빈 clear와 새 부모 상속본은 이전 적용본을 재사용하면 사라질 도형·추가된 도형을 잘못 남깁니다.
+                return !sourceState?.inheritedSource && isRevisionInFlight && renderFeatureCount > 0
                     && Number.isFinite(sourceState?.appliedRevision);
             })
             : isGlobalRevisionCurrent;
@@ -3164,21 +3137,25 @@ class UShaderTerrainDecalManager {
             && !isRevisionInFlight;
         const scopedFeatureCount = hasScopedSources
             ? scopedSourceKeys.reduce(
-                (count, sourceKey) => count + (tileEntry.sourceStates?.get?.(sourceKey)?.visible === false
-                    ? 0 : Number(tileEntry.sourceStates?.get?.(sourceKey)?.renderFeatureCount ?? 0)),
+                (count, sourceKey) => {
+                    const sourceState = tileEntry.sourceStates?.get?.(sourceKey);
+                    return count + (sourceState?.visible === false
+                        ? 0 : Number(sourceState?.renderFeatureCount ?? 0));
+                },
                 0,
             )
-            : Number(tileEntry.featureCount ?? 0);
+            : Number(tileEntry.renderFeatureCount ?? tileEntry.featureCount ?? 0);
         const areScopedSourceTargetsApplied = !hasScopedSources || scopedSourceKeys.every(sourceKey => {
-            if (tileEntry.sourceStates?.get?.(sourceKey)?.visible === false) return true;
-            const sourceRenderFeatureCount = tileEntry.sourceStates?.get?.(sourceKey)?.renderFeatureCount !== undefined
-                ? Number(tileEntry.sourceStates.get(sourceKey)?.renderFeatureCount ?? 0)
+            const sourceState = tileEntry.sourceStates?.get?.(sourceKey);
+            if (sourceState?.visible === false) return true;
+            const sourceRenderFeatureCount = sourceState?.renderFeatureCount !== undefined
+                ? Number(sourceState.renderFeatureCount ?? 0)
                 : Number(getTerrainTileSourceFeatureMap(this, tileKey, sourceKey, false)?.size ?? 0);
             if (sourceRenderFeatureCount <= 0) return true;
             const presentationState = TerrainTileState.getTerrainTilePresentationState(
                 this,
                 tileKey,
-                {sourceKey, expectsPayload: true},
+                {sourceKey, expectsPayload: true, includeComposition: false},
             );
             return presentationState?.isSourceVisible === false
                 || presentationState?.isTargetMaterialApplied === true;
@@ -3200,6 +3177,12 @@ class UShaderTerrainDecalManager {
         const textureReady = scopedBinding
             ? scopedBinding.textureReady === true
             : tileEntry.textureReady === true;
+        const renderMaterial = scopedBinding?.material ?? tileEntry.material;
+        const renderMesh = scopedBinding?.mesh ?? tileEntry.mesh;
+        // 빈 decal과 비대상 이미지도 알려진 해당 프로그램의 예열·정보 조회가 끝나야 새 표면이 될 수 있습니다.
+        if (renderMaterial && renderMesh && this.shaderPrewarm.isProgramReady(
+            renderMaterial, renderMaterial.defines ?? {}, renderMesh,
+        ) === false) return false;
         const isScopedMaterialCurrent = !scopedBinding || tileEntry.material === scopedBinding.material;
         const isScopedMaterialApplied = !scopedBinding
             || tileEntry.activeMaterials?.has?.(scopedBinding.material) === true
@@ -3525,12 +3508,8 @@ class UShaderTerrainDecalManager {
     _updateTerrainTileSource(tileKey, updateSource, opt = {}) {
         if (!tileKey) return false;
         if (opt.sourceRequestToken && !this.isTerrainTileSourceRequestCurrent(tileKey, opt)) return false;
-        const debugGlobal = /** @type {typeof globalThis & Partial<{__U2D_VECTOR_SHADER_DEBUG__: boolean}>} */ (globalThis);
-        // 진단을 켠 경우에는 갱신 전 상태 전이 관측 시점을 보존합니다.
-        const diagnosticPresentation = debugGlobal.__U2D_VECTOR_SHADER_DEBUG__ === true
-            ? this.getTerrainTilePresentationState(tileKey, opt) : undefined;
         if (this._isTerrainTileSourceInputCurrent(tileKey,opt)) {
-            const presentation = diagnosticPresentation ?? this.getTerrainTilePresentationState(tileKey, opt);
+            const presentation = this.getTerrainTilePresentationState(tileKey, {...opt,includeComposition:false});
             if (presentation?.shouldReplayMaterial === true && presentation.isPresentationIdle === true) {
                 this.requestTileRebuild(tileKey,{...opt,forceMaterialUpdate:true});
                 return true;
@@ -3539,7 +3518,7 @@ class UShaderTerrainDecalManager {
         }
 
         const changed = updateSource();
-        if (!changed && this.getTerrainTilePresentationState(tileKey, opt)?.isSettled !== true) {
+        if (!changed && this.getTerrainTilePresentationState(tileKey, {...opt,includeComposition:false})?.isSettled !== true) {
             this.requestTileRebuild(tileKey, {...opt, forceMaterialUpdate: true});
             return true;
         }
@@ -3548,6 +3527,7 @@ class UShaderTerrainDecalManager {
 
     /**
      * 한 tile/source의 feature 전체를 최신 revision 기준으로 동기화합니다.
+     * 빈 Source 확정만 바뀌면 같은 원점에서 진행 중인 합성의 입력을 유지하고 최신 revision으로 이어갑니다.
      *
      * @param {string} tileKey 동기화할 terrain tile key입니다.
      * @param {Array<TerrainFeature>} [features=[]] source의 최신 feature 목록입니다.
@@ -3570,13 +3550,6 @@ class UShaderTerrainDecalManager {
         if (currentSourceState?.status === 'pending'
             && opt.sourceRequestToken
             && this.isTerrainTileSourceRequestCurrent(tileKey, opt) !== true) {
-            emitTerrainTileDebugEvent(this, 'TerrainTileBuildDeferred', tileKey, {
-                sourceKey,
-                sourceStatus: currentSourceState.status,
-                sourceRequestToken: opt.sourceRequestToken,
-                currentSourceRequestToken: currentSourceState.requestToken,
-                buildBlockedReason: 'stale-source-request',
-            });
             return false;
         }
         const isLodFilteredEmpty = Number(opt.sourceFeatureCount ?? 0) > 0
@@ -3587,12 +3560,6 @@ class UShaderTerrainDecalManager {
             const tokenMatches = !opt.sourceRequestToken
                 || currentSourceState?.requestToken === opt.sourceRequestToken;
             if (currentSourceState?.status !== 'confirmed-empty' || tokenMatches !== true) {
-                emitTerrainTileDebugEvent(this, 'TerrainTileBuildDeferred', tileKey, {
-                    sourceKey,
-                    sourceStatus: currentSourceState?.status ?? 'unknown',
-                    sourceRequestToken: opt.sourceRequestToken,
-                    buildBlockedReason: tokenMatches ? 'empty-not-confirmed' : 'stale-source-request',
-                });
                 return false;
             }
         }
@@ -3735,7 +3702,9 @@ class UShaderTerrainDecalManager {
         for (let i = 0; i < prevSourceFeatureIds.length; i++) {
             const featureId = prevSourceFeatureIds[i];
             if (nextFeatureMap.has(featureId)) continue;
-            const scopedFeatureKey = buildTerrainScopedFeatureKey(sourceKey, featureId);
+            // 등록에 쓴 키를 재사용해야 사용자 지정 키의 연결도 빠짐없이 해제합니다.
+            const scopedFeatureKey = prevSourceFeatureMap.get(featureId)?.scopedFeatureKey
+                ?? buildTerrainScopedFeatureKey(sourceKey, featureId);
             prevSourceFeatureMap.delete(featureId);
             unbindTerrainFeatureFromTile(this, scopedFeatureKey, tileKey);
             changed = true;
@@ -3769,6 +3738,15 @@ class UShaderTerrainDecalManager {
         );
 
         if (!changed) return false;
+        const previousRevision = Number(tileEntry.revision ?? 0);
+        const canContinueEmptySourceComposite = opt.forceWorkerBuild !== true && opt.forceMaterialUpdate !== true
+            && prevSourceFeatureIds.length === 0 && nextFeatureMap.size === 0
+            && Number(tileEntry.renderFeatureCount ?? 0) > 0
+            && Number(currentSourceState?.featureCount ?? 0) === 0
+            && tileEntry.sourceStates.get(sourceKey)?.status === 'confirmed-empty'
+            && !TerrainTileState.hasTerrainTileFailedCurrentRevision(tileEntry)
+            && !!tileEntry.preparedBuild?.tileOrigin
+            && isSameTerrainOrigin(tileEntry.preparedBuild.tileOrigin, resolveTerrainTileOrigin(tileEntry, features, opt));
         if (opt.reuseDirtyRevision !== true || tileEntry.dirty !== true) {
             this.markTileDirty(tileKey, {
                 changeType: opt.changeType ?? 'replace',
@@ -3779,6 +3757,8 @@ class UShaderTerrainDecalManager {
         }
 
         if (opt.deferFlush === true) return true;
+        // 빈 Source의 확정만 바뀌면 같은 입력의 진행 중 합성을 최신 revision으로 이어갑니다.
+        if (canContinueEmptySourceComposite && continueTerrainCompositeRevision(this, tileKey, previousRevision)) return true;
         if (opt.immediateFlush === true) {
             this.requestTileRebuild(tileKey, opt);
         } else {
@@ -3872,6 +3852,7 @@ class UShaderTerrainDecalManager {
             && Array.from(tileEntry.sourceStates ?? []).some(
                 ([sourceKey, sourceState]) => Number(sourceState.renderFeatureCount ?? 0) > 0
                     && TerrainTileState.getTerrainTilePresentationState(this, tileKey, {
+                        includeComposition: false,
                         sourceKey,
                         expectsPayload: true,
                     })?.hasDecalState !== true,
@@ -3894,9 +3875,6 @@ class UShaderTerrainDecalManager {
             )) {
                 // 최신 GPU buffer는 유지하고 유실된 live material 적용만 다시 예약합니다.
                 this.recordTerrainStabilityCounter('attachOnlyRecoveryCount');
-                emitTerrainTileDebugEvent(this, 'TerrainTileStalled', tileKey, {
-                    buildBlockedReason: 'applied-buffer-material-state-missing',
-                });
                 return true;
             }
             if (isTerrainOriginRejectReason(restoreDiagnostics.rejectReason)) {
@@ -3904,9 +3882,6 @@ class UShaderTerrainDecalManager {
                 // 아래 orphan 복구 조건에 걸리지 않아 그대로 멈춥니다. 기존 dirty·flush API 로 새 revision 의 재빌드를
                 // 예약해 진행을 보장합니다. host 불일치 등 다른 거부 사유는 기존 경로에 그대로 맡깁니다.
                 this.markTileDirty(tileKey, {changeType: 'tile-origin-mismatch'});
-                emitTerrainTileDebugEvent(this, 'TerrainTileStalled', tileKey, {
-                    buildBlockedReason: 'applied-buffer-origin-mismatch',
-                });
                 scheduleTerrainTileFlush(this, tileKey, {
                     generation,
                     reason: 'tile-origin-mismatch',
@@ -3933,9 +3908,6 @@ class UShaderTerrainDecalManager {
                 }) || recovered;
             }
             if (recovered) {
-                emitTerrainTileDebugEvent(this, 'TerrainTileStalled', tileKey, {
-                    buildBlockedReason: 'fallback-presentation-hidden',
-                });
                 return true;
             }
         }
@@ -3948,15 +3920,9 @@ class UShaderTerrainDecalManager {
             // 반복하다 swap-ready timeout(30초)까지 자식 tile 이 부모 뒤에 숨어 있습니다(2026-09-22 실측).
             // 이때는 apply 재예약이 아니라 현재 host 구간으로 재합성을 예약해야 진행됩니다.
             if (!TerrainTileState.isTerrainCompositeVariantCurrent(this, tileKey, tileEntry, tileEntry.inactiveBuffer)) {
-                emitTerrainTileDebugEvent(this, 'TerrainTileStalled', tileKey, {
-                    buildBlockedReason: 'inactive-buffer-host-variant-stale',
-                });
                 if (this.#invalidateTerrainCompositeHostVariants(tileKey)) return true;
             }
             this.recordTerrainStabilityCounter('attachOnlyRecoveryCount');
-            emitTerrainTileDebugEvent(this, 'TerrainTileStalled', tileKey, {
-                buildBlockedReason: 'inactive-buffer-without-present',
-            });
             queueTerrainTilePresent(this, tileKey, 'apply', {
                 generation,
                 revision,
@@ -3971,15 +3937,9 @@ class UShaderTerrainDecalManager {
             || hasCurrentPresentation
             || hasCurrentWorkerResult;
         if (hasOwner) return false;
-        emitTerrainTileDebugEvent(this, 'TerrainTileProgressEnsure', tileKey, {
-            reason: opt.reason,
-        });
         if (tileEntry.pendingBuild === true) {
             // pendingBuild는 작업 소유자가 아니라 파생 상태이므로 실제 queue가 없으면 즉시 복구합니다.
             tileEntry.pendingBuild = false;
-            emitTerrainTileDebugEvent(this, 'TerrainTileStalled', tileKey, {
-                buildBlockedReason: 'pending-build-owner-missing',
-            });
         }
         if (tileEntry.dirty !== true) return false;
         if (revision <= Number(tileEntry.appliedRevision ?? 0)) return false;
@@ -3998,15 +3958,9 @@ class UShaderTerrainDecalManager {
         const mesh = resolveTerrainTileMesh(tileEntry);
         if (featureMap.length > 0 && !mesh?.position) {
             this.tiles.meshOriginWaitingTiles.add(tileKey);
-            emitTerrainTileDebugEvent(this, 'TerrainTileBuildDeferred', tileKey, {
-                buildBlockedReason: 'mesh-origin-unavailable',
-            });
             return true;
         }
 
-        emitTerrainTileDebugEvent(this, 'TerrainTileStalled', tileKey, {
-            buildBlockedReason: 'owner-missing',
-        });
         scheduleTerrainTileFlush(this, tileKey, {
             generation,
             reason: opt.reason ?? 'orphan-recovery',
@@ -4107,6 +4061,7 @@ class UShaderTerrainDecalManager {
      * @param {TerrainManagerOption} opt material 상태 생성 옵션입니다.
      * @param {number} generation 결과가 속한 tile 세대입니다.
      * @param {number} revision 결과가 속한 tile revision입니다.
+     * @param {Omit<TerrainWorkerResult, 'revision'>} [cachedResult] 내부 재생이 읽은 캐시입니다. 같은 항목이 남았으면 중복 저장하지 않습니다.
      * @returns {boolean} 최신 결과를 presentation 대상으로 준비했으면 `true`입니다.
      *
      * @ignore
@@ -4118,6 +4073,7 @@ class UShaderTerrainDecalManager {
         opt,
         generation,
         revision,
+        cachedResult = undefined,
     ) {
         const latestEntry = this.tiles.registry.get(tileKey);
         if (latestEntry !== expectedEntry
@@ -4143,16 +4099,25 @@ class UShaderTerrainDecalManager {
             return false;
         }
 
-        const token = TERRAIN_PERFORMANCE_PROFILER.begin('TerrainWorkerResult');
         try {
             // 재사용 구간과 새 결과를 같은 표시 수명에 묶어 합성 완료까지 기존 화면을 유지합니다.
             const nextState = workerResult.compositionRuns
-                ? INTERNAL.createTerrainCompositionRunState(TerrainTileState, latestEntry, workerResult, opt)
+                ? INTERNAL.createTerrainCompositionRunState(TerrainTileState, latestEntry, workerResult, opt, this)
                 : createTerrainMaterialStateFromWorkerResult(latestEntry, workerResult, opt);
             const preparedBuild = workerResult.preparedBuild;
             const compositionPlan = preparedBuild?.compositionPlan;
+            // 구간에서 빌린 RTT도 현재 host와 맞아야 추가 합성 없이 표시할 수 있습니다.
+            const readyRunState = nextState.defines?.USE_TERRAIN_DECAL_HYBRID_RUN === 1
+                && compositionPlan?.compositionMode === 'hybrid'
+                && Array.isArray(nextState.compositeVariants) && nextState.compositeVariants.length > 0
+                && TerrainTileState.isTerrainCompositeVariantCurrent(this, tileKey, latestEntry, nextState)
+                ? nextState : undefined;
+            if (nextState.defines?.USE_TERRAIN_DECAL_HYBRID_RUN === 1 && !readyRunState) {
+                TerrainTileState.disposeTerrainBufferState(nextState);
+                throw new Error('준비한 정적 구간의 표시 대상이 변경되었습니다.');
+            }
             // 동적 대상만 바뀐 hybrid revision 은 표시 중인 정적 합성 결과를 그대로 물려받아 재발행하지 않습니다.
-            const reusedHybridState = compositionPlan?.compositionMode === 'hybrid'
+            const reusedHybridState = readyRunState ?? (compositionPlan?.compositionMode === 'hybrid'
                 ? TerrainTileState.reuseTerrainStaticCompositeResult(
                     this,
                     tileKey,
@@ -4163,7 +4128,7 @@ class UShaderTerrainDecalManager {
                         revision,
                     },
                 )
-                : undefined;
+                : undefined);
             // 교차 geometry로 direct shader 순서를 재현할 수 없는 구간만 GPU offscreen 합성으로 넘깁니다.
             // hybrid는 정적 대상만 합성하고 동적 대상은 같은 결과 상태의 packed direct 경로로 함께 표시합니다.
             if (!reusedHybridState
@@ -4182,20 +4147,15 @@ class UShaderTerrainDecalManager {
                 if (scheduled) {
                     // 합성이 끝나기 전에는 기존 active buffer와 화면 표시를 그대로 유지합니다.
                     latestEntry.pendingBuild = false;
-                    cacheTerrainWorkerResult(
-                        this,
-                        workerResult?.featureSignature ?? latestEntry.featureSignature,
-                        workerResult,
-                    );
+                    if (!cachedResult || getCachedTerrainWorkerResult(this, tileKey,
+                        workerResult?.featureSignature ?? latestEntry.featureSignature) !== cachedResult) {
+                        cacheTerrainWorkerResult(this,
+                            workerResult?.featureSignature ?? latestEntry.featureSignature, workerResult);
+                    }
                     return true;
                 }
                 // 순서가 틀린 direct 결과를 화면에 올리지 않고 이번 revision을 실패로 종료합니다.
                 TerrainTileState.disposeTerrainBufferState(nextState);
-                emitTerrainTileDebugEvent(this, 'TerrainTileBuildDeferred', tileKey, {
-                    revision,
-                    buildBlockedReason: 'composite-composer-unavailable',
-                    modeReason: compositionPlan.modeReason,
-                });
                 this.#failTerrainTileBuild(
                     tileKey,
                     expectedEntry,
@@ -4230,23 +4190,16 @@ class UShaderTerrainDecalManager {
                 generation,
                 featureSignature: workerResult?.featureSignature ?? latestEntry.featureSignature,
             });
-            cacheTerrainWorkerResult(
-                this,
-                workerResult?.featureSignature ?? latestEntry.featureSignature,
-                workerResult,
-            );
+            if (!cachedResult || getCachedTerrainWorkerResult(this, tileKey,
+                workerResult?.featureSignature ?? latestEntry.featureSignature) !== cachedResult) {
+                cacheTerrainWorkerResult(this,
+                    workerResult?.featureSignature ?? latestEntry.featureSignature, workerResult);
+            }
             notifyTerrainTileSwapReady(this, tileKey);
             return true;
         } catch (error) {
             this.#failTerrainTileBuild(tileKey, expectedEntry, generation, revision, error);
             return false;
-        } finally {
-            TERRAIN_PERFORMANCE_PROFILER.end(token, {
-                tileKey,
-                revision,
-                featureCount: Number(workerResult?.featureCount ?? 0),
-                queueLength: this.worker.resultScheduler.queue.length,
-            });
         }
     }
 
@@ -4259,6 +4212,18 @@ class UShaderTerrainDecalManager {
      * @returns {boolean} 최신 revision 결과를 수락했으면 `true`입니다.
      */
     swapTileBuffer(tileKey, workerResult, opt = {}) {
+        return this.#swapTileBuffer(tileKey, workerResult, opt);
+    }
+
+    /**
+     * 검증한 재생 캐시를 결과 처리까지 전달하며 공개 교환의 복사·예약 계약을 유지합니다.
+     * @param {string} tileKey 결과가 속한 타일입니다.
+     * @param {TerrainWorkerResult} workerResult 적용할 packed 결과입니다.
+     * @param {TerrainManagerOption} opt 표시 준비 옵션입니다.
+     * @param {Omit<TerrainWorkerResult, 'revision'>} [cachedResult] 중복 저장을 생략할 수 있는 내부 캐시입니다.
+     * @returns {boolean} 결과 처리를 예약했으면 참입니다.
+     */
+    #swapTileBuffer(tileKey, workerResult, opt, cachedResult = undefined) {
         const tileEntry = this.tiles.registry.get(tileKey);
         if (!tileEntry
             || tileEntry.cancelled === true
@@ -4284,7 +4249,6 @@ class UShaderTerrainDecalManager {
         const resultSlotKey = `${tileKey}:${generation}`;
         (this.tiles.progressTileKeys ??= new Set()).add(tileKey);
         tileEntry.pendingBuild = true;
-        const messageToken = TERRAIN_PERFORMANCE_PROFILER.begin('TerrainWorkerMessageHandler');
         const enqueued = this.worker.resultScheduler.enqueue(
             resultKey,
             () => {
@@ -4295,23 +4259,18 @@ class UShaderTerrainDecalManager {
                     opt,
                     generation,
                     revision,
+                    cachedResult,
                 );
             },
             priority,
             resultSlotKey,
         );
-        TERRAIN_PERFORMANCE_PROFILER.end(messageToken, {
-            tileKey,
-            revision,
-            featureCount: Number(workerResult?.featureCount ?? 0),
-            queueLength: this.worker.resultScheduler.queue.length,
-            enqueued: enqueued !== false,
-        });
         return enqueued;
     }
 
     /**
      * requestTileRebuild 진입 직후 중복 pending, dirty 없음, cancel 상태를 먼저 걸러냅니다.
+     * 표시 복원은 현재 결과·합성·표시 작업을 재사용하며 실제 표시 완료 상태는 변경하지 않습니다.
      *
      * @param {string} tileKey rebuild 대상 terrain tile key 입니다.
      * @param {TerrainTileEntry} tileEntry 현재 tile registry entry 입니다.
@@ -4325,26 +4284,32 @@ class UShaderTerrainDecalManager {
     #getTerrainRebuildEarlyResult(tileKey, tileEntry, revision, pendingJob, opt = {}) {
         if (tileEntry.cancelled === true) {
             tileEntry.pendingBuild = false;
-            emitTerrainTileDebugEvent(this, 'TerrainTileBuildDeferred', tileKey, {
-                buildBlockedReason: 'cancelled',
-            });
             return Promise.resolve(false);
         }
         if (pendingJob?.promise
             && pendingJob.generation === tileEntry.generation
             && pendingJob.revision >= revision) {
-            emitTerrainTileDebugEvent(this, 'TerrainTileBuildDeferred', tileKey, {
-                buildBlockedReason: 'active-task',
-            });
             return pendingJob.promise;
+        }
+        if (opt.changeType === 'presentation-replay'
+            && (!opt.origin || (tileEntry.preparedBuild?.tileOrigin
+                && isSameTerrainOrigin(opt.origin, tileEntry.preparedBuild.tileOrigin)))
+            && !TerrainTileState.hasTerrainTileFailedCurrentRevision(tileEntry)) {
+            const generation = Number(tileEntry.generation ?? 0);
+            const resultKey = `${tileKey}:${generation}:${revision}`;
+            const composite = this.composeScheduler.pendingJobs.get(tileKey);
+            const present = this.present.queue.get(tileKey) ?? this.present.clearQueue.get(tileKey);
+            if (this.worker.resultScheduler.queue?.some(entry => entry.key === resultKey)
+                || (composite?.generation === generation && composite.revision === revision)
+                || (present && Number(present.generation) === generation
+                    && Number(present.revision ?? -1) === revision)) {
+                return Promise.resolve(true);
+            }
         }
         if (tileEntry.dirty !== true
             && tileEntry.pendingBuild !== true
             && tileEntry.activeRevision === revision
             && opt.forceMaterialUpdate !== true) {
-            emitTerrainTileDebugEvent(this, 'TerrainTileBuildDeferred', tileKey, {
-                buildBlockedReason: 'revision-current',
-            });
             return Promise.resolve(false);
         }
         return undefined;
@@ -4402,7 +4367,7 @@ class UShaderTerrainDecalManager {
     ) {
         return TerrainTileState.replayCachedTerrainWorkerResult(
             this,
-            (cachedTileKey, workerResult, cachedOpt = {}) => {
+            (cachedTileKey, workerResult, cachedOpt = {}, cachedResult = undefined) => {
                 const latestEntry = this.tiles.registry.get(cachedTileKey);
                 if (latestEntry !== tileEntry
                     || latestEntry.cancelled === true
@@ -4413,7 +4378,9 @@ class UShaderTerrainDecalManager {
                 const replayOpt = {...cachedOpt, generation};
                 latestEntry.pendingBuild = true;
                 if (!prepareImmediately || this.present.flushDepth > 0) {
-                    return this.swapTileBuffer(cachedTileKey, workerResult, replayOpt);
+                    return this.swapTileBuffer === TERRAIN_DEFAULT_SWAP_TILE_BUFFER
+                        ? this.#swapTileBuffer(cachedTileKey, workerResult, replayOpt, cachedResult)
+                        : this.swapTileBuffer(cachedTileKey, workerResult, replayOpt);
                 }
                 return this.#prepareTerrainTileResultPresentation(
                     cachedTileKey,
@@ -4422,6 +4389,7 @@ class UShaderTerrainDecalManager {
                     replayOpt,
                     generation,
                     revision,
+                    cachedResult,
                 );
             },
             tileKey,
@@ -4452,9 +4420,6 @@ class UShaderTerrainDecalManager {
             TerrainTileState.clearTerrainPreparedTileBuildData(tileEntry);
             tileEntry.pendingBuild = false;
             tileEntry.decalReady = false;
-            emitTerrainTileDebugEvent(this, 'TerrainTileBuildDeferred', tileKey, {
-                buildBlockedReason: 'mesh-origin-unavailable',
-            });
             return {earlyResult: Promise.resolve(false)};
         }
         this.tiles.meshOriginWaitingTiles.delete(tileKey);
@@ -4522,39 +4487,42 @@ class UShaderTerrainDecalManager {
     }
 
     /**
-     * immediate build 가능 조건이면 worker 없이 즉시 buffer를 만들어 swap 합니다.
+     * 색상만 바뀐 선의 packed 형상을 재사용하거나 작은 입력을 즉시 빌드하고 기존 표시 절차로 전달합니다.
      *
      * @param {string} tileKey rebuild 대상 terrain tile key 입니다.
      * @param {TerrainTileEntry} tileEntry 현재 tile registry entry 입니다.
      * @param {number} revision 이번 rebuild 기준 revision 입니다.
      * @param {TerrainPreparedBuild} preparedBuild 준비된 build 입력값입니다.
      * @param {TerrainManagerOption} [opt={}] build 옵션입니다.
-     * @returns {Promise<boolean>|undefined} immediate build를 수행했으면 Promise를, 아니면 `undefined` 를 반환합니다.
+     * @returns {Promise<boolean>|undefined} 재사용 또는 즉시 빌드를 수행했으면 Promise를, 아니면 `undefined`를 반환합니다.
      *
      * @ignore
      */
     #tryImmediateTerrainTileBuild(tileKey, tileEntry, revision, preparedBuild, opt = {}) {
         if (preparedBuild.compositionRuns) return undefined;
         const {featureSignature, tileOrigin, featureBases, featureRefs} = preparedBuild;
-        if (shouldUseImmediateTerrainBuild(featureBases, opt) !== true) {
-            return undefined;
-        }
-
-        const immediateFeatureBases = featureBases.map((featureBase, index) => ({
-            ...featureBase,
-            featureCacheKey: featureRefs[index]?.featureEntryCacheKey ?? featureBase.featureCacheKey,
-            clipBounds: featureRefs[index]?.clipBounds,
-            pathSimplifyTolerance: featureRefs[index]?.pathSimplifyTolerance,
-            shaderLayerRenderOrder: featureRefs[index]?.shaderLayerRenderOrder,
-            compositionBatchIndex: featureRefs[index]?.compositionBatchIndex ?? 0,
-        }));
-        const immediateResult = buildImmediateTerrainWorkerResult(
-            tileKey,
-            revision,
-            featureSignature,
-            tileOrigin,
-            immediateFeatureBases,
+        let immediateResult = opt.forceWorkerBuild === true ? undefined : reuseTerrainPathStyleResult(
+            getCachedTerrainWorkerResult(this, tileKey, tileEntry.activeBuffer?.featureSignature)
+                ?? getCachedTerrainWorkerResult(this, tileKey), preparedBuild, revision,
         );
+        if (!immediateResult) {
+            if (shouldUseImmediateTerrainBuild(featureBases, opt) !== true) return undefined;
+            const immediateFeatureBases = featureBases.map((featureBase, index) => ({
+                ...featureBase,
+                featureCacheKey: featureRefs[index]?.featureEntryCacheKey ?? featureBase.featureCacheKey,
+                clipBounds: featureRefs[index]?.clipBounds,
+                pathSimplifyTolerance: featureRefs[index]?.pathSimplifyTolerance,
+                shaderLayerRenderOrder: featureRefs[index]?.shaderLayerRenderOrder,
+                compositionBatchIndex: featureRefs[index]?.compositionBatchIndex ?? 0,
+            }));
+            immediateResult = buildImmediateTerrainWorkerResult(
+                tileKey,
+                revision,
+                featureSignature,
+                tileOrigin,
+                immediateFeatureBases,
+            );
+        }
         immediateResult.preparedBuild = preparedBuild;
         const generation = Number(tileEntry.generation ?? 0);
         tileEntry.pendingBuild = true;
@@ -4622,11 +4590,7 @@ class UShaderTerrainDecalManager {
                     || latestEntry.cancelled === true
                     || latestEntry.generation !== generation
                     || latestEntry.revision !== revision) {
-                    terrainWorkerScheduler.recordCancellation('before-build', {
-                        tileKey,
-                        generation,
-                        revision,
-                    });
+                    terrainWorkerScheduler.recordCancellation('before-build');
                     return false;
                 }
                 if (currentOwner?.promise === pending) {
@@ -4721,21 +4685,16 @@ class UShaderTerrainDecalManager {
         };
         /**
          * @param {boolean} [forceFull=false] 전체 상태 재전송 여부입니다.
-         * @param {{admissionRequestedAt:number} & Partial<{admissionAcceptedAt:number,queueInsertedAt:number,queueDequeuedAt:number,payloadRequestedAt:number,payloadReadyAt:number,workerSlotRequestedAt:number,workerDispatchedAt:number,workerSlotAcquiredAt:number,dispatchCompletedAt:number}>} [phaseTiming] Worker 단계별 시각입니다.
+         * @param {{admissionRequestedAt:number} & Partial<{admissionAcceptedAt:number,queueInsertedAt:number,queueDequeuedAt:number,payloadRequestedAt:number,payloadReadyAt:number,workerSlotRequestedAt:number,workerDispatchedAt:number,workerSlotAcquiredAt:number}>} [phaseTiming] Worker 단계별 시각입니다.
          * @param {TerrainCompositionRun} [run] 전체 입력 대신 빌드할 연속 구간입니다.
          * @returns {Promise<TerrainWorkerResult | TerrainPayloadStateMiss | boolean>} Worker 처리 결과입니다.
          */
         const scheduleWorkerPart = async (forceFull = false, phaseTiming = undefined, run = undefined) => {
             const {featureSignature, tileOrigin, featureBases, featureRefs} = run?.prepared ?? preparedBuild;
             if (!isCurrentBuild()) {
-                terrainWorkerScheduler.recordCancellation('before-build', {
-                    tileKey,
-                    generation,
-                    revision,
-                });
+                terrainWorkerScheduler.recordCancellation('before-build');
                 return Promise.resolve(false);
             }
-            const payloadToken = TERRAIN_PERFORMANCE_PROFILER.begin('TerrainFlushPayload');
             let builtPayload;
             const forceFullReason = forceFull
                 ? 'full:worker-state-miss'
@@ -4769,64 +4728,11 @@ class UShaderTerrainDecalManager {
                 return Promise.reject(error);
             }
             if (builtPayload === false) {
-                if (payloadToken) {
-                    TERRAIN_PERFORMANCE_PROFILER.end(payloadToken, {
-                        tileKey,
-                        revision,
-                        workerIndex,
-                        featureCount: featureBases.length,
-                        cancelled: true,
-                    });
-                }
-                terrainWorkerScheduler.recordCancellation('after-build', {
-                    tileKey,
-                    generation,
-                    revision,
-                });
+                terrainWorkerScheduler.recordCancellation('after-build');
                 return false;
             }
-            if (payloadToken) {
-                TERRAIN_PERFORMANCE_PROFILER.end(payloadToken, {
-                    tileKey,
-                    revision,
-                    workerIndex,
-                    featureCount: featureBases.length,
-                    featureRefCount: featureRefs.length,
-                    cacheHit: builtPayload.cacheHit,
-                    forceFull,
-                    ...builtPayload.statistics,
-                });
-            }
-            if (builtPayload.statistics.payloadType === 'delta'
-                && builtPayload.statistics.sentFeatureCount === 0
-                && TERRAIN_PERFORMANCE_PROFILER.getMode() !== 'off') {
-                const sourceIdentity = Array.from(tileEntry.sourceStates?.values?.() ?? [])
-                    .find(state => state.sourceIdentity)?.sourceIdentity;
-                TERRAIN_PERFORMANCE_PROFILER.mark('TerrainEmptyDeltaScan', {
-                    tileKey,
-                    generation,
-                    revision,
-                    featureCount: featureBases.length,
-                    chunkCount: builtPayload.statistics.payloadChunkCount,
-                    yieldCount: builtPayload.statistics.payloadYieldCount,
-                    duration: builtPayload.statistics.payloadWallDuration,
-                    fastSkipRejectedReason: tileEntry.lastPayloadFastSkipRejectReason,
-                    sourceIdentityVersioned: !!sourceIdentity,
-                    sourceCollectionRevision: sourceIdentity?.sourceCollectionRevision,
-                    sourceCollectionEpoch: sourceIdentity?.sourceCollectionEpoch,
-                    lodProfileId: tileEntry.lodProfileId,
-                    lodProfileVersion: tileEntry.lodProfileVersion,
-                    originChanged: tileEntry.lastPayloadFastSkipRejectReason === 'origin-changed',
-                    cacheHitCount: builtPayload.statistics.featureCacheHitCount,
-                    cacheMissCount: builtPayload.statistics.featureCacheMissCount,
-                });
-            }
             if (!isCurrentBuild()) {
-                terrainWorkerScheduler.recordCancellation('after-build', {
-                    tileKey,
-                    generation,
-                    revision,
-                });
+                terrainWorkerScheduler.recordCancellation('after-build');
                 return Promise.resolve(false);
             }
             try {
@@ -4836,8 +4742,6 @@ class UShaderTerrainDecalManager {
                     terrainWorkerScheduler.recordPhaseWait(
                         'payloadReady',
                         phaseTiming.payloadReadyAt - Number(phaseTiming.queueDequeuedAt),
-                        {tileKey, generation, revision, workerIndex},
-                        Number(phaseTiming.queueDequeuedAt),
                     );
                 }
                 const scheduled = terrainWorkerScheduler.schedule(
@@ -4847,7 +4751,6 @@ class UShaderTerrainDecalManager {
                         tileKey,
                         generation,
                         revision,
-                        featureCount: featureBases.length,
                         transferList: builtPayload.transferList,
                         defer: false,
                         isCurrent: isCurrentBuild,
@@ -4867,17 +4770,6 @@ class UShaderTerrainDecalManager {
                             builtPayload.reject();
                             return false;
                         }
-                        // 실제 Worker 응답 1건당 한 번만 기록합니다. 뒤에서 stale로 폐기되더라도 실행 비용은 이미
-                        // 발생했으므로 결과 검사·적용 순서는 그대로 두고 판정 전에 남깁니다.
-                        // 캐시 재사용과 표시 재적용은 이 then을 지나지 않아 중복 집계되지 않습니다.
-                        recordTerrainWorkerExecutionSample(this, result, {
-                            tileKey,
-                            generation,
-                            revision,
-                            workerIndex,
-                            forceFull,
-                            phaseTiming,
-                        });
                         if (isTerrainPayloadStateMissResult(result)) {
                             builtPayload.reject();
                             return /** @type {TerrainPayloadStateMiss} */ (result);
@@ -4932,10 +4824,6 @@ class UShaderTerrainDecalManager {
         /** @type {Promise<TerrainWorkerResult | TerrainPayloadStateMiss | boolean>} */
         let scheduledWorkerTask;
         if (opt.deferWorkerSchedule === true) {
-            emitTerrainTileDebugEvent(this, 'TerrainWorkerQueueEnqueue', tileKey, {
-                priority: Number(opt.priority ?? opt.tilePriority ?? 0),
-                queueMode: 'background',
-            });
             scheduledWorkerTask = /** @type {Promise<TerrainWorkerResult | TerrainPayloadStateMiss | boolean>} */ (
                 terrainWorkerScheduler.enqueue(
                     workerIndex,
@@ -4945,11 +4833,7 @@ class UShaderTerrainDecalManager {
                             || latestEntry.cancelled === true
                             || latestEntry.generation !== generation
                             || latestEntry.revision !== revision) {
-                            terrainWorkerScheduler.recordCancellation('before-build', {
-                                tileKey,
-                                generation,
-                                revision,
-                            });
+                            terrainWorkerScheduler.recordCancellation('before-build');
                             return Promise.resolve(false);
                         }
                         return scheduleWorkerTask(false, phaseTiming);
@@ -4963,10 +4847,6 @@ class UShaderTerrainDecalManager {
                 )
             );
         } else {
-            emitTerrainTileDebugEvent(this, 'TerrainWorkerQueueEnqueue', tileKey, {
-                priority: Number(opt.priority ?? opt.tilePriority ?? 0),
-                queueMode: 'immediate',
-            });
             scheduledWorkerTask = scheduleWorkerTask(false, opt.workerPhaseTiming);
         }
 
@@ -5013,12 +4893,7 @@ class UShaderTerrainDecalManager {
                     || latestEntry.cancelled === true
                     || latestEntry.generation !== generation
                     || latestEntry.revision !== workerResult.revision) {
-                    terrainWorkerScheduler.recordStaleResult({
-                        tileKey,
-                        generation,
-                        revision: workerResult.revision,
-                        latestRevision: latestEntry?.revision,
-                    });
+                    terrainWorkerScheduler.recordStaleResult();
                     clearCurrentPendingBuild();
                     return false;
                 }
@@ -5063,6 +4938,7 @@ class UShaderTerrainDecalManager {
 
     /**
      * tile mesh 기준 local origin이 준비된 뒤에만 terrain decal buffer build를 수행합니다.
+     * 중복되거나 취소된 요청은 피처 수집·정렬 전에 종료하고, 지연 요청은 처리 차례가 온 뒤 한 번만 수집합니다.
      *
      * @param {string} tileKey rebuild 대상 terrain tile key 입니다.
      * @param {TerrainManagerOption} [opt={}] origin, forceMaterialUpdate 등 build 옵션입니다.
@@ -5076,8 +4952,6 @@ class UShaderTerrainDecalManager {
             && Number(opt.generation) !== Number(tileEntry.generation)) {
             return Promise.resolve(false);
         }
-        const featureMap = getTerrainTileFeatureCollection(this, tileKey);
-        tileEntry.renderFeatureCount = featureMap.length;
         const revision = tileEntry.revision ?? this.markTileDirty(tileKey, opt);
         const explicitPriority = opt.priority ?? opt.tilePriority;
         const resolvePriority = () => {
@@ -5107,9 +4981,6 @@ class UShaderTerrainDecalManager {
             priority,
             resolvePriority: Number.isFinite(explicitPriority) ? undefined : resolvePriority,
         };
-        emitTerrainTileDebugEvent(this, 'TerrainPayloadReserve', tileKey, {
-            priority,
-        });
         const pendingJob = this.worker.pendingJobs.get(tileKey);
         const earlyResult = this.#getTerrainRebuildEarlyResult(
             tileKey,
@@ -5120,16 +4991,28 @@ class UShaderTerrainDecalManager {
         );
         if (earlyResult !== undefined) return earlyResult;
 
-        if (featureMap.length === 0) {
-            return this.#finishEmptyTerrainTileRebuild(tileKey, tileEntry);
-        }
         if (buildOpt.deferWorkerSchedule === true && buildOpt.workerAdmissionGranted !== true) {
+            // 빈 입력은 즉시 비우되 전체 피처 수집·정렬은 실제 admission 뒤 한 번만 수행합니다.
+            let renderFeatureCount = 0;
+            for (const [sourceKey, sourceMap] of this.tiles.tileFeatureMap.get(tileKey) ?? []) {
+                if (sourceMap instanceof Map
+                    && tileEntry.sourceStates.get(normalizeTerrainSourceKey(sourceKey))?.visible !== false) {
+                    renderFeatureCount += sourceMap.size;
+                }
+            }
+            tileEntry.renderFeatureCount = renderFeatureCount;
+            if (renderFeatureCount === 0) return this.#finishEmptyTerrainTileRebuild(tileKey, tileEntry);
             return this.#scheduleTerrainTileWorkerAdmission(
                 tileKey,
                 tileEntry,
                 revision,
                 buildOpt,
             );
+        }
+        const featureMap = getTerrainTileFeatureCollection(this, tileKey);
+        tileEntry.renderFeatureCount = featureMap.length;
+        if (featureMap.length === 0) {
+            return this.#finishEmptyTerrainTileRebuild(tileKey, tileEntry);
         }
 
         const generation = Number(tileEntry.generation ?? 0);
@@ -5176,17 +5059,11 @@ class UShaderTerrainDecalManager {
      * @returns {Promise<Array<boolean>>} 이번 요청 대상 전체의 순서에 따른 rebuild 결과입니다.
      */
     flushTileUpdates(tileKeys, opt = {}) {
-        const collectToken = TERRAIN_PERFORMANCE_PROFILER.begin('TerrainFlushCollect');
         const targets = Array.isArray(tileKeys) && tileKeys.length > 0
             ? Array.from(new Set(tileKeys))
             : tileKeys instanceof Set && tileKeys.size > 0
                 ? Array.from(tileKeys)
                 : Array.from(this.tiles.registry.keys());
-        TERRAIN_PERFORMANCE_PROFILER.end(collectToken, {
-            requestedTileCount: Array.isArray(tileKeys) ? tileKeys.length : tileKeys instanceof Set ? tileKeys.size : 0,
-            targetTileCount: targets.length,
-            registrySize: this.tiles.registry.size,
-        });
 
         const presentationBatch = opt.presentationBatch;
         const presentationOwnerKey = presentationBatch?.ownerKey
@@ -5272,37 +5149,29 @@ class UShaderTerrainDecalManager {
             } while (linked);
         }
 
-        const dispatchToken = TERRAIN_PERFORMANCE_PROFILER.begin('TerrainFlushRebuildDispatch');
         const promises = [];
         const presentationPromises = [];
-        try {
-            for (let i = 0; i < targets.length; i++) {
-                const tileKey = targets[i];
-                if (atomicGroup && (!presentationTileKeys || presentationTileKeys.has(tileKey))) {
-                    const tileEntry = ensureTerrainTileEntry(this, tileKey);
-                    atomicGroup.tileKeys.add(tileKey);
-                    tileEntry.presentationGroup = {
-                        id: atomicGroup.id,
-                        ownerKey: atomicGroup.ownerKey,
-                        ownerRevision: atomicGroup.ownerRevision,
-                        generation: Number(tileEntry.generation ?? 0),
-                        revision: Number(tileEntry.revision ?? 0),
-                        // 이번 flush가 직접 지정한 표시 대상은 숨어 있어도 함께 기다립니다(LOD 전환 대기 자식 등).
-                        explicit: true,
-                    };
-                }
-                const rebuild = this.requestTileRebuild(tileKey, {
-                    ...opt,
-                    immediateFlush: true,
-                });
-                promises.push(rebuild);
-                if (atomicGroup?.tileKeys.has(tileKey)) presentationPromises.push(rebuild);
+        for (let i = 0; i < targets.length; i++) {
+            const tileKey = targets[i];
+            if (atomicGroup && (!presentationTileKeys || presentationTileKeys.has(tileKey))) {
+                const tileEntry = ensureTerrainTileEntry(this, tileKey);
+                atomicGroup.tileKeys.add(tileKey);
+                tileEntry.presentationGroup = {
+                    id: atomicGroup.id,
+                    ownerKey: atomicGroup.ownerKey,
+                    ownerRevision: atomicGroup.ownerRevision,
+                    generation: Number(tileEntry.generation ?? 0),
+                    revision: Number(tileEntry.revision ?? 0),
+                    // 이번 flush가 직접 지정한 표시 대상은 숨어 있어도 함께 기다립니다(LOD 전환 대기 자식 등).
+                    explicit: true,
+                };
             }
-        } finally {
-            TERRAIN_PERFORMANCE_PROFILER.end(dispatchToken, {
-                targetTileCount: targets.length,
-                dispatchedPromiseCount: promises.length,
+            const rebuild = this.requestTileRebuild(tileKey, {
+                ...opt,
+                immediateFlush: true,
             });
+            promises.push(rebuild);
+            if (atomicGroup?.tileKeys.has(tileKey)) presentationPromises.push(rebuild);
         }
         const currentCompletion = Promise.all(promises);
         if (!atomicGroup) return currentCompletion;
@@ -5358,6 +5227,68 @@ class UShaderTerrainDecalManager {
     }
 
     /* terrain 섹션: lifecycle / dispose */
+
+    /**
+     * 숨은 정적 합성 캐시의 반환을 기존 결과 처리 예산으로 나눕니다.
+     * 큐에는 키와 세대만 보관하고 실행 시 가시성·대체 표면을 다시 확인합니다.
+     * @param {string} tileKey 반환 후보 타일입니다.
+     * @returns {boolean} 반환 검사를 예약했으면 참입니다.
+     * @ignore
+     */
+    _scheduleTerrainGpuCacheRelease(tileKey) {
+        const entry = this.tiles.registry.get(tileKey);
+        if (!entry?.activeBuffer?.compositeVariants?.length || entry.visible === true
+            || entry.desiredVisible === true || entry.tile?._lodPresentPending === true) return false;
+        const generation = Number(entry.generation ?? 0);
+        const release = () => {
+            const current = this.tiles.registry.get(tileKey);
+            if (current && Number(current.generation ?? 0) === generation) {
+                const previous = current.activeBuffer;
+                TerrainTileState.stashHiddenTerrainGpuState(this, tileKey, current);
+                if (previous && current.activeBuffer !== previous && current.parentTileKey) {
+                    this._scheduleTerrainGpuCacheRelease(current.parentTileKey);
+                }
+            }
+        };
+        const scheduler = this.worker.resultScheduler;
+        if (typeof scheduler?.enqueue !== 'function') return false;
+        return scheduler.enqueue('gpu-cache-release:' + tileKey + ':' + generation, release,
+            resolveTerrainTaskPriority({visibleDirty: true}));
+    }
+
+    /**
+     * 캐시에서 반환한 GPU 상태를 표시 재진입 때만 기존 입력으로 복원합니다.
+     * @param {string} tileKey 다시 표시할 타일입니다.
+     * @param {TerrainPoint} [origin] 현재 타일 원점입니다.
+     * @returns {boolean} 복원을 시작했으면 참입니다.
+     * @ignore
+     */
+    _restoreTerrainTileGpuState(tileKey, origin = undefined) {
+        const entry = this.tiles.registry.get(tileKey);
+        if (!entry || entry.cancelled === true || entry.dirty === true || entry.pendingBuild === true
+            || !entry.appliedSignature || entry.activeBuffer || entry.inactiveBuffer
+            || Number(entry.renderFeatureCount ?? 0) <= 0
+            || Number(entry.appliedRevision ?? -1) < Number(entry.revision ?? 0)
+            || TerrainTileState.hasTerrainTileFailedCurrentRevision(entry)
+            || this.composeScheduler.pendingJobs.has(tileKey)
+            || this.present.queue.has(tileKey) || this.present.clearQueue.has(tileKey)) return false;
+        if (entry.pendingSourceData === true || entry.sourceStates.size === 0) return false;
+        for (const [sourceKey, source] of entry.sourceStates) {
+            if (!sourceKey.startsWith('tile:') || TerrainTileState.resolveTerrainSourceStability(this, sourceKey) !== 'static'
+                || TerrainTileState.isTerrainSourcePending(source)
+                || (source.status !== 'available' && source.status !== 'confirmed-empty')) return false;
+        }
+        // 상위 부모 복귀도 완료 통지를 통해 정지 카메라의 LOD를 다시 평가해야 합니다.
+        void this.waitTerrainTileSwapReady(tileKey, {sourceKeys: Array.from(entry.sourceStates.keys())});
+        void this.requestTileRebuild(tileKey, {origin, forceMaterialUpdate: true,
+            changeType: 'presentation-replay', deferWorkerSchedule: true,
+            priority: resolveTerrainTaskPriority({visibleResourceMissing: true})}).catch(error => {
+                console.error('terrain GPU 캐시 재표시에 실패했습니다.', error);
+            });
+        return true;
+    }
+
+
 
     /**
      * parent/child handoff 상태를 고려해 tile dispose를 요청합니다.
@@ -5457,7 +5388,6 @@ class UShaderTerrainDecalManager {
 
             released = TerrainTileState.releaseTerrainTileSourceState(tileEntry, sourceKey) || released;
         }
-        tileEntry.pendingSourceData = Array.from(tileEntry.sourceStates.values()).some(TerrainTileState.isTerrainSourcePending);
         if (opt.ownerLayer || opt.ownerKey) {
             this.releaseTerrainTileVisibilityHandoff(tileKey, {
                 ownerLayer: opt.ownerLayer,
@@ -5624,35 +5554,6 @@ class UShaderTerrainDecalManager {
     }
 
     /**
-     * Terrain profiler의 상세 기록 수준을 변경합니다.
-     * `off`로 전환할 때는 누적 Summary를 Performance Timeline에 먼저 기록합니다.
-     *
-     * @param {'off'|'counter'|'sampled'|'verbose'} mode 적용할 계측 모드입니다.
-     * @returns {UShaderTerrainDecalManager} 현재 Manager입니다.
-     */
-    setTerrainPerformanceMode(mode) {
-        if (mode === 'off' && TERRAIN_PERFORMANCE_PROFILER.getMode() !== 'off') {
-            this.emitTerrainPerformanceSummary();
-        }
-        TERRAIN_PERFORMANCE_PROFILER.setMode(mode);
-        if (mode !== 'verbose') this.shaderPrewarm.disposeProgramDiagnostics();
-        return this;
-    }
-
-    /**
-     * 현재 Trace가 cold 또는 warm 실행인지 지정합니다.
-     *
-     * @param {'unspecified'|'cold'|'warm'} runType 실행 구분입니다.
-     * @returns {UShaderTerrainDecalManager} 현재 Manager입니다.
-     */
-    setTerrainBenchmarkRunType(runType) {
-        this.diagnostics.benchmarkRunType = runType === 'cold' || runType === 'warm'
-            ? runType
-            : 'unspecified';
-        return this;
-    }
-
-    /**
      * 안정성 Counter를 증가시킵니다.
      *
      * @param {string} name 증가시킬 Counter 이름입니다.
@@ -5718,14 +5619,7 @@ class UShaderTerrainDecalManager {
                 + (entry.compositionRuns ?? []).reduce((bytes, run) => bytes + Number(run.gpuState?.byteLength ?? 0), 0), 0),
         };
         return {
-            benchmark: {
-                runType: this.diagnostics.benchmarkRunType,
-                profilerMode: TERRAIN_PERFORMANCE_PROFILER.getMode(),
-            },
             stability: {...this.diagnostics.stabilityCounters},
-            profiler: TERRAIN_PERFORMANCE_PROFILER.getStatistics(),
-            // TerrainWorkerExecution·TerrainWorkerRoundTrip 표본 수와, 값이 없어 재지 못한 응답 수입니다.
-            workerExecution: {...this.diagnostics.workerExecutionStatistics},
             workerResultScheduler: this.worker.resultScheduler.getStatistics(),
             terrainWorkerScheduler,
             featurePayloadCache,
@@ -5768,126 +5662,8 @@ class UShaderTerrainDecalManager {
         };
     }
 
-    /**
-     * 현재 누적 성능 통계를 정확한 5개 Trace Summary 마커로 기록합니다.
-     * Trace 종료 직전에 호출하면 sampled 이벤트만으로 비율을 추정하는 오류를 피할 수 있습니다.
-     *
-     * @returns {{payload:Record<string,unknown>,cache:Record<string,unknown>,scheduler:Record<string,unknown>,presentation:Record<string,unknown>,stability:Record<string,unknown>}} 기록한 Summary입니다.
-     */
-    emitTerrainPerformanceSummary() {
-        const statistics = this.getTerrainPerformanceStatistics();
-        const featurePayloadCache = /** @type {Record<string, unknown>} */ (
-            statistics.featurePayloadCache ?? {}
-        );
-        const schedulerStatistics = /** @type {Record<string, unknown>} */ (
-            statistics.terrainWorkerScheduler ?? {}
-        );
-        const cacheMissReasons = /** @type {Record<string, Partial<{count:number}>>} */ (
-            featurePayloadCache.cacheMissReasons ?? {}
-        );
-        const cacheMissReasonCounts = /** @type {Record<string, number>} */ ({});
-        for (const [reason, detail] of Object.entries(cacheMissReasons)) {
-            cacheMissReasonCounts[reason] = Number(detail?.count) || 0;
-        }
-        /**
-         * @param {unknown} hitCount cache hit 수입니다.
-         * @param {unknown} missCount cache miss 수입니다.
-         * @returns {number} 전체 조회 대비 hit 비율입니다.
-         */
-        const hitRate = (hitCount, missCount) => {
-            const total = Number(hitCount) + Number(missCount);
-            return total > 0 ? Number(hitCount) / total : 0;
-        };
-        let baseRegistryBytes = 0;
-        for (const feature of this.tiles.featureBaseRegistry.values()) {
-            baseRegistryBytes += Number(feature?.byteLength) || 0;
-        }
-        const payload = /** @type {Record<string, unknown>} */ (statistics.payloadSummary ?? {});
-        const cache = {
-            baseFeatureIndexHitRate: hitRate(
-                featurePayloadCache.baseFeatureIndexHitCount,
-                featurePayloadCache.baseFeatureIndexMissCount,
-            ),
-            baseGeometryHitRate: hitRate(
-                featurePayloadCache.baseGeometryHitCount,
-                featurePayloadCache.baseGeometryMissCount,
-            ),
-            basePropertyHitRate: hitRate(
-                featurePayloadCache.basePropertyHitCount,
-                featurePayloadCache.basePropertyMissCount,
-            ),
-            baseSignatureHitRate: hitRate(
-                featurePayloadCache.baseSignatureHitCount,
-                featurePayloadCache.baseSignatureMissCount,
-            ),
-            lodPayloadSnapshotHitRate: hitRate(
-                featurePayloadCache.lodPayloadSnapshotHitCount,
-                featurePayloadCache.lodPayloadSnapshotMissCount,
-            ),
-            cacheMissReasonCounts,
-            baseRegistryBytes,
-            payloadSnapshotBytes: Number(featurePayloadCache.tileSnapshotCacheBytes) || 0,
-            workerResultCacheBytes: Math.max(
-                0,
-                Number(this.worker.resultCache.capacity)
-                    - Number(this.worker.resultCache.remainsCapacity),
-            ),
-            gpuResourceCacheBytes: Math.max(
-                0,
-                Number(this.present.gpuStateCache.capacity)
-                    - Number(this.present.gpuStateCache.remainsCapacity),
-            ),
-        };
-        const scheduler = {
-            admissionRequestedCount: Number(schedulerStatistics.admissionRequestedCount) || 0,
-            admissionAcceptedCount: Number(schedulerStatistics.admissionAcceptedCount) || 0,
-            admissionDeferredCount: Number(schedulerStatistics.admissionDeferredCount) || 0,
-            queuedSlotUpdateCount: Number(schedulerStatistics.queueSlotUpdatedInPlaceCount) || 0,
-            sameRevisionDuplicateCount: Number(schedulerStatistics.sameRevisionDuplicateCount) || 0,
-            newerRevisionUpdateCount: Number(schedulerStatistics.newerRevisionUpdateCount) || 0,
-            priorityOnlyUpdateCount: Number(schedulerStatistics.priorityOnlyUpdateCount) || 0,
-            admissionWaitP95: Number(schedulerStatistics.admissionWaitP95) || 0,
-            admissionWaitMax: Number(schedulerStatistics.admissionWaitMax) || 0,
-            payloadReadyWaitP95: Number(schedulerStatistics.payloadReadyWaitP95) || 0,
-            queueResidentWaitP95: Number(schedulerStatistics.queueResidentWaitP95) || 0,
-            workerSlotWaitP95: Number(schedulerStatistics.workerSlotWaitP95) || 0,
-            maxLiveQueue: Number(schedulerStatistics.maxQueuedCount) || 0,
-            maxPendingAdmission: Number(schedulerStatistics.maxPendingAdmission) || 0,
-            idleWorkerWithPendingCount: Number(schedulerStatistics.idleWorkerWithPendingCount) || 0,
-            yieldContinuationCount: Number(schedulerStatistics.yieldContinuationCount) || 0,
-            udefContinuationCount: 0,
-            quadTileBatchContinuationCount: 0,
-        };
-        const presentation = {...this.diagnostics.presentationStatistics};
-        const stabilityStatistics = /** @type {Record<string, number>} */ (
-            statistics.stability ?? {}
-        );
-        const stability = {
-            falseCompleteDetectedCount: Number(stabilityStatistics.falseCompleteDetectedCount) || 0,
-            falseCompleteRecoveredCount: Number(stabilityStatistics.falseCompleteRecoveredCount) || 0,
-            visibilityMismatchCount: Number(stabilityStatistics.visibilityMismatchCount) || 0,
-            visibilityMismatchRecoveredCount:
-                Number(stabilityStatistics.visibilityMismatchRecoveredCount) || 0,
-            parentFallbackStallCount: Number(stabilityStatistics.parentReadinessStallCount) || 0,
-            parentFallbackRecoveredCount: Number(stabilityStatistics.parentReadinessRecoveredCount) || 0,
-            progressOwnerLostCount: Number(stabilityStatistics.progressOwnerLostCount) || 0,
-            progressOwnerRecoveredCount: Number(stabilityStatistics.progressOwnerRecoveredCount) || 0,
-            ownerlessDirtyTileCount: 0,
-            queueBudgetPermanentStallCount: 0,
-        };
-        TERRAIN_PERFORMANCE_PROFILER.mark('TerrainPayloadSummary', payload);
-        TERRAIN_PERFORMANCE_PROFILER.mark('TerrainCacheSummary', cache);
-        TERRAIN_PERFORMANCE_PROFILER.mark('TerrainSchedulerSummary', scheduler);
-        TERRAIN_PERFORMANCE_PROFILER.mark('TerrainPresentationSummary', presentation);
-        TERRAIN_PERFORMANCE_PROFILER.mark('TerrainStabilitySummary', stability);
-        return {payload, cache, scheduler, presentation, stability};
-    }
-
     /** Terrain 성능 통계를 초기화합니다. */
     resetTerrainPerformanceStatistics() {
-        this.shaderPrewarm.disposeProgramDiagnostics();
-        this.shaderPrewarm.diagnosedWarmupCacheKeys.clear();
-        TERRAIN_PERFORMANCE_PROFILER.reset();
         /** @type {Partial<{resetStatistics: () => void}>} */ (
             this.worker.resultScheduler
         ).resetStatistics?.();
@@ -5895,7 +5671,6 @@ class UShaderTerrainDecalManager {
         this.flush.payloadBuilder.resetStatistics();
         this.diagnostics.stabilityCounters = createTerrainStabilityCounters();
         this.diagnostics.payloadSyncStatistics = createTerrainPayloadSyncStatistics();
-        this.diagnostics.workerExecutionStatistics = createTerrainWorkerExecutionStatistics();
         this.diagnostics.presentationStatistics = createTerrainPresentationStatistics();
     }
 
@@ -5910,7 +5685,6 @@ class UShaderTerrainDecalManager {
             try { this._releaseTerrainFeatureOwner(owner); } catch(error) { sourceErrors.push(error); }
         }
         this._app?.removeRenderBefore?.(TERRAIN_PRESENT_RENDER_BEFORE_KEY);
-        this.shaderPrewarm.disposeProgramDiagnostics();
 
         // tile 폐기 과정이 그룹을 먼저 비우더라도 manager 종료 원인이 LOD 교체로 바뀌지 않게 고정합니다.
         for (const group of this.present.atomicGroups.values()) {
@@ -5964,7 +5738,6 @@ class UShaderTerrainDecalManager {
         this.flush.payloadBuilder.clear();
         this.flush.scheduled = false;
         this.shaderPrewarm.warmupPendingCount = 0;
-        this.shaderPrewarm.diagnosedWarmupCacheKeys.clear();
         this._app = undefined;
         if(sourceErrors.length===1)throw sourceErrors[0];
         if(sourceErrors.length>1)throw Object.assign(new Error('terrain 원본 등록 해제 중 오류가 발생했습니다.'),{errors:sourceErrors});
@@ -6273,5 +6046,8 @@ function restoreCachedTerrainGpuState(manager, tileKey, tileEntry, featureSignat
 function isTerrainOriginRejectReason(reason) {
     return reason === 'tile-origin-mismatch' || reason === 'tile-origin-unverified';
 }
+
+// 공개 교환 함수를 재정의한 호출은 기존 경로로 전달합니다.
+const TERRAIN_DEFAULT_SWAP_TILE_BUFFER = UShaderTerrainDecalManager.prototype.swapTileBuffer;
 
 export {UShaderTerrainDecalManager};

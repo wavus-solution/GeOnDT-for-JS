@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -58,14 +58,6 @@ type UTerrainWorkerSchedulerTaskOption = {
      * 최신 우선순위 조회 함수입니다.
      */
     resolvePriority: () => number;
-    /**
-     * feature 수입니다.
-     */
-    featureCount: number;
-    /**
-     * 등록된 feature 수입니다.
-     */
-    registeredFeatureCount: number;
     /**
      * 메인 스레드 작업권 양보 여부입니다.
      */
@@ -198,10 +190,6 @@ type TerrainWorkerPhaseTiming = {
      * 실제 Worker 전송 시작 시각입니다.
      */
     workerSlotAcquiredAt?: number;
-    /**
-     * postMessage 완료 시각입니다.
-     */
-    dispatchCompletedAt?: number;
 };
 
 /**
@@ -229,8 +217,6 @@ type TerrainWorkerPhaseTiming = {
  * @property {number} revision 작업 revision입니다.
  * @property {number} priority 작업 우선순위입니다.
  * @property {() => number} resolvePriority 최신 우선순위 조회 함수입니다.
- * @property {number} featureCount feature 수입니다.
- * @property {number} registeredFeatureCount 등록된 feature 수입니다.
  * @property {boolean} defer 메인 스레드 작업권 양보 여부입니다.
  * @property {Array<Transferable>} transferList Worker로 이전할 객체 목록입니다.
  * @property {() => boolean} isCurrent 작업 최신 여부 조회 함수입니다.
@@ -284,7 +270,6 @@ type TerrainWorkerPhaseTiming = {
  * @property {number} [workerSlotRequestedAt] Worker Slot 요청 시각입니다.
  * @property {number} [workerDispatchedAt] 실제 Worker 전송 시작 시각입니다.
  * @property {number} [workerSlotAcquiredAt] 실제 Worker 전송 시작 시각입니다.
- * @property {number} [dispatchCompletedAt] postMessage 완료 시각입니다.
  */
 /**
  * Worker별 예약 순서와 UTaskProcessor 호출을 관리합니다.
@@ -358,33 +343,23 @@ declare class UTerrainWorkerScheduler {
      */
     enqueue(workerIndex: number, callback: (arg0: TerrainWorkerPhaseTiming) => unknown, opt?: Partial<UTerrainWorkerSchedulerTaskOption>): Promise<unknown>;
     /**
-     * Worker 단계별 대기 시간을 누적하고 Performance Timeline에 기록합니다.
+     * Worker 단계별 대기 시간 표본을 누적합니다.
      *
      * @param {'admission'|'payloadReady'|'queueResident'|'workerSlot'|'dispatch'} phase 대기 단계입니다.
      * @param {number} elapsed 대기 시간입니다.
-     * @param {Record<string, unknown>} [detail={}] Tile과 revision 정보입니다.
-     * @param {number} [startedAt] 대기 시작 시각입니다.
      * @returns {boolean} 알려진 단계를 기록했으면 `true`입니다.
      */
-    recordPhaseWait(phase: "admission" | "payloadReady" | "queueResident" | "workerSlot" | "dispatch", elapsed: number, detail?: Record<string, unknown>, startedAt?: number): boolean;
+    recordPhaseWait(phase: "admission" | "payloadReady" | "queueResident" | "workerSlot" | "dispatch", elapsed: number): boolean;
     /**
      * Manager가 폐기한 오래된 Worker 결과를 집계합니다.
-     *
-     * @param {Partial<{tileKey:string,generation:number,revision:number,latestRevision:number}>} [detail={}] 폐기한 결과 정보입니다.
      */
-    recordStaleResult(detail?: Partial<{
-        tileKey: string;
-        generation: number;
-        revision: number;
-        latestRevision: number;
-    }>): void;
+    recordStaleResult(): void;
     /**
      * 최신성 검사로 취소한 단계별 작업을 집계합니다.
      *
      * @param {'before-build'|'after-build'|'before-dispatch'} stage 취소 단계입니다.
-     * @param {object} [detail={}] Tile과 revision 정보입니다.
      */
-    recordCancellation(stage: "before-build" | "after-build" | "before-dispatch", detail?: object): void;
+    recordCancellation(stage: "before-build" | "after-build" | "before-dispatch"): void;
     /**
      * Worker 대기열과 취소 계측값을 반환합니다.
      *

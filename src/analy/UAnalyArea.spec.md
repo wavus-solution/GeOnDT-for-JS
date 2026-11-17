@@ -115,9 +115,10 @@ UAnalyArea extends UAnaly 클래스 정의
 
     _onMouseMove(e: MouseEvent) -> void
         인터페이스: e: 정규화 좌표로 변환할 DOM 마우스 이벤트다.
+        처리 기준: 렌더러의 지도 캔버스를 대상으로 한 입력만 사용한다. 정규화 좌표가 비유한 값이거나 [-1, 1] 범위를 벗어나면 교차점·측정 끝점·라벨을 갱신하지 않는다.
         의존:
             UAnaly — 활성 조회·앱·지형 교차; 함수: {isActive(), intersectTerrain()}; 속성 읽기: {_app}
-            U3dApp — 측정 레이어 조회; 함수: {getMeasureLayer()}
+            U3dApp — 입력 캔버스·측정 레이어 조회; 함수: {getRenderer(), getMeasureLayer()}
             U3dMouseEvent — 입력 좌표 정규화; 함수: {computeNormalize()}
             defined — 교차 결과 유무; 함수: {defined()}
             UDEF — 디버그 로그 설정; 속성 읽기: {debug}

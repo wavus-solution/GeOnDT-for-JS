@@ -191,7 +191,7 @@ UAnalyMultipleComponent extends UAnaly 클래스 정의
         의존: defined — 선·결과 존재 판정; 함수: {defined()}
         동작:
             _lineGeom이 있으면
-                선이 없으면 종료하고 현재 간격으로 배치점을 얻는다.
+                현재 선과 간격으로 배치점을 얻는다.
                 결과가 있으면 비동기 생성을 시작하고 선과 POI를 비운다.
     #finishArea() -> void
         의존:
@@ -200,7 +200,7 @@ UAnalyMultipleComponent extends UAnaly 클래스 정의
             OLGeometry — 영역 범위; 함수: {getExtent()}
             defined — 측정 식별자 판정; 함수: {defined()}
         동작:
-            분석과 측정 레이어의 도형 식별자가 모두 없거나 서로 다르면 종료한다.
+            분석의 _areaFeature와 측정 레이어의 _measureFeature 객체가 모두 없으면 종료한다. 분석의 식별자가 측정 도형 객체의 id와 엄격히 다를 때도 종료한다.
             식별자를 비우고 POI를 정리한 뒤 측정 도형을 확정한다.
             도형이 없으면 종료하며 geometry나 길이 4 이상 extent가 없으면 도형을 제거하고 종료한다.
             현재 간격의 영역점을 구해 생성을 시작하고 측정 도형을 제거한다.
@@ -222,11 +222,11 @@ UAnalyMultipleComponent extends UAnaly 클래스 정의
             defined — 레이어·성공 결과 판정; 함수: {defined()}
         동작:
             _layer가 있으면
-                레이어가 없으면 종료하고 시작 번호를 얻는다.
+                시작 번호를 얻는다.
                 분석 스타일이 부가 스타일보다 우선하며 부가 옵션의 rotation은 각 배치점 rotation으로 덮어쓴다.
                 점을 순회하여 이름·좌표·회전·스타일과 isUpdate를 정하며 인스턴스 모드는 마지막 항목만 isUpdate=true이다.
                 각 addPosition 결과를 Promise로 받고 생성 후 높이를 보정하도록 연결한다.
-                항목 실패는 0219705 로그와 undefined로 바꾸고 Promise.all 완료 뒤 defined 결과만 create 배열로 통지한다.
+                항목 실패는 0219705 로그와 undefined로 바꾸고 Promise.all 완료 뒤 defined 결과만 모은다. 성공 결과가 하나 이상일 때만 create 배열을 통지하므로 빈 입력·전체 실패에서는 create를 보내지 않는다.
                 addPosition의 동기 예외를 포함한 전체 실패는 전역 __GSError__가 truthy이면 그 함수로, 아니면 console.error로 전달한다.
 
     #repositionComponent(component: U3dComponentPosition) -> void
@@ -320,17 +320,19 @@ UAnalyMultipleComponent extends UAnaly 클래스 정의
             baseurl은 검증에만 쓰고 name으로 모델을 찾아 없으면 안내하며 있으면 _drawObject로 저장한다.
     async loadModel(modelData: object) -> Promise<object | undefined>
         의존:
-            표준 Promise — 캐시 완료 관찰; 함수: {Promise.resolve()}
-            U3dMultipleComponentLayer — 모델 조회·로딩; 함수: {getModelInfo(), loadModel(), getLoadedModel()}; 속성 읽기: {_scene, _object}; 속성 쓰기: {_drawObject}
+            ModelInfo — 모델 로드 완료를 기다리는 표준 Promise; 속성 읽기: {ready}
+            U3dMultipleComponentLayer — 모델 조회·로딩; 함수: {getModelInfo(), loadModel(), getLoadedModel(), _isModelLoadReady()}; 속성 읽기: {_scene, _object}; 속성 쓰기: {_drawObject}
             UScene — 원본 분리; 함수: {remove()}
             U3dMessage — 조회 실패; 함수: {__GError__()}
             defined — 레이어 판정; 함수: {defined()}
         동작:
-            _layer가 있으면
-                레이어가 없으면 undefined로 완료하며 있으면 앱 리스너를 제거한다.
-                modelData.name·baseurl로 캐시를 찾고 없으면 loadModel을 기다려 성공 시 원본 객체를 장면에서 분리하고 그 모델로 resolve하며 실패하면 reject한다.
-                캐시가 준비되어 있으면 name으로 모델을 찾아 _drawObject에 저장해 반환하며 찾지 못하면 7316614 로그 후 undefined로 완료한다. 반환하지 않는 별도 거절 객체는 만들지 않는다.
-                준비 중 캐시는 완료 후 같은 조회를 수행하며 찾지 못하면 1514735 로그 후 reject하고 캐시 실패도 reject한다.
+            _layer가 null·undefined이면 undefined로 완료한다.
+            _layer가 있으면:
+                앱 리스너를 제거한다.
+                modelData.name·baseurl로 캐시를 찾고 정보 또는 ready가 없으면 loadModel을 기다려 성공 시 원본 객체를 장면에서 분리하고 그 모델로 resolve하며 실패하면 reject한다.
+                레이어의 _isModelLoadReady로 호출 시점의 완료 여부를 보관하고 캐시의 ready를 기다린다. name으로 모델을 찾아 _drawObject에 저장해 반환한다.
+                모델을 찾지 못하면, 호출 시 이미 완료된 요청은 7316614 로그 후 undefined로 완료한다. 준비 중이던 요청은 1514735 로그 후 모델을 찾을 수 없다는 Error로 거부한다. 반환하지 않는 별도 거절 객체는 만들지 않는다.
+                캐시 ready가 거부되면 같은 오류를 호출자에게 전달한다. 정보 객체의 isReady 또는 then은 사용하지 않는다.
                 async 함수 자체로 결과와 예외를 전달하며 준비 중 캐시의 실패 사유를 보존한다.
     addComponent(modelData: object) -> Promise<object | undefined>
         의존: U3dMessage — 이전 API 안내; 함수: {__GInfo__()}
@@ -392,11 +394,11 @@ UAnalyMultipleComponent extends UAnaly 클래스 정의
             defined — 대상·기즈모·변환 판정; 함수: {defined()}
         동작:
             _selected가 있으면
-                선택이 없으면 종료하고 mode가 'none'이면 기즈모를 제거하여 종료한다.
+                mode가 'none'이면 기즈모를 제거하여 종료한다.
                 활성화한다.
                 _control이 없으면 생성한다.
                 mode를 저장·적용한다.
-                기존 제어 객체를 분리하고 color 또는 하이라이트 색의 새 구체 메시를 만든다.
+                기존 제어 객체를 분리하고 color가 null·undefined이 아니면 그 색, 아니면 하이라이트 색의 새 구체 메시를 만든다.
                 인스턴스 컴포넌트는 instancedInfo의 변환 복사본을 쓰며 이름·ID가 없으면 중단한다.
                 일반 컴포넌트는 위치를 쓰되 rotate 모드이고 자식이 하나이면 위치를 복사하여 경계 중심 z를 더한다.
                 일반 컴포넌트의 실제 Vector3 크기와 Euler 회전만 복사하고 도로는 getRoadCenter를 위치로 쓴다.
@@ -446,10 +448,12 @@ UAnalyMultipleComponent extends UAnaly 클래스 정의
             U3dComponentPosition — 오버레이 조회; 함수: {getOverlays()}; 속성 읽기: {overlay}
             U3dView — 카메라 분석; 함수: {viewAnalysis()}
             defined — options.componenet 선택; 함수: {defined()}
+            Web API — 비동기 분석 실패 기록; 함수: {console.error()}
         동작:
             options.componenet이 없으면 현재 선택을 쓰고 있으면 그 값을 쓴다.
             overlay 길이가 0이면 undefined로 종료하고 첫 getOverlays 결과를 카메라 뷰로 사용한다.
             뷰 자체를 this로 viewAnalysis를 호출하며 동기 성공이면 true, 동기 예외이면 false로 resolve한다. 반환된 분석 완료를 기다리지는 않는다.
+            분석 Promise의 거절은 콘솔에 원래 실패값과 함께 기록하며 이미 완료한 요청 성공 여부는 바꾸지 않는다.
     endLightAnaly(component: ComponentObject) -> void
         동작: 인수를 사용하지 않고 아무 작업 없이 종료한다.
 
@@ -476,9 +480,10 @@ UAnalyMultipleComponent extends UAnaly 클래스 정의
             UGroup — 도로 메시 연결; 함수: {add()}
             UScene — 도로 그룹 연결; 함수: {add()}
             defined — 입력·메시 판정; 함수: {defined()}
+            U3dMessage — 배열 도로 생성 실패 기록; 함수: {__GError__()}
         동작:
             options가 있으면
-                options가 배열이면 각 항목의 setRoad를 호출하되 완료를 모으지 않고 undefined를 반환한다.
+                options가 배열이면 각 항목의 setRoad를 호출하되 완료를 모으지 않고 undefined를 반환한다. 반환된 개별 Promise의 거절은 3060011 오류로 기록하며 동기 예외를 이 catch가 잡지는 않는다.
                 단일 입력에 positions가 없으면 종료하며 너비·높이·이미지는 도로 기본값을 적용한다.
                 앱과 현재 분석 dispatcher를 연결한 도로를 생성하고 mesh가 있으면 visible을 적용한다.
                 labelcenter로 라벨을 놓고 labelVisible이 falsy이면 숨긴 뒤 좌표를 적용하여 목록과 그룹·장면에 추가한다.
@@ -573,7 +578,7 @@ UAnalyMultipleComponent extends UAnaly 클래스 정의
             defined — 현재 도로 판정; 함수: {defined()}
         동작:
             _road가 있으면
-                현재 도로가 있으면 update(undefined,true)를 호출하고 시작·종료 표식을 해제해 참조를 비운 뒤 현재 도로를 비우고 POI를 정리한다.
+                update(undefined,true)를 호출하고 시작·종료 표식을 해제해 참조를 비운 뒤 현재 도로를 비우고 POI를 정리한다.
     clearPOI() -> void
         의존:
             UDEF — 표식 해제; 함수: {disposeObject3D()}
@@ -594,14 +599,16 @@ UAnalyMultipleComponent extends UAnaly 클래스 정의
     getSelectObject(e: U3dMouseEvent) -> ComponentObject | U3dRoad | undefined
         의존:
             UAnaly — 상속받은 실행 상태; 속성 읽기: {_app}
-            URaycaster — 비가시 메시 교차; 함수: {setFromCamera(), intersectObject()}
+            URaycaster — 비가시 메시 교차 광선 설정; 함수: {setFromCamera()}
             U3dApp — 카메라; 속성 읽기: {_camera}
             U3dMultipleComponentLayer — 컴포넌트 선택; 함수: {getIntersect()}
             defined — 교차 판정; 함수: {defined()}
         동작:
-            모듈 공용 INVISIBLE_RAY는 usevisible=false로 만들어지며 e의 normalizedX·normalizedY와 앱 카메라로 방향을 설정한다.
-            road 선택이면 도로 그룹의 첫 교차 object와 mesh.uuid가 같은 도로를 찾아 마지막 일치 도로를 반환한다.
-            그 밖에는 레이어 getIntersect(e,INVISIBLE_RAY)의 결과를 반환한다.
+            모듈 공용 INVISIBLE_RAY가 null·undefined이면 undefined를 반환한다.
+            INVISIBLE_RAY가 있으면:
+                usevisible=false인 광선을 e의 normalizedX·normalizedY와 앱 카메라로 설정한다.
+                _selectType이 'road'이면 도로 그룹의 첫 교차 결과를 찾고, 교차가 있으면 object에 대응하는 등록 도로를 조회한다.
+                그 밖에는 레이어 getIntersect(e,INVISIBLE_RAY)의 결과를 반환한다.
     highLightColor(selected: U3dComponentPosition | U3dRoad, off: boolean) -> void
         의존:
             U3dComponentPosition — 컴포넌트 종류와 재질; 속성 읽기: {U3dComponentPosition}; 함수: {restoreMaterial(), pickMaterial()}
@@ -617,7 +624,7 @@ UAnalyMultipleComponent extends UAnaly 클래스 정의
             U3dApp — 입력 카메라·DOM; 속성 읽기: {_camera, _renderer}
         동작:
             앱 카메라·렌더러 DOM·앱으로 컨트롤을 새로 만든다.
-            objectChange를 변환 반영 함수에 묶고 mouseUp은 _isGizmoMouseUp=true로 만드는 callback으로 연결한다.
+            objectChange를 변환 반영 함수에 묶고 mouseUp은 _isGizmoMouseUp=true로 만드는 메서드를 현재 분석에 bind하여 연결한다.
     removeGizmo() -> void
         의존:
             UAnaly — 상속받은 실행 상태; 속성 읽기: {_app, _scene}
@@ -636,6 +643,9 @@ UAnalyMultipleComponent extends UAnaly 클래스 정의
             _controlObj가 없으면 종료하고 컨트롤 모드를 구한 뒤 선택이 없으면 종료한다.
             _controlObj와 _selected가 있으면:
                 결과가 false이면 종료하고 true이면 모델의 월드 행렬·컴포넌트 행렬·자식 행렬을 선택적으로 갱신한다.
+
+    #gizmoMouseUp() -> void
+        동작: 기즈모의 mouseUp 알림을 받으면 _isGizmoMouseUp을 true로 설정하여 다음 선택 클릭을 편집 종료 직후의 클릭으로 구분한다.
 
     #addRoadEventListener() -> void
         의존:
@@ -662,6 +672,21 @@ UAnalyMultipleComponent extends UAnaly 클래스 정의
             UEventDispatcher — 종료 클릭 통지; 함수: {dispatchEvent()}
             U3dRoad — 완료 라벨; 함수: {setLabel(), hideLabel()}
         동작: 도로를 마무리하고 dblclick을 보낸 뒤 목록 마지막 도로에 road_인덱스 라벨을 설정하고 숨긴다.
+    #findRoadByMesh(obj: Object3D) -> U3dRoad | undefined
+        의존:
+            U3dRoad — 등록한 도로의 실제 렌더 메시; 속성 읽기: {mesh}
+            Object3D — 현재 렌더 객체의 식별값; 속성 읽기: {uuid}
+            defined — 도로 메시 유무; 함수: {defined()}
+        동작:
+            등록한 도로를 순서대로 조회하고 메시가 없는 항목은 건너뛴다.
+            road.mesh.uuid가 입력 obj.uuid와 엄격히 같으면 결과에 그 도로를 저장한다. 전체 순회를 마친 뒤 마지막 일치 도로를 반환하며 없으면 undefined이다. 별도 puid를 만들거나 비교하지 않는다.
+
+    #intersectRoad(ray: URaycaster) -> Intersection | undefined
+        의존:
+            URaycaster — 도로 그룹 교차; 함수: {intersectObject()}
+            defined — 교차 목록 유무; 함수: {defined()}
+        동작: ray로 _roadGroup을 교차 검사한다. 결과가 null·undefined이거나 빈 배열이면 undefined, 아니면 첫 교차 결과를 반환한다.
+
     removeRoad(name: string) -> void
         의존:
             U3dRoad — 라벨 제거; 함수: {removeLabel()}

@@ -1,0 +1,41 @@
+<template data-example-rail>
+    <button class="rail-button" type="button" data-panel-target="event-layers-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">▦</span><span>이벤트</span>
+    </button>
+</template>
+<aside class="glass-panel example-panel example-option-panel" id="event-layers-panel" aria-hidden="true">
+    <header class="panel-header">
+        <h2>이벤트 처리</h2>
+        <button class="panel-close" type="button" data-panel-close="event-layers-panel" aria-label="이벤트 패널 닫기">×</button>
+    </header>
+    <div class="panel-content">
+        <p class="panel-description">지도 클릭과 화면 로딩 이벤트의 on, once 호출을 비교합니다.</p>
+        <section class="event-recording" aria-label="이벤트 기록 설정">
+            <div class="event-registration-row">
+                <label class="event-enable"><input type="checkbox" data-event-enabled checked><span>이벤트 기록</span></label>
+                <span data-event-status role="status" aria-live="polite"></span>
+            </div>
+            <label class="event-field">표시할 이벤트<select class="form-control" data-event-filter aria-label="표시할 이벤트"></select></label>
+        </section>
+        <section class="event-log-section" aria-labelledby="event-log-heading">
+            <div class="event-section-heading">
+                <h3 id="event-log-heading">최근 이벤트 로그</h3>
+                <button class="event-button event-button-quiet" type="button" data-event-clear>로그 지우기</button>
+            </div>
+            <textarea class="form-control" data-event-log readonly rows="7" aria-label="최근 이벤트 로그" aria-describedby="event-log-note" placeholder="지도에서 이벤트를 발생시키세요."></textarea>
+            <div class="event-log-footer">
+                <p id="event-log-note">최신 100개를 보관합니다.<br>로그를 지워도 once는 다시 등록되지 않습니다.</p>
+                <button class="event-button" type="button" data-event-rearm>once 다시 등록</button>
+            </div>
+        </section>
+        <section class="event-model-section" aria-labelledby="event-model-heading">
+            <h3 id="event-model-heading">모델 레이어</h3>
+            <label class="event-field">모델 선택<select class="form-control" data-event-model aria-label="모델 레이어 선택"></select></label>
+            <div class="event-actions">
+                <button class="event-button event-button-primary" type="button" data-event-move>선택 모델로 이동</button>
+                <button class="event-button" type="button" data-event-info>정보 확인</button>
+            </div>
+            <pre data-event-model-info aria-label="모델 레이어 정보">모델을 선택해 정보를 확인하세요.</pre>
+        </section>
+    </div>
+</aside>

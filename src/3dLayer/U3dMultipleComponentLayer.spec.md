@@ -227,7 +227,7 @@ ComponentObject 타입 정의
 
 U3dMultipleComponentLayerEMI_Content 타입 정의
     BEFORE_CREATE: string
-        컴포넌트용 모델을 복사하기 전의 이벤트 이름이다.
+        모델 선택·일반 모델 복제 뒤, 렌더 그룹과 컴포넌트 구성을 진행하기 전의 이벤트 이름이다.
     CREATE: string
         컴포넌트 생성 후 결과를 전달하는 이벤트 이름이다.
 
@@ -257,7 +257,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
 
     static EVENT: object
         의존: U3dModelBasicLayer — 기반 layer event 재사용; 속성 읽기: {EVENT}
-        기반 이벤트에 모델 복사 직전 `BEFORE_CREATE`와 컴포넌트 생성 완료 `CREATE`를 추가한다.
+        기반 이벤트에 컴포넌트 구성 전 `BEFORE_CREATE`와 생성 완료 `CREATE`를 추가한다.
 
     #updateState: object
         대량 컴포넌트 프레임 갱신의 다음 시작 cursor를 보관한다.
@@ -330,20 +330,38 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
     표시와 생명주기 책임 그룹
         역할: 레이어와 소속 컴포넌트의 표시·갱신·해제를 함께 제어한다.
 
+        override initialize() -> void
+            의존:
+                U3dModelBasicLayer — 기반 모델 초기화 시작; 함수: {initialize()}
+                THREE.Scene — 원본 그룹의 화면 연결 해제; 함수: {remove()}
+                U3dLayer — 초기화한 장면 조회; 속성 읽기: {_scene}
+                U3dModelBasicLayer — 컴포넌트 생성용 원본 그룹 조회; 속성 읽기: {_object}
+            동작:
+                부모 initialize를 호출하고 반환값은 전달하지 않는다.
+                장면에서 원본 모델 그룹을 제거하되 참조는 컴포넌트 생성용으로 보관한다. 동기 예외는 호출자에게 전달한다.
+
         override show() -> void
             의존:
                 U3dModelBasicLayer — 기반 layer 표시; 함수: {show()}
+                THREE.Scene — 원본 에셋 그룹의 장면 연결 제거; 함수: {remove()}
+                U3dLayer — 표시할 장면 조회; 속성 읽기: {_scene}
+                U3dModelBasicLayer — 화면에서 제외할 원본 그룹 조회; 속성 읽기: {_object}
                 ComponentObject — 개별 컴포넌트 표시; 함수: {show()}
+                __GError__ — 개별 표시의 비동기 실패 안내; 함수: {__GError__()}
             동작:
-                기반 layer를 표시하고 현재 목록의 모든 컴포넌트를 표시한다.
+                기반 layer를 표시한 뒤 scene이 있으면 원본 에셋 그룹을 다시 제거하여 컴포넌트만 표시 대상으로 남긴다.
+                현재 목록에서 존재하는 각 컴포넌트를 표시한다.
+                개별 표시의 비동기 완료는 기다리지 않고 실패는 __GError__로 보고한다. 동기 예외는 호출자에게 전달한다.
                 이동 경로 애니메이션을 시작한다.
 
         hide() -> void
             의존:
                 U3dModelBasicLayer — 기반 layer 숨김; 함수: {show()}
                 ComponentObject — 개별 컴포넌트 숨김; 함수: {hide()}
+                __GError__ — 개별 숨김의 비동기 실패 안내; 함수: {__GError__()}
             동작:
                 기반 layer와 현재 목록의 모든 컴포넌트를 숨긴다.
+                개별 숨김의 비동기 완료는 기다리지 않고 실패는 __GError__로 보고한다. 동기 예외는 호출자에게 전달한다.
                 이동 경로 애니메이션을 중지한다.
 
         setStyle(option: U3dMultipleComponentLayerStyle) -> void
@@ -355,11 +373,13 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 defined — 각 스타일 속성의 적용 여부 판정; 함수: {defined()}
                 THREE — 색상 객체 종류 판정; 생성자: {Color}
                 ComponentObject — 개별 스타일과 가시성 적용; 함수: {setColor(), setOpacity(), show(), hide(), setBrightness(), setContrast()}
+                __GError__ — 스타일 중 가시성 변경의 비동기 실패 안내; 함수: {__GError__()}
             동작:
                 option의 색상, 불투명도, 가시성, 밝기와 대비를 한 번 읽고 모든 입력을 먼저 검증한다.
                 현재 컴포넌트 목록을 순회하여 값이 있는 속성에 대응하는 컴포넌트 메서드만 호출한다.
+                가시성 변경의 비동기 완료는 기다리지 않고 실패는 __GError__로 보고한다. 스타일 입력 검사와 동기 예외 전달은 유지한다.
 
-        override dispose() -> DeferredObject<boolean>
+        override dispose() -> Promise<boolean>
             의존: U3dModelBasicLayer — 기반 layer 자원 해제; 함수: {dispose()}
             동작:
                 deprecated 호환 API를 통해 모든 컴포넌트를 제거한다.
@@ -437,7 +457,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 ComponentObject — 사용자 속성 조회; 함수: {getProperties()}
             동작:
                 각 컴포넌트의 속성을 callback에 전달한다.
-                callback 반환값이 undefined가 아니면 컴포넌트가 아니라 반환값 자체를 결과 배열에 추가한다. 선언 반환형과 callback 사용 방식이 일치하는지 확인이 필요하다. [확인 Q-002]
+                callback 반환값이 null·undefined가 아니면 false나 0도 포함하여 반환값 자체를 결과 배열에 추가한다. 컴포넌트를 자동으로 수집하지 않으므로 선언 반환형과 callback 사용 방식이 일치하는지 확인이 필요하다. [확인 Q-002]
                 수집한 배열을 반환한다.
 
     선택과 공간 검색 책임 그룹
@@ -458,8 +478,8 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 trailMesh에 컴포넌트 이름이 없거나 현재 누적 경로 메시가 아닌 경우 undefined를 반환하여 이름이 같은 독립 경로나 제거된 경로를 제외한다.
                 교차 object가 instanced mesh이면 누락된 mesh 그룹 번호와 교차 instanceId를 각각 0으로 대체한 뒤 두 값을 합쳐 모델 전체 instance ID를 계산한다.
                 intersect.object가 있고 mesh._objectName이 존재하면 모델별 instance metadata를 조회하고 컴포넌트 이름이 있는 경우 이름 색인으로 반환한다.
-                metadata 이름으로 찾지 못하면 컴포넌트 목록에서 같은 모델명과 전체 instance ID를 가진 인스턴스 컴포넌트를 찾는다.
-                일반 mesh이면 각 일반 컴포넌트의 object tree에서 교차 mesh와 uuid가 같은 mesh를 가진 컴포넌트를 반환한다.
+                metadata의 컴포넌트 이름이 정의되어 있으면 이름 조회 결과가 undefined여도 즉시 반환한다. metadata 이름이 없는 경우에만 목록에서 같은 모델명과 전체 instance ID를 가진 인스턴스 컴포넌트를 찾는다.
+                일반 mesh이면 각 컴포넌트의 object tree에서 교차 mesh와 uuid가 같은 mesh를 가진 컴포넌트를 반환한다.
                 어느 경로에서도 찾지 못하면 undefined를 반환한다.
 
         getComponentsByArea(points: Array<GeoPosition>) -> Array<ComponentObject>
@@ -501,6 +521,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 defined — 생성 결과와 선택 입력·상태 존재 여부 판정; 함수: {defined()}
                 UScene — 원본 model group과 생성 object의 scene 연결; 함수: {remove(), add()}
                 U3dLayer — 상속 scene·앱 조회와 animation 존재 표식 기록; 속성 읽기: {_scene, _app}; 속성 쓰기: {_animation}
+                U3dModelBasicLayer — 컴포넌트 생성 전에 장면에서 제거할 원본 그룹 조회; 속성 읽기: {_object}
                 ComponentObject — 라벨·가시성·경로·속성·색상·불투명도·animation 상태 적용과 등록 식별값 조회; 함수: {setLabel(), showLabel(), hideLabel(), show(), hide(), addMovePoint(), addPathGeometry(), addProperties(), setColor(), setOpacity(), setBrightness(), setContrast(), setSaturation(), startMixer(), stopMixer(), getAnimationNow(), moveResume(), moveStart(), movePause()}; 속성 읽기: {_setInstanced, instanceId, _object, name, _lightList}
                 U3dComponentPosition — U3dComponentPosition 계열의 path geometry 지원 대상 판정; 상수: {U3dComponentPosition}
                 U3dLayer — spot light option에 전달할 기반 draw context 조회; 속성 읽기: {_drawArg}
@@ -516,6 +537,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 생성에 실패하면 오류를 출력하고 undefined를 반환한다.
                 인스턴스 컴포넌트이면 공용 인스턴스 상위 그룹을, 일반 컴포넌트이면 자체 object를 부모가 없을 때만 scene에 추가한다.
                 labelVisible에 따라 라벨을 만들고 표시하거나 숨긴다.
+                초기 가시성 적용의 비동기 완료는 기다리지 않고 실패는 __GError__로 보고한다. 컴포넌트의 즉시 반환과 후속 등록 순서는 유지한다.
                 visible이 있으면 컴포넌트를 표시하거나 숨긴다.
                 drawPolygon이 존재하지만 이동점 목록이 없으면 원본 opt.movepointlist에 빈 배열을 저장한다.
                 이동점·자세 목록 또는 path geometry를 연결하고 해당 레이어에 애니메이션이 있음을 기록한다.
@@ -546,15 +568,9 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             동작:
                 입력 위치와 같은 좌표의 컴포넌트가 현재 목록에 하나라도 있으면 true를 반환하고 없으면 false를 반환한다.
 
-        loadModel(modelInfo?: U3dMultipleComponentModelInfo) -> DeferredObject<void | ModelObject3D>
-            의존:
-                deferred — 호출자에게 반환할 완료 객체 생성; 함수: {deferred()}
-                DeferredObject — 기반 로드 성공 결과와 실패 이유 전달; 함수: {resolve(), reject()}
-                U3dModelBasicLayer — 단일 원본 모델 load 또는 기존 설정 reload; 함수: {load(), prototype.reLoad.call()}
-            동작:
-                modelInfo가 있으면 기반 load를 시작하고 성공 object로 반환 deferred를 resolve하며, 지원하지 않는 확장자·잘못된 경로·네트워크 오류 등 load의 실패 이유로 reject한다.
-                modelInfo가 없으면 기반 reLoad를 시작하고 성공 시 반환 deferred를 resolve한다. reLoad의 실패는 연결하지 않는다.
-                반환 deferred를 즉시 반환한다.
+        loadModel(modelInfo?: U3dMultipleComponentModelInfo) -> Promise<void | ModelObject3D>
+            의존: U3dModelBasicLayer — 개별 로딩 또는 전체 모델 재로딩; 함수: {load(), prototype.reLoad.call()}
+            동작: 모델 정보가 있으면 기반 load의 결과 Promise를 반환한다. 없으면 기반 reLoad의 Promise를 반환하며 값 없는 성공과 원래 실패 이유를 전달한다.
 
     저장과 복원 책임 그룹
         역할: 현재 컴포넌트 상태를 저장 형식으로 내보내고 저장 입력에서 컴포넌트와 계층을 다시 만든다.
@@ -582,8 +598,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 각 복사본의 컴포넌트 생성 Promise를 시작하여 목록에 저장한다.
                 생성 Promise가 완료되면 `load` 이벤트를 발생시키고 생성된 컴포넌트의 저장 계층 연결을 후속 실행한다.
 
-                모든 생성 Promise를 합친 Promise를 반환한다. 중복 이름은 undefined가 아니라 reject로 전달되며 선언 주석과의 차이는 확인 대상이다. [확인 Q-024]
-                완료 후 이벤트·계층 연결을 수행하는 then 결과는 반환 Promise 목록에 넣지 않으므로 그 callback 예외는 별도 후속 Promise의 실패가 된다.
+                생성 후 이벤트·계층 연결까지 수행한 then 결과들을 Promise.all로 모아 입력 순서의 컴포넌트 배열을 반환한다. 생성 실패뿐 아니라 이벤트·계층 연결에서 발생한 예외도 이 반환 Promise를 거부한다. 중복 이름은 undefined가 아니라 reject로 전달되며 선언 주석과의 차이는 확인 대상이다. [확인 Q-024]
 
         async #loadComponent(data: ComponentParam) -> Promise<ComponentObject | undefined>
             처리 기준: 같은 이름의 컴포넌트가 이미 있으면 이름을 포함한 오류를 throw한다. [확인 Q-024]
@@ -694,27 +709,17 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             의존: ComponentObject — 이동 경로 animation 초기화·재시작; 함수: {restart()}
             동작: 레이어 재생 상태를 playing으로 바꾸고 현재 모든 컴포넌트의 이동을 초기화하여 다시 시작한다.
 
-        showComponent(component: ComponentObject) -> DeferredObject<void>
+        showComponent(component: ComponentObject) -> Promise<void>
             의존:
-                defined — 입력 컴포넌트 존재 여부 판정; 함수: {defined()}
-                deferred — 표시 결과를 전달할 완료 객체 생성; 함수: {deferred()}
-                DeferredObject — 표시 성공·실패 결과 전달; 함수: {resolve(), reject()}
                 ComponentObject — 개별 컴포넌트 표시; 함수: {show()}
-            동작:
-                입력 컴포넌트가 없으면 반환 deferred를 reject한 상태로 즉시 반환한다.
-                컴포넌트 show가 Promise를 반환하면 그 성공·실패를 반환 deferred의 resolve·reject로 전달한다.
-                show가 이미 표시된 상태 등의 이유로 undefined를 반환하면 optional chaining 뒤에 후속 처리가 없어 반환 deferred가 완료되지 않을 수 있다. [확인 Q-007]
+                defined — 표시 대상 입력 존재 여부 판정; 함수: {defined()}
+            동작: 입력이 없으면 값 없이 거부한다. component.show()의 결과를 Promise.resolve로 수용하고 성공은 값 없이 완료한다. 이미 목표 상태여서 undefined를 반환해도 완료하며, 비동기 실패는 원래 이유로 전파한다. show 호출 자체의 동기 예외는 Promise로 감싸지 않고 호출자에게 던진다.
 
-        hideComponent(component: ComponentObject) -> DeferredObject<void>
+        hideComponent(component: ComponentObject) -> Promise<void>
             의존:
-                defined — 입력 컴포넌트 존재 여부 판정; 함수: {defined()}
-                deferred — 숨김 결과를 전달할 완료 객체 생성; 함수: {deferred()}
-                DeferredObject — 숨김 성공·실패 결과 전달; 함수: {resolve(), reject()}
                 ComponentObject — 개별 컴포넌트 숨김; 함수: {hide()}
-            동작:
-                입력 컴포넌트가 없으면 반환 deferred를 reject한 상태로 즉시 반환한다.
-                컴포넌트 hide가 Promise를 반환하면 그 성공·실패를 반환 deferred의 resolve·reject로 전달한다.
-                hide가 이미 숨겨진 상태 등의 이유로 undefined를 반환하면 optional chaining 뒤에 후속 처리가 없어 반환 deferred가 완료되지 않을 수 있다. [확인 Q-007]
+                defined — 숨김 대상 입력 존재 여부 판정; 함수: {defined()}
+            동작: 입력이 없으면 값 없이 거부한다. component.hide()의 결과를 Promise.resolve로 수용하고 성공은 값 없이 완료한다. 이미 목표 상태여서 undefined를 반환해도 완료하며, 비동기 실패는 원래 이유로 전파한다. hide 호출 자체의 동기 예외는 Promise로 감싸지 않고 호출자에게 던진다.
 
     디버그와 순환 렌더 조회 책임 그룹
         역할: 컴포넌트 경계를 디버그 렌더에 제공하고 레거시 순환 소비자에 다음 컴포넌트를 제공한다.
@@ -737,8 +742,8 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
             처리 기준: 컴포넌트가 없으면 undefined를 반환한다.
             의존: defined — 컴포넌트 목록과 순환 index 존재 여부 판정; 함수: {defined()}
             동작:
-                컴포넌트가 하나이면 그 항목과 순환 완료를 뜻하는 needClear true를 반환한다.
-                컴포넌트가 둘 이상이면 현재 index를 먼저 1 증가시켜 해당 항목을 반환하고, 마지막 index에서 다음 호출이 오면 0으로 되돌려 첫 항목과 needClear true를 반환한다.
+                컴포넌트가 하나이거나 순환 index가 null·undefined이면 첫 항목과 순환 완료를 뜻하는 needClear true를 반환한다.
+                컴포넌트가 둘 이상이고 index가 정의되어 있으면 마지막 index 미만일 때 먼저 1 증가시켜 해당 항목과 needClear false를 반환한다. 마지막 index이면 0으로 되돌려 첫 항목과 needClear true를 반환하고, 마지막 index보다 크면 undefined를 반환한다.
                 초기 index가 0이므로 컴포넌트가 둘 이상일 때 첫 호출은 index 0이 아니라 index 1을 반환한다. [확인 Q-012]
 
         override getBoundingBox() -> Box3
@@ -807,7 +812,6 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
         역할: 기존 컴포넌트의 모델을 교체하고 레이어 metadata에 컴포넌트 위치를 합친다.
 
         changeObject(id: string, option: ChangeObjectOpt) -> void
-            모델 오프셋: 일반·인스턴스 모두 새 모델 연결 후 기존 모델 오프셋이 0이 아니면 getModelOffset() 복사본을 setModelOffset()에 전달하여 보정을 다시 적용한다. 일반 보정 노드는 기존 모델과 함께 정리하며 새 모델의 내부 변환은 보존한다. 인스턴스 교체 회전은 addInstancedInfo()가 정규화한 라디안 값을 재변환 없이 복사하여 논리 TRS와 렌더 TRS를 일치시킨다.
             인터페이스:
                 id: 교체할 기존 컴포넌트 ID
                 option.object: 미리 로드한 교체 대상 모델 이름
@@ -818,7 +822,7 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 defined — 교체 대상, 모델과 변환값 존재 여부 판정; 함수: {defined()}
                 U3dComponentInstancedPosition — 인스턴스 교체 경로 판정과 새 모델의 초기 변환 기록; 상수: {U3dComponentInstancedPosition}; 속성 쓰기: {_initPosition, _initRotation, _initScale}
                 U3dModelBasicLayer — 교체 대상 원본 model group 조회와 일반 모델 clone; 함수: {skClone()}; 속성 읽기: {_object}
-                ComponentObject — 대상 ID와 모델 교체에 필요한 object·변환·경계 상태 및 mixer 갱신; 함수: {setMixers(), getBrightness(), setBrightness()}; 콜백: {getBoundingBox}; 속성 읽기·쓰기: {id, _object, _bbox, position, rotation, scale, instanceId, name}
+                ComponentObject — 대상 ID와 모델 교체에 필요한 object·변환·경계 상태, 모델 오프셋과 mixer 갱신; 함수: {setMixers(), getBrightness(), setBrightness(), getModelOffset(), setModelOffset()}; 콜백: {getBoundingBox}; 속성 읽기·쓰기: {id, _object, _bbox, position, rotation, scale, instanceId, name}; 속성 읽기: {_modelOffset}
                 UBox3 — 교체 모델 경계 계산; 생성자: {new UBox3()}; 함수: {setFromObject(), setFromCenterAndSize()}
                 THREE — 일반 모델 mesh 판정, mixer·회전과 object 변환 복사; 생성자: {new AnimationMixer(), new Euler()}; 함수: {clone(), copy(), set()}; 상수: {Mesh}
                 THREE.Object3D — 교체한 모델과 child의 렌더·선택 metadata 기록; 속성 쓰기: {type, mixer, name, _bbox, getBBox, _utype, _rootObject, _ulayername}
@@ -840,10 +844,12 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 이때 instance matrix와 component.rotation은 addInstancedInfo가 축값 크기로 보정한 동일한 라디안 rotation을 사용한다. [확인 Q-017]
                 scale 입력이 있으면 component.scale과 새 object scale을 바꾸고, 생략하면 두 값은 기존 크기를 유지한다. 따라서 생략 시 새 instance matrix는 단위 크기의 info.scale을 사용하지만 컴포넌트 상태와 object scale은 기존 크기를 유지한다. [확인 Q-023]
                 새 모델의 animation mixer는 info.mixers에 수집되지만 component.setMixers()로 기존 컴포넌트에 연결하지 않는다. [확인 Q-018]
+                인스턴스 연결을 바꾼 뒤 기존 모델 오프셋이 0이 아니면 getModelOffset()의 복사본을 setModelOffset()에 전달하여 보정을 다시 적용한다.
                 현재 밝기를 setter로 다시 전달하여 저장된 대비와 함께 새 인스턴스 그룹에 적용한다. 인스턴스 상위 그룹이 scene에 없으면 한 번 추가하고 교체를 종료한다.
                 일반 컴포넌트 경로에서는 새 모델을 clone하여 mixer, 회전·크기, mesh 경계·레이어 metadata와 기존 비모델 자식을 새 그룹에 연결한다. 회전이나 크기를 생략하면 기존 컴포넌트 값을 유지하고, 새 그룹의 위치는 option.position을 읽지 않고 기존 object 위치를 복사한다. [확인 Q-016]
                 새 mesh의 getBBox callback에는 component.getBoundingBox를 수신 객체 고정 없이 대입한다. callback이 mesh를 this로 받아 실행되면 component의 getRectangle()을 찾지 못할 수 있다. [확인 Q-020]
                 animationNum은 일반 교체 경로에서도 읽거나 clip 선택에 적용하지 않으며, 새 mixer에 모델 animation의 clip action도 준비하지 않는다. [확인 Q-015]
+                일반 object를 새 그룹으로 교체하고 기존 위치를 복사한 뒤 모델 오프셋이 0이 아니면 getModelOffset()의 복사본으로 보정을 다시 적용한다. 이전 보정 노드는 기존 object와 함께 해제한다.
                 현재 밝기를 setter로 다시 전달하여 저장된 대비와 함께 새 일반 모델에 적용한다. 기존 일반 object를 scene에서 제거·해제하고 같은 위치의 새 그룹을 scene에 추가한다.
 
         override getMetaData() -> UMeta | undefined
@@ -860,20 +866,20 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
     라벨과 모델 표현 책임 그룹
         역할: 레이어 전체 라벨 상태와 로드 모델의 alpha 표현 속성을 제어한다.
 
-        showLabel() -> DeferredObject<boolean>
+        showLabel() -> Promise<boolean>
             의존:
-                deferred — 완료 결과 객체 생성; 함수: {deferred()}
-                DeferredObject — 라벨 표시 완료 결과 전달; 함수: {resolve()}
+                deferredPromise — 완료 결과 객체 생성; 함수: {deferredPromise()}
+                DeferredPromise — 라벨 표시 완료 결과 전달; 함수: {resolve()}
                 ComponentObject — 개별 라벨 표시; 함수: {showLabel()}
             동작:
                 labelVisible이 이미 true이면 true로 완료한 deferred를 반환한다.
                 아니면 현재 모든 컴포넌트의 라벨을 표시하고 labelVisible을 true로 바꾼 뒤 true로 완료한다.
 
-        hideLabel() -> DeferredObject<boolean>
+        hideLabel() -> Promise<boolean>
             의존:
                 defined — 컴포넌트 라벨 객체 존재 여부 판정; 함수: {defined()}
-                deferred — 완료 결과 객체 생성; 함수: {deferred()}
-                DeferredObject — 라벨 숨김 결과 전달; 함수: {resolve()}
+                deferredPromise — 완료 결과 객체 생성; 함수: {deferredPromise()}
+                DeferredPromise — 라벨 숨김 결과 전달; 함수: {resolve()}
                 ComponentObject — 라벨 존재 여부 조회와 개별 라벨 숨김; 함수: {hideLabel()}; 속성 읽기: {poi}
             동작:
                 labelVisible이 이미 false이면 true로 완료한 deferred를 반환한다.
@@ -881,11 +887,11 @@ U3dMultipleComponentLayer extends U3dModelBasicLayer 클래스 정의
                 poi가 없는 항목은 false로, 있는 항목은 라벨을 숨긴 뒤 true로 같은 deferred를 각각 완료하려고 한다.
                 컴포넌트가 없으면 한 번도 완료되지 않고 여러 항목의 결과는 최초 완료에 좌우될 수 있다. [확인 Q-008]
 
-        removeLabel() -> DeferredObject<boolean>
+        removeLabel() -> Promise<boolean>
             의존:
                 defined — 컴포넌트 라벨 객체 존재 여부 판정; 함수: {defined()}
-                deferred — 완료 결과 객체 생성; 함수: {deferred()}
-                DeferredObject — 라벨 제거 성공·실패 결과 전달; 함수: {resolve(), reject()}
+                deferredPromise — 완료 결과 객체 생성; 함수: {deferredPromise()}
+                DeferredPromise — 라벨 제거 성공·실패 결과 전달; 함수: {resolve(), reject()}
                 ComponentObject — 라벨 존재 여부 조회와 개별 라벨 제거; 함수: {removeLabel()}; 속성 읽기: {poi}
             동작:
                 컴포넌트를 순회하며 poi가 없는 첫 항목에서는 deferred를 reject하고 즉시 반환한다.
@@ -1033,7 +1039,7 @@ U3dMultipleComponentMeshSource 부분 타입 명세
         의존: defined — 전체·모델별 instance 정보 존재 여부 판정; 함수: {defined()}
         동작:
             전체 또는 모델별 instance 정보 Map이 없으면 종료한다.
-            모델 Map에서 idx를 삭제하고 비었으면 모델 이름 자체를 전체 Map에서 삭제한다.
+            name이 truthy이면 모델 Map에서 idx를 삭제한다. 그 뒤 모델 Map이 비었으면 모델 이름 자체를 전체 Map에서 삭제하고 종료한다.
             삭제한 idx가 lastIndex이면 남은 key 중 가장 큰 값을 다시 lastIndex로 저장한다.
 
     getInstancedGroup(name: string, index: number = 0) -> Object3D | undefined
@@ -1047,7 +1053,7 @@ U3dMultipleComponentMeshSource 부분 타입 명세
         처리 기준: 인스턴스 상위 그룹이 없으면 undefined를 반환한다.
         의존: UGroup — 모델·ID 구간 렌더 그룹 생성·식별과 상위 그룹 연결; 생성자: {new UGroup()}; 함수: {add()}; 속성 쓰기: {name, _objectName}
         동작:
-            _instancedObject가 있으면 같은 모델명과 offset의 그룹을 조회하고 이미 있으면 새 그룹을 만들지 않는다.
+            _instancedObject가 있으면 같은 모델명과 offset의 그룹을 조회하고 이미 있으면 새 그룹을 만들지 않고 undefined를 반환한다.
             없으면 `<모델명>^<offset>` 이름과 원본 모델명을 가진 UGroup을 만들어 인스턴스 상위 그룹에 추가하고 반환한다.
 
 컴포넌트 생성 내부 함수 책임 그룹
@@ -1063,7 +1069,7 @@ U3dMultipleComponentMeshSource 부분 타입 명세
             U3dModelBasicLayer — 원본·기본 모델 조회와 일반 컴포넌트가 소유할 skeleton clone 생성; 함수: {skClone()}; 속성 읽기: {_object, _drawObject}
             UGroup — 출력 그룹 식별과 일반 컴포넌트가 소유할 clone 연결; 함수: {add()}; 속성 쓰기: {name}
             ExtObject3D — 모델·animation 식별과 원본 형식·가시성·mixer 상태 전달; 속성 읽기: {name, animations}; 속성 쓰기: {_ext, visible, mixer}
-            UEventDispatcher — 모델 복사 직전 통지; 함수: {dispatchEvent()}
+            UEventDispatcher — 모델 선택·일반 모델 복제 뒤 컴포넌트 구성 전 통지; 함수: {dispatchEvent()}
             __GError__ — 로드 모델 누락 오류 출력; 함수: {__GError__()}
         동작:
             geoPosition이 있으면 drawArg 변환을 사용해 world position으로 바꾼다.

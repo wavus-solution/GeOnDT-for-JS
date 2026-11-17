@@ -23,6 +23,8 @@ export async function initialize(context) {
             //지도 초기화
             const app = context.app;
             window.app = app;
+            app.setCollisionFactor(6);
+
             window.THREE = app._THREE;
             app.on('change', ()=>{
                 const cameraPosition = app.getCameraPosition();
@@ -81,30 +83,13 @@ export async function initialize(context) {
             return LOCAL_MODEL_INFO_LIST.find(info => info.name === name);
         }
 
-        function loadTestModelData() {
+        async function loadTestModelData() {
             const layer = componentLayer;
-    
             const modelInfo = getLocalModelInfo('Ess_Container');
-            const promise = $.Deferred();
-            const loadedModelInfo = layer.getModelInfo(modelInfo.name, modelInfo.baseurl);
-            if (loadedModelInfo) {
-                // 등록된 정보로 실제 모델 불러오기가 완료되었는 지 확인
-                if (analy.isLoadModel(modelInfo.name, modelInfo.baseurl)) {
-                    promise.resolve();
-                } else {
-                    loadedModelInfo.then(() => {
-                        promise.resolve();
-                    })
-                }
-            } else {
-                // 컴포넌트로 사용할 모델을 최초 불러오기
-                layer.loadModel(modelInfo).then(() => {
-                    promise.resolve();
-                }).catch(() => {
-                    promise.reject();
-                });
-            }
-            return promise;
+            if (layer.getLoadedModel(modelInfo.name)) return;
+            const registered = layer.getModelInfo(modelInfo.name, modelInfo.baseurl);
+            // 진행 중인 요청이 있으면 같은 Promise를 기다리고 없으면 새로 로드합니다.
+            await (registered?.ready ?? layer.loadModel(modelInfo));
         }
     
         async function autoAdd() {
@@ -287,6 +272,7 @@ export async function initialize(context) {
                         style: {opacity: 0.7, color: '#a73bff'},
                         properties: {'용도': '어댑터', '반경': 10}
                     });
+                    // 컨테이너의 자식으로 연결해 이동·회전 시 어댑터 위치도 함께 바뀌게 합니다.
                     component.setChild(adapter);
                 }
             }
@@ -326,6 +312,7 @@ export async function initialize(context) {
             createFlowPipe({
                 name: 'flowPipe_adapter_loop',
                 positions: [],
+                // adapterRoute의 이름 순서대로 현재 어댑터 위치를 읽어 전선 경로를 갱신합니다.
                 properties: {'용도': 'ESS 어댑터 순회 전선', adapterRoute: adapterNames, adapterRouteAngle: angle},
                 color: '#627084',
                 opacity: 0.9,
@@ -336,6 +323,7 @@ export async function initialize(context) {
         }
 
         // 순회 순서를 속성으로 저장하므로 불러온 전선도 어댑터의 현재 위치를 따라갑니다.
+        // 컨테이너 이동 → 자식 어댑터 위치 변경 → 전선 경로 재계산을 연결합니다.
         function bindAdapterWire(flowPipe, properties) {
             const THREE = app._THREE;
             const angle = properties.adapterRouteAngle;
@@ -343,16 +331,21 @@ export async function initialize(context) {
             // FlowPipe의 기본 저장 항목에 연결 순서를 담은 사용자 속성을 함께 추가합니다.
             const getParam = flowPipe.getParam.bind(flowPipe);
             flowPipe.getParam = () => ({...getParam(), properties: flowPipe.getProperties()});
+            // 직전 좌표를 보관해 실제 위치 변화가 있을 때만 전선 경로를 다시 생성합니다.
             let previousPositions;
             const update = () => {
                 const adapters = properties.adapterRoute.map(name => window.vectorLayer.getGeometryByName(name));
                 if (adapters.some(adapter => !adapter)) return;
+                // 부모 컨테이너의 변환이 반영되도록 월드 행렬을 갱신한 뒤 현재 위치를 복사합니다.
                 const positions = adapters.map(adapter => {
                     adapter.updateMatrixWorld(true);
                     return adapter.getPosition().clone();
                 });
+                // 모든 어댑터가 이전 위치와 같으면 갱신을 건너뜁니다(제곱 거리 1e-10 미만은 동일 취급).
+                // 최초 호출에는 비교할 좌표가 없으므로 아래에서 초기 전선 경로를 만듭니다.
                 if (previousPositions && positions.every((position, index) =>
                     position.distanceToSquared(previousPositions[index]) < 1e-10)) return;
+                // 하나라도 이동했다면 순회 좌표와 컨테이너 사이 꺾임점을 현재 위치 기준으로 다시 계산합니다.
                 previousPositions = positions;
                 const path = [];
                 const append = point => {
@@ -371,10 +364,14 @@ export async function initialize(context) {
                     append(firstBend);
                     append(secondBend);
                 }
+                // 마지막 어댑터에서 첫 어댑터로 돌아오도록 경로를 닫습니다.
                 append(positions[0].clone());
+                // 다시 계산한 경로를 지리 좌표로 변환해 전선 전체 좌표를 교체합니다.
                 flowPipe.setPositions(path.map(point => app.vector3ToGeoGraphic(point.clone())));
             };
+            // 흐름 애니메이션이 진행되는 매 프레임 위치 변화를 확인하도록 콜백을 등록합니다.
             flowPipe.setOnUpdate(update);
+            // 다음 프레임을 기다리지 않고 현재 어댑터 위치로 초기 경로를 즉시 설정합니다.
             update();
         }
     
@@ -1406,13 +1403,14 @@ export async function initialize(context) {
     
             const style = param.style;
             const adapter = new GeOnDT.geom.U3dAdaptedGeometry({
+                ...style,
                 name: param.name ?? 'adapter_' + Math.floor(Math.random() * 1500) + 1,
                 radius: param.radius ?? 0.1,                // 어댑터 반경
                 buffer: param.buffer ?? 10,                 // 어댑터 인식 범위 (반경)
                 boundColor: style.boundColor ?? "#76ff00",  // 어댑터 인식 범위 표시 색상
                 lineColor: style.lineColor ?? "#e712f6",    // 어댑터 연결 선 색상
                 lineThick: 0.01,
-                useline: style.useline ?? false,
+                outline: style.outline,
                 widthSegments: param.widthSegments ?? 16,   // 어댑터 세밀도 ( 클수록 구에 더 가까움 : 성능 별로 조절 )
                 color: style.color,                         // 어댑터 색상
                 opacity: style.opacity ?? 1,                // 어댑터 투명도
@@ -1440,12 +1438,13 @@ export async function initialize(context) {
     
             const style = param.style
             const heat = new GeOnDT.geom.U3dHeatGeometry({
+                ...style,
                 temperature: param.temperature ?? 100,
                 name: param.name ?? 'heat_' + Math.floor(Math.random() * 1500) + 1,
                 radius: param.radius ?? 0.05,                // 열원 객체 반경
                 buffer: param.buffer ?? 0.3,                 // 열원 범위
                 outerFactor: param.outerFactor ?? 5,         // 열원 범위 배율
-                useline: style.useline ?? false,
+                outline: style.outline,
                 widthSegments: param.widthSegments ?? 16,   // 열원 세밀도 ( 클수록 구에 더 가까움 : 성능 별로 조절 )
                 color: style.color,                         // 열원 색상
                 opacity: 1,                                 // 열원 투명도
@@ -1491,6 +1490,7 @@ export async function initialize(context) {
             window.vectorLayer.addGeometry(flowPipe);
             flowPipe.flowStart();
             if (param.positions.length) flowPipe.setPositions(param.positions);
+            // 어댑터 순회 정보가 있는 전선에 위치 추적을 연결합니다(저장한 전선을 불러올 때도 적용).
             if (Array.isArray(param.properties?.adapterRoute)) {
                 bindAdapterWire(flowPipe, param.properties);
             }
@@ -1871,7 +1871,8 @@ export async function initialize(context) {
                 const baseurl = 'https://3d-dev.geon.kr/data/' + info.metaPath.replace(info.fileName, '');
     
                 const loadedModelInfo = window.subComponentLayer.getModelInfo(name, baseurl);
-                loadedModelInfo.then(() => {
+                await loadedModelInfo.ready;
+                {
                     const worldPos = rootObj.getVectorPosition();
                     const position = rootObj.getPosition();
                     const color = MODEL_COLOR_LIST[name];
@@ -1914,7 +1915,7 @@ export async function initialize(context) {
                     } else {
                         selectChild(child, rootObj);
                     }
-                })
+                }
             } catch (e) {
                 toast('컴포넌트 모델을 불러오는 중 오류가 발생 하였습니다.');
             }
@@ -3604,7 +3605,7 @@ export async function initialize(context) {
                         window.componentAnaly.readyModel(modelInfo.name, modelInfo.baseurl);
                     } else {
                         //로드가 아직 덜되었다면 다되고 나서 준비
-                        await loadedModelInfo;
+                        await loadedModelInfo.ready;
                         window.componentAnaly.readyModel(modelInfo.name, modelInfo.baseurl);
                     }
                 } else {

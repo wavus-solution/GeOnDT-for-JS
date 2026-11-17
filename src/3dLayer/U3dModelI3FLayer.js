@@ -1,21 +1,21 @@
 import * as THREE from 'three';
-import {defined} from '/union3d/util/defined.js';
-import {UMesh} from '/union3d/core/mesh/UMesh.js';
-import {defaultValue} from '/union3d/util/defaultValue.js';
-import {UFileLoader} from '/union3d/core/loader/UFileLoader.js';
-import {UDEF} from '/union3d/core/UDEF.js';
-import {UTextureLoader} from '/union3d/core/loader/UTextureLoader.js';
-import {UGroup} from '/union3d/core/UGroup.js';
+import {defined} from '@union3d/util/defined';
+import {UMesh} from '@union3d/core/mesh/UMesh';
+import {defaultValue} from '@union3d/util/defaultValue';
+import {UFileLoader} from '@union3d/core/loader/UFileLoader';
+import {UDEF} from '@union3d/core/UDEF';
+import {UTextureLoader} from '@union3d/core/loader/UTextureLoader';
+import {UGroup} from '@union3d/core/UGroup';
 import {U3dModelLayer} from '@union3d/3dLayer/U3dModelLayer';
-import {U3dEvent} from '/union3d/event/U3dEvent.js';
-import {UCheckTime} from '/union3d/core/UCheckTime.js';
-import {U3dModelBasicLayer} from '/union3d/3dLayer/U3dModelBasicLayer.js';
-import {U3dQuadTileWork} from "/union3d/quadtree/U3dQuadTileWork.js";
-import {deferred} from "/union3d/util/deferred.js";
-import {I3FTile} from "/union3d/i3f/I3FTile.js";
-import {UTaskProcessor} from "/union3d/core/UTaskProcessor.js";
-import {UWorkerParameter} from "/union3d/worker/util/UWorkerParameter.js";
-import {U3dMessage} from '/union3d/message/U3dMessage.js';
+import {U3dEvent} from '@union3d/event/U3dEvent';
+import {UCheckTime} from '@union3d/core/UCheckTime';
+import {U3dModelBasicLayer} from '@union3d/3dLayer/U3dModelBasicLayer';
+import {U3dQuadTileWork} from "@union3d/quadtree/U3dQuadTileWork";
+import {deferredPromise} from "@union3d/util/deferredPromise";
+import {I3FTile} from "@union3d/i3f/I3FTile";
+import {UTaskProcessor} from "@union3d/core/UTaskProcessor";
+import {UWorkerParameter} from "@union3d/worker/util/UWorkerParameter";
+import {U3dMessage} from '@union3d/message/U3dMessage';
 import {INTERNAL} from '@union3d/3dLayer/U3dModelI3FLayer.internal';
 import {UMathEngine} from "@UMathEngine";
 
@@ -31,6 +31,11 @@ __loaderI3f.setResponseType('arraybuffer');
 const UseGlobalDeleteMeshes = true;
 let GlobalDeleteMeshes = [];
 const TEMP_SPHERE = new THREE.Sphere();
+
+// 같은 타일이 재선택되어 disposed가 false로 돌아와도 이전 작업은 새 요청을 소유하지 않습니다.
+// 실제로 대기 중인 파일만 보관하고, 타일 해제 때 등록을 먼저 제거하여 늦은 응답을 차단합니다.
+/** @type {WeakMap<import('@union3d/i3f/I3FTile').I3FTile, Map<string, U3dI3FMeshRequest>>} */
+const TILE_MESH_REQUESTS = new WeakMap();
 
 /**
  * @memberOf GeOnDT.model
@@ -127,7 +132,7 @@ class U3dModelI3FLayer extends U3dModelLayer {
 
         self._loader = __loaderI3f;
 
-        self._cancel = deferred();
+        self._cancel = deferredPromise();
 
         self._change = false;
 
@@ -287,6 +292,8 @@ class U3dModelI3FLayer extends U3dModelLayer {
         const url = self.ProxyUrl + self._url;// + '/' + 'tilemap' + '.json';
         self.getLayerInfo(url).then(function (json) {
             try {
+                // 정보 수신과 Promise 콜백 사이에 해제되었으면 재질·범위를 다시 만들지 않습니다.
+                if (self._disposed) throw new DOMException('I3F 초기화 중 레이어가 해제되었습니다.', 'AbortError');
                 // 읽어 온 정보로 레이어 범위·재질·레벨을 반영한 뒤 초기화 완료를 알립니다.
                 INTERNAL.applyLayerInfo(self, json, () => self.#computeRectangle());
 
@@ -355,6 +362,7 @@ class U3dModelI3FLayer extends U3dModelLayer {
         const self = this;
 
         self.#processItems = [];
+        self._change = true;
         self._prevCamPosition.set(0, 0, 0);
         if (defined(self._rootItem)) {
             I3FTile.traverse(self._rootItem, function (item) {
@@ -405,7 +413,7 @@ class U3dModelI3FLayer extends U3dModelLayer {
             }
         }
 
-        if (!self.initialized || !self._rootItem || !drawArg || !self._rBush)
+        if (self._disposed || !self.initialized || !self._rootItem || !drawArg || !self._rBush)
             return;
 
 
@@ -415,6 +423,9 @@ class U3dModelI3FLayer extends U3dModelLayer {
                     processDeleteMesh(self, self.#processItems[i]);
                 }
                 self.#processItems.length = 0;
+                // 위치가 같은 제자리 회전 복귀도 다시 선택합니다. 화면 밖에서는 이 표식만
+                // 유지하고 검색은 하지 않으며, 복귀 후 한 번 검색하면 아래에서 false가 됩니다.
+                self._change = true;
                 return;
             }
         }
@@ -458,11 +469,11 @@ class U3dModelI3FLayer extends U3dModelLayer {
         self._checkTime.updateTime(10);
     }
 
-   addQueueByMeshUrl(result) {
-        let self = this;
-       const tile = result;
+    addQueueByMeshUrl(result) {
+        const self = this;
+        const tile = result;
 
-       if(tile.disposed) return;
+        if (self._disposed || self._visible === false || tile.disposed) return;
 
         for (let i = 0; i < result.Meshes.length; i++) {
             const meshItem = tile.Meshes[i];
@@ -470,15 +481,18 @@ class U3dModelI3FLayer extends U3dModelLayer {
 
             if(isStateByMeshUrl(self, url)) continue;
 
+            const request = registerMeshRequest(tile, url);
+
             const work = new U3dQuadTileWork({
                 message: UDEF._MSG_WORK._UPDATE_MESH_BUILDING
                 , selector: self
                 , callback: self.#loadMesh
-                , parameter: {url: url, tile: tile, mesh: meshItem}
+                , parameter: {url: url, tile: tile, mesh: meshItem, request}
                 , tile: tile
                 , object: undefined
-                , cancel: undefined
+                , cancel: () => cancelMeshRequest.call(this, request)
                 , filter: function (info) {
+                    if (!isCurrentMeshRequest.call(this, request)) return false;
                     if(
                         defined(info)
                         && !info.tile.disposed
@@ -493,11 +507,11 @@ class U3dModelI3FLayer extends U3dModelLayer {
                         && isFrustumByTile(self, info.tile)
                     ) return true;
 
-                    removeStateByMeshUrl(self, url);
-                    tile.work = undefined;
+                    cancelMeshRequest.call(this, request);
                     return false;
                 }
             });
+            request.work = work;
             tile.work = work; //큐에 들어갈 작업 기록 해두기 => dispose시 큐에서 대기중이다면 비활성화 시키기 위해
             self._workProcess.add(work);
             self.StateObjects[url] = UDEF.TILE_STATE._start;
@@ -508,18 +522,22 @@ class U3dModelI3FLayer extends U3dModelLayer {
         const self = this;
 
         if(!isStateByMeshUrl(self, url)) return;
-        if(tile.disposed) return;
+        if(self._disposed || self._visible === false || tile.disposed) return;
+
+        // 외부의 기존 세 인수 호출도 유지하되, 로더가 시작한 요청이면 같은 소유권을 이어받습니다.
+        const request = TILE_MESH_REQUESTS.get(tile)?.get(url) ?? registerMeshRequest(tile, url);
 
         const callback = self.#loadParsedMesh;
         const work = new U3dQuadTileWork({
             message: UDEF._MSG_WORK._UPDATE_MESH_BUILDING
             , selector: self
             , callback: callback
-            , parameter: {url: url, tile: tile, mesh: meshes}
+            , parameter: {url: url, tile: tile, mesh: meshes, request}
             , tile: tile
             , object: undefined
-            , cancel: undefined
+            , cancel: () => cancelMeshRequest.call(this, request)
             , filter: function (info) {
+                if (!isCurrentMeshRequest.call(this, request)) return false;
                 if(
                     defined(info)
                     && !info.tile.disposed
@@ -534,11 +552,11 @@ class U3dModelI3FLayer extends U3dModelLayer {
                     && isFrustumByTile(self, info.tile)
                 ) return true;
 
-                removeStateByMeshUrl(self, url);
-                tile.work2 = undefined;
+                cancelMeshRequest.call(this, request);
                 return false;
             }
         });
+        request.parseWork = work;
         tile.work2 = work;
         self._workProcess2.add(work);
     }
@@ -626,59 +644,60 @@ class U3dModelI3FLayer extends U3dModelLayer {
         const self = this;
         const i3fTile = info.tile;
         const item = info.mesh;
+        const request = info.request;
 
         UDEF.assert(item.url);
 
         const url = self.BaseUrl + item.url;
-        if (!isFrustumByTile(self, i3fTile) || defined(i3fTile) && i3fTile.disposed) {
-            removeStateByMeshUrl(self, url);
+        if (!isCurrentMeshRequest.call(this, request) || !isFrustumByTile(self, i3fTile)) {
+            cancelMeshRequest.call(this, request);
             return;
         }
-        const promise = deferred();
+        const promise = deferredPromise();
+        request.completion = promise;
         if(!self._modelUrlMap[i3fTile.id])
             self._modelUrlMap[i3fTile.id] = [];
 
-        self._modelUrlMap[i3fTile.id].push(url); //워커에 들어갈 작업 기록하기 => dispose 시 취소를 위해
+        const requestUrls = self._modelUrlMap[i3fTile.id];
+        requestUrls.push(url); //워커에 들어갈 작업 기록하기 => dispose 시 취소를 위해
 
-        self._useTaskProcessor(U3dModelI3FLayer.g_TaskProcessor).scheduleTask(new UWorkerParameter({
-            type: 'I3fLoadTask',
-            subType: 'load',
-            data: {
-                url,
-                rect: self._info.rect,
-                rect3d: self._info.rect3d
-            }
-        })).then((items)=>{
-            if (!isFrustumByTile(self, i3fTile) || defined(i3fTile) && i3fTile.disposed) {
-                removeStateByMeshUrl(self, url);
-                promise.reject();
+        let task;
+        try {
+            task = self._useTaskProcessor(U3dModelI3FLayer.g_TaskProcessor).scheduleTask(new UWorkerParameter({
+                type: 'I3fLoadTask',
+                subType: 'load',
+                data: {
+                    url,
+                    rect: self._info.rect,
+                    rect3d: self._info.rect3d
+                }
+            }));
+        } catch (error) {
+            cancelMeshRequest.call(this, request);
+            releaseWorker();
+            return promise;
+        }
+
+        task.then((items) => {
+            if (!isCurrentMeshRequest.call(this, request) || !isFrustumByTile(self, i3fTile) || !items) {
+                cancelMeshRequest.call(this, request);
                 return;
             }
-
-            if(!items){
-                promise.reject();
-                return;
-            }
-
             self.addQueueByParsedMesh(url, i3fTile, items);
             promise.resolve();
-        }).catch(()=>{
-            removeStateByMeshUrl(self, url);
+        }).catch(() => {
+            cancelMeshRequest.call(this, request);
             promise.reject();
-        }).finally(()=>{
-            i3fTile.work = undefined; //큐에 들어갔던 작업 지우기
-            if(self._modelUrlMap[i3fTile.id]){ //워커에 들어갔던 작업 지우기
-                for(let i =0; i<self._modelUrlMap[i3fTile.id].length; i++ ){
-                    if(self._modelUrlMap[i3fTile.id][i] === url){
-                        self._modelUrlMap[i3fTile.id].splice(i,1);
-                        break;
-                    }
-                }
+        }).finally(releaseWorker);
 
-                if(self._modelUrlMap[i3fTile.id].length === 0)
-                    delete self._modelUrlMap[i3fTile.id];
-            }
-        });
+        // 재선택 뒤 같은 URL이 다시 로딩 중일 수 있으므로, 이 호출이 등록한 배열과 작업만 정리합니다.
+        function releaseWorker() {
+            if (i3fTile.work === request.work) i3fTile.work = undefined;
+            if (self._modelUrlMap[i3fTile.id] !== requestUrls) return;
+            const index = requestUrls.indexOf(url);
+            if (index !== -1) requestUrls.splice(index, 1);
+            if (requestUrls.length === 0) delete self._modelUrlMap[i3fTile.id];
+        }
 
         return promise;
     }
@@ -715,7 +734,7 @@ class U3dModelI3FLayer extends U3dModelLayer {
      * 웹 워커에서 파싱되어서 나온 오브젝트 정보로 텍스쳐를 만드는 내부 함수
      * @param {string} imageName 이미지 url
      * @param {string} url 텍스처 이미지를 불러올 데이터 url
-     * @param {MeshStandardMaterial | MeshLambertMaterial} material 만들어진 텍스쳐를 넣을 material
+     * @param {import('three').MeshStandardMaterial | MeshLambertMaterial} material 만들어진 텍스쳐를 넣을 material
      * @param {import('@UMesh').UMesh} [mesh] 텍스처 로드가 끝나고 mesh의 비지블을 제어하기 위해 텍스처가 출력될 mesh를 넣어준다.
 
      * @ignore
@@ -743,11 +762,15 @@ class U3dModelI3FLayer extends U3dModelLayer {
      * @param {U3dI3FRenderObject} obj 파싱되어서 나온 오브젝트 정보
      * @param {string} url 텍스처 이미지를 불러올 데이터 url
      * @param {import('@UGroup').UGroup} group 생성된 mesh가 들어갈 그룹
+     * @param {string} meshId 원본 응답 안의 객체·부품 위치를 보존한 사용 메시 키
      *
      * @ignore
      */
-    #createUnitMesh(obj, url, group){
+    #createUnitMesh(obj, url, group, meshId){
         const self = this;
+        // 객체 이름·좌표·도착 순서가 같거나 바뀌어도 원본 파일 안의 부품 위치로 구분한다.
+        // 데이터 사용자 종류까지 포함하여 동명 분석 객체가 같은 파일을 써도 충돌하지 않는다.
+        const puid = UMesh._createPuid(JSON.stringify(['layer', self._name]), url, meshId);
         let boxhelper = null;
         if (self.useBox) {
             // 선택한 디버그 표시용 경계 도우미를 생성합니다.
@@ -797,6 +820,7 @@ class U3dModelI3FLayer extends U3dModelLayer {
         //+ 레이어명
         mesh._ulayername = self._name;
         mesh._utype = UDEF.UMESH_TYPE._complexBuilding;
+        mesh.puid = puid;
 
         //+ 속성정보 URL
         // mesh.userData.metaurl = self._baseUrl + item.metaurl;
@@ -815,10 +839,11 @@ class U3dModelI3FLayer extends U3dModelLayer {
         const url = info.url;
         const tile = info.tile;
         const items = info.mesh;
+        const request = info.request;
 
-        return UDEF.createPromise((resolve,reject)=>{
-            if (!isFrustumByTile(self, tile) || defined(tile) && tile.disposed) {
-                removeStateByMeshUrl(self, url);
+        const promise = UDEF.createPromise((resolve,reject)=>{
+            // Yield 동안 숨김·재선택이 발생했으면 이전 결과를 새 타일에 반영하지 않습니다.
+            if (!isCurrentMeshRequest.call(this, request) || !isFrustumByTile(self, tile)) {
                 reject();
                 return;
             }
@@ -826,6 +851,9 @@ class U3dModelI3FLayer extends U3dModelLayer {
             for (let x = 0; x < items.length; x++) {
                 const objects = items[x];
                 const group = new UGroup();
+                // LOADED 수신자가 숨기거나 삭제해도 진행 중 그룹까지 기존 해제 경로가 회수합니다.
+                self.Objects[url] = self.Objects[url] || [];
+                self.Objects[url].push(group);
                 self._group.add(group);
                 group.setManualUpdate();
 
@@ -839,16 +867,29 @@ class U3dModelI3FLayer extends U3dModelLayer {
 
                 //+ 메쉬들
                 for (let k = 0; k < objects.children.length; k++) {
-                    self.#createUnitMesh(objects.children[k], url, group);
+                    if (!isCurrentMeshRequest.call(this, request)) {
+                        reject();
+                        return;
+                    }
+                    self.#createUnitMesh(objects.children[k], url, group, JSON.stringify([x, k]));
                 }
 
-                self.Objects[url] = self.Objects[url] || [];
-                self.Objects[url].push(group);
+                if (!isCurrentMeshRequest.call(this, request)) {
+                    reject();
+                    return;
+                }
                 self.StateObjects[url] = UDEF.TILE_STATE._end;
-                tile.work2 = undefined;
+                if (tile.work2 === request.parseWork) tile.work2 = undefined;
             }
             resolve();
         });
+        request.completion = promise;
+        promise.then(() => {
+            const requests = TILE_MESH_REQUESTS.get(tile);
+            if (requests?.get(url) === request) requests.delete(url);
+            if (requests?.size === 0) TILE_MESH_REQUESTS.delete(tile);
+        }, () => cancelMeshRequest.call(this, request));
+        return promise;
     }
 
     /**
@@ -990,6 +1031,12 @@ function processDeleteMesh(self, i3fTile) {
     const groupParent = self._group;
 
     i3fTile.disposed = true;
+    // 메시가 아직 없어도 요청 상태를 회수합니다. 파일별 작업을 모두 취소하므로 tile.work가
+    // 마지막 작업 하나만 가리키는 경우에도 나머지 큐·호출자의 대기가 남지 않습니다.
+    const requests = TILE_MESH_REQUESTS.get(i3fTile);
+    if (requests) {
+        for (const request of requests.values()) cancelMeshRequest.call(self, request);
+    }
     if(i3fTile.work){ //큐에 작업이 대기 중이라면 작업 비활성화
         i3fTile.work.setActive(false);
         i3fTile.work = undefined;
@@ -1041,6 +1088,58 @@ function processDeleteMesh(self, i3fTile) {
 
 function isStateByMeshUrl(self, url) {
     return defined(self.Objects[url]) || defined(self.StateObjects[url]);
+}
+
+/**
+ * 타일이 현재 로딩 중인 파일의 소유권을 등록합니다. 완료·취소 뒤에는 다시 등록할 수 있습니다.
+ *
+ * @param {import('@union3d/i3f/I3FTile').I3FTile} tile 대상 타일
+ * @param {string} url 파일 URL
+ * @returns {U3dI3FMeshRequest} 이번 요청을 식별하는 레코드
+ */
+function registerMeshRequest(tile, url) {
+    let requests = TILE_MESH_REQUESTS.get(tile);
+    if (!requests) {
+        requests = new Map();
+        TILE_MESH_REQUESTS.set(tile, requests);
+    }
+    const request = {tile, url};
+    requests.set(url, request);
+    return request;
+}
+
+/**
+ * 숨김·해제·재요청으로 반영 권한을 잃었는지 판정합니다.
+ *
+ * @this {import('@union3d/3dLayer/U3dModelI3FLayer').U3dModelI3FLayer}
+ * @param {U3dI3FMeshRequest} request 판정할 요청
+ * @returns {boolean} 현재 요청이며 표시 가능한지 여부
+ */
+function isCurrentMeshRequest(request) {
+    return !this._disposed && this._visible !== false && !request.tile.disposed
+        && TILE_MESH_REQUESTS.get(request.tile)?.get(request.url) === request;
+}
+
+/**
+ * 이 요청의 큐·대기를 취소하고 현재 소유자일 때만 URL 상태를 제거합니다.
+ *
+ * @this {import('@union3d/3dLayer/U3dModelI3FLayer').U3dModelI3FLayer}
+ * @param {U3dI3FMeshRequest} request 취소할 요청
+ */
+function cancelMeshRequest(request) {
+    const requests = TILE_MESH_REQUESTS.get(request.tile);
+    if (requests?.get(request.url) === request) {
+        requests.delete(request.url);
+        if (requests.size === 0) TILE_MESH_REQUESTS.delete(request.tile);
+        // 이미 만들어진 그룹은 타일 해제에서 회수합니다. 로딩 중 표식만 여기서 제거합니다.
+        delete this.StateObjects[request.url];
+    }
+    request.work?.setActive(false);
+    request.parseWork?.setActive(false);
+    if (request.tile.work === request.work) request.tile.work = undefined;
+    if (request.tile.work2 === request.parseWork) request.tile.work2 = undefined;
+    // 작업 큐가 받아 온 값 없는 취소 사유는 유지하되, 취소된 호출자의 대기는 즉시 끝냅니다.
+    request.completion?.reject();
 }
 
 function removeStateByMeshUrl(self, url) {

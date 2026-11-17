@@ -710,7 +710,7 @@ class U3dVectorLayer extends U3dLayer {
      * 모든 항목을 동시에 처리하므로 호출 순서대로 끝난다고 가정하지 마십시오. <br>
      * `callback`이 동기 예외를 던지면 이 호출에서 직접 전파되며 완료 Promise를 반환하지 않습니다. <br>
      * `callback`이 반환한 Promise가 거절되면 전체 완료 Promise도 거절되며, 그때까지 등록한 도형은 남습니다. <br>
-     * LOAD 이벤트는 별도 성공 처리에서 발생하므로 이벤트 리스너 예외는 반환한 완료 Promise에 합쳐지지 않습니다. <br>
+     * LOAD 이벤트 리스너의 동기 예외는 콘솔에 기록하며, 복원 결과와 반환한 완료 Promise에는 영향을 주지 않습니다. <br>
      *
      * @param {Partial<{type: string, param: Record<string, unknown>}> | Array<Partial<{type: string, param: Record<string, unknown>}>>} savedData `saveWork` 결과의 `geometries` 항목 하나 또는 그 배열 <br>
      * @param {function(Partial<{type: string, param: Record<string, unknown>}>): *} callback 저장 항목 하나를 받아 도형을 만들고 `addGeometry`로 등록하는 사용자 콜백 함수 <br>
@@ -733,8 +733,17 @@ class U3dVectorLayer extends U3dLayer {
             }
             const promise = Promise.resolve(callback(savedData_));
             promise.then((geoms)=>{
-                this.dispatchEvent({type : U3dVectorLayer.EVENT.LOAD, data: {object: geoms, save: savedData_ }});
-            })
+                // 알림 실패로 이미 완료된 도형 복원을 실패 처리하지 않습니다.
+                // 별도 알림 체인에 미처리 거부가 남지 않도록 여기서 기록합니다.
+                try {
+                    this.dispatchEvent({type : U3dVectorLayer.EVENT.LOAD, data: {object: geoms, save: savedData_ }});
+                } catch (error) {
+                    console.error('[U3dVectorLayer] 도형 복원 LOAD 이벤트 처리 중 오류가 발생했습니다.', error);
+                }
+            }, () => {
+                // 복원 실패는 아래 Promise.all이 원래 실패값 그대로 호출자에게 전달합니다.
+                // 알림 전용 체인은 종료하여 같은 실패를 별도 미처리 거부로 복제하지 않습니다.
+            });
             promiseList.push(promise);
         }
 
@@ -955,11 +964,13 @@ class U3dVectorLayer extends U3dLayer {
     }
 
     /**
-     * @param {import('three').Event<string, import('three').Object3D> & {data: import('three').Object3D | undefined}} e
+     * @param {import('three').Event<string, import('three').Object3D> & {data: import('three').Object3D | undefined, needsTransform?: boolean}} e
      *
      * @ignore
      */
     #vertexChanged(e) {
+        // 스타일 변경 이벤트는 구독자에게 전달하되 본체 좌표·형상은 그대로 둡니다.
+        if (e.needsTransform === false) return;
         if (e.data && this.#isRegisteredGeometry(e.data)) this.#transform(e.data);
     }
 

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -11,7 +11,7 @@ import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UGeoRect } from "../math/UGeoRect.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { OLTileSource } from "../types/ol.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /**
  * ~extends import('@union3d/3dLayer/U3dImageLayer').U3dImageLayer <br>
@@ -34,7 +34,12 @@ declare class U3dOpenLayer extends U3dImageLayer {
     /** @type {boolean} */ _oldebug: boolean;
     /** @type {object | undefined} */ _parameter: object | undefined;
     /** @type {string | undefined} */ _srs: string | undefined;
-    /** @override @type {undefined | {minx: number, miny: number, maxx: number, maxy: number} & Partial<{minz: number, maxz: number}>} */ override _boundingBox: undefined | ({
+    /**
+     * @override
+     *
+     * @type {undefined | {minx: number, miny: number, maxx: number, maxy: number} & Partial<{minz: number, maxz: number}>}
+     */
+    override _boundingBox: undefined | ({
         minx: number;
         miny: number;
         maxx: number;
@@ -127,13 +132,13 @@ declare class U3dOpenLayer extends U3dImageLayer {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile
      * @param {any} rendererBundle 현재 타일 작업이 대여한 UMap/UView bundle
      * @param {number} rendererGeneration 현재 bundle 대여 세대
-     * @param {DeferredObject<boolean>} promise
+     * @param {DeferredPromise<boolean>} promise
      * @param {Record<string, any>} [debugEntry] 성능 측정 로그 항목
      * @param {any} [event] OL 이벤트
      *
      * @ignore
      */
-    postCompose(tile: U3dQuadTile, rendererBundle: any, rendererGeneration: number, promise: DeferredObject<boolean>, debugEntry?: Record<string, any>, event?: any): void;
+    postCompose(tile: U3dQuadTile, rendererBundle: any, rendererGeneration: number, promise: DeferredPromise<boolean>, debugEntry?: Record<string, any>, event?: any): void;
     /**
      * OL 레이어 callback에 전달할 파라미터를 갱신합니다. <br>
      * source가 레이어 단위로 유지되므로 파라미터 변경 뒤에도 기존 source를 계속 사용하면 URL이나 source 옵션이
@@ -165,7 +170,7 @@ declare class U3dOpenLayer extends U3dImageLayer {
      * OL 맵 인스턴스 (실제 동작에 필요한 멤버만 정의)
      */
     type OLMap = {
-        promise_?: DeferredObject<boolean>;
+        promise_?: DeferredPromise<boolean>;
         ukey_?: any;
         once: (event: string, fn: Function) => any;
         getLayers: () => {

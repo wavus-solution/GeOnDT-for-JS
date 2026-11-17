@@ -6,11 +6,11 @@
 
 ### 1.1 목적과 의미
 
-`U3dBox`는 너비·높이·깊이와 세그먼트 수로 만든 육면체를 지도 위 한 점에 배치하는 3D 도형 클래스이다. `U3dGeometry`의 좌표·색상·투명도·속성 관리를 상속하고 `UMesh`를 믹스인하여 Three.js `Mesh`로 렌더된다. 단색 재질 또는 윗면에만 이미지를 입힌 6면 재질 배열을 만들 수 있고, 외곽선을 자식 `LineSegments`로 함께 그린다. 크기·세그먼트·이미지 URL 입력을 검증하고 실패를 `__GWarn__`·`__GError__`로 기록한다.
+`U3dBox`는 너비·높이·깊이와 세그먼트 수로 만든 육면체를 지도 위 한 점에 배치하는 3D 도형 클래스이다. `U3dGeometry`의 좌표·색상·투명도·속성 관리를 상속하고 `UMesh`를 믹스인하여 Three.js `Mesh`로 렌더된다. 단색 재질 또는 윗면에만 이미지를 입힌 6면 재질 배열을 만들 수 있고, 외곽선을 자식 `U3dLine`의 인덱스 선분 모드로 함께 그린다. 크기·세그먼트·이미지 URL 입력을 검증하고 실패를 `__GWarn__`·`__GError__`로 기록한다.
 
 ### 1.2 책임 범위
 
-- 생성 옵션, `setSize()`, `setParam()`으로 받은 너비·높이·깊이·세그먼트·외곽선 여부를 검증·보관하고, 이 조합이 바뀐 경우에만 위도 기반 스케일과 곱해 `BoxGeometry`와 외곽선 `EdgesGeometry`를 재생성한다.
+- 생성 옵션, `setSize()`, `setParam()`으로 받은 너비·높이·깊이·세그먼트·외곽선 여부를 검증·보관한다. 크기·세그먼트·위도 기반 스케일이 바뀔 때만 본체와 외곽선을 재생성하고, 외곽선 표시 전환은 본체를 유지한다.
 - 재질 타입(`basic`, `topimage`)에 따라 단일 `MeshBasicMaterial` 또는 6면 `MeshBasicMaterial` 배열을 생성하고, 생성 시점의 색상·투명도·와이어프레임을 반영한다. `topimage`인데 URL이 없거나 알 수 없는 타입이면 오류·경고를 기록하고 `basic`으로 대체한다.
 - 단일 재질에 반복 텍스처를 입히는 `setTexture()`와 단일·배열 재질 모두에 비율 보정 이미지를 입히는 `setImage()`를 제공하며, 두 경로 모두 기존 텍스처를 해제하고 로드 실패·해제 후 도착을 처리한다.
 - 첫 꼭짓점 좌표를 메시 위치로 반영하고 첫 위경도 좌표의 위도로 스케일을 갱신한다.
@@ -19,7 +19,7 @@
 
 ### 1.3 주요 동작 방식
 
-생성자는 기반 초기화를 지연시킨 채 `UMesh` 인스턴스 속성을 복사한 뒤 옵션을 검증하여 필드에 저장하고 `_initBox()`를 호출한다. `_initBox()`는 복사된 기본 재질을 해제하고 재질 타입을 판정·대체한 뒤 재질을 먼저 만들고, 스케일 1로 지오메트리와 외곽선을 만든 다음 기반 `setOpacity()`와 와이어프레임을 반영한다. 레이어가 좌표를 월드 좌표로 바꿔 `setVertex()`를 호출하면 `updateVertex()`가 위치와 위도 스케일을 갱신하고 지오메트리·외곽선을 다시 만든다. `setSize()`·`setParam()`은 값을 검증·저장한 뒤 `_updateBoxGeometry()`를 호출하며, 이 메서드는 크기·세그먼트·스케일·외곽선 조합이 마지막 생성과 같으면 재생성을 건너뛴다.
+생성자는 기반 초기화를 지연시킨 채 `UMesh` 인스턴스 속성을 복사한 뒤 옵션을 검증하여 필드에 저장하고 `_initBox()`를 호출한다. `_initBox()`는 복사된 기본 재질을 해제하고 재질 타입을 판정·대체한 뒤 재질을 먼저 만들고, 스케일 1로 지오메트리와 외곽선을 만든 다음 기반 `setOpacity()`와 와이어프레임을 반영한다. 레이어가 좌표를 월드 좌표로 바꿔 `setVertex()`를 호출하면 `updateVertex()`가 위치와 위도 스케일을 갱신하고 지오메트리·외곽선을 다시 만든다. `setSize()`·`setParam()`은 값을 검증·저장한 뒤 `_updateBoxGeometry()`를 호출하며, 이 메서드는 크기·세그먼트·스케일 조합이 마지막 생성과 같으면 재생성을 건너뛴다.
 
 관찰된 실행 특성: 지오메트리 재생성은 조합이 바뀔 때만 새 `BoxGeometry`·`EdgesGeometry`를 만들고 이전 것을 해제하며, 재질은 생성 시 한 번만 만들어 이후 재사용한다.
 
@@ -46,7 +46,7 @@ getParam()이 반환한 객체를 setParam()에 다시 넣으면 크기·세그�
 
 ```spec
 U3dBoxCO 타입 정의
-    U3dGeometryCO, U3dOutlineAliasCO(U3dGeometry.types.js)와 U3dBoxCO_Content를 교차한 생성 옵션 전체 타입의 별칭이다. 소스의 Omit<U3dGeometryCO, never>는 의미 없는 기계장치로 U3dGeometryCO와 같다.
+    U3dGeometryCO, U3dOutlineCO(U3dGeometry.types.js)와 U3dBoxCO_Content를 교차한 생성 옵션 전체 타입의 별칭이다. 소스의 Omit<U3dGeometryCO, never>는 의미 없는 기계장치로 U3dGeometryCO와 같다.
 
 U3dBoxCO_Content 부분 타입 명세
     이 명세에서 사용하는 필드:
@@ -60,13 +60,13 @@ U3dBoxCO_Content 부분 타입 명세
             type이 'topimage'일 때 윗면 재질에 로드할 이미지 URL. 누락이면 오류를 기록하고 type을 'basic'으로 대체한다.
         name, color, opacity, wireframe, showLabel, vertices, coordinates, properties
             기반 U3dGeometryCO가 소유하는 8개 옵션을 같은 의미로 이 typedef에 다시 선언한 것이며 기반 생성자가 처리한다(형제 U3dCylinder.types.js와 같은 패밀리 관례).
-    외곽선 옵션 outline, useline, useLine, edge는 이 typedef에 누락되어 있고 교차된 U3dOutlineAliasCO가 선언한다. 런타임은 opt.outline ?? opt.useline ?? opt.useLine ?? opt.edge ?? false 순으로 읽는다. [확인 Q-007]
+    외곽선 옵션은 공통 U3dOutlineCO가 선언한다. 공통 정규화에서 예전 이름을 변경 안내 경고 후 outline으로 변환하며, 기본 상태는 false이다.
 
 U3dBoxParam_Content 타입 정의
     width, height, depth: number
     widthSegments, heightSegments, depthSegments: number | undefined
     outline: boolean
-        현재 useline 필드 값
+        현재 outline 필드 값
 
 U3dBoxParam 타입 정의
     U3dBoxParam_Content와 기반 U3dGeometryStyleParam(color, opacity, shadow, wireframe, depthOffset, dynamicDepthOffset, depthOffsetFunction, lineColor)을 교차한 getParam() 반환 타입의 별칭이다.
@@ -104,20 +104,20 @@ U3dBox extends U3dGeometry 클래스 정의
     type: 'basic' | 'topimage'
         재질 타입. 기반 U3dGeometry의 type 필드를 두 값으로 좁혀 재선언한다. _initBox()의 대체 판정 뒤에는 두 값 중 하나만 남고 생성 후 변경 경로가 없다.
 
-    useline: boolean
+    outline: boolean (부모 공통 상태)
         외곽선 표시 여부. 옵션·getParam()에서는 outline 이름을 쓴다. [확인 Q-007]
 
     _googleScale: number = 1
         첫 위경도 좌표의 위도로 계산한 크기 보정 배율. updateVertex()가 갱신하기 전까지 1이다.
 
-    _outline: LineSegments | undefined
+    _outline: U3dLine | undefined
         현재 외곽선 객체. 자식으로 추가되며 기반 setLineColor()가 이 필드를 읽어 색상을 바꾼다.
 
     _disposed: boolean = false
         해제 여부. UMesh.dispose()가 true로 바꾸며 비동기 텍스처 콜백이 결과를 버릴지 판정한다.
 
     #geometryKey: string | undefined
-        마지막 지오메트리 생성에 쓴 width·height·depth·세그먼트 셋·_googleScale·useline을 '|'로 이은 문자열. 같으면 재생성을 건너뛴다.
+        마지막 지오메트리 생성에 쓴 width·height·depth·세그먼트 셋·_googleScale을 '|'로 이은 문자열. 같으면 재생성을 건너뛴다.
 
     material: MeshBasicMaterial | Array<MeshBasicMaterial> | undefined
         기반 U3dGeometry가 선언한 재질 참조. _initBox()가 type에 따라 단일 재질 또는 6면 배열을 대입한다.
@@ -139,7 +139,7 @@ U3dBox extends U3dGeometry 클래스 정의
             width·height·depth를 검증하여 저장하고 유효하지 않으면 DEFAULT_SIZE를 쓴다.
             세그먼트 셋을 검증하여 저장하고 유효하지 않으면 undefined를 쓴다.
             topimageurl은 undefined 허용으로 저장하고 type은 falsy이면 'basic'으로 저장한다.
-            외곽선 여부는 opt.outline ?? opt.useline ?? opt.useLine ?? opt.edge ?? false 순으로 먼저 정의된 값을 우선 선택하고 모두 없으면 false로 대체하여 boolean으로 useline에 저장한다. [확인 Q-007]
+            외곽선 표시 여부는 부모의 공통 outline 상태에 저장한다. 기본값은 false이며 이전 옵션은 공통 경계에서 경고 후 변환한다.
             재질·지오메트리 초기화를 수행한다.
 
     setSize(width?: number, height?: number, depth?: number) -> void
@@ -194,7 +194,7 @@ U3dBox extends U3dGeometry 클래스 정의
             단일 재질이면 기존 map을 해제하고 map을 대입한 뒤 needsUpdate를 켠다.
 
     override updateVertex() -> void
-        역할: 월드 꼭짓점을 메시 위치로 반영하고 위도 스케일로 지오메트리를 다시 만든다.
+        역할: 월드 꼭짓점을 메시 위치로 반영하고 기존 지오메트리와 외곽선에 위도 배율을 반영한다.
         처리 기준:
             _vertices가 없거나 비어 있으면 무동작으로 반환한다.
             위치는 첫 꼭짓점만 사용하고 나머지 꼭짓점은 무시한다.
@@ -207,14 +207,14 @@ U3dBox extends U3dGeometry 클래스 정의
         동작:
             첫 꼭짓점을 메시 position에 복사한다.
             첫 위경도 좌표의 위도로 실거리 배율(cos(위도), 0.001~1로 제한)을 구해 그 역수를 _googleScale에 저장한다.
-            지오메트리·외곽선 재생성을 요청한다(스케일이 바뀌지 않았으면 건너뛴다).
+            기존 형상·정점 버퍼·외곽선·재질을 재사용한다. 위도 배율이 같으면 위치만 갱신하고 다르면 기준 정점의 절대 배율과 외곽선 로컬 배율을 갱신한다. 형상이 없으면 새로 생성한다.
 
     override setParam(param?: U3dBoxCO) -> void
         인터페이스: param의 정의된 필드만 반영하고 생략한 필드는 현재 값을 유지한다. type·topimageurl은 여기서 바뀌지 않는다.
         처리 기준:
             크기·세그먼트는 검증을 거쳐 유효하지 않으면 경고 후 현재 값을 유지한다.
             wireframe은 기반 setParam()이 배열 재질을 건너뛰므로 이 클래스가 단일·배열 모두에 다시 반영한다.
-            지오메트리·외곽선은 크기·세그먼트·외곽선 조합이 실제로 바뀐 경우에만 다시 만든다.
+            지오메트리·외곽선은 크기·세그먼트·스케일 조합이 실제로 바뀐 경우에만 다시 만든다.
         의존:
             U3dGeometry — 색상·투명도·그림자·외곽선 색·와이어프레임(단일 재질)·깊이 보정 반영; 함수: {super.setParam()}
             defined — 필드 정의 판정; 함수: {defined()}
@@ -222,12 +222,13 @@ U3dBox extends U3dGeometry 클래스 정의
             param이 없으면 빈 객체로 대체하고 기반 setParam()으로 공통 속성을 먼저 반영한다.
             width·height·depth는 정의된 것만 검증하여 교체한다.
             세그먼트 셋은 정의된 것만 검증하여 교체한다.
-            param.outline ?? param.useline ?? param.useLine ?? param.edge 순으로 먼저 정의된 값을 우선 선택하여 있으면 boolean으로 useline에 저장한다. [확인 Q-007]
+            부모 공통 setParam에서 outline을 검증하고 공통 상태를 갱신한다.
             wireframe이 정의되어 있으면 모든 재질에 반영한다.
             지오메트리·외곽선 재생성을 요청한다.
+            outline 상태만 바뀌면 기반 setParam의 공통 갱신 경로가 본체를 유지하고 외곽선만 생성·해제한다. 스타일과 같은 표시 상태의 재적용은 기존 형상·외곽선을 유지한다.
 
     override getParam() -> U3dBoxParam
-        인터페이스: 반환: 기반 공통 속성에 현재 크기·세그먼트와 outline(useline 값)을 더한 객체
+        인터페이스: 반환: 기반 공통 속성에 현재 크기·세그먼트와 outline 값을 더한 객체
         의존: U3dGeometry — 공통 속성 조회; 함수: {super.getParam()}
         동작: 기반 getParam() 결과를 펼치고 width·height·depth·세그먼트 셋·outline을 덧붙여 반환한다.
 
@@ -255,7 +256,7 @@ U3dBox extends U3dGeometry 클래스 정의
             wireframe이 true이면 모든 재질에 반영한다.
 
     _updateBoxGeometry() -> void
-        역할: 크기·세그먼트·스케일·외곽선 조합이 바뀌었을 때만 지오메트리를 다시 만들고 외곽선을 재생성한다.
+        역할: 크기·세그먼트 조합이 바뀌었을 때 지오메트리를 다시 만들고 외곽선을 재생성한다. 좌표 이동에 따른 위도 배율은 기존 자원에 반영한다.
         처리 기준:
             geometry가 있고 조합 문자열이 #geometryKey와 같으면 무동작으로 반환한다.
             기존 지오메트리는 새 지오메트리로 교체하기 전에 해제한다.
@@ -265,24 +266,21 @@ U3dBox extends U3dGeometry 클래스 정의
             defined — 기존 지오메트리 존재 판정; 함수: {defined()}
             U3dGeometry — 지오메트리 참조 교체와 재질 형태 판정; 속성 읽기·쓰기: {geometry}; 속성 읽기: {material}
         동작:
-            width·height·depth·세그먼트 셋·_googleScale·useline을 이어 조합 문자열을 만들고 마지막 생성 조합과 같으면 반환하며, 다르면 #geometryKey에 저장한다.
+            width·height·depth·세그먼트 셋을 이어 조합 문자열을 만들고 마지막 생성 조합과 같으면 반환하며, 다르면 #geometryKey에 저장한다.
             width·height·depth에 _googleScale을 곱하고 세그먼트 셋을 전달하여 새 BoxGeometry를 만든다.
             material이 배열이 아니면 새 지오메트리의 그룹을 제거한다.
             기존 geometry가 있으면 해제하고 새 지오메트리로 교체한다.
             외곽선을 다시 만든다.
 
     _updateOutline() -> void
-        역할: 기존 외곽선을 해제하고 useline이면 현재 지오메트리로 외곽선을 다시 만들어 자식으로 추가한다.
+        역할: 기존 외곽선을 해제하고 outline이면 현재 지오메트리로 외곽선을 다시 만들어 자식으로 추가한다.
         처리 기준: 외곽선 색상은 _lineColor가 정의되면 그 값을, 아니면 검정을 사용한다.
         의존:
-            Three.js — 외곽선 구성·해제; 생성자: {new EdgesGeometry(), new LineBasicMaterial(), new LineSegments()}; 함수: {BufferGeometry.dispose(), Material.dispose()}
-            defined — 기존 외곽선·_lineColor 존재 판정; 함수: {defined()}
-            U3dGeometry — 외곽선 색상 읽기와 지오메트리 참조; 속성 읽기: {_lineColor, geometry}
-            UMesh — 외곽선 자식 추가·제거; 함수: {add(), remove()}
+            U3dGeometry — 현재 형상의 생성 전략 등록과 모서리 추출; 함수: {_replaceOutline(), _createEdgeOutline()}
+            U3dLine — 인덱스 선분 생성; 생성자: {U3dLine}
         동작:
-            기존 _outline이 있으면 자식에서 제거하고 그 geometry와 material을 해제한 뒤 참조를 비운다.
-            useline이 false이면 반환한다.
-            현재 geometry로 임계각 OUTLINE_THRESHOLD_ANGLE의 EdgesGeometry와 _lineColor 기반 LineBasicMaterial로 LineSegments를 만들어 자식으로 추가하고 _outline에 보관한다. 외곽선 재질에도 현재 opacity와 transparent=(opacity<1)를 적용한다.
+            갱신 시점의 geometry에서 임계각 OUTLINE_THRESHOLD_ANGLE로 모서리를 추출하는 생성 전략을 _replaceOutline에 전달한다. 최초 형상을 캡처하지 않아 setGeometry로 교체한 형상에도 적용한다. U3dLine 생성자를 전달하여 공유 정점과 인덱스 쌍, tension=0인 독립 선분으로 변환한다. 기존 외곽선의 해제와 현재 스타일·변환·렌더 순서 연결, 자식 추가는 공통 컨트롤러가 담당한다.
+            본체 형상과 경계를 유지하고 추출한 모서리를 중심으로 lineWidth를 양쪽에 절반씩 배치한다. 바깥 윤곽과 보이는 내부 모서리는 같은 지정 두께를 사용한다. 외부 정렬을 위한 두 배 선폭·실루엣 마스크·표면 깊이 보정이나 카메라 각도에 따른 선폭·투명도 보간을 추가하지 않는다. 실제 표시는 기존 U3dLine의 선 형상과 깊이 검사를 따른다.
 
     #applyWireframe(enabled: boolean) -> void
         역할: 단일·배열 재질 모두에 wireframe을 반영하고 기반 wireframe 필드를 맞춘다.

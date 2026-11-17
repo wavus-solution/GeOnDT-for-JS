@@ -1,0 +1,169 @@
+<svg class="a3f-icon-library" aria-hidden="true">
+    <symbol id="a3f-icon-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"></path></symbol>
+    <symbol id="a3f-icon-settings" viewBox="0 0 24 24"><path d="m9.5 3-.6 2.7-2 .8-2.3-1.3-2.5 4.3 2 1.8v2.4l-2 1.8 2.5 4.3 2.3-1.3 2 .8 .6 2.7h5l.6-2.7 2-.8 2.3 1.3 2.5-4.3-2-1.8v-2.4l2-1.8-2.5-4.3-2.3 1.3-2-.8-.6-2.7Z"></path><circle cx="12" cy="12" r="3"></circle></symbol>
+    <symbol id="a3f-icon-data" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v14c0 4 16 4 16 0V5M4 10c0 4 16 4 16 0M4 15c0 4 16 4 16 0"></path></symbol>
+    <symbol id="a3f-icon-legend" viewBox="0 0 24 24"><path d="M4 21V10h3v11M10 21V3h4v18M17 21V7h3v14"></path></symbol>
+    <symbol id="a3f-icon-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path></symbol>
+    <symbol id="a3f-icon-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9a2.6 2.6 0 0 1 5 .5c0 2-2.5 2-2.5 4M12 16.5v.5"></path></symbol>
+    <symbol id="a3f-icon-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8M5 10v11h5v-7h4v7h5V10"></path></symbol>
+    <symbol id="a3f-icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"></path></symbol>
+    <symbol id="a3f-icon-minus" viewBox="0 0 24 24"><path d="M5 12h14"></path></symbol>
+</svg>
+<main class="a3f-example">
+    <header class="a3f-header">
+        <img src="image/solution_GeOnDT.png" alt="GeOnDT" width="145" height="30">
+        <h1>A3F 시계열 가시화</h1>
+        <div class="a3f-header-meta"><span id="a3f-dataset-name">A3F · TIME SERIES</span><span id="a3f-header-status" data-connected="false">연결 대기</span></div>
+        <div class="a3f-header-actions">
+            <button id="a3f-fullscreen" class="a3f-fullscreen-button" type="button" aria-pressed="false" title="전체보기 · Esc로 복원">전체보기</button>
+            <nav class="a3f-map-navigation" aria-label="지도 탐색">
+                <button type="button" class="a3f-icon-button" data-map-action="fit" aria-label="분석 영역 전체 보기" title="분석 영역 전체 보기" disabled><svg class="a3f-icon" aria-hidden="true"><use href="#a3f-icon-home"></use></svg></button>
+                <button type="button" class="a3f-icon-button" data-map-action="zoom-in" aria-label="지도 확대" title="지도 확대" disabled><svg class="a3f-icon" aria-hidden="true"><use href="#a3f-icon-plus"></use></svg></button>
+                <button type="button" class="a3f-icon-button" data-map-action="zoom-out" aria-label="지도 축소" title="지도 축소" disabled><svg class="a3f-icon" aria-hidden="true"><use href="#a3f-icon-minus"></use></svg></button>
+            </nav>
+            <button class="a3f-icon-button" type="button" data-ui-panel="a3f-settings-sidebar" aria-controls="a3f-settings-sidebar" aria-pressed="true" aria-label="설정 패널 표시·숨김" title="설정 패널 표시·숨김"><svg class="a3f-icon" aria-hidden="true"><use href="#a3f-icon-panel"></use></svg></button>
+            <details class="a3f-panel-menu">
+                <summary class="a3f-icon-button" aria-label="패널 제어" title="패널 제어"><svg class="a3f-icon" aria-hidden="true"><use href="#a3f-icon-layers"></use></svg></summary>
+                <div class="a3f-panel-menu-content">
+                    <strong>패널 표시</strong>
+                    <button type="button" data-open-settings-tab="a3f-layer-tab" aria-controls="a3f-layer-panel" aria-pressed="false"><span>레이어</span><span class="a3f-panel-visibility">열기</span></button>
+                    <button type="button" data-open-settings-tab="a3f-display-tab" aria-controls="a3f-display-panel" aria-pressed="true"><span>가시화</span><span class="a3f-panel-visibility">선택</span></button>
+                    <button type="button" data-open-settings-tab="a3f-source-tab" aria-controls="a3f-source-panel" aria-pressed="false"><span>자료</span><span class="a3f-panel-visibility">열기</span></button>
+                    <button type="button" data-ui-panel="a3f-legend-panel" aria-controls="a3f-legend-panel" aria-pressed="true"><span>분석 범례</span><span class="a3f-panel-visibility">표시</span></button>
+                    <button type="button" data-ui-panel="a3f-speed-legend-panel" aria-controls="a3f-speed-legend-panel" aria-pressed="true"><span>유속 범례</span><span class="a3f-panel-visibility">표시</span></button>
+                </div>
+            </details>
+            <details class="a3f-help">
+                <summary class="a3f-icon-button" aria-label="사용 방법" title="사용 방법"><svg class="a3f-icon" aria-hidden="true"><use href="#a3f-icon-help"></use></svg></summary>
+                <div><strong>자료 연결부터 재생까지</strong><ol><li>페이지를 열면 메타정보를 읽고 지반 표고 + 수심으로 자동 표시합니다.</li><li>다른 자료는 자료 설정에서 주소를 바꾸고 메타정보 읽기·분석 자료 표시를 누릅니다.</li><li>하단에서 재생하거나 시간축을 움직입니다.</li></ol><p>기본 설정은 전체 입자 상한 10,000개 · 배속 1 · 실제 1초당 원본 시간량 1입니다. 프레임을 같은 간격으로 배치하고 원본 시각과 시간 단위는 메타정보를 따릅니다. 단위가 미확정인 자료는 미확정으로 표시합니다.</p></div>
+            </details>
+        </div>
+    </header>
+    <section id="a3f-map-host" class="a3f-map" aria-label="A3F 3D 지도"></section>
+    <aside id="a3f-settings-sidebar" class="a3f-side-panels" aria-label="지도와 분석 설정">
+        <div class="a3f-sidebar-tabs" role="tablist" aria-label="설정 분류">
+            <button id="a3f-layer-tab" type="button" role="tab" data-settings-tab aria-controls="a3f-layer-panel" aria-selected="false" tabindex="-1">레이어</button>
+            <button id="a3f-display-tab" type="button" role="tab" data-settings-tab aria-controls="a3f-display-panel" aria-selected="true">가시화</button>
+            <button id="a3f-source-tab" type="button" role="tab" data-settings-tab aria-controls="a3f-source-panel" aria-selected="false" tabindex="-1">자료</button>
+        </div>
+        <section id="a3f-layer-panel" class="a3f-panel a3f-settings-page" role="tabpanel" aria-labelledby="a3f-layer-tab" hidden>
+            <h2>레이어</h2>
+            <div id="a3f-layer-panel-content" class="a3f-settings-fields">
+                <div class="a3f-section-label">배경 지도</div>
+                <div class="a3f-base-switch" role="group" aria-label="배경 지도">
+                    <label><input type="radio" name="a3f-base-map" value="satellite" checked><span>Vworld 영상</span></label>
+                    <label><input type="radio" name="a3f-base-map" value="pattern"><span>기본 지형</span></label>
+                </div>
+                <label class="a3f-check"><input id="a3f-terrain-toggle" type="checkbox" checked><span>고도 정보 가시화</span></label>
+                <label class="a3f-check"><input id="a3f-wfs-toggle" type="checkbox" disabled aria-describedby="a3f-wfs-status"><span>건물 가시화</span></label>
+                <p id="a3f-wfs-status" class="a3f-muted a3f-building-status" role="status">확대하면 상세 건물이 표시됩니다.</p>
+                <div class="a3f-panel-divider"></div>
+                <label class="a3f-check"><input id="a3f-analysis-toggle" type="checkbox" checked><span>A3F 분석 레이어</span></label>
+            </div>
+            <p id="a3f-background-status" class="a3f-muted a3f-settings-footer" role="status">배경 지도 준비 중</p>
+        </section>
+        <section id="a3f-display-panel" class="a3f-panel a3f-settings-page" role="tabpanel" aria-labelledby="a3f-display-tab">
+            <div id="a3f-display-panel-content" class="a3f-source a3f-display-workspace">
+                <div class="a3f-display-tabs" role="tablist" aria-label="가시화 설정 분류">
+                    <button id="a3f-surface-tab" type="button" role="tab" data-settings-tab aria-controls="a3f-surface-tab-panel" aria-selected="true">표면</button>
+                    <button id="a3f-water-tab" type="button" role="tab" data-settings-tab aria-controls="a3f-water-tab-panel" aria-selected="false" tabindex="-1">수면</button>
+                    <button id="a3f-flow-tab" type="button" role="tab" data-settings-tab aria-controls="a3f-flow-tab-panel" aria-selected="false" tabindex="-1">유속</button>
+                    <button id="a3f-correction-tab" type="button" role="tab" data-settings-tab aria-controls="a3f-correction-settings" aria-selected="false" tabindex="-1">보정</button>
+                </div>
+                <div id="a3f-surface-tab-panel" class="a3f-settings-page" role="tabpanel" aria-labelledby="a3f-surface-tab">
+                    <div class="a3f-settings-fields">
+                        <label class="a3f-field" for="a3f-height-policy">높이 표현<select id="a3f-height-policy" disabled><option value="">높이 정책을 선택하세요</option></select></label>
+                        <label class="a3f-field" for="a3f-color-mode">면 색상 항목<select id="a3f-color-mode" disabled aria-describedby="a3f-color-help"><option value="">자료 연결 대기</option></select></label>
+                        <p id="a3f-color-help" class="a3f-muted" role="status">현재 프레임의 값을 표시합니다.</p>
+                    </div>
+                    <p class="a3f-muted a3f-settings-footer">색상 변경은 즉시 적용됩니다.</p>
+                </div>
+                <div id="a3f-water-tab-panel" class="a3f-settings-page" role="tabpanel" aria-labelledby="a3f-water-tab" hidden>
+                    <div class="a3f-settings-fields">
+                        <label class="a3f-field" for="a3f-water-depth">수심 필드<select id="a3f-water-depth" disabled><option value="">자료 연결 대기</option></select></label>
+                        <div class="a3f-option-row">
+                            <label class="a3f-check"><input id="a3f-water-enabled" type="checkbox" checked disabled aria-describedby="a3f-water-help"><span>잔잔한 물 표현</span></label>
+                            <button type="button" class="a3f-tip" aria-label="잔잔한 물 표현 설명" aria-describedby="a3f-water-help"><svg class="a3f-icon" aria-hidden="true"><use href="#a3f-icon-help"></use></svg></button>
+                            <p id="a3f-water-help" class="a3f-tooltip" role="status">수심이 있는 곳에 잔물결과 은은한 반짝임을 표시합니다.</p>
+                        </div>
+                        <div class="a3f-option-row">
+                            <label class="a3f-check"><input id="a3f-water-transparent" type="checkbox" checked disabled aria-describedby="a3f-water-transparent-help"><span>투명한 물 표현</span></label>
+                            <button type="button" class="a3f-tip" aria-label="투명한 물 표현 설명" aria-describedby="a3f-water-transparent-help"><svg class="a3f-icon" aria-hidden="true"><use href="#a3f-icon-help"></use></svg></button>
+                            <p id="a3f-water-transparent-help" class="a3f-tooltip" role="status">물 아래 지도가 비치는 정도를 조절합니다. 기본 투명도는 1%입니다.</p>
+                        </div>
+                        <div class="a3f-water-transparency">
+                            <label for="a3f-water-transparency">물 투명도 <output id="a3f-water-transparency-value" for="a3f-water-transparency">1%</output></label>
+                            <input id="a3f-water-transparency" type="range" min="0" max="100" step="1" value="1" disabled aria-valuetext="1% 투명" aria-describedby="a3f-water-transparency-help">
+                            <p id="a3f-water-transparency-help" class="a3f-muted">0% 불투명 · 100% 투명</p>
+                        </div>
+                    </div>
+                    <p class="a3f-muted a3f-settings-footer">변경사항이 즉시 적용됩니다.</p>
+                </div>
+                <div id="a3f-flow-tab-panel" class="a3f-settings-page" role="tabpanel" aria-labelledby="a3f-flow-tab" hidden>
+                    <p id="a3f-flow-placeholder" class="a3f-muted" role="status">자료를 연결하면 흐름 설정이 표시됩니다.</p>
+                </div>
+                <div id="a3f-correction-settings" class="a3f-settings-page" role="tabpanel" aria-labelledby="a3f-correction-tab" hidden>
+                    <div class="a3f-settings-fields">
+                        <label class="a3f-check" title="기준값 이하 숨김과 관계없이 전체 메쉬를 선으로 표시합니다."><input id="a3f-wireframe" type="checkbox" data-display-control disabled><span>와이어프레임</span></label>
+                        <label class="a3f-check"><input id="a3f-mask-enabled" type="checkbox" data-display-control checked disabled><span>기준값 이하 숨김</span></label>
+                        <div class="a3f-settings-grid">
+                            <label for="a3f-mask-field">기준 필드<select id="a3f-mask-field" data-display-control disabled><option value="">자료 대기</option></select></label>
+                            <label for="a3f-mask-threshold">기준값 <span id="a3f-mask-unit" class="a3f-unit"></span><input id="a3f-mask-threshold" type="number" step="any" value="0" data-display-control disabled></label>
+                        </div>
+                        <button id="a3f-correction-more" class="a3f-settings-more" type="button" popovertarget="a3f-correction-extra" hidden>높이·깊이 상세 설정 ↗</button>
+                        <div id="a3f-correction-extra" class="a3f-settings-extra" data-settings-overflow data-settings-trigger="a3f-correction-more">
+                            <div class="a3f-popover-heading"><strong>높이·깊이 보정</strong><button type="button" popovertarget="a3f-correction-extra" popovertargetaction="hide" aria-label="높이·깊이 보정 닫기">×</button></div>
+                            <label for="a3f-height-offset">표시 높이 보정 <span class="a3f-unit">m</span><input id="a3f-height-offset" type="number" step="0.01" value="0" data-display-control disabled aria-describedby="a3f-offset-help"></label>
+                            <p id="a3f-offset-help" class="a3f-muted">자료에 정의된 높이 보정 범위를 확인합니다.</p>
+                            <label class="a3f-check"><input id="a3f-depth-enabled" type="checkbox" data-display-control checked><span>깊이 보정</span></label>
+                            <label for="a3f-depth-strength">깊이 보정 강도<input id="a3f-depth-strength" type="number" min="0" max="64" step="1" value="1" data-display-control></label>
+                        </div>
+                    </div>
+                    <div class="a3f-settings-footer">
+                        <div class="a3f-display-actions"><button id="a3f-display-apply" type="button" disabled>보정 적용</button><button id="a3f-display-reset" type="button" disabled>초기값</button></div>
+                        <p id="a3f-display-status" class="a3f-muted" role="status">자료를 표시하면 보정을 적용합니다.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <section id="a3f-source-panel" class="a3f-panel a3f-settings-page a3f-source" role="tabpanel" aria-labelledby="a3f-source-tab" hidden>
+            <h2>자료 연결</h2>
+            <div id="a3f-source-panel-content" class="a3f-settings-fields">
+                <label class="a3f-url-label" for="a3f-metadata-url">metadata.json 주소<input id="a3f-metadata-url" type="url" value="https://3d-dev.geon.kr/data/a3f/sample/metadata.json" placeholder="https://서버/자료/metadata.json" spellcheck="false"></label>
+                <button id="a3f-read" class="a3f-secondary" type="button">메타정보 읽기</button>
+                <label class="a3f-field" for="a3f-budget-mib">전체 프레임 버퍼 예산 <span class="a3f-unit">MiB</span><input id="a3f-budget-mib" type="number" min="0" step="any" value="256" placeholder="빈 값: 추가 제한 없음" aria-describedby="a3f-budget-help"></label>
+                <p id="a3f-budget-help" class="a3f-muted">분석 자료 표시에 적용합니다. 정적 형상·GPU 메모리는 별도입니다.</p>
+                <p id="a3f-source-info" class="a3f-source-info">원본 EPSG:5187 · 경계 EPSG:3857</p>
+            </div>
+            <div class="a3f-settings-footer"><button id="a3f-render" class="a3f-primary" type="button" disabled>분석 자료 표시</button></div>
+        </section>
+    </aside>
+
+    <div class="a3f-right-tools">
+        <section id="a3f-legend-panel" class="a3f-panel" aria-label="분석 범례">
+            <div class="a3f-legend-title"><h2><svg class="a3f-icon" aria-hidden="true"><use href="#a3f-icon-legend"></use></svg>분석 범례</h2><button type="button" class="a3f-icon-button" data-ui-panel="a3f-legend-panel" aria-controls="a3f-legend-panel" aria-pressed="true" aria-label="범례 숨기기" title="범례 숨기기">×</button></div>
+            <label class="a3f-legend-palette" for="a3f-analysis-palette">색상 조합<select id="a3f-analysis-palette" disabled><option value="default" selected>기본 색상</option><option value="cyan">청록</option><option value="green">녹색</option><option value="purple">보라</option><option value="heat">열 분포</option><option value="rainbow">무지개</option><option value="flood">홍수</option><option value="blue-red">파랑–빨강</option><option value="gray">흑백</option></select></label>
+            <div class="a3f-legend-heading"><span id="a3f-color-field">메타정보 읽기 전</span><span id="a3f-color-unit" class="a3f-unit"></span></div>
+            <div id="a3f-analysis-legend-ramp" class="a3f-color-ramp" aria-hidden="true"></div>
+            <div class="a3f-legend-labels"><span id="a3f-color-min">—</span><span id="a3f-color-max">—</span></div>
+            <p id="a3f-legend-note" class="a3f-muted" role="status">색상 필드와 범위는 메타정보를 따릅니다.</p>
+        </section>
+        <section id="a3f-speed-legend-panel" class="a3f-panel" aria-label="유속 범례">
+            <div class="a3f-legend-title"><h2><svg class="a3f-icon" aria-hidden="true"><use href="#a3f-icon-legend"></use></svg>유속 범례</h2><button type="button" class="a3f-icon-button" data-ui-panel="a3f-speed-legend-panel" aria-controls="a3f-speed-legend-panel" aria-pressed="true" aria-label="유속 범례 숨기기" title="유속 범례 숨기기">×</button></div>
+            <label class="a3f-legend-palette" for="a3f-speed-palette">색상 조합<select id="a3f-speed-palette" disabled><option value="default">기본 색상</option><option value="cyan">청록</option><option value="green">녹색</option><option value="purple">보라</option><option value="heat">열 분포</option><option value="rainbow">무지개</option><option value="blue-red">파랑–빨강</option><option value="gray">흑백</option></select></label>
+            <div class="a3f-legend-heading"><span id="a3f-speed-legend-mode">자료 연결 전</span><span id="a3f-speed-legend-unit" class="a3f-unit">m/s</span></div>
+            <div id="a3f-speed-legend-ramp" class="a3f-color-ramp" aria-hidden="true" hidden></div>
+            <div id="a3f-speed-legend-ticks" class="a3f-speed-legend-ticks" hidden></div>
+            <p id="a3f-speed-legend-note" class="a3f-muted" role="status">유속 표시를 적용하면 색상과 값의 범위를 표시합니다.</p>
+        </section>
+
+    </div>
+    <footer class="a3f-timeseries-footer" data-collapsed="false">
+        <button id="a3f-timeline-toggle" type="button" data-ui-action="toggle-timeline" aria-expanded="true" aria-controls="a3f-timeline-content">타임라인 접기</button>
+        <div id="a3f-timeline-content" class="a3f-timeline-content">
+            <p id="a3f-spatial-status" class="a3f-spatial-status" role="status"></p>
+            <div id="a3f-timeline-host"><div class="a3f-timeline-placeholder"><span class="a3f-placeholder-icon">▶</span><div>자료를 표시하면 시계열 타임라인이 열립니다.<small>공용 형상 + 시간별 프레임 · 기본 동적 캐시 3프레임</small></div></div></div>
+            <div id="a3f-footer-summary" class="a3f-footer-summary"><span id="a3f-connection-badge" class="a3f-badge">연결 대기</span><p id="a3f-example-status" role="status">metadata.json을 읽고 높이 정책을 선택하십시오.</p><span id="a3f-budget-status">프레임 버퍼 — / 256MiB</span></div>
+        </div>
+    </footer>
+</main>

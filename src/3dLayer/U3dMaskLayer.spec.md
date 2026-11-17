@@ -26,7 +26,7 @@ GeOnDT.model.U3dMaskLayer로 노출한다. UAnalyParticle.createMask()가 생성
 U3dMaskLayerCO_Content 부분 타입 명세
     이 명세에서 사용하는 필드:
         infoLayer?: Object
-            모델 폴리곤을 조회할 레이어이며 생략하면 값 생성 작업은 완료되지 않는다. [확인 Q-001]
+            모델 폴리곤을 조회할 레이어이며 생략하면 값을 변경하지 않고 성공 완료한다.
         drawarg?: Object
             마스크 좌표 변환과 타일 캐시 조회에 사용하는 실행 인수다.
         level?: number = 17
@@ -210,8 +210,16 @@ U3dMaskLayer extends U3dModelLayer 클래스 정의
         의존:
             defined — 타일과 격자 존재 여부; 함수: {defined()}
             U3dQuadTile — 격자를 식별할 타일 키 조회; 함수: {getKey()}
+            UErrorCollector — 생성 실패와 독립 정리 오류 수집; 생성자: {new UErrorCollector()}; 함수: {add(), attempt(), finish()}
+            THREE.Vector3 — 성공한 격자 크기 공유; 함수: {copy()}
+            THREE.Object3D — 실패한 표시 그룹과 helper 분리; 함수: {removeFromParent()}
+            THREE.BufferGeometry — 표시 격자·점 검사 평면 정리; 함수: {dispose()}
+            THREE.Material — 표시 격자 재질 정리; 함수: {dispose()}
         동작:
-            tile이 null·undefined이면 반환한다. tile.getKey()로 얻은 키의 격자가 없을 때만 빈 객체를 등록한 뒤 격자를 초기화한다. 기존 격자는 갱신하지 않는다.
+            tile이 null·undefined이면 반환한다. tile.getKey()로 얻은 키의 격자가 없을 때만 기존 표시 그룹과 레이어 크기 참조를 포착하고 빈 객체를 등록한 뒤 격자를 초기화한다. 기존 격자는 갱신하지 않는다.
+            격자 초기화 전에 모듈의 최근 성공 참조 sizeCommit을 포착한다. 초기화 성공 후 레이어 크기가 이 격자의 참조이고 sizeCommit도 바뀌지 않은 경우에만 공유 SIZE에 복사하고 sizeCommit을 이번 지역 크기 벡터로 바꾼다. 같은 레이어와 다른 레이어·앱의 중첩 성공은 크기 값이 같더라도 참조 변경으로 구분하여 최신 반영을 유지한다. 격자와 레이어의 크기는 공유 SIZE를 참조하여 기존 정상 완료의 공유 계약을 유지한다. sizeCommit은 지역 벡터만 보관하며 격자·레이어·앱 참조를 유지하지 않는다.
+            초기화가 실패하면 해당 키의 등록을 먼저 제거한다. 레이어 크기가 실패한 격자의 참조일 때만 이전 참조로 복원하여 동기 재진입에서 성공한 다른 격자는 보존한다. 새로 생성된 표시 그룹의 형상 목록을 삭제하고 그룹을 분리하되 기존 그룹은 보존한다. helper 분리와 helper geometry·재질·점 검사 평면의 해제를 각각 시도한다.
+            단일 생성 실패는 원래 오류를 다시 전달하고, 정리도 실패하면 생성 오류를 첫 항목으로 하여 정리 오류를 errors에 함께 전달한다. 실패한 키는 다음 호출에서 다시 생성할 수 있다.
 
     getMaskByTileKey(key: string) -> any
         의존: defined — 마스크 사전과 항목 존재 여부; 함수: {defined()}
@@ -258,7 +266,7 @@ U3dMaskLayer extends U3dModelLayer 클래스 정의
             U3dLayer — 타일 완료 상태와 로그 분류; 함수: {setStateTileByKey()}; 속성 읽기: {_classtype}
             U3dMessage — 실패 안내; 정적 함수: {info()}; 상수: {CNT.MASK.ERROR_ADD_MASK_2}
         동작:
-            createPromise에 처리를 등록한다. 예약 작업 시작 시 취소 신호가 중단되었으면 읽기·쓰기 없이 완료한다. 하위 점 검사에도 같은 신호를 전달하고 점 검사 완료 뒤 다시 확인하여 취소된 작업의 박스·완료 상태·메시 처리 이력 쓰기를 막는다. _infoLayer가 없으면 resolve·reject를 호출하지 않아 미완료로 남는다. [확인 Q-001]
+            createPromise에 처리를 등록한다. 예약 작업 시작 시 취소 신호가 중단되었으면 읽기·쓰기 없이 완료한다. 하위 점 검사에도 같은 신호를 전달하고 점 검사 완료 뒤 다시 확인하여 취소된 작업의 박스·완료 상태·메시 처리 이력 쓰기를 막는다. _infoLayer가 없으면 값을 변경하지 않고 성공 완료한다.
             그룹 레이어이고 _listlayer가 있으면 자식 순서대로 캐시에서 tileKey의 첫 그룹을 선택한다. 자식이 없거나 일치 그룹이 없으면 성공 완료한다.
             일반 참조 레이어는 _cache가 없으면 즉시 성공 완료하고, 캐시 항목이 없어도 성공 완료한다.
             캐시 그룹이 있으면 공유 tempBBox에 전체 경계를 구하고 교차 타일 키 목록을 얻는다.
@@ -276,7 +284,7 @@ createMaskGrid(tile: U3dQuadTile) -> void
         THREE.Box3 — 타일 크기 계산; 함수: {getSize()}
     동작:
         tile.getKey()의 기존 빈 격자에 segments × segments개의 셀을 만든다. fill에 전달한 단일 {value: 0} 객체를 모든 셀이 공유한다. [확인 Q-005]
-        타일 boundingbox의 크기를 공유 SIZE에 넣고 1 / segments를 곱한다. 레이어 _size와 grid.size는 이 동일 벡터를 참조한다. [확인 Q-009]
+        타일 boundingbox의 크기를 새 지역 벡터에 넣고 1 / segments를 곱한다. 초기화 중에는 grid.size와 레이어 _size만 이 참조를 사용하며 성공 뒤 createMask에서 공유 SIZE로 반영한다. [확인 Q-009]
         시작점은 (tile._minx, tile._maxy, 0)이고 이름은 MaskGrid_와 타일 키를 연결한다. 양 축 길이를 segments로, _checkPoints를 빈 배열로 설정한다.
         표시 격자와 샘플 평면을 준비한다.
 
@@ -295,9 +303,9 @@ createGridHelper(tile: U3dQuadTile) -> void
         THREE.BufferGeometry — 격자 행렬 적용; 함수: {applyMatrix4()}
         THREE.Object3D — 변환 갱신과 그룹 연결; 함수: {updateMatrix(), add()}
     동작:
-        _size.x × xLength와 ceil((xLength+yLength)/2)로 GridHelper를 만든다. geometry에 현재 행렬을 적용하고 위치를 타일 중심에 맞춘 뒤 z에 _height를 더한다.
+        _size.x × xLength와 ceil((xLength+yLength)/2)로 GridHelper를 만든 직후 격자에 보관하여 이후 실패 시 생성된 자원을 회수할 수 있게 한다. geometry에 현재 행렬을 적용하고 위치를 타일 중심에 맞춘 뒤 z에 _height를 더한다.
         X 회전을 PI/2로, 이름을 MaskGridHelper_와 키로, _layername을 레이어 이름으로 설정하고 updateMatrix한다.
-        격자에 helper를 보관하고 가로·세로 크기는 _size × 각 길이, 양 축 세분화 인수는 모두 xLength인 PlaneGeometry를 생성한다.
+        가로·세로 크기는 _size × 각 길이, 양 축 세분화 인수는 모두 xLength인 PlaneGeometry를 생성한다.
         이름에 대응하는 그룹을 얻어 helper를 연결한다.
 
 checkPolygonInPoint(key: string, intersectList: Array<U3dMaskLayerPolygon>, mesh: UMesh, val: number, signal?: AbortSignal) -> Promise<void>

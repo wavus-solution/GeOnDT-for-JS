@@ -5,6 +5,7 @@ import { defaultValue } from '@util/defaultValue';
 import { normalizeOptionKeys } from '@util/normalizeOptionKeys';
 import { UMathEngine } from '@UMathEngine';
 import { UWfsMesh } from '@union3d/core/mesh/UWfsMesh';
+import { UMesh } from '@union3d/core/mesh/UMesh';
 import { UFileLoader } from '@union3d/core/loader/UFileLoader';
 import { U3dModelLayer } from '@union3d/3dLayer/U3dModelLayer';
 import { UDEF } from '@union3d/core/UDEF';
@@ -15,7 +16,7 @@ import { U3dPOI } from '@union3d/geometry/U3dPOI';
 import { U3dEvent } from '@union3d/event/U3dEvent';
 import { UCheckTime } from '@union3d/core/UCheckTime';
 import { U3dQuadTileWork } from '@union3d/quadtree/U3dQuadTileWork';
-import { deferred } from '@util/deferred';
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import { UGPoint } from '@UGPoint';
 import { __GError__ } from '@U3dMessage';
 import { DEFAULT_CONTRAST } from "@union3d/shader/GContrastBlendingShader";
@@ -652,8 +653,8 @@ class U3dModelWFSLayer extends U3dModelLayer {
             self.setStateTile(tile, UDEF.TILE_STATE._end);
             return undefined;
         }
-        /** @type {DeferredObject<boolean>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<boolean>} */
+        const promise = deferredPromise();
         if (self.getCache(tile)) {
             promise.resolve(false);
             return promise;
@@ -726,8 +727,8 @@ class U3dModelWFSLayer extends U3dModelLayer {
         const self = this;
         const drawArg = tile._drawArg;
 
-        /** @type {DeferredObject<boolean>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<boolean>} */
+        const promise = deferredPromise();
 
 
         if (!defined(tile._drawArg)) {
@@ -1040,7 +1041,8 @@ function parseFeature(option) {
                     let prop = feature.properties;
                     let id = undefined;
                     if (defined(prop)) {
-                        id = prop[self._fieldPk] || feature.id;
+                        // 0·빈 문자열도 데이터의 고유값이다. 누락된 경우에만 응답 ID를 사용한다.
+                        id = prop[self._fieldPk] ?? feature.id;
                     } else {
                         id = feature.id;
                     }
@@ -1050,7 +1052,10 @@ function parseFeature(option) {
                         if (defined(self._editWorkBuffer[key]) && self._editWorkBuffer[key].length > 0) {
                             editCheck = self._editWorkBuffer[key].findIndex(function(/** @type {U3dModelWFSLayerFeature} */ buffer) {
                                 let isAdd = Object.values(self.editedEvent).findIndex(function(event) {
-                                    if (event.id === id && event._isAdd === false) {
+                                    // 편집 기록은 메시 puid, 재요청 버퍼는 원본 피처다. 소유한 피처로 명시적으로 연결한다.
+                                    const sourceFeature = event.mesh?._ufeature;
+                                    const sourceId = sourceFeature?.properties?.[self._fieldPk] ?? sourceFeature?.id;
+                                    if (sourceId === id && event._isAdd === false) {
                                         return true;
                                     }
                                     return false;
@@ -1134,7 +1139,7 @@ function updateLabel(mesh, camera, height) {
  * @param {U3dModelWFSLayerServiceJson} json WFS GetFeature 응답
  * @param {import('@U3dQuadTile').U3dQuadTile} tile 모델이 속한 지형 타일
  * @param {import('@UDrawArg').UDrawArg} drawArg 앱과 지형 갱신에 사용하는 그리기 정보
- * @param {DeferredObject<boolean>} promise 응답 처리를 완료할 대상
+ * @param {DeferredPromise<boolean>} promise 응답 처리를 완료할 대상
  * @returns {Promise<boolean>  | void} 계산하거나 생성한 결과
  *
  * @ignore
@@ -1233,7 +1238,7 @@ function parseModel(self, json, tile, drawArg, promise) {
  * @param {import('@U3dQuadTile').U3dQuadTile} tile 모델이 속한 지형 타일
  * @param {U3dModelWFSLayerMesh} mesh 처리 대상 WFS 모델
  * @param {import('@UDrawArg').UDrawArg} drawArg 앱과 지형 갱신에 사용하는 그리기 정보
- * @param {DeferredObject<boolean>} promise 응답 처리를 완료할 대상
+ * @param {DeferredPromise<boolean>} promise 응답 처리를 완료할 대상
  * @returns {Promise<boolean>  | void} 계산하거나 생성한 결과
  *
  * @ignore
@@ -1368,6 +1373,7 @@ function buildShape(aryOrigin, center, maxSegment = 8) {
  * @ignore
  */
 function parsePoint(self, feature, coordType, tile, id, key, groupWFS) {
+    const puid = UMesh._createPuid(JSON.stringify(['layer', self._name]), id, JSON.stringify([feature.geometry.type, 0]));
     let height = undefined;
     if (self.heightFunction) {
         height = self.heightFunction.call(self, feature);
@@ -1401,6 +1407,7 @@ function parsePoint(self, feature, coordType, tile, id, key, groupWFS) {
 
     // 기하·재질을 WFS 모델로 묶어 이후 높이·라벨 처리에 넘긴다.
     pNew = INTERNAL.createMesh(self, geometry, material, centroid, feature, tile, type);
+    pNew.puid = puid;
     pNew.renderOrder = self._renderOrder;
 
     const googleScale = 1 / UMathEngine.getRealScaleAtGoogle(position.y);
@@ -1427,7 +1434,7 @@ function parsePoint(self, feature, coordType, tile, id, key, groupWFS) {
 
     self._tileModelMap[key][id] = true;
     self._modelIds[id] = true;
-    if (self.removeFilter(feature.properties.gid)) {
+    if (self.removeFilter(pNew.puid)) {
         pNew.visible = false;
         if (defined(pNew.userData.label)) {
             pNew.userData.label.visible = false;
@@ -1457,6 +1464,8 @@ function parseString(self, feature, coordType, tile, id, key, groupWFS) {
     }
     const coordinates = feature.geometry.coordinates;
     const pts = [];
+    // 빈 선을 건너뛰더라도 남은 선의 식별값은 원본 좌표 배열의 위치를 유지한다.
+    const partIds = [];
 
     if (feature.geometry.type === "LineString") {
         let tempArray = [];
@@ -1465,6 +1474,7 @@ function parseString(self, feature, coordType, tile, id, key, groupWFS) {
             tempArray.push(new UGPoint(google[0], google[1], google[2] ?? 0));
         }
         pts.push(tempArray);
+        partIds.push(0);
     } else if (feature.geometry.type === "MultiLineString") {
         let googles;
         let google;
@@ -1477,6 +1487,7 @@ function parseString(self, feature, coordType, tile, id, key, groupWFS) {
             }
             if (tempArray.length > 0) {
                 pts.push(tempArray);
+                partIds.push(z);
                 tempArray = [];
             }
         }
@@ -1486,6 +1497,7 @@ function parseString(self, feature, coordType, tile, id, key, groupWFS) {
     let pNew = undefined;
     for (let j = 0; j < pts.length; j++) {
         const tmp = pts[j];
+        const puid = UMesh._createPuid(JSON.stringify(['layer', self._name]), id, JSON.stringify([feature.geometry.type, partIds[j]]));
         //+ 파이프
         let sumX = 0
         let sumY = 0;
@@ -1526,6 +1538,7 @@ function parseString(self, feature, coordType, tile, id, key, groupWFS) {
         //+ 메쉬 생성, 프로퍼티 처리
         // 기하·재질을 WFS 모델로 묶어 이후 높이·라벨 처리에 넘긴다.
         pNew = INTERNAL.createMesh(self, geometry, material, centroid, feature, tile);
+        pNew.puid = puid;
         const googleScale = 1 / UMathEngine.getRealScaleAtGoogle(centroid.y);
         if (self.heightFunction && defined(height)) {
             pNew.position.z = height * googleScale;
@@ -1553,7 +1566,7 @@ function parseString(self, feature, coordType, tile, id, key, groupWFS) {
 
         self._tileModelMap[key][id] = true;
         self._modelIds[id] = true;
-        if (self.removeFilter(feature.properties.gid)) {
+        if (self.removeFilter(pNew.puid)) {
             pNew.visible = false;
             if (defined(pNew.userData.label)) {
                 pNew.userData.label.visible = false;
@@ -1585,16 +1598,25 @@ function parsePolygon(self, feature, coordType, tile, id, key, groupWFS) {
     }
     const coordinates = feature.geometry.coordinates;
     const pts = [];
-    for (const googleCoordArray of coordinates) {
+    const partIds = [];
+    for (let polygonIndex = 0; polygonIndex < coordinates.length; polygonIndex++) {
+        const googleCoordArray = coordinates[polygonIndex];
         if (feature.geometry.type === "Polygon") {
             // 고리 좌표를 모델 생성에 사용할 중심과 좌표 묶음으로 바꾼다.
             const result = INTERNAL.transWorldPosition(googleCoordArray);
-            if (result) pts.push(result);
+            if (result) {
+                pts.push(result);
+                partIds.push(JSON.stringify(['Polygon', polygonIndex]));
+            }
         } else if (feature.geometry.type === "MultiPolygon") {
-            for (const googleCoords of googleCoordArray) {
+            for (let ringIndex = 0; ringIndex < googleCoordArray.length; ringIndex++) {
+                const googleCoords = googleCoordArray[ringIndex];
                 // 고리 좌표를 모델 생성에 사용할 중심과 좌표 묶음으로 바꾼다.
                 const result = INTERNAL.transWorldPosition(googleCoords);
-                if (result) pts.push(result);
+                if (result) {
+                    pts.push(result);
+                    partIds.push(JSON.stringify(['MultiPolygon', polygonIndex, ringIndex]));
+                }
             }
         }
     }
@@ -1606,6 +1628,8 @@ function parsePolygon(self, feature, coordType, tile, id, key, groupWFS) {
     // 보관한 이미지를 사용하는 스타일인지 판정한다.
     const setTextureStyle = INTERNAL.isSetStyle(self, style);
 
+    // 원본 식별값을 먼저 검증해 잘못된 입력에 재질만 생성되어 남지 않게 한다.
+    const puids = partIds.map(partId => UMesh._createPuid(JSON.stringify(['layer', self._name]), id, partId));
     const materialInfo = setMaterial.call(self, self, feature, style, setTextureStyle);
     if (!materialInfo) return;
 
@@ -1614,6 +1638,8 @@ function parsePolygon(self, feature, coordType, tile, id, key, groupWFS) {
 
     for (let j = 0; j < pts.length; j++) {
         const pt = pts[j];
+        // 변환·기하 생성에서 일부 고리를 제외해도 다른 고리의 키가 당겨지지 않는다.
+        const puid = puids[j];
         const positions = pt.positions;
         const positionType = pt.type;
         const center = pt.center;
@@ -1626,8 +1652,8 @@ function parsePolygon(self, feature, coordType, tile, id, key, groupWFS) {
         //+ 메쉬 생성
         // 기하·재질을 WFS 모델로 묶어 이후 높이·라벨 처리에 넘긴다.
         pNew = INTERNAL.createMesh(self, geometry, material, center, feature, tile);
+        pNew.puid = puid;
         pNew.renderOrder = self._renderOrder;
-        pNew.userData.id = id;
         pNew.userData.setTextureStyle = setTextureStyle;
         pNew.userData.center = center;
         pNew.userData.coordinates = positions;
@@ -1659,11 +1685,12 @@ function parsePolygon(self, feature, coordType, tile, id, key, groupWFS) {
             // 외곽선을 모델의 자식으로 붙여 모델과 함께 관리한다.
             INTERNAL.createEdgeLine(pNew);
 
-        if (self.removeFilter(pNew.userData.id) || self.removeFilter(pNew.userData.oid)) {
+        if (self.removeFilter(pNew.puid)) {
             pNew.visible = false;
+            if (pNew.userData.label) pNew.userData.label.visible = false;
         }
 
-        if (self.editFilter(pNew.userData.id) || self.editFilter(pNew.userData.oid)) {
+        if (self.editFilter(pNew.puid)) {
             //pNew.visible = false;
             self.setEditEvent([pNew])
         }
@@ -1672,13 +1699,6 @@ function parsePolygon(self, feature, coordType, tile, id, key, groupWFS) {
 
     self._tileModelMap[key][id] = true;
     self._modelIds[id] = true;
-    if (self.removeFilter(feature.properties.gid)) {
-        const lastMesh = /** @type {U3dModelWFSLayerMesh} */(pNew);
-        lastMesh.visible = false;
-        if (defined(lastMesh.userData.label)) {
-            lastMesh.userData.label.visible = false;
-        }
-    }
 }
 
 /**
@@ -1702,7 +1722,7 @@ function _createPOI(self, mesh, opt) {
 
     if (opt.textLabel) { // textLabel 있을 경우에만 생성
         let poi = new U3dPOI({
-            name: defaultValue(mesh._ufeature.id, mesh.uuid),
+            name: mesh.puid,
             position: center,
             label: defaultValue(opt.textLabel, undefined),
             image: defaultValue(opt.imgLabel, undefined),
@@ -1730,6 +1750,7 @@ function _removePOI(self, item) {
         if (label) {
             UDEF.disposeObject3D(label);
             self._labelGroup?.remove(/** @type {import('three').Object3D} */(/** @type {unknown} */(label)));
+            if (self._labelMap.get(label.name) === label) self._labelMap.delete(label.name);
         }
     } else {
         const key = /** @type {string | number} */(item);

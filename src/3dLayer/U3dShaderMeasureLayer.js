@@ -15,7 +15,6 @@ import {UCheckTime} from '@union3d/core/UCheckTime';
 import {UCache} from '@union3d/core/UCache';
 import {UMeasureFeature} from '@union3d/ol/UMeasureFeature';
 import {UShaderMaterialManager} from '@union3d/manager/UShaderMaterialManager';
-import { deferred } from '@union3d/util/deferred';
 import {
     UTerrainDecalCompositionOrderRegistry,
 } from '@union3d/manager/terrain/UTerrainDecalCompositionOrderRegistry';
@@ -1111,7 +1110,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
         self._app.changeUpdate();
     }
 
-    /** 모든 측정 feature와 연결된 렌더링 데이터를 제거합니다. */
+    /** 모든 측정 feature와 연결된 렌더링 데이터를 제거하며 등록된 terrain 타일만 갱신합니다. */
     clearMeasure() {
         const self = this;
         self._pendingFeatureUpdates = new Set();
@@ -1128,6 +1127,9 @@ class U3dShaderMeasureLayer extends U3dLayer {
                     clearKeys.add(key);
                 }
             }
+        }
+        for (const key of clearKeys) {
+            if (!manager?.TERRAIN_TILE_REGISTRY.has(key)) clearKeys.delete(key);
         }
         if (manager && clearKeys.size > 0) {
             for (const feature of self._features || []) {
@@ -1391,6 +1393,7 @@ class U3dShaderMeasureLayer extends U3dLayer {
         if (!tileKey || !manager) return false;
 
         const presentationState = manager.getTerrainTilePresentationState?.(tileKey, {
+            includeComposition: false,
             // 이 레이어의 측정 source를 식별해 다른 레이어 자료와 분리해 처리합니다.
             sourceKey: INTERNAL.getMeasureTerrainPrimarySourceKey(self),
         });
@@ -3158,6 +3161,7 @@ function hasMeasureTerrainTileManagerFeatures(tileKey) {
     const sourceKeys = INTERNAL.getMeasureTerrainSourceKeys(this);
     for (let i = 0; i < sourceKeys.length; i++) {
         const presentationState = manager?.getTerrainTilePresentationState?.(tileKey, {
+            includeComposition: false,
             sourceKey: sourceKeys[i],
         });
         if (presentationState?.hasSourceFeatures === true) {
@@ -3169,6 +3173,7 @@ function hasMeasureTerrainTileManagerFeatures(tileKey) {
 
 /**
  * 이 측정 레이어가 소유한 source payload만 tile에서 제거합니다.
+ * 미등록 타일에는 삭제를 위한 source 상태를 생성하지 않습니다.
  *
  * @this {U3dShaderMeasureLayer}
  * @param {string} tileKey payload를 제거할 terrain tile key입니다.
@@ -3180,6 +3185,7 @@ function hasMeasureTerrainTileManagerFeatures(tileKey) {
 function clearMeasureTerrainMaterialPayloadSources(tileKey, opt = {}) {
     const manager = this._terrainDecalManager;
     if (!tileKey || !manager?.clearTerrainMaterialPayload) return false;
+    if (!manager.TERRAIN_TILE_REGISTRY.has(tileKey)) return false;
 
     const sourceKeys = Array.isArray(opt.sourceKeys) && opt.sourceKeys.length > 0
         ? opt.sourceKeys
@@ -3410,6 +3416,7 @@ function getMeasureTerrainFeatureRefsAfterRemoval(tileKey, sourceKey, featureId)
 
 /**
  * feature 하나를 연결된 terrain tile source에서 제거합니다.
+ * 연결만 있는 미등록 타일은 삭제 대상에서 제외합니다.
  *
  * @this {U3dShaderMeasureLayer}
  * @param {import('@UMeasureFeature').UMeasureFeature} feature 제거할 측정 feature입니다.
@@ -3434,6 +3441,8 @@ function removeMeasureTerrainFeaturePayload(feature, opt = {}) {
     const changedTileKeys = [];
     for (let i = 0; i < tileKeys.length; i++) {
         const tileKey = tileKeys[i];
+        // 연결만 있는 미등록 타일은 삭제용 source revision도 생성하지 않습니다.
+        if (!manager.TERRAIN_TILE_REGISTRY.has(tileKey)) continue;
         const renderOrderOption = getMeasureTerrainRenderOrderOption.call(self, tileKey);
         const shouldVersionRemoval = opt.changeType !== 'clear'
             && opt.changeType !== 'replace'

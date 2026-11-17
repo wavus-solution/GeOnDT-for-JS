@@ -302,7 +302,7 @@ async function runEditedManifestSource(source, cleanupTrackedResources, commonUi
     await waitForGeOnDT();
     const config = source.runtime || {};
     const assetBaseUrl = source.assetBaseUrl || document.baseURI;
-    const app = new Union3D.U3dAPP(createRuntimeAppOptions(config, 'map'));
+    let app = new GeOnDT.U3dAPP(createRuntimeAppOptions(config, 'map'));
     window.app = app;
     applyRuntimeHome(app, config);
     const cleanupRuntimeUi = applyRuntimeUiConfig(config);
@@ -363,6 +363,24 @@ async function runEditedManifestSource(source, cleanupTrackedResources, commonUi
         }
     });
     const runtime = {
+        /**
+         * 편집기에서도 새 앱에 공통 도구와 종료 처리를 연결합니다.
+         * @param {function(): object} createApp 새 앱 생성 함수
+         * @returns {Promise<object>} 공통 레이어와 도구를 연결한 앱
+         */
+        async recreateApp(createApp) {
+            const container = app.getContainer();
+            commonUi.dispose();
+            app.dispose();
+            container.replaceChildren();
+            app = createApp();
+            window.app = app;
+            await createRuntimeLayers(app, config);
+            if (app.isDisposed()) throw new Error('앱 재생성이 중단되었습니다.');
+            commonUi = mountExampleCommonUi({root: document, config, commonUi: source.commonUi || {}});
+            await commonUi.bind(app);
+            return app;
+        },
         showLoading() { document.getElementById('load').hidden = false; },
         hideLoading() { document.getElementById('load').hidden = true; },
         setLayerVisible(name, visible) { return app.showLayer(name, visible); },

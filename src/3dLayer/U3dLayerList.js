@@ -2,7 +2,7 @@
 import {UDEF} from '@union3d/core/UDEF';
 import {defined} from '@util/defined';
 import {U3dGroupLayer} from '@union3d/3dLayer/U3dGroupLayer';
-import {__GInfo__, __GStack__, __GWarn__} from '@U3dMessage';
+import {__GError__, __GInfo__, __GStack__, __GWarn__} from '@U3dMessage';
 import {INTERNAL} from '@union3d/3dLayer/U3dLayerList.internal';
 
 /**
@@ -243,9 +243,10 @@ class U3dLayerList {
     /**
      * 등록된 레이어를 목록에서 먼저 제거한 뒤 자원을 해제합니다. <br>
      * 해제 수신자가 같은 레이어를 다시 제거해도 이웃 레이어는 유지됩니다.
+     * 비동기 해제는 기다리지 않으며 나중에 발생한 실패는 엔진 오류로 보고합니다.
      *
      * @param {string | import('@U3dLayer').U3dLayer} name 레이어 이름 또는 레이어 객체
-     * @returns {boolean} 정상 종료하면 true이며, 해제 중 예외는 호출자에게 전달
+     * @returns {boolean} 정상 종료하면 true이며, 해제 호출의 동기 예외는 호출자에게 전달
      */
     removeLayer(name) {
         if (name instanceof Object && defined(name.getName)) {
@@ -278,7 +279,10 @@ class U3dLayerList {
                 }
             }
 
-            layer.dispose();
+            // 목록 제거는 즉시 끝내고, 레이어가 뒤이어 수행하는 비동기 정리의 실패는 보고합니다.
+            Promise.resolve(layer.dispose()).catch(error => {
+                __GError__(layer, '제거한 레이어의 비동기 해제에 실패했습니다. ' + error, '306010');
+            });
             break;
         }
 
@@ -604,16 +608,20 @@ class U3dLayerList {
     /**
      * 등록된 모든 레이어를 처분(dispose)하며 비동기 완료는 기다리지 않습니다.
      * 동기 해제 오류가 발생해도 남은 레이어와 목록을 정리한 뒤 오류를 전달합니다.
+     * 비동기 해제 오류는 해당 레이어의 엔진 오류로 보고합니다.
      *
-     * @returns {void}
      * @throws {Error} 단일 실패는 원래 오류를, 복수 실패는 호출 순서대로 모은 errors 배열을 가진 오류를 전달합니다.
      */
     disposeAll() {
         if (!defined(this._listmap)) return;
-        /** @type {unknown[]} */
+        /** @type {Array<unknown>} */
         const errors = [];
         for (const layer of this._listmap) {
-            try { layer.dispose(); } catch (error) { errors.push(error); }
+            try {
+                Promise.resolve(layer.dispose()).catch(error => {
+                    __GError__(layer, '전체 정리 중 레이어의 비동기 해제에 실패했습니다. ' + error, '306010');
+                });
+            } catch (error) { errors.push(error); }
         }
         this._listmap = [];
         this._imagelayers = [];

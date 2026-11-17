@@ -33,7 +33,7 @@
 ## 3. 정규 자연어 수도코드
 
 ```spec
-positionListInfo 부분 타입 명세
+U3dLodComponentPositionInfo 부분 타입 명세
     이 명세에서 사용하는 필드:
         name: string
             모델 이름이다.
@@ -293,13 +293,13 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
 
     #loadWfsJsonPage(tile, drawArg, tileGen, ctx, startIndex)
         의존:
-            deferred — 페이지 완료 객체; 함수: {deferred()}
+            deferredPromise — 페이지 완료 객체; 함수: {deferredPromise()}
             UFileLoader — 성공·실패·중단 연결; 함수: {load()}
             U3dModelLayer — 후속 타일 폐기 판정; 함수: {isTileDisposed()}
         동작:
             완료 객체를 만든다. 세대·타일이 유효하지 않으면 false로 완료하여 반환한다.
             ctx.buildUrl(startIndex)로 URL을 만든 뒤 타일별 진행 목록에 추가하고 로더에 요청한다.
-            성공 callback에서는 URL 추적을 먼저 제거하고 유효성을 재검사한다. 만료되었으며 타일이 폐기된 경우 타일 해제를 호출한 뒤 false로 완료한다. 유효한 경우 받은 json으로 완료한다.
+            성공 callback에서는 URL 추적을 먼저 제거하고 유효성을 재검사한다. 유효하지 않으면 false로 완료하며, 그중 타일이 폐기된 경우에만 타일 해제를 먼저 호출한다. 유효한 경우 받은 json으로 완료한다.
             오류·중단 callback도 URL 추적을 제거하고 false로 완료한다. 로더의 동기 예외는 잡지 않으며 페이지 완료 객체를 반환한다.
 
     #computeWfsPagingInfo(ctx, state, json) -> object
@@ -316,7 +316,7 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
     #processWfsJsonPage(tile, drawArg, tileGen, ctx, state, json, finishWithDebug) -> void
         인터페이스: finishWithDebug는 값·종료 이유·마지막 페이지 이유를 받는 완료 callback이다. 첫 progressive 완료 후에도 후속 페이지 처리는 계속될 수 있다.
         의존:
-            deferred — 현재 페이지 파싱 완료 연결; 함수: {deferred()}
+            deferredPromise — 현재 페이지 파싱 완료 연결; 함수: {deferredPromise()}
             U3dModelLayer — 다음 페이지의 폐기 판정; 함수: {isTileDisposed()}
         동작:
             세대·타일이 유효하지 않으면 finishWithDebug(false,'tileGenInvalid') 후 종료한다.
@@ -326,7 +326,7 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
             파싱 완료 callback의 값이 false이면 parseModelFailed로 종료한다. progressive 첫 페이지이고 마지막이 아니면 먼저 'progressive'로 완료를 알린다.
             페이징이 아니거나 마지막 페이지이면 true와 마지막 페이지 이유로 종결한다. 계속할 경우 유효성을 다시 검사하고 실패하면 tileGenInvalidAfterPage로 종결한다.
             pageNo를 증가시키고 pageIndex를 다음 위치로 바꾼다. 다음 요청 객체가 없으면 nextJsonPromiseMissing으로 false 완료한다.
-            후속 JSON이 false이면 세대 만료·타일 폐기·기타 로딩 실패 순서로 이유를 선택하여 false 완료한다. 그 외는 같은 맥락으로 다음 페이지를 재귀 처리한다. Promise 거부 처리기는 따로 등록하지 않는다.
+            후속 JSON이 false이면 세대 만료·타일 폐기·기타 로딩 실패 순서로 이유를 선택하여 false 완료한다. 그 외는 같은 맥락으로 다음 페이지를 재귀 처리한다. 파싱 callback 예외는 parseModelFailed, 후속 페이지 체인 예외는 loadNextPageFailed로 false 완료한다.
 
     #registerInstancedFeatureInstance(featureId: string|number, tileKey: string, mesh: object, instanceId: number) -> boolean
         의존:
@@ -776,7 +776,7 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
 
     refresh() -> void
         의존:
-            U3dModelLayer — 부모 타일 갱신과 상태 제거; 함수: {refresh(), resetStateTileByKey()}
+            U3dModelLayer — 부모 타일 갱신과 상태 제거; 함수: {prototype.refresh.call(), resetStateTileByKey()}
             UDrawArg — 캐시 타일 키 snapshot; 속성 읽기: {_cacheModelTiles}
             U3dLayer — 상속된 상태·연결 객체; 속성 읽기: {_drawArg}
         동작:
@@ -793,24 +793,26 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
 
     reloadTilesByKeys(keys) -> void
         의존:
+            __GInfo__ — 비동기 재생성·장면 연결 실패 안내; 함수: {__GInfo__()}
             defined — 타일 키 존재 판정; 함수: {defined()}
             UDrawArg — 모델 타일 조회; 함수: {getTile()}
             UDEF — 모델 타일 종류; 상수: {TILE_TYPE.MODEL}
             U3dModelLayer — 타일 상태 초기화와 장면 등록; 함수: {resetStateTileByKey(), addTileFromScene()}
-            U3dLayer — 상속된 상태·연결 객체; 속성 읽기: {_drawArg, _visible}
+            U3dLayer — 상속된 상태·연결 객체; 속성 읽기: {_drawArg, _visible, _disposed}
         동작:
             keys가 비어 있지 않은 배열이 아니거나 drawArg·getTile이 없으면 종료한다.
             각 정의된 키의 상태를 초기화하고 reloadTilesByKeys 이유로 해제한 뒤 모델 타일을 조회한다.
-            타일이 있으면 createModel을 호출한다. then이 있으면 후속 callback에서 결과가 엄격히 true이고 레이어가 보일 때 장면에 추가한다. 동기 반환이 true인 경우도 가시성을 검사해 추가한다. 반환된 비동기 작업을 집계하거나 기다리지 않는다.
+            타일이 있으면 createModel을 호출한다. then이 있으면 후속 callback에서 결과가 엄격히 true이고 레이어가 보일 때 장면에 추가한다. 비동기 생성·장면 연결 실패는 레이어가 아직 처분되지 않았을 때만 306004 안내로 처리한다. 동기 반환이 true인 경우도 가시성을 검사해 추가한다. 반환된 비동기 작업을 집계하거나 기다리지 않는다.
 
     override show(value: boolean = true) -> void
         의존:
             U3dModelBasicLayer — 기본 가시성 설정; 함수: {prototype.show.call()}
-            UScene — 인스턴스 그룹 등록; 함수: {add()}
+            UScene — 기본 그룹 제거와 인스턴스 그룹 등록; 함수: {remove(), add()}
             U3dLayer — 상속된 상태·연결 객체; 속성 읽기: {_scene}
+            U3dModelBasicLayer — 제거할 기본 모델 그룹; 속성 읽기: {_object}
         동작:
             value가 엄격히 false이면 hide를 호출하고 종료한다. 그 외는 기본 레이어 show(true)를 호출한다.
-            장면에 인스턴스 그룹을 추가하고 소유 메시를 전역 표시 계수에 포함한다.
+            장면에서 기본 모델 그룹 _object를 제거한 뒤 인스턴스 그룹을 추가하고 소유 메시를 전역 표시 계수에 포함한다.
 
     override hide() -> void
         의존:
@@ -835,22 +837,23 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
             featureMap에서 값 배열이 비어 있지 않은 항목만 골라 feature.properties[propertiesName]별로 묶는다. 각 항목에는 원본 feature·geometry coordinates와 각 배치 정보의 position 배열을 담는다.
             JSON 문자열을 text/plain;charset=utf-8 Blob으로 만들고 링크의 download를 'features.json'으로 설정한다. 링크를 문서에 추가해 클릭한 뒤 URL을 해제하고 링크를 제거한다.
 
-    initialize() -> object
+    override initialize() -> object
         의존:
-            deferred — 기본·LOD 완료 분리; 함수: {deferred()}
-            U3dModelBasicLayer — 기본 모델 초기화; 함수: {prototype.initialize.call()}
-            U3dLayer — 기본 초기화 진행 여부; 함수: {isInitialized()}
+            deferredPromise — 기본·LOD 완료 분리; 함수: {deferredPromise()}
+            U3dMultipleComponentLayer — 기본 모델 초기화; 함수: {prototype.initialize.call()}
+            U3dLayer — 기본 초기화 진행 여부와 공개 완료 신호; 함수: {isInitialized(), _resolveReady(), _rejectReady()}
             외부 완료 callback — 원래 레이어 완료 연결; 함수: {publicResolve(), publicReject()}
             U3dModelBasicLayer — 상속된 상태·연결 객체; 속성 읽기: {_isLoaded}
         동작:
             _initPromise가 truthy이면 이전과 같은 객체를 즉시 반환한다. 최초에는 _loadedModel=false와 새 완료 객체를 저장하고 현재 _resolveReady·_rejectReady를 레이어에 바인딩하여 보관한다.
             기본 모델이 이미 로드되었으면 LOD 생성을 호출하고 동기 오류를 내부 완료 객체와 원래 _rejectReady에 모두 전달한다.
             기본 모델이 아직 로드되지 않았으면 별도 완료 객체를 만들고 인스턴스 _resolveReady·_rejectReady를 그 함수로 임시 교체한다. 기본 로드 성공·실패 callback은 원래 두 함수를 먼저 복원한다.
-            성공 callback은 LOD 생성을 시작하고, 실패 또는 LOD 시작의 동기 오류는 두 실패 신호로 전달한다.
+            성공 callback은 LOD 생성을 시작하며 처분 여부 검사는 #createLodModels가 담당한다. 기본 로드 실패 또는 LOD 시작의 동기 오류는 두 실패 신호로 전달한다.
             기본 초기화가 시작되지 않았을 때만 부모 initialize를 호출한다. 그 호출이 동기 예외를 던져도 함수 복원 후 실패를 전달한다. _initPromise를 반환하며 실패 후에도 다음 initialize가 새 작업을 만들지는 않는다.
 
     #createLodModels(publicResolve: Function, publicReject: Function) -> void
         의존:
+            DOMException — 처분된 레이어의 생성 중단 오류; 생성자: {new DOMException()}
             U3dModelBasicLayer — 기본 모델·이름 조회; 함수: {getLoadedModel(), getName()}
             U3dApp — 사용자 로딩 표시; 함수: {addTotalUserLoading(), addNowUserLoading(), clearUserLoading(), removeLoadingCanvas()}
             UScene — 출력 그룹 교체; 함수: {remove(), add()}; 속성 읽기: {children}
@@ -860,23 +863,25 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
             Web API — 생성 결과 기록; 함수: {console.groupCollapsed(), console.log(), console.groupEnd()}
             입력 완료 callback — 공개 레이어 완료·실패 연결; 함수: {publicResolve(), publicReject()}
             U3dModelBasicLayer — 상속된 상태·연결 객체; 속성 읽기: {_listModel, _isLoaded, _object}
-            U3dLayer — 상속된 상태·연결 객체; 속성 읽기: {_minlevel, _maxlevel, _app, _scene}
+            U3dLayer — 상속된 상태·연결 객체; 속성 읽기: {_minlevel, _maxlevel, _app, _scene, _disposed}
         동작:
+            레이어가 이미 해제되었으면 AbortError를 내부·외부 reject에 전달하고 종료한다. 모델 목록이 비어 있어도 성공으로 바꾸지 않는다.
             모델 목록이 비어 있지 않은 배열이 아니거나 _initPromise가 없으면 _loadedModel=true로 하고 존재하는 내부·외부 resolve에 self를 전달하여 종료한다.
             기본 모델 _isLoaded가 true가 아니면 오류를 만들어 내부·외부 reject로 전달한다.
             모델 metadata를 채우고 목록에 존재하는 이름만 생성 후보로 사용한다.
             거리 모델 맵이 비어 있지 않은 비배열 객체이면 거리 LOD 사용 조건을 만족하는 기본 모델과 최소 level만 후보에 넣는다. 그 외는 유형 매핑의 정의된 모델명 집합 또는 전체 모델명에 대해 최소~최대 level 쌍을 만든다. 이름:level 키로 중복을 제거한다.
             후보 개수를 앱 총 로딩량에 더하고, 각 로드된 모델에 목록의 scale·rotation을 반영한다. 거리 LOD 맥락을 얻고, 없으면 기존 LOD 옵션 또는 metadata에 따른 기본 옵션을 설정한다.
-            각 후보의 빈 위치 목록으로 LOD 인스턴스 메시를 생성한다. 개별 완료 callback은 비어 있지 않은 메시 목록을 이름:level 캐시에 저장하고 진행량을 1 증가시킨다.
-            전체 생성 Promise가 완료되면 _loadedModel=true로 하고 결과 로그 및 로딩 UI 정리를 수행한다. 내부·외부 resolve(self)를 호출한 뒤 기존 그룹을 장면에서 제거하고 인스턴스 그룹을 중복 없이 추가한다.
+            각 후보의 빈 위치 목록으로 LOD 인스턴스 메시를 생성한다. 개별 완료 callback은 레이어 수명을 확인하여 해제되었으면 AbortError로 거부한다. 살아 있으면 비어 있지 않은 메시 목록을 이름:level 캐시에 저장하고 진행량을 1 증가시킨다.
+            전체 생성 Promise가 완료되면 레이어 수명을 다시 확인하여 해제되었으면 AbortError로 거부한다. 살아 있으면 _loadedModel=true로 하고 결과 로그 및 로딩 UI 정리를 수행한다. 내부·외부 resolve(self)를 호출한 뒤 기존 그룹을 장면에서 제거하고 인스턴스 그룹을 중복 없이 추가한다.
             마지막으로 this.constructor.EVENT.CREATED 이벤트에 self를 전달한다. 전체 생성 또는 성공 처리 중 오류는 내부·외부 reject로 전달한다. Promise 완료 호출과 장면 변경·이벤트 시점은 구분된다.
 
-    setApp(app: U3dApp) -> void
+    override setApp(app: U3dApp) -> void
         의존:
             defined — 서버 설정 존재 판정; 함수: {defined()}
             U3dApp — 연결 맥락; 속성 읽기: {_camera, _frustum, _drawArg, _quadtreeSet}
-            U3dModelBasicLayer — 직접 위치 방식의 기본 초기화; 함수: {prototype.initialize.call()}
-            U3dModelLayer — 타일 방식의 앱 연결; 함수: {setApp()}
+            U3dMultipleComponentLayer — 직접 위치 방식의 기본 초기화; 함수: {prototype.initialize.call()}
+            U3dModelLayer — 타일 방식의 앱 연결; 함수: {prototype.setApp.call()}
+            U3dLayer — 직접 초기화의 실패 완료 신호; 함수: {_rejectReady()}
             UScene — 출력 그룹 교체; 함수: {remove(), add()}
             U3dLayer — 상속된 상태 연결·교체; 속성 쓰기: {_app, _camera, _frustum, _drawArg, _quadtreeSet}
             U3dLayer — 상속된 상태·연결 객체; 속성 읽기: {_scene}
@@ -884,6 +889,7 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
         동작:
             주소와 레이어 이름이 각각 nullish 또는 빈 문자열이면 _setCreateModel=false로 하고 app·camera·frustum·drawArg·quadtreeSet을 직접 저장한다.
             이 경로는 isInitialize가 truthy이면 현재 initialize를, 아니면 기본 모델 initialize를 호출한다. 대기 동기화가 있고 미예약이면 예약한 뒤 종료한다.
+            현재 initialize를 호출한 반환 Promise의 거부는 _rejectReady로 연결한다. 이 직접 연결 경로도 앱 등록자가 반환값을 사용하지 않을 때 내부 실패를 미처리 거부로 남기지 않는다.
             그 외는 기존 그룹을 장면에서 제거하고 인스턴스 그룹을 추가한 뒤 U3dModelLayer.setApp을 현재 인스턴스로 호출한다. 같은 조건으로 대기 동기화를 연결한다.
 
     getBoundingBox() -> Box3 | undefined
@@ -908,7 +914,7 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
             U3dModelLayer — 타일 상태·폐기 판정과 레이어명; 함수: {getStateTileByKey(), isTileDisposed(), getName()}
             UDEF — 로딩·종료와 진단 모드; 상수: {TILE_STATE._loading, TILE_STATE._end}; 속성 읽기: {debug}
             UFileLoader — 이전 요청 중단; 함수: {abort()}
-            deferred — 타일 생성 결과; 함수: {deferred()}
+            deferredPromise — 타일 생성 결과; 함수: {deferredPromise()}
             Web API — 폐기 사유 로그; 함수: {console.info()}
             U3dLayer — 상속된 상태·연결 객체; 속성 읽기: {_visible}
         동작:
@@ -918,12 +924,12 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
             타일 캐시를 false로 등록하고 완료 객체를 만든 뒤 loading 상태를 저장한다. 주소·타일 좌표·level·새 세대로 getTileInfo를 호출한다.
             완료 callback에서 세대가 바뀌었으면 false로 완료한다. 타일 폐기 또는 results===false이면 조건부 진단 로그 후 상태 초기화·사유를 포함한 타일 해제를 수행하고 false로 완료한다.
             results==='progressive'이면 end 상태로 바꾸지 않고 true로 완료한다. 그 외 true가 아니면 상태 초기화 후 false, 엄격히 true이면 end 상태를 저장하고 true로 완료한다.
-            생성 완료 객체를 반환한다. 현재 getTileInfo의 네트워크 실패는 false로 resolve되어 위 실패 분기로 전달된다. Promise 거부 처리기는 별도로 등록하지 않는다.
+            생성 완료 객체를 반환한다. 현재 getTileInfo의 네트워크 실패는 false로 resolve되어 위 실패 분기로 전달된다. Promise 거부와 성공 후처리 예외는 현재 타일 세대일 때만 타일 상태를 초기화한 뒤 반환 Promise로 전달한다.
 
     override dispose() -> void
         의존:
             UTaskProcessor — 공유 작업자 해제; 함수: {dispose()}
-            U3dModelLayer — 부모 레이어 해제; 함수: {dispose()}
+            U3dModelLayer — 부모 레이어 해제; 함수: {prototype.dispose.call()}
             U3dApp — 해제 후 화면 갱신; 함수: {drawDefault()}
             U3dLayer — 상속된 상태·연결 객체; 속성 읽기: {_group, _app}
             U3dModelBasicLayer — 상속된 상태·연결 객체; 속성 읽기: {_drawObject}
@@ -931,21 +937,23 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
         동작:
             일반 _group을 해제하고 전체 인스턴스 수명을 정리한 뒤 _drawObject를 해제한다.
             LOD 정보·LOD 데이터·geometry·metadata 캐시를 비우고 _listModel을 빈 객체, 검색 인덱스를 undefined로 바꾼다.
+            cacheLodList를 비우기 전에 각 완료 객체를 값 없이 resolve하여 이 레이어의 대기를 종결한다. 이미 완료된 결과는 바꾸지 않으며 공유 작업자의 응답을 기다리지 않는다.
             단순화·표면 배치 작업자 각각에 대해 this.constructor.workers의 참조 수를 감소시킨다. 정확히 0이 되면 작업자를 dispose하고 공유 항목을 지운다. 공유 항목이 없지만 로컬 작업자가 있으면 직접 dispose한다. 작업자와 키를 undefined로 만든다.
             부모 dispose를 호출한 뒤 앱 drawDefault를 호출한다. 부모의 비동기 반환을 기다리거나 반환하지 않는다. [확인 Q-004]
 
     getTileInfo(tile, indexX, indexY, level, baseUrl, drawArg, tileGen)
         인터페이스: indexX·indexY는 현재 본문에서 사용하지 않는다. 반환 완료 값은 false·true 또는 조기 공개를 뜻하는 'progressive'다.
         의존:
-            deferred — 타일 페이징 완료; 함수: {deferred()}
+            deferredPromise — 타일 페이징 완료; 함수: {deferredPromise()}
             defined — 선택적 종료 사유 판정; 함수: {defined()}
             U3dModelLayer — 첫 페이지 실패의 폐기 판정; 함수: {isTileDisposed()}
         동작:
             타일·level·주소로 요청 맥락을 구성하고 JSON 로더를 보장한다.
             tile이 truthy 객체이면 _pagingDebug에 키·세대·페이징 설정·0번 pageNo/pageIndex와 미정 종결 정보를 저장한다.
-            완료 객체와 pageIndex=0·pageNo=0·firstPageFirstId=undefined 상태를 만든다. finishWithDebug는 최초 호출만 받아 debug의 페이지 위치·완료 값 및 정의된 사유를 갱신한 뒤 resolve한다.
+            완료 객체와 pageIndex=0·pageNo=0·firstPageFirstId=undefined 상태를 만든다. finishWithDebug는 최초 호출만 받는다. tile이 객체이고 _pagingDebug가 있으면 pageNo·pageIndex·finishedValue를 갱신하며, stopReason·lastPageReason은 각각 nullish가 아닐 때만 저장한다. 이후 완료 객체를 resolve한다.
             첫 페이지를 요청한다.
             첫 JSON이 false이면 세대 만료·타일 폐기·기타 로딩 실패 순서로 이유를 선택해 false 완료한다. 그 외는 페이지 처리기로 이어간다.
+            첫 페이지 요청 또는 그 후속 callback이 거부·예외로 끝나면 loadFirstPageFailed 사유로 false 완료한다.
             완료 객체를 반환한다. progressive로 이미 완료했어도 후속 페이지 처리기는 실행될 수 있으며 이후 debug 종결 갱신은 완료 guard에 막힌다.
 
     update(drawArg: UDrawArg, delta: number) -> void
@@ -958,7 +966,7 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
             인스턴스 entity — 고도 변경 반영; 함수: {updateMatrixPosition()}; 속성 읽기: {visible, active, position, _localHeight}
             forceYield — 비동기 순회 양보; 함수: {forceYield()}
         동작:
-            현재 delta를 저장하고 이전 고도 타이머가 truthy이면 취소·null 처리한다. 자동 고도 여부와 무관하게 pending LOD·메시 작업을 먼저 실행한다.
+            heightUpdateTime에 현재 delta를 저장한다. 이전 heightUpdateId가 truthy이면 타이머를 취소하고 heightUpdateId=null로 바꾼다. 자동 고도 여부와 무관하게 pending LOD·메시 작업을 먼저 실행한다.
             자동 고도가 꺼졌거나 메시가 없으면 종료한다. 현재 메시 목록을 UPDATE 이벤트 데이터로 전달한다.
             카메라 위치·회전이 snapshot과 다르면 snapshot을 복사하고 고도·가속 계수와 순회 커서를 초기화한다. 같고 전체 메시 순회가 끝났으면 한 번만 커서를 다시 시작하며 두 번째 완료 후 종료한다. 그 외는 hardUpdateCount를 증가시킨다.
             타이머에 self와 delta를 묶은 async callback을 등록한다. 시작 시 hardUpdateCount가 latency보다 크면 최대 400회, 아니면 200회를 순회한다.
@@ -1092,9 +1100,9 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
             isInstancedMesh가 truthy이며 userData.modelName이 일치하면 먼저 dispose를 호출하여 제거 목록에 넣는다. 남아 있는 instances를 순회하여 자동 고도 등록을 제거하고 clearInstances를 호출한다.
             flatBush를 undefined로 하고 flatChild를 비우며 검색 Map에서 메시를 지운다. 순회가 끝난 뒤 수집한 메시를 그룹에서 제거한다. 이 경로는 render.meshList나 모든 LOD·피처 캐시를 일괄 정리하지 않는다.
 
-    addPositionList(positionList, name)
+    addPositionList(positionList: Array<U3dLodComponentPositionInfo>, name: string) -> Promise
         의존:
-            deferred — 직접 입력 생성 완료; 함수: {deferred()}
+            deferredPromise — 직접 입력 생성 완료; 함수: {deferredPromise()}
             UEventDispatcher — 생성 이벤트; 함수: {dispatchEvent()}
             UScene — 출력 그룹 전환; 함수: {remove(), add()}
             jsts.GeometryFactory — 입력 점 영역 구성; 생성자: {new GeometryFactory()}
@@ -1103,24 +1111,24 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
             THREE.Object3D — 모델 변환과 하위 메시 순회; 함수: {updateMatrixWorld(), traverse()}
             THREE.BufferGeometry — 위치 속성 유무; 함수: {getAttribute()}
             __GInfo__ — 누락 모델·옵션과 생성 오류 알림; 함수: {__GInfo__()}
-            U3dLayer — 상속된 상태·연결 객체; 속성 읽기: {_scene}
+            U3dLayer — 상속된 상태·연결 객체; 속성 읽기: {_scene, _disposed}
             U3dModelBasicLayer — 상속된 상태·연결 객체; 속성 읽기: {_object}
         동작:
-            완료 객체를 만든다. positionList가 없거나 비거나 name이 falsy이면 값 없이 resolve하고 CREATED 이벤트에 self를 전달하여 같은 완료 객체를 반환한다.
+            현재 instanceRevision과 완료 객체를 보관한다. 해제된 레이어이면 값 없이 완료하며 장면과 이벤트를 변경하지 않는다. positionList가 없거나 비거나 name이 falsy이면 값 없이 resolve하고 CREATED 이벤트에 self를 전달하여 같은 완료 객체를 반환한다.
             기존 모델 그룹 대신 인스턴스 그룹을 장면에 추가한다. 각 위치 입력을 인스턴스 정보에 등록하고 변환된 위치를 모은다.
             입력 점으로 JSTS polygon을 생성한다. 결과가 있으면 영역 경계를 읽고 이름별 jstsGeometryMap에 infoList·points·polygon을 저장한다.
             모델 선언 또는 로드 객체가 없으면 안내 후 값 없이 완료하여 반환한다. 이때 앞서 등록한 위치·영역 정보는 되돌리지 않는다.
             LOD 옵션을 조회하고 없으면 안내 후 value=undefined인 새 옵션 key를 만든다. 모델과 존재하는 부모의 위치를 원점으로 바꾸고 월드 행렬을 갱신한다.
             하위 isMesh이며 position 속성이 있는 geometry마다 옵션 key와 geometry.name 또는 uuid로 캐시 키를 만든다. 캐시가 있으면 원본 LOD 정보를 child.userData에 연결하고 인스턴스 메시를 만들어 완료 목록에 넣는다.
-            캐시가 없으면 작업자 LOD 생성을 시작하고 child 월드 행렬을 갱신한다. LOD 결과가 있으면 child·캐시에 저장 후 인스턴스 메시를 만들며, 결과가 없으면 해당 작업을 값 없이 완료한다. 오류는 안내 후 해당 완료 객체를 reject한다.
-            모든 개별 완료의 성공 후 메시 배열로 외부 완료 객체를 resolve하고 CREATED 이벤트에 그 배열을 전달한다. 개별 거부를 외부 완료 객체로 전달하는 집계 실패 처리기는 없다. [확인 Q-008]
+            캐시가 없으면 작업자 LOD 생성을 시작하고 child 월드 행렬을 갱신한다. 성공·실패 callback에서 레이어가 해제되었거나 instanceRevision이 달라졌으면 캐시·메시를 변경하거나 오류를 보고하지 않고 해당 작업을 값 없이 완료한다. 유효한 LOD 결과는 child·캐시에 저장 후 인스턴스 메시로 만들며, 결과가 없으면 값 없이 완료한다. 유효한 작업의 오류는 안내 후 해당 완료 객체를 reject한다.
+            모든 개별 완료의 성공 후에도 해제·instanceRevision 변경 여부를 검사한다. 무효화되었으면 외부 작업을 값 없이 완료하고 CREATED 이벤트를 생략한다. 유효하면 메시 배열로 외부 완료 객체를 resolve하고 CREATED 이벤트에 그 배열을 전달한다. 개별 거부는 집계 Promise의 catch를 통해 외부 완료 객체로 전달한다.
             외부 완료 객체를 반환한다.
 
     parseModel(json, tile, promise, tileGen, paging)
         인터페이스: promise는 페이지 완료 신호를 전달받는 객체다. 일반 등록 경로는 undefined를 반환하며, 일부 조기 종료에서만 전달된 promise를 반환한다. 작업 selector에는 현재 레이어를 설정하고 callback에는 #parseFeature를 전달한다. 작업 실행기와 filter는 현재 레이어를 this로 하여 호출한다.
         의존:
             defined — JSON·잔여 작업량 존재 판정; 함수: {defined()}
-            deferred — 메시 생성 중간 결과; 함수: {deferred()}
+            deferredPromise — 메시 생성 중간 결과; 함수: {deferredPromise()}
             U3dModelLayer — 타일 키·상태·폐기와 작업 등록; 함수: {createKeyByTile(), getStateTileByKey(), isTileMeshDisposed(), isTileDisposed(), getName(), addWork()}
             UDEF — 작업 상태·종류와 진단 모드; 상수: {TILE_STATE._loading, TILE_STATE._end, _MSG_WORK._UPDATE_MESH_BUILDING}; 속성 읽기: {debug}
             U3dQuadTileWork — 타일 생성 작업; 생성자: {new U3dQuadTileWork()}
@@ -1395,7 +1403,7 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
             defined — 키 존재 판정; 함수: {defined()}
             UDEF — 진단·모델 타일 종류; 속성 읽기: {debug}; 상수: {TILE_TYPE.MODEL}
             UDrawArg — 진단 대상 타일; 함수: {getTile()}
-            U3dModelLayer — 진단 이름·상태와 최종 타일 해제; 함수: {getName(), getStateTileByKey(), disposeTileByKey()}
+            U3dModelLayer — 진단 이름·상태와 최종 타일 해제; 함수: {getName(), getStateTileByKey(), prototype.disposeTileByKey.call()}
             Web API — 타일 제거 진단 그룹; 함수: {console.groupCollapsed(), console.log(), console.groupEnd()}
             U3dLayer — 상속된 상태·연결 객체; 속성 읽기: {_drawArg, _workBuffer}
         동작:
@@ -1484,7 +1492,7 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
         동작:
             인스턴스 출력 그룹을 조회하고 instanceRevision을 증가시켜 이전 비동기 메시 결과를 무효화한다.
             제거 callback과 큐를 함께 취소하고 동기화 callback도 취소한다.
-            진행 고도 타이머를 취소하고 시간값을 NaN으로 바꿔 양보 중인 callback도 무효화한다. 커서와 고도 순회 계수를 초기화한다.
+            heightUpdateId가 truthy이면 진행 고도 타이머를 취소하고 heightUpdateId=null로 바꾼다. 이 조건과 무관하게 heightUpdateTime을 NaN으로 바꿔 양보 중인 callback도 무효화한다. 커서를 초기화하고 hardUpdateCount·heightUpdateCycle·heightUpdateCount를 각각 0으로 설정한다.
             진행 URL Map의 각 타일 요청을 중단한다.
             출력 그룹의 첫 자식을 반복 해제·제거한다. render.meshList와 instancedMeshMap 배열에도 남아 있는 미처분 메시를 찾아 부모에서 분리하고 해제한다.
             _instancedInfo를 새 객체로 바꾸고 meshList는 같은 배열의 길이를 0으로 한다. 갱신 큐·membership·계측을 초기화한다.
@@ -1658,6 +1666,7 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
 
     #addSimplifiedLOD(info: object) -> boolean
         의존:
+            U3dLayer — 비동기 결과 적용 전 수명 확인; 속성 읽기: {_disposed}
             USimplifyModifier — 정점 단순화; 생성자: {new USimplifyModifier()}; 함수: {modify()}
             simplifiedGeometry — 후속 geometry 최적화; 함수: {simplifiedGeometry()}
             createClusteredConvexGeometry — 군집 외곽 geometry; 함수: {createClusteredConvexGeometry()}
@@ -1667,10 +1676,10 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
         동작:
             info의 geometry·material·mesh·distance·compressionRatio·targetModelName을 읽고 기존 modifier 또는 새 modifier를 저장한다.
             try 안에서 floor(position.count*compressionRatio)를 제거량으로 modify한다. 결과가 falsy이면 false를 반환하고, 결과가 있으면 입력 geometry를 dispose한다.
-            클래스 ratio·error로 후속 최적화를 시작한다. 성공 callback은 중간 geometry를 dispose하고 최적화 geometry 이름을 설정한다.
-            clusterCount??128·pointEpsilonRatio??0.0025·convexSteps??4로 i=1부터 steps 미만의 군집 geometry를 생성하여 distance*i의 LOD로 추가한다. 최대 거리를 추적한다.
-            최적화 geometry를 dispose한 뒤 자식 정보·최대 거리를 반영한다.
-            비동기 최적화를 기다리지 않고 true를 반환한다. 동기 오류는 안내 후 false로 바꾸지만 최적화 Promise의 거부 처리기는 없고 비동기 후속 callback의 오류도 이 catch에 포함되지 않는다. [확인 Q-012]
+            클래스 ratio·error로 후속 최적화를 시작한다. 성공 callback은 중간 geometry를 dispose한 뒤 레이어·메시가 해제되었으면 후속 LOD 추가를 생략한다. 유효한 대상만 최적화 geometry 이름을 설정한다.
+            유효한 대상에는 clusterCount??128·pointEpsilonRatio??0.0025·convexSteps??4로 i=1부터 steps 미만의 군집 geometry를 생성하여 distance*i의 LOD로 추가한다. 최대 거리를 추적한다.
+            자식 정보·최대 거리를 반영한 뒤 finally에서 최적화 geometry를 dispose한다. 대상 해제로 조기 종료하거나 후처리가 실패해도 이 최적화 결과는 정리한다.
+            비동기 최적화를 기다리지 않고 true를 반환한다. 동기 오류는 안내 후 false로 바꾼다. 최적화 실패와 후처리 예외는 로그로 남긴다. 성공·실패에서 중간 geometry를 한 번 정리하고, 해제된 레이어·메시에 새 LOD를 붙이지 않으며 최적화 결과는 finally에서 정리한다. [확인 Q-012]
 
     #createInstancedMesh(instancedMeshOpt: object) -> UInstancedMesh
         의존:
@@ -1688,23 +1697,25 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
             각 자식에 부모의 modelName, 부모 이름+'_L:'+순번, 그림자 false를 설정한다.
             LODinfo.render가 있고 maxDistance가 유한한 양수이면 기존 최대 거리??0과 새 거리 중 큰 값을 저장한다. 거리를 줄이지 않는다.
 
-    #generateLODs(geometry: BufferGeometry, material: Material, options: object = {}, idx: number) -> promise
+    #generateLODs(geometry: BufferGeometry, material: Material, options: object = {}, idx: number) -> Promise<{LODList: Array<{geometry: BufferGeometry, distance: number}>, id: number} | undefined>
         의존:
-            deferred — LOD 완료와 공유 작업; 함수: {deferred()}
+            U3dLayer — 작업 시작·응답 적용 전 수명 확인; 속성 읽기: {_disposed}
+            deferredPromise — LOD 완료와 공유 작업; 함수: {deferredPromise()}
             UTaskProcessor — geometry 단순화 작업; 함수: {scheduleTask()}
             UWorkerParameter — 작업 전달 데이터; 생성자: {new UWorkerParameter()}
             THREE — 작업자 결과 geometry 복원; 생성자: {new BufferGeometry(), new BufferAttribute()}; 함수: {setAttribute(), setIndex()}
             __GInfo__ — 옵션·작업자 부재 알림; 함수: {__GInfo__()}
             __GError__ — 작업 시작의 동기 오류 기록; 함수: {__GError__()}
         동작:
-            완료 객체를 만들고 geometry에 해당하는 LOD 옵션을 구한다. 옵션이 falsy이면 안내 후 값 없이 reject한 완료 객체를 반환한다.
+            완료 객체를 만들고 레이어가 해제되었으면 작업을 시작하지 않고 값 없이 resolve하여 반환한다. 그 외 geometry에 해당하는 LOD 옵션을 구하며 옵션이 falsy이면 안내 후 값 없이 reject한 완료 객체를 반환한다.
             distanceOverrides가 비어 있지 않은 배열이면 유한 양수 거리만 남긴다. 원래 단계 수와 유효 거리 수 중 작은 범위에서 존재하는 단계의 복제본에 거리 override를 적용하고 결과가 비어 있지 않을 때만 사용한다.
-            작업 캐시 키에는 options.key·geometry.uuid와 필터 전 distanceOverrides의 join 결과를 사용한다. 작업자가 없으면 안내 후 reject한다. 동기 계산으로 대체하지 않는다. [확인 Q-016]
+            작업 캐시 키에는 options.key·geometry.uuid와 필터 전 distanceOverrides의 join 결과를 사용한다. 작업자가 없으면 안내 후 reject한다. 동기 계산으로 대체하지 않는다.
             try 안에서 geometry cache가 truthy이면 그대로 재사용한다. 아니면 모든 속성의 array를 일반 배열로 복사하고 itemSize·normalized, 선택 index 배열과 groups 참조를 직렬화한다. geometry.uuid 캐시가 없을 때만 저장한다.
             동일 작업 키의 cacheLodList 항목이 있으면 그 완료 객체를 반환한다. 없으면 현재 완료 객체를 먼저 등록하고 USimplifyTask/generateLodTask에 geometry·단계 옵션·작업 key를 전달한다.
-            성공 callback은 각 geometry 속성을 Float32Array와 BufferAttribute로, index를 Uint32Array의 itemSize=1 속성으로 복원한다. groups는 전달 참조를 설정하며 setConvexHull이 truthy이면 userData에 true를 기록한다.
-            결과를 거리 오름차순으로 정렬하고 {LODList,id:idx}로 완료한다. 캐시 키가 중간에 사라졌으면 현재 완료 객체를 다시 넣는다.
-            try의 동기 오류는 기록 후 reject하여 반환한다. scheduleTask 거부 및 성공 callback 오류를 외부 완료 객체에 전달하는 처리기는 없다. material 인수는 현재 본문에서 사용하지 않는다. [확인 Q-020]
+            성공·실패 callback에서 레이어가 해제되었거나 cacheLodList의 같은 키가 이 완료 객체를 가리키지 않으면 결과를 반영하거나 새 요청을 지우지 않고 값 없이 resolve한다.
+            유효한 성공 결과의 각 geometry 속성을 Float32Array와 BufferAttribute로, index를 Uint32Array의 itemSize=1 속성으로 복원한다. groups는 전달 참조를 설정하며 setConvexHull이 truthy이면 userData에 true를 기록한다.
+            결과를 거리 오름차순으로 정렬하고 {LODList,id:idx}로 완료한다. 중간에 제거·교체한 캐시를 이전 응답으로 복원하지 않는다.
+            try의 동기 오류는 캐시가 이 완료 객체를 가리킬 때만 삭제한 뒤 기록하고 값 없이 reject한다. 현재 작업의 scheduleTask 거부 및 성공 callback 오류도 캐시에서 제거한 뒤 원래 오류로 reject하여 재시도를 허용한다. material 인수는 현재 본문에서 사용하지 않는다.
 
     #registerCullingTileBucketInstance(mesh: Object3D, tileKey: string|number, instanceId: number, idList: Array<number>) -> void
         의존:
@@ -1858,7 +1869,7 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
 
     #getInstancedMesh(modelName, infoList, tile) -> object
         의존:
-            deferred — 공유 메시 조회·생성 완료; 함수: {deferred()}
+            deferredPromise — 공유 메시 조회·생성 완료; 함수: {deferredPromise()}
             U3dModelLayer — 타일 폐기 판정; 함수: {isTileDisposed()}
             U3dModelBasicLayer — 로드 모델 조회; 함수: {getLoadedModel()}
             THREE.Object3D — 만료 결과 소유 연결 제거; 함수: {remove()}
@@ -1879,7 +1890,7 @@ U3dLodComponentLayer extends U3dMultipleComponentLayer 클래스 정의
         의존:
             THREE.Object3D — 원점 변환·하위 순회; 함수: {updateMatrixWorld(), traverse()}
             THREE.BufferGeometry — 생성 부품 선택; 함수: {getAttribute()}
-            deferred — 부품별 완료; 함수: {deferred()}
+            deferredPromise — 부품별 완료; 함수: {deferredPromise()}
             defined — 명시 거리 LOD 선택; 함수: {defined()}
             __GInfo__ — 설정·LOD 생성 실패 안내; 함수: {__GInfo__()}
         동작:

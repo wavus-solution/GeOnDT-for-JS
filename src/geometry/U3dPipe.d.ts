@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,13 +8,14 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
-import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryEMI, U3dGeometryStyleParam } from "./U3dGeometry.js";
+import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryEMI, U3dGeometryStyleParam, UGeometryOutlineMesh } from "./U3dGeometry.js";
 import type { UMeta } from "../meta/UMeta.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { EventCallBack, GeoPositionVector3, KeyValue, WorldPositionVector3 } from "../types/global.js";
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dPipe {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -22,7 +23,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -52,24 +52,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: any): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -137,8 +153,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -192,6 +208,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
@@ -258,6 +275,7 @@ declare const U3dPipe_base: Omit<typeof U3dGeometry, "prototype"> & {
  * `setPositions`로 위경도 좌표계(EPSG:4326)를 지정하면 파이프가 속한 레이어가 월드 좌표(EPSG:3857)로 변환해 반영합니다. <br>
  *
  * 반지름·분할 수·장력 같은 형상 필드에 직접 대입한 값은 곧바로 화면에 반영되지 않습니다. <br>
+ * 외곽선은 실제 튜브 메시의 윤곽과 열린 끝의 단면 테두리를 전용 Mesh로 그립니다. <br>
  * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용되므로, 값을 바꿀 때는 `setParam`을 사용하십시오. <br>
  *
  * @group geometry
@@ -341,12 +359,25 @@ declare class U3dPipe extends U3dPipe_base {
     _init(): void;
     /**
      * 꼭짓점 업데이트 함수 <br>
+     * 분할 수·닫힘과 열린 끝의 연결 관계가 같으면 정점·법선만 기존 버퍼에 갱신합니다. <br>
+     * UV·인덱스와 계산한 단면 삼각함수를 재사용하고, 본체 경계는 갱신당 한 번 계산합니다. <br>
      *
      * @override
      *
+     * @param {boolean} [rebuild=false] 형상 옵션 변경 시 기존 자원을 교체합니다.
      * @ignore
      */
-    override updateVertex(): void;
+    override updateVertex(rebuild?: boolean): void;
+    /**
+     * 실제 튜브의 열린 끝과 현재 시점에서 보이는 표면 윤곽을 그립니다.
+     * @override
+     * @param {import('three').BufferGeometry} geometry 원본 튜브
+     * @param {boolean} [depthTest=true] 깊이 검사 여부
+     * @returns {UGeometryOutlineMesh} 메시 경계 외곽선
+     * @protected
+     * @ignore
+     */
+    protected override _createSilhouetteOutline(geometry: three.BufferGeometry, depthTest?: boolean): UGeometryOutlineMesh;
     /**
      * 재질 초기화 함수 <br>
      *
@@ -356,24 +387,8 @@ declare class U3dPipe extends U3dPipe_base {
      */
     override setMaterial(): void;
     /**
-     * 라인 너비 조회 함수 <br>
-     *
-     * @returns {number} 라인 너비 <br>
-     *
-     * @ignore
-     */
-    getLineWidth(): number;
-    /**
-     * 라인 너비 설정 함수 <br>
-     *
-     * @param {number} size 라인 너비 <br>
-     *
-     * @ignore
-     */
-    setLineWidth(size: number): void;
-    linewidth: number;
-    /**
-     * 도형 공통 속성과 파이프 고유 속성을 일괄 변경하고 형상을 다시 생성합니다. <br>
+     * 도형 공통 속성과 파이프 고유 속성을 일괄 변경합니다. <br>
+     * 파이프 형상 값이 바뀔 때만 형상을 다시 만들며, 스타일만 변경하면 기존 형상과 외곽선을 유지합니다. <br>
      * 지정하지 않은 항목은 현재 값을 유지합니다. <br>
      * 인자를 생략하고 호출하면 값은 그대로 두고 형상만 다시 만듭니다. <br>
      *

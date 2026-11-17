@@ -24,7 +24,7 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
     constructor(opt: U3dModelShapeLayerCO = {})
         인터페이스: opt는 레이어 이름·좌표계·표시 레벨, 건물·지면·층 높이와 속성 필드, 스타일·라벨·텍스처 설정을 전달하는 생성 옵션이다.
         의존:
-            U3dModelLayer — 기반 상태 초기화; 생성자: {super()}
+            U3dModelLayer — 기반 상태 초기화·준비 완료 통지; 생성자: {super()}; 함수: {_resolveReady(), _rejectReady()}
             UCheckTime — 직접 호출; 생성자: {new UCheckTime()}
             UGroup — 직접 호출; 생성자: {new UGroup()}
             UMercator — 직접 호출; 생성자: {new UMercator()}
@@ -46,7 +46,8 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
         의존:
             defined — 존재 판정; 함수: {defined()}
         동작:
-            텍스처 URL이 정의되어 있으면 setTexture의 반환값을 그대로 반환하며 아니면 undefined다.
+            _textureUrl이 defined이면 setTexture의 반환값을 그대로 반환한다.
+            그 외에는 undefined다.
 
     #applyUvArray(geometry: BufferGeometry, arr: Float32Array | Array<number>) -> void
         의존:
@@ -66,11 +67,12 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
         의존:
             defined — 존재 판정; 함수: {defined()}
         동작:
-            url이 정의되지 않았으면 undefined로 완료한다. 배열이면 순서대로 각 URL의 로딩을 시작하고, 스칼라이면 한 번 시작하여 Promise.all 결과를 반환한다. 하나라도 거부되면 반환 Promise도 거부된다.
+            url이 defined이면 배열의 각 URL 또는 스칼라 URL 하나의 로딩을 시작하여 Promise.all 결과를 반환한다. 하나라도 거부되면 반환 Promise도 거부된다.
+            url이 null 또는 undefined이면 undefined로 완료한다.
 
     async changeTexture(url: string, index: number) -> Promise<void | undefined>
         의존:
-            deferred — 완료·실패 통지; 함수: {deferred()}
+            deferredPromise — 완료·실패 통지; 함수: {deferredPromise()}
             defined — 존재 판정; 함수: {defined()}
         동작:
             url이 없거나 내부 URL이 배열이 아니거나 index가 0 미만 또는 배열 길이 이상이면 undefined로 완료한다. 정수 여부는 검사하지 않는다.
@@ -105,10 +107,15 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
     addScene(mesh: U3dModelShapeMesh) -> void
         의존:
             defined — 존재 판정; 함수: {defined()}
-            U3dModelLayer — 기반 계열의 상태·API 접근; 속성 읽기: {_scene, _app, _drawArg}
+            U3dModelLayer — 기반 계열의 상태·API 접근; 속성 읽기: {_scene, _app, _drawArg, _disposed}
+            __GError__ — 비동기 라벨 표시 실패 안내; 함수: {__GError__()}
         동작:
             mesh가 falsy면 종료한다. 모델을 표시하여 scene에 넣고 수동 행렬 갱신을 적용한다.
-            mesh가 존재하고 _isShowLabel이 true이면 기존 라벨을 주석 장면에 추가하거나 라벨을 만든 뒤 성공 콜백에서 표시·등록한다. 새 라벨 경로에는 별도 실패 콜백을 등록하지 않는다.
+            mesh가 truthy이면:
+                self._isShowLabel이 truthy이면:
+                    기존 mesh.userData.label이 defined이면 앱과 주석 장면이 defined일 때만 라벨을 표시·등록한다.
+                    mesh.userData.label이 null 또는 undefined이면 새 라벨을 만든다.
+                        완료 시 레이어가 살아 있고 메시가 부모에 연결되어 있으며 라벨이 남아 있을 때만 표시·등록한다. 생성·후처리 실패는 __GError__로 안내하며 이 메서드는 완료를 기다리지 않는다.
 
     getFeatureCollection() -> Array<U3dModelShapeFeatureCollection>
         동작:
@@ -130,15 +137,16 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
 
     addFeatureCollection(featureCollection: U3dModelShapeFeatureCollection) -> Promise<Array<U3dModelShapeMesh> | undefined> | undefined
         의존:
-            deferred — 완료·실패 통지; 함수: {deferred()}
-            defined — 존재 판정; 함수: {defined()}
-            UDEF — 직접 호출; 함수: {UDEF.createUUID()}
-            THREE — 직접 호출; 생성자: {new THREE.Box3()}
-            U3dModelLayer — 기반 계열의 상태·API 접근; 속성 읽기: {_boundingBox}
+            defined — 컬렉션 존재 판정; 함수: {defined()}
+            UDEF — 등록 컬렉션 식별자; 함수: {createUUID()}
+            U3dModelLayer — 수명 및 경계 상태; 속성 읽기: {_disposed}; 속성 쓰기: {_boundingBox}
+            THREE.Box3 — 생성된 모델 그룹의 경계; 생성자: {new THREE.Box3()}; 함수: {setFromObject()}
         동작:
-            입력이 정의되어 있으면 uuid를 새로 부여하고 원본 컬렉션을 목록에 추가하며, 아니면 undefined다.
-            deferred를 만든 뒤 각 피처의 addFeature를 호출하지만 그 반환 완료를 기다리지는 않는다. _remainProcess가 0이면 공유 모델 목록으로 resolve하고 그 뒤 그룹의 바운딩 박스를 갱신하며, 아니면 인수 없이 reject한다.
-            반복이나 경계 갱신 예외는 오류 값 없이 reject한다. 이미 추가한 컬렉션·모델은 롤백하지 않는다.
+            featureCollection이 defined이면:
+                입력 컬렉션에 새 uuid를 기록하고 저장한다. 각 addFeature의 결과를 Promise.all로 기다린다.
+                완료 시 해제되었으면 AbortError로 거부하고, 살아 있으면 _shpGroup의 경계를 _boundingBox에 저장하여 전체 _modelList로 완료한다. 빈 features도 같은 완료 경로다.
+                map 실행 및 비동기 생성·경계 계산 실패는 반환 Promise로 전파한다. 이미 저장한 컬렉션과 생성 결과를 되돌리지 않는다.
+            입력이 null 또는 undefined이면 undefined를 반환한다.
 
     addFeature(feature: U3dModelShapeFeature) -> Promise<U3dModelShapeMesh> | undefined
         인터페이스: heightFunction과 landHeightFunction의 this는 이 레이어다.
@@ -146,26 +154,26 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
             UExtrudeGeometry — 직접 호출; 생성자: {new UExtrudeGeometry()}
             UShpMesh — 직접 호출; 생성자: {new UShpMesh()}
             __GError__ — 직접 호출; 함수: {__GError__()}
-            deferred — 완료·실패 통지; 함수: {deferred()}
+            deferredPromise — 완료·실패 통지; 함수: {deferredPromise()}
             defined — 존재 판정; 함수: {defined()}
-            UDEF — 직접 호출; 함수: {UDEF.createGoogleKey()}
             UMathEngine — 직접 호출; 함수: {UMathEngine.getRealScaleAtGoogle()}
             THREE — 직접 호출; 생성자: {new THREE.Shape(), new THREE.Vector3()}
             U3dModelLayer — 기반 계열의 상태·API 접근; 속성 읽기: {_drawArg, _app, dispatchEvent}
         동작:
             geometry·좌표 배열이 없거나 바깥 배열이 비어 있으면 undefined다. deferred를 만들고 진행 수를 증가시킨다.
             properties가 없으면 원본 피처에 빈 객체를 만든다. LineString 전체, Polygon의 첫 외곽선, MultiPolygon의 첫 폴리곤 첫 외곽선만 차례대로 위경도에서 월드 좌표로 변환한다. 나머지 링·폴리곤은 처리하지 않는다.
-            지원하지 않는 종류 또는 로컬 변환 실패는 로그 후 undefined로 종료한다. 로컬 정점이 1개 이하이면 생성·완료 없이 deferred를 반환한다.
+            지원하지 않는 종류 또는 로컬 변환 실패는 로그 후 undefined로 종료한다. 로컬 정점이 1개 이하이면 메시 생성을 건너뛰고 마지막 완료 검사에서 Error로 거부한다.
             정점이 2개 이상이면 Shape 윤곽을 구성한다. 층 높이는 fieldFloorHeight가 있으면 속성의 Number 변환값, 아니면 공통 층 높이다.
             건물 높이는 heightFunction(feature), hg, bd_height, fieldheight, fieldFloor 순으로 선택하고 기본값 100을 사용한다. fieldheight 옵션이 있으면 그 속성 값이 없어도 층수 경로로 넘어가지 않는다. 높이 콜백의 receiver는 레이어다.
             메르카토르 실제 스케일 역수를 높이에 곱하고 깊이/층 높이를 floor하여 압출 단계 수를 정한다. 층 강조 모델을 만들고 압출 geometry를 정리·중심 이동하며 UV 변환 예외는 로그만 남겨 계속한다.
             건물 Mesh를 만들고 강조 Mesh를 자식으로 배치하며 인덱스를 준비한다. 피처와 properties에 Mesh uuid를 기록하고 두 원본 참조를 모델에 연결하여 속성 목록에 추가한다.
             지면 높이는 landHeightFunction, el, fieldlandheight 순으로 선택하며 일반 속성 값의 NaN은 0으로 바꾼다. 콜백 반환은 별도 NaN 보정을 하지 않는다.
-            _isShowLabel이 true이면 라벨을 먼저 만든다.
+            _isShowLabel이 truthy이면 라벨 생성을 요청하고 실패를 __GError__로 안내한다. 라벨 완료를 기다리지 않고 메시 구성을 계속한다.
             landHeight·buildHeight 기록과 지형 높이 조회·자동 높이 갱신 등록은 _isShowLabel 여부와 관계없이 수행하며 이 구간의 예외는 로그만 남긴다. 자동 갱신 콜백은 지면+건물 반높이를 위치에 적용한 뒤 행렬과 라벨을 갱신한다.
-            피처 id 또는 최초 좌표와 모델 z로 식별자를 만들고 스타일을 적용한다. 단일 재질일 때 불투명도 조건에 따라 깊이 보정을 설정한다.
-            바운딩 박스·타일 색인·중심을 준비한다. _drawLine이 true이면 외곽선을 만든다. 모델을 숨긴 채 압출 그룹과 모델 목록에 등록하고 수동 행렬 갱신 후 MESH.LOADED 이벤트를 내보내고 모델로 resolve한다.
+            모델 스타일을 적용하고 단일 재질일 때 불투명도 조건에 따라 깊이 보정을 설정한다. 피처 원본 속성은 보존하며 별도의 userData.id 엔진 키를 생성하지 않는다.
+            바운딩 박스·타일 색인·중심을 준비한다. _drawLine이 truthy이면 외곽선을 만든다. 모델을 숨긴 채 압출 그룹과 모델 목록에 등록하고 수동 행렬 갱신 후 MESH.LOADED 이벤트를 내보내고 모델로 resolve한다.
             외부 try의 예외는 값 없이 reject하며 이미 발생한 속성·객체 변경을 되돌리지 않는다. 조기 반환·성공·실패 모두 finally에서 진행 수를 감소시킨다.
+            조기 반환 없이 마지막까지 도달했는데 완료 통지가 없으면 메시를 만들 수 없는 도형이라는 Error로 거부하여 대기 상태로 남기지 않는다.
 
     traverseAllFloor(mesh: U3dModelShapeMesh, callback: U3dModelShapeFloorCallback) -> void
         의존:
@@ -252,8 +260,9 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
             U3dModelLayer — 기반 계열의 상태·API 접근; 속성 읽기: {_visible, dispatchEvent}
         동작:
             drawArg가 없으면 종료한다. 레이어가 숨겨졌으면 처리 대기열을 비우고 종료하며 대기열이 비어 있어도 종료한다.
-            시간 제한기가 실행을 허용할 때만 UDEF.createPromise 안에서 최대 _maxProcess개 타일 키를 앞에서 꺼내고, 해당 타일 모델 중 아직 보이지 않는 모델을 scene에 추가한 뒤 MESH.DRAWN 이벤트를 보낸다. executor 예외는 reject하고 마지막 catch에서 __GError__로 기록한다. 이 Promise를 반환하지 않는다.
-            실행 허용 여부와 관계없이 이 경로 끝에서 다음 갱신 간격을 20으로 설정한다.
+            drawArg가 defined이면:
+                시간 제한기가 실행을 허용할 때만 UDEF.createPromise 안에서 최대 _maxProcess개 타일 키를 앞에서 꺼낸다. 해당 타일 모델 중 아직 보이지 않는 모델을 scene에 추가한 뒤 MESH.DRAWN 이벤트를 보낸다.
+                executor 예외는 reject하고 마지막 catch에서 __GError__로 기록한다. 이 Promise를 반환하지 않는다. 실행 허용 여부와 관계없이 이 경로 끝에서 다음 갱신 간격을 20으로 설정한다.
 
     override show(show: boolean) -> void
         의존:
@@ -272,7 +281,9 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
             defined — 존재 판정; 함수: {defined()}
             U3dModelLayer — 기반 계열의 상태·API 접근; 속성 읽기: {_app, _drawArg}
         동작:
-            각 Mesh의 기존 라벨을 show에 따라 주석 장면에 추가하거나 분리·해제한다. 라벨이 없고 show가 true이면 생성 성공 후 표시·등록하고 실패는 console.log로 기록한다.
+            각 Mesh의 기존 라벨을 show에 따라 주석 장면에 추가하거나 분리·해제한다.
+            mesh.userData.label이 null 또는 undefined이면:
+                show가 truthy이면 Mesh에 새 라벨을 만들어 성공 후 표시·등록하고 실패는 console.log로 기록한다.
             _isShowLabel은 실제 모델별 라벨 처리 경로에서만 변경한다. 공통 라벨이 있으면 별도로 표시 또는 숨김·장면 분리를 적용한다.
 
     override updateHeight(tile: U3dQuadTile, drawArg?: UDrawArg, force?: boolean) -> void
@@ -299,7 +310,8 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
             U3dModelLayer — 기반 계열의 상태·API 접근; 속성 읽기: {resetStateTile, createKeyFromTile}
         동작:
             tile이 없으면 종료한다. 타일 레이어 상태를 초기화하고 처리 대기열에서 같은 키 하나를 제거한다.
-            그 키의 모델 참조 표시를 false로 바꾼 뒤 다른 타일 키가 하나라도 truthy인지 확인한다. 다른 참조가 없고 모델이 visible=true일 때 scene에서 제거하고 _allModelIsAddScene=false로 기록한다. 색인 처리 예외는 5436464 오류로 기록한다.
+            tile이 defined이면:
+                해당 타일 색인이 있고 모델별 타일키가 정의된 항목에서 그 표시를 false로 바꾼 뒤 다른 타일 키가 하나라도 truthy인지 확인한다. 다른 참조가 없고 모델이 visible=true일 때 scene에서 제거하고 _allModelIsAddScene=false로 기록한다. 색인 처리 예외는 5436464 오류로 기록한다.
 
     updateHeightFromMesh(tile: U3dQuadTile, drawArg?: UDrawArg, force?: boolean) -> void
         의존:
@@ -320,7 +332,9 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
             defined — 존재 판정; 함수: {defined()}
         동작:
             floorCount가 정의되지 않았거나 모델 목록이 비어 있으면 undefined다. height가 없으면 0을 쓴다.
-            propertyName 값과 commonName으로 모델을 그룹화한다. 그룹 키의 첫 항목을 제외한 나머지부터 층별 새 UGroup을 만들며 UMesh만 clone한다.
+            floorCount가 defined이면:
+                모델 목록이 존재하여 비어 있지 않으면 propertyName 값과 commonName으로 모델을 그룹화한다.
+            그룹 키의 첫 항목을 제외한 나머지부터 층별 새 UGroup을 만들며 UMesh만 clone한다.
             원본과 복제의 name을 같게 지정하고 _oriPosition 참조를 공유한다. 복제 z에 층 높이 배수를 더하고 층 설정 표시·비표시 상태·originMeshID를 기록한다.
             비어 있지 않은 그룹만 보관한다. 원본의 층 설정 표시를 해제한 뒤 _userGroupList를 새 목록으로 교체·반환하며 이전 그룹은 해제하지 않는다.
 
@@ -329,7 +343,7 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
         의존:
             defined — 존재 판정; 함수: {defined()}
         동작:
-            사용자 그룹이 없으면 종료하며 정의되지 않은 x·y·z는 0이다. 전체 그룹 수와 역순 order를 전달하여 그룹별 위치를 설정한다.
+            사용자 그룹이 없으면 종료하며 정의되지 않은 x·y·z는 0이다. _userGroupList가 defined이면 전체 그룹 수와 역순 order를 전달하여 그룹별 위치를 설정한다. 빈 배열은 이동 호출 없이 끝난다.
 
     setUserGroupPosition(group: UGroup, position?: Vector3 | Vector3Like, floorCount: number, order: number) -> void
         인터페이스: position·floorCount·order는 생략할 수 있으며 각각 영벡터·1·0으로 처리한다.
@@ -344,7 +358,7 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
     animateInterval(interval: number, x: number, y: number, z: number) -> Promise<void> | undefined
         인터페이스: x·y·z는 생략할 수 있으며 각각 0으로 처리한다.
         의존:
-            deferred — 완료·실패 통지; 함수: {deferred()}
+            deferredPromise — 완료·실패 통지; 함수: {deferredPromise()}
             defined — 존재 판정; 함수: {defined()}
         동작:
             deferred 생성 후 interval이 없거나 유한수가 아니거나 0 이하이면 undefined다. x·y·z의 미정의 값은 0이다. 먼저 사용자 그룹 이동을 0으로 초기화한다.
@@ -358,8 +372,9 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
             U3dModelLayer — 기반 계열의 상태·API 접근; 속성 읽기: {_drawArg, getCenter, _boundingBox}
         동작:
             입력의 x·y, drawArg 또는 원본 경계 중심이 없으면 종료한다. 위경도를 월드 좌표로 바꾸고 z는 입력값 또는 기존 중심을 사용하여 상대 이동량을 계산한다.
-            모델 색인만 비운 뒤 각 모델 위치·행렬·경계·중심·타일 색인을 갱신한다. 타일 색인 사전은 비우지 않는다. 라벨은 기존 위치에 모델 위치를 더하되 기존 z를 유지한다.
-            압출 그룹으로 전체 경계를 다시 계산한다.
+            geo가 defined이고 _drawArg가 defined이면:
+                모델 색인만 비운 뒤 각 모델 위치·행렬·경계·중심·타일 색인을 갱신한다.
+                타일 색인 사전은 비우지 않는다. 라벨은 기존 위치에 모델 위치를 더하되 기존 z를 유지한다. 압출 그룹으로 전체 경계를 다시 계산한다.
 
     setShpAllHeight(height: number, type: 'center' | 'bottom' | 'top') -> void
         인터페이스: type은 생략할 수 있으며 bottom으로 처리한다.
@@ -367,7 +382,11 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
             defined — 존재 판정; 함수: {defined()}
             U3dModelLayer — 기반 계열의 상태·API 접근; 속성 읽기: {_drawArg}
         동작:
-            height 또는 drawArg가 없으면 종료한다. type이 falsy면 bottom이다. 각 모델의 목표 z는 center면 height, bottom이면 height+bbox.max.z, 그 외면 height-bbox.max.z이다. 계산한 높이를 적용한다.
+            height 또는 self._drawArg가 null 또는 undefined이면 종료한다.
+            height가 defined이고 self._drawArg가 defined이면:
+                type이 falsy면 bottom이다. center이면 목표 z는 height다.
+                center 이외이면 mesh.geometry.boundingBox가 null 또는 undefined일 때만 computeBoundingBox()로 경계를 계산한다. bottom의 목표 z는 height+bbox.max.z, 그 외는 height-bbox.max.z다.
+                계산한 높이를 적용한다.
 
     setShpMeshHeight(mesh: U3dModelShapeMesh, height: number, type: 'center' | 'bottom' | 'top') -> void
         인터페이스: type은 생략할 수 있으며 bottom으로 처리한다.
@@ -375,7 +394,12 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
             defined — 존재 판정; 함수: {defined()}
             U3dModelLayer — 기반 계열의 상태·API 접근; 속성 읽기: {_drawArg}
         동작:
-            mesh·height·drawArg가 없으면 종료한다. type 기본과 높이 계산은 center=height, bottom=height+bbox.max.z, 나머지=height-bbox.max.z이며 단일 모델에 적용한다.
+            mesh·height·self._drawArg가 null 또는 undefined이면 종료한다.
+            mesh가 defined이면:
+                height가 defined이고 self._drawArg가 defined이면:
+                    type이 falsy이면 bottom이다. center이면 목표 z는 height다.
+                    center 이외이면 mesh.geometry.boundingBox가 null 또는 undefined일 때만 computeBoundingBox()로 경계를 계산한다. bottom은 height+bbox.max.z, 나머지는 height-bbox.max.z다.
+                    단일 모델에 계산한 높이를 적용한다.
 
     setStyle(style: Partial<{color: ColorRepresentation, opacity: number, label: string}> = {}) -> void
         의존:
@@ -383,7 +407,8 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
         동작:
             정의된 color·opacity·label을 공유 _style에 반영한다. THREE.Mesh이면서 material이 있는 모델의 단일·배열 재질을 차례로 변경한다.
             기존 _oriColor가 정의되어 있으면 공통 색으로 바꾸고, _oriOpacity가 정의되어 있을 때만 변경 전 material.opacity를 기록한다. 새 색·불투명도·transparent를 적용한다.
-            윗면·옆면 분리 설정일 때 opacity>=1이면 깊이 보정을 끄고 그 외에는 켠다. 재질을 갱신 상태로 표시한다. 공유 _style.label이 정의되어 있으면 이번 입력에 label이 없어도 공통 라벨을 교체한다.
+            윗면·옆면 분리 설정일 때 opacity>=1이면 깊이 보정을 끄고 그 외에는 켠다. 재질을 갱신 상태로 표시한다.
+            self._style.label이 defined이면 이번 입력에 label이 없어도 공통 라벨을 교체한다.
 
     getStyle() -> U3dModelShapeStyle
         동작:
@@ -407,8 +432,11 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
             THREE — 직접 호출; 생성자: {new THREE.Color(), new THREE.MeshPhysicalMaterial()}
         동작:
             mesh가 없거나 THREE.Mesh 인스턴스가 아니면 종료한다. opt가 falsy면 빈 객체를 쓴다. 색상 0xfaebd7, 발광색 0, metalness=0, roughness=0.8, opacity=1, DoubleSide가 기본이다. transparent 기본은 보정된 opacity가 아니라 opt.opacity<1이다.
-            회색조이면 색상 최대 채널을 세 채널에 적용하고 그 색을 발광색으로도 쓴다. 새 MeshPhysicalMaterial을 만들고 깊이 쓰기·polygonOffset·원본 발광색을 설정한다.
-            양수 숫자 scale은 세 축에 같게, 객체 scale은 축별로 적용한다. 기존 재질 배열이 비어 있지 않으면 정의된 두 번째 재질을 dispose하고 교체하며, 아니면 빈 배열의 인덱스 1에 새 재질을 넣는다.
+            회색조이면 색상 최대 채널을 세 채널에 적용하고 그 색을 발광색으로도 쓴다. 새 MeshPhysicalMaterial을 만든다.
+            mesh가 defined인 THREE.Mesh이면:
+                depthWrite의 undefined 기본값은 true를 쓴다.
+                opt.polygonOffset의 undefined 기본값 0을 polygonOffsetFactor로 선택한다. 0이 아니면 material.polygonOffset=true, material.polygonOffsetFactor=선택값, material.polygonOffsetUnits=1로 설정한다. emissive가 defined이면 material._oriEmissive에 저장한다.
+                양수 숫자 scale은 세 축에 같게, 객체 scale은 축별로 적용한다. 기존 재질 배열이 비어 있지 않으면 정의된 두 번째 재질을 dispose하고 교체하며, 아니면 빈 배열의 인덱스 1에 새 재질을 넣는다.
 
     setTopStyle(mesh: U3dModelShapeMesh, opt?: U3dModelShapeMaterialOptions) -> void
         의존:
@@ -417,13 +445,16 @@ U3dModelShapeLayer extends U3dModelLayer 클래스 정의
             THREE — 직접 호출; 생성자: {new THREE.Color(), new THREE.MeshPhysicalMaterial()}
             U3dModelLayer — 기반 계열의 상태·API 접근; 속성 읽기: {_opacity}
         동작:
-            mesh가 없거나 THREE.Mesh 인스턴스가 아니면 종료한다. 새 물리 재질의 색·발광·금속성·거칠기·면 방향·깊이 보정을 설정한다. opacity 기본은 레이어 _opacity이고 transparent 기본은 결정된 opacity<1이다.
-            회색조·scale 반영 뒤 기존 비어 있지 않은 재질 배열의 첫 재질을 dispose하고 교체한다. 그 외에는 새 재질 한 항목의 배열을 만든다. 이 새 배열 경로에서 side가 DoubleSide일 때만 geometry.groups[0].count를 _topDrawCount로 설정한다.
+            mesh가 없거나 THREE.Mesh 인스턴스가 아니면 종료한다. 새 물리 재질의 색·발광·금속성·거칠기·면 방향을 설정한다. opacity 기본은 레이어 _opacity이고 transparent 기본은 결정된 opacity<1이다.
+            mesh가 defined인 THREE.Mesh이면:
+                depthWrite의 undefined 기본값은 true다.
+                opt.polygonOffset의 undefined 기본값 0을 polygonOffsetFactor로 선택한다. 0이 아니면 material.polygonOffset=true, material.polygonOffsetFactor=선택값, material.polygonOffsetUnits=1로 설정한다. emissive가 defined이면 material._oriEmissive에 저장한다.
+                회색조·scale 반영 뒤 기존 비어 있지 않은 재질 배열의 첫 재질을 dispose하고 교체한다. 그 외에는 새 재질 한 항목의 배열을 만든다. 이 새 배열 경로에서 side가 DoubleSide일 때만 geometry.groups[0].count를 _topDrawCount로 설정한다.
 
     createLabel(mesh: U3dModelShapeMesh, opt: U3dModelShapeLabelOptions) -> Promise<void>
         의존:
             U3dPOI — 직접 호출; 생성자: {new U3dPOI()}
-            deferred — 완료·실패 통지; 함수: {deferred()}
+            deferredPromise — 완료·실패 통지; 함수: {deferredPromise()}
             defined — 존재 판정; 함수: {defined()}
             THREE — 직접 호출; 생성자: {new THREE.Vector3()}
         동작:
@@ -459,11 +490,13 @@ loadTexture(textureUrl: string) -> Promise<void>
     인터페이스: this는 U3dModelShapeLayer이며 호출한 레이어의 상태를 읽거나 변경한다.
     의존:
         UTextureLoader — 직접 호출; 생성자: {new UTextureLoader()}
-        deferred — 완료·실패 통지; 함수: {deferred()}
+        deferredPromise — 완료·실패 통지; 함수: {deferredPromise()}
         UDEF — 텍스처 크기 유지; 함수: {UDEF.noResizeTexture()}
+        THREE.Texture — 해제된 레이어에 도착한 텍스처 정리; 함수: {dispose()}
+        Web API — 늦은 결과 취소와 로딩 오류 안내; 생성자: {new DOMException()}; 함수: {console.log()}
     동작:
-        프록시 문자열과 textureUrl을 합쳐 새 UTextureLoader로 요청한다. 성공 시 텍스처 리사이즈를 막고 최종 요청 URL을 키로 캐시에 저장한 뒤 deferred를 resolve한다.
-        로딩 오류 콜백은 로그 뒤 같은 오류로 reject한다. UDEF.createPromise가 반환하는 표준 Promise를 사용하며 후속 콜백의 예외는 새 체인의 거부로 전달된다.
+        프록시 문자열과 textureUrl을 합쳐 새 UTextureLoader로 요청한다. 수신 시 레이어가 해제되었으면 텍스처를 해제하고 AbortError로 거부한다.
+        유효한 성공 결과는 텍스처 리사이즈를 막고 최종 요청 URL을 키로 캐시에 저장한 뒤 값 없이 완료한다. 성공 처리 예외는 같은 완료 객체를 거부하며, 로딩 오류 callback도 로그 뒤 같은 오류로 거부한다.
 
 setStyle(mesh: U3dModelShapeMesh) -> void
     인터페이스: this는 U3dModelShapeLayer이며 호출한 레이어의 상태를 읽거나 변경한다.
@@ -478,8 +511,9 @@ setStyle(mesh: U3dModelShapeMesh) -> void
         색·불투명도는 피처 스타일, 모델 getter, 공통 스타일 순으로 선택하고 visible 기본은 true다. opacity<=0이면 visible=false로 만들며 이 값을 공유 공통 스타일에도 기록한다.
         userData.styleinfo에 새 visible 객체를 기록한다. 숨김이면 모델을 숨긴 뒤 재질을 교체하지 않고 종료한다.
         imgvisible=true 또는 미지정 imgvisible와 레이어 텍스처 사용 조건이 충족되면 텍스처 경로를 고른다. 단색 경로에서는 이전 map·재질을 해제하며 _setTopSideStyle이 true일 때 윗면·옆면 분리 재질을 만들고 아니면 단일 Lambert 재질을 만든다.
-        multipleTexture이면 URL별 캐시 텍스처를 복제하여 재질 목록을 만들고 이전 재질을 해제한다. 하나면 단일 재질, 그 외면 배열이다. multiSideFunction이 있으면 converted UV로 바꾸고 면별 재질을 적용한다.
-        기본 텍스처 경로는 imgurl 또는 레이어 URL을 배열로 만든다. 비어 있으면 단색 경로다. 캐시의 top·side 텍스처를 clone하고 origin UV를 적용한다. 상하면 분리가 없으면 단일 재질, 있으면 두 재질 배열이다. 없는 캐시의 clone 접근은 뒤의 존재 검사보다 먼저 실행될 수 있다.
+        multipleTexture이면 URL별 캐시 텍스처를 복제하여 재질 목록을 만들고 이전 재질을 해제한다. 하나면 단일 재질, 그 외면 배열이다. 배열 재질 경로에서 multiSideFunction이 defined이며 함수이면 converted UV로 바꾸고 면별 재질을 적용한다.
+        기본 텍스처 경로는 imgurl 또는 레이어 URL을 배열로 만든다. 비어 있으면 단색 경로다. 캐시의 top 텍스처를 clone하고, 상하면 분리가 없으면 origin UV와 단일 재질을 적용한다.
+        상하면 분리 경로는 side URL의 캐시를 clone하거나 top 텍스처를 복제하여 두 재질 배열을 만든다. side URL이 없거나 side clone 결과가 미정의여서 top을 복제할 때만 origin UV로 바꾼다. 없는 캐시의 clone 접근은 뒤의 존재 검사보다 먼저 실패할 수 있다.
 
 setHighlightPolygon(points: Array<Array<number>>, floorHeight: number) -> U3dModelShapeHighlightMesh
     의존:
@@ -533,7 +567,7 @@ getDefaultMaterial() -> MeshBasicMaterial
     의존:
         THREE — 직접 호출; 생성자: {new THREE.MeshBasicMaterial()}
     동작:
-        호출되지 않는 보조 함수다. 호출하면 _opacity<1 여부로 transparent를 정한 새 MeshBasicMaterial을 반환한다.
+        호출되지 않는 보조 함수다. 호출하면 _defaultStyle의 side·color·opacity를 사용하고 그 opacity<1 여부로 transparent를 정한 새 MeshBasicMaterial을 반환한다.
 
 updateHeightEx(pos: Vector3, level: number, model: U3dModelShapeMesh, tile: U3dQuadTile, drawArg: UDrawArg, force?: boolean) -> boolean
     의존:
@@ -625,7 +659,6 @@ U3dModelShapeMeshUserData 타입 정의
     label?: U3dPOI
     landHeight?: number
     buildHeight?: number
-    id?: string
     styleinfo?: {visible: boolean}
     originMeshID?: string
     _rlevel?: number
@@ -688,7 +721,7 @@ U3dModelShapeLayerRuntimeFields 타입 정의
 
 U3dModelShapeActiveInterval 타입 정의
     timer: ReturnType<typeof setInterval>
-    promise: DeferredObject<void>
+    promise: DeferredPromise<void>
 
 U3dModelShapeGeoJSONGeometry 타입 정의
     type: 'Polygon' | 'MultiPolygon' | 'LineString'
@@ -743,7 +776,7 @@ U3dModelShapeLayerCO 타입 정의
 
 ```spec
 좌표 변환과 지형 등록, 사용자 콜백·이벤트·완료 처리와 자원 해제의 순서는 이 단위에서 유지한다.
-deferred 반환 경로는 프로젝트 대기 객체를 사용한다. 완료 전에 등록한 성공 콜백 예외는 deferred의 __GSError__로 기록하며 reject 콜백으로 전환하지 않는다. 완료 뒤 등록한 then 콜백은 직접 실행되므로 동기 예외가 전파될 수 있다.
+deferred 반환 경로는 resolve·reject·isReady 제어 메서드가 연결된 표준 Promise를 사용한다. 첫 완료 요청만 반영하고 후속 콜백은 비동기로 실행한다. then 콜백의 예외는 그 후속 Promise의 거부로 전달하며 isReady는 결과·콜백 완료가 아닌 최초 요청 접수를 뜻한다.
 피처·속성·스타일·모델·텍스처 URL의 공유 참조를 임의로 복사하거나 불변화하지 않는다.
 ```
 

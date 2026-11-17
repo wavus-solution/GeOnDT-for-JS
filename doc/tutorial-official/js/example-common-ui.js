@@ -201,10 +201,13 @@ function getLayerEntryName(entry) {
 }
 
 /**
- * Runtime 설정과 공통 UI 설정을 화면에서 사용할 형태로 정규화합니다.
+ * Runtime 설정과 공통 UI 설정을 화면에서 사용할 형태로 정규화합니다. <br>
  * `runtime.layers.available`이 없으면 기존 예제와의 호환을 위해 공통 배경지도 전체를 제공합니다.
- * @param {Record<string, unknown>} [runtime={}] Runtime 설정
- * @param {Record<string, unknown>} [commonUi={}] 공통 UI 설정
+ *
+ * @param {Record<string, unknown>} [runtime={}] 읽기 전용 Runtime 설정입니다. <br>
+ * 기본값은 빈 객체이며 null은 허용하지 않습니다.
+ * @param {Record<string, unknown>} [commonUi={}] 읽기 전용 공통 UI 설정입니다. <br>
+ * 기본값은 빈 객체이며 boxSelection=false도 박스 선택을 금지합니다.
  * @returns {Record<string, unknown>} 정규화한 공통 UI 설정
  */
 export function normalizeExampleCommonUiConfig(runtime = {}, commonUi = {}) {
@@ -252,7 +255,12 @@ export function normalizeExampleCommonUiConfig(runtime = {}, commonUi = {}) {
         ? runtime.mapTools.filter(name => MAP_TOOL_DETAILS[name])
         : Object.keys(MAP_TOOL_DETAILS);
 
+    const requestedZoomSensitivity = commonUi.zoomButtonSensitivity ?? runtime.commonUi?.zoomButtonSensitivity ?? 1;
+    const zoomButtonSensitivity = Number.isFinite(requestedZoomSensitivity) && requestedZoomSensitivity > 0 && requestedZoomSensitivity <= 1
+        ? requestedZoomSensitivity : 1;
     return {
+        zoomButtonSensitivity,
+        boxSelection: commonUi.boxSelection !== false && runtime.commonUi?.boxSelection !== false,
         imageLayerPanel,
         terrainLayerPanel,
         modelLayers: (Array.isArray(runtime.modelLayers) ? runtime.modelLayers : [])
@@ -287,8 +295,9 @@ function createLayerRows(layers) {
 
 /**
  * 공통 UI의 레일·패널·지도 도구·카메라 상태 DOM 문자열을 생성합니다.
+ *
  * @param {Record<string, unknown>} config 정규화한 공통 UI 설정
- * @returns {{railHtml: string, panelHtml: string, toolsHtml: string, statusHtml: string}} 공통 UI DOM 문자열
+ * @returns {{ railHtml: string; panelHtml: string; toolsHtml: string; statusHtml: string; }} 공통 UI DOM 문자열
  */
 export function createExampleCommonUiMarkup(config) {
     const railParts = [];
@@ -322,6 +331,11 @@ export function createExampleCommonUiMarkup(config) {
             <div class="panel-content">
                 <p class="common-layer-description">지도 표면에 적용할 고도 데이터를 설정합니다.</p>
                 ${createLayerRows(config.terrainLayers)}
+                <label class="common-image-transparency">
+                    <span>이미지 레이어 투명도 <output data-common-image-transparency-value>0%</output></span>
+                    <input type="range" min="0" max="100" step="1" value="0" data-common-image-transparency aria-label="이미지 레이어 투명도" aria-valuetext="0% 투명" disabled>
+                    <small data-common-image-transparency-note>0% 원래 영상 · 100% 완전 투명</small>
+                </label>
             </div>
         </aside>`);
     }
@@ -362,7 +376,8 @@ export function createExampleCommonUiMarkup(config) {
     // 객체 선택 도구입니다. 예제마다 선언하는 runtime.mapTools에 걸리면 22개 예제가
     // 모두 [home, north, zoom-in, zoom-out]만 선언하고 있어 어디에도 나오지 않습니다.
     // 즐겨찾기·도움말 스위치처럼 예제 선언과 무관한 공통 도구로 두고, 홈 버튼 왼쪽에 놓습니다.
-    const selectButton = `<button class="map-button map-select" type="button" data-common-select-toggle data-select-mode="off" aria-pressed="false" aria-label="${SELECT_OFF_DETAIL.label}" title="${SELECT_OFF_DETAIL.title}">
+    const selectTitle = config.boxSelection === false ? "객체 선택 · 클릭 선택" : SELECT_OFF_DETAIL.title;
+    const selectButton = `<button class="map-button map-select" type="button" data-common-select-toggle data-select-mode="off" aria-pressed="false" aria-label="${SELECT_OFF_DETAIL.label}" title="${selectTitle}">
             ${SELECT_MODE_DETAILS.point.icon}
         </button>`;
     // 선택 도구를 켜거나 모드를 바꿀 때 지금 무엇을 할 수 있는지 알립니다.
@@ -510,10 +525,12 @@ function renderSlot(slot, html) {
 
 /**
  * 공통 UI를 Mount하고 앱 연결·상태 동기화·해제 기능을 반환합니다.
+ *
  * @param {Partial<{root: Document|Element, config: Record<string, unknown>, commonUi: Record<string, unknown>}>} [options={}] Mount 옵션
  * @returns {{bind: function(Record<string, unknown>): Promise<boolean>, connect: function(function(): unknown=): Promise<boolean>, sync: function(): void, dispose: function(): void}} 공통 UI 제어기
  */
-export function mountExampleCommonUi({root = document, config: runtime = {}, commonUi = {}} = {}) {
+export function mountExampleCommonUi(options = {}) {
+    const {root = document, config: runtime = {}, commonUi = {}} = options;
     const config = normalizeExampleCommonUiConfig(runtime, commonUi);
     const markup = createExampleCommonUiMarkup(config);
     const railSlot = root.querySelector('[data-common-ui-rail]');
@@ -534,6 +551,7 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
     let connectTimer;
     let resolveConnection;
     let layerPanelSyncTimer;
+    let imageTransparencyPercent;
 
     /** 공통 UI가 생성한 노드 안에서 요소를 찾습니다. */
     function queryCommonElement(selector) {
@@ -544,7 +562,54 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
         return undefined;
     }
 
-    /** 현재 레이어 상태를 모든 공통 체크박스에 반영합니다. */
+    // 공개 불투명도 조회·설정을 지원하는 앱 소유 이미지 레이어만 중복 없이 빌립니다.
+    function getImageTransparencyLayers() {
+        const candidates = activeApp?.getImageLayers?.(), layers = [];
+        if (!Array.isArray(candidates)) return layers;
+        for (const layer of candidates) {
+            if (typeof layer?.getOpacity !== 'function' || typeof layer?.setOpacity !== 'function') continue;
+            if (!layers.includes(layer)) layers.push(layer);
+        }
+        return layers;
+    }
+
+    // 실제 이미지 불투명도를 표시하고 사용자 지정 투명도는 새 이미지 레이어에도 적용합니다.
+    function synchronizeImageTransparency() {
+        const input = queryCommonElement('[data-common-image-transparency]');
+        if (!input) return;
+        const layers = getImageTransparencyLayers(), currentOpacity = layers[0]?.getOpacity();
+        input.disabled = layers.length === 0;
+        const percent = imageTransparencyPercent ?? Math.round((1 - (Number.isFinite(currentOpacity) ? Math.max(0, Math.min(1, currentOpacity)) : 1)) * 100);
+        if (imageTransparencyPercent !== undefined) {
+            const opacity = 1 - percent / 100;
+            for (const layer of layers) {
+                if (layer.getOpacity() !== opacity) layer.setOpacity(opacity);
+            }
+        }
+        input.value = String(percent);
+        input.setAttribute('aria-valuetext', percent + '% 투명');
+        input.style.setProperty('--image-transparency-progress', percent + '%');
+        queryCommonElement('[data-common-image-transparency-value]').textContent = percent + '%';
+        queryCommonElement('[data-common-image-transparency-note]').textContent = layers.length
+            ? '0% 원래 영상 · 100% 완전 투명' : '이미지 레이어가 준비되면 조절할 수 있습니다.';
+    }
+
+    // 자체 범위 입력을 0~100%로 보정하여 이미지 레이어에 즉시 적용합니다.
+    function handleImageTransparencyInput(event) {
+        if (disposed || !activeApp) return;
+        const input = event.target;
+        if (!input?.matches?.('[data-common-image-transparency]') || !panelSlot?.contains(input)) return;
+        const value = Number(input.value);
+        if (!Number.isFinite(value)) return;
+        imageTransparencyPercent = Math.max(0, Math.min(100, Math.round(value)));
+        try { synchronizeImageTransparency(); }
+        catch (error) {
+            queryCommonElement('[data-common-image-transparency-note]').textContent = '이미지 레이어 투명도를 적용하지 못했습니다.';
+            console.error('이미지 레이어 투명도 적용 오류:', error);
+        }
+    }
+
+    // 실제 레이어 가시성을 공통 체크박스에 반영한 뒤 이미지 투명도 표시와 지연 생성 레이어의 적용 상태를 동기화합니다.
     function synchronizeLayerInputs() {
         if (disposed) return;
         panelSlot?.querySelectorAll('[data-common-layer-name]').forEach(input => {
@@ -563,6 +628,7 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
             input.checked = visible;
             updateLayerInputState(input, visible ? 'visible' : 'hidden');
         });
+        synchronizeImageTransparency();
     }
 
     /** 현재 카메라 상태를 상태 패널과 정북 버튼에 반영합니다. */
@@ -630,7 +696,9 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
     const toastTimers = new Set();
 
     const SELECT_MODE_GUIDE = Object.freeze({
-        point: '마우스 <b>좌클릭</b>시 객체가 선택됩니다. <b>Space</b>를 누르면 박스 선택으로 바뀝니다.',
+        point: config.boxSelection === false
+            ? '마우스 <b>좌클릭</b>으로 객체를 선택합니다.'
+            : '마우스 <b>좌클릭</b>시 객체가 선택됩니다. <b>Space</b>를 누르면 박스 선택으로 바뀝니다.',
         box: '마우스를 <b>드래그</b>하면 범위 안의 객체가 선택됩니다. <b>Space</b>를 누르면 클릭 선택으로 돌아갑니다.'
     });
     // 이 도구는 자기 U3dSelect를 따로 만듭니다. app.addSelect()는 참조를 보관하지 않아
@@ -694,7 +762,9 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
     }
 
     /**
-     * 공통 선택기를 준비합니다. 옵션 없이 만들면 단일 클릭(point) + 외곽선(outline) + 기본 색입니다.
+     * 공통 선택기를 준비합니다. <br>
+     * 옵션 없이 만들면 단일 클릭(point) + 외곽선(outline) + 기본 색입니다.
+     *
      * @returns {Record<string, unknown> | undefined} 준비된 선택기
      */
     function ensureSelector() {
@@ -703,10 +773,13 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
         const Select = engine?.select?.U3dSelect;
         if (!Select || !activeApp) return undefined;
 
-        const selector = new Select();
+        const selector = new Select({hover: {enabled: true}});
         activeApp.addSelect(selector);
-        selector.on?.(Select.EVENT.END, event => {
+        selector.on?.(Select.EVENT.END,
+        // 선택 완료를 예제에 전달한 뒤 기존 안내를 표시합니다.
+        event => {
             const picked = Array.isArray(event?.data) ? event.data : [];
+            notifyObjectSelection(picked);
             if (!picked.length) return;
             // 예제 실행기가 console을 Editor Console로 넘겨 주므로 여기 찍으면 화면에서도 보인다.
             console.log('[공통 선택]', picked);
@@ -716,8 +789,16 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
         return selector;
     }
 
+    // 선택 메쉬의 배열 사본을 같은 viewer의 예제에 동기 전달합니다.
+    function notifyObjectSelection(objects){
+        const target=toolsSlot?.closest('#example-viewer');
+        const CustomEventType=toolsSlot?.ownerDocument?.defaultView?.CustomEvent;
+        if(target&&CustomEventType)target.dispatchEvent(new CustomEventType('geondt-object-selection',{detail:{objects:[...objects]}}));
+    }
+
     /**
      * 선택 도구를 켜거나 끕니다.
+     *
      * @param {boolean} next 켤지 여부
      */
     function setSelectActive(next) {
@@ -732,13 +813,14 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
             selector.active();
             selectState.on = true;
             // Monaco가 먼저 먹기 전에 받아야 하므로 Capture 단계에서 확인한다.
-            document.addEventListener('keydown', handleSelectKeyDown, true);
+            if (config.boxSelection !== false) document.addEventListener('keydown', handleSelectKeyDown, true);
             document.addEventListener('pointerdown', handleMapPointerDown, true);
             // 패널 컨트롤을 만지던 중에 켰다면 Space가 그쪽 것이므로 미리 떼 둔다.
             if (isTextEntry(document.activeElement)) document.activeElement?.blur();
             setSelectHint(SELECT_MODE_GUIDE.point + SELECT_CONFLICT_NOTE);
         } else {
             selectState.on = false;
+            notifyObjectSelection([]);
             document.removeEventListener('keydown', handleSelectKeyDown, true);
             document.removeEventListener('pointerdown', handleMapPointerDown, true);
             // 켜져 있는 동안 고른 대상을 남기지 않는다.
@@ -765,8 +847,7 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
     }
 
     /**
-     * 선택 도구 버튼을 현재 상태와 모드에 맞춥니다.
-     *
+     * 선택 도구 버튼을 현재 상태와 모드에 맞춥니다. <br>
      * 아이콘만 바꾸면 스크린 리더로는 그대로라, 설명과 말풍선도 같이 바꿉니다.
      */
     function syncSelectButton() {
@@ -778,7 +859,7 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
         button.setAttribute('aria-pressed', String(selectState.on));
         button.dataset.selectMode = selectState.on ? selectState.mode : 'off';
         button.setAttribute('aria-label', detail.label);
-        button.setAttribute('title', detail.title);
+        button.setAttribute('title', config.boxSelection === false ? '객체 선택 · 클릭 선택' : detail.title);
         // 꺼져 있을 때는 켰을 때 처음 되는 클릭 선택 모양을 보여 준다.
         const icon = (selectState.on ? SELECT_MODE_DETAILS[selectState.mode] : SELECT_MODE_DETAILS.point)?.icon;
         if (icon && button.innerHTML.trim() !== icon) button.innerHTML = icon;
@@ -815,9 +896,11 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
         return SPACE_BUSY_INPUT_TYPES.has(field.type);
     }
 
-    /** 선택 도구가 켜져 있을 때 Space로 선택 모드를 오갑니다. */
+    /**
+     * 선택 도구가 켜져 있을 때 Space로 선택 모드를 오갑니다.
+     */
     function handleSelectKeyDown(event) {
-        if (disposed || !selectState.on) return;
+        if (disposed || !selectState.on || config.boxSelection === false) return;
         if (event.code !== 'Space' && event.key !== ' ') return;
         if (event.ctrlKey || event.metaKey || event.altKey) return;
         // 코드 편집기에서 띄어쓰기를 치는 것은 모드 전환이 아니다.
@@ -996,7 +1079,31 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
         );
     }
 
-    /** 지도 도구와 공통 패널 버튼을 처리합니다. */
+    // 예제의 버튼 감도로 현재 초점 거리에서 확대·축소합니다.
+    function applyButtonZoom(action) {
+        const inward = action === "zoom-in";
+        if (config.zoomButtonSensitivity === 1) {
+            if (inward) activeApp.zoomIn?.();
+            else activeApp.zoomOut?.();
+            return;
+        }
+        const control = activeApp.getMapControl?.();
+        const distance = control?.getFocalDistance?.();
+        const limits = activeApp.getParam?.();
+        if (!Number.isFinite(distance) || distance <= 0 || !limits) return;
+        const zoom = activeApp.getZoomFromResolution?.(distance);
+        if (!Number.isFinite(zoom) || !Number.isFinite(limits.maxZoomLevel) || !Number.isFinite(limits.minZoomLevel)) return;
+        if (inward && zoom >= limits.maxZoomLevel) return;
+        if (!inward && !activeApp.getCamera?.()?.isOrthographicCamera && zoom <= limits.minZoomLevel) return;
+        // 기존 버튼은 거리 ×0.5 / ×2입니다. 원래 이동량을 감도 배율만큼 줄입니다.
+        const scale = inward ? 1 - 0.5 * config.zoomButtonSensitivity : 1 / (1 + config.zoomButtonSensitivity);
+        if (inward) control.zoomIn?.(scale);
+        else control.zoomOut?.(scale);
+    }
+
+    /**
+     * 지도 도구와 공통 패널 버튼을 처리합니다.
+     */
     function handleClick(event) {
         if (disposed || !event.target || typeof event.target.closest !== 'function') return;
         const selectToggle = event.target.closest('[data-common-select-toggle]');
@@ -1020,8 +1127,7 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
         if (mapButton && toolsSlot?.contains(mapButton) && activeApp) {
             const action = mapButton.dataset.mapAction;
             if (action === 'north') activeApp.alignNorth?.();
-            if (action === 'zoom-in') activeApp.zoomIn?.();
-            if (action === 'zoom-out') activeApp.zoomOut?.();
+            if (action === 'zoom-in' || action === 'zoom-out') applyButtonZoom(action);
             if (action === 'home') {
                 if (typeof activeApp.updateHomePosition === 'function') activeApp.updateHomePosition();
                 else if (typeof activeApp.flyTo === 'function' && runtime.home) {
@@ -1064,10 +1170,14 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
 
     root.addEventListener('click', handleClick);
     root.addEventListener('change', handleChange);
+    root.addEventListener('input', handleImageTransparencyInput);
 
     /**
      * 준비된 GeOnDT 앱에 공통 UI를 연결합니다.
-     * @param {Record<string, unknown>} app GeOnDT 앱
+     *
+     * @param {Record<string, unknown>} app 호출자 소유 GeOnDT 앱입니다. <br>
+     * null이면 연결하지 않고 false를 반환합니다. <br>
+     * 이미지 레이어는 공개 API로만 빌립니다.
      * @returns {Promise<boolean>} 연결 여부
      */
     async function bind(app) {
@@ -1075,6 +1185,7 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
         if (activeApp !== app) {
             activeApp?.off?.('change', synchronizeCameraStatus);
             activeApp = app;
+            imageTransparencyPercent = undefined;
             activeApp.on?.('change', synchronizeCameraStatus);
         }
         // 예제가 미리 켜 둔 경우가 있으므로 실제 상태를 읽어 버튼에 맞춘다.
@@ -1143,13 +1254,14 @@ export function mountExampleCommonUi({root = document, config: runtime = {}, com
         });
     }
 
-    /** 공통 UI가 소유한 이벤트·예약 작업·DOM을 해제합니다. */
+    // 공통 UI가 소유한 투명도·선택·도구 이벤트와 예약 작업·DOM을 해제합니다.
     function dispose() {
         if (disposed) return;
         disposed = true;
         connectionToken += 1;
         root.removeEventListener('click', handleClick);
         root.removeEventListener('change', handleChange);
+        root.removeEventListener('input', handleImageTransparencyInput);
         document.removeEventListener('keydown', handleSelectKeyDown, true);
         document.removeEventListener('pointerdown', handleMapPointerDown, true);
         document.removeEventListener('keydown', handlePostMenuKeyDown, true);

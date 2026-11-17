@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -371,11 +371,11 @@ declare class U2dGeometry {
     /**
      * OL 스타일이 준비되기 전의 개별 지정값을 기존 원본 상태에 기록합니다.
      *
-     * @param {'fillColor' | 'fillOpacity' | 'strokeColor' | 'strokeOpacity' | 'strokeWidth' | 'visible'} key 변경하는 스타일 항목입니다.
+     * @param {'fillColor' | 'fillOpacity' | 'strokeColor' | 'strokeOpacity' | 'strokeWidth' | 'visible' | 'isDynamicRadius'} key 변경하는 스타일 항목입니다.
      * @param {string | number | boolean} value 개별 지정하는 값입니다.
      * @ignore
      */
-    _setStyleValue(key: "fillColor" | "fillOpacity" | "strokeColor" | "strokeOpacity" | "strokeWidth" | "visible", value: string | number | boolean): void;
+    _setStyleValue(key: "fillColor" | "fillOpacity" | "strokeColor" | "strokeOpacity" | "strokeWidth" | "visible" | "isDynamicRadius", value: string | number | boolean): void;
     /**
      * 도형의 이름을 바꿉니다. <br>
      * 이 클래스가 들고 있는 이름만 바뀌며, 만들 때 Feature에 넣어 둔 `name` 속성은 그대로 남습니다. <br>

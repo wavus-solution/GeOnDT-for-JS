@@ -191,7 +191,7 @@ U3dQuadTileWorkProcess extends U3dProcess 클래스 정의
             성공·실패 모두 End를 한 번 호출한다. Cancel과 End가 반환한 thenable의 거절도 기록하며 그 완료를 기다리지는 않는다. End 예외와 무관하게 진행 수 반영을 시도하고 오류를 기록한 뒤 다음 시작을 예약한다. 이 종결은 동기 오류와 후속 콜백 양쪽에서 도달한다.
             개별 경로에서는 createPromise의 두 번째 인자 true로 실행 시작을 양보한다. 공통 허가 경로에서는 현재 태스크에서 실행한다. 이미 종결된 작업은 무시하고 처리기 폐기·타일 없음·타일 폐기·비활성·callback 비함수이면 실패로 종결한 뒤 반환한다.
             Manager의 _measureProcessExecution이 있으면 콜백 실행 구간을 측정하며 반환된 Promise의 완료까지 기다리지 않는다.
-            selector를 this로 하여 callback에 parameter를 전달한다. 반환값의 then이 함수이면 성공과 실패를 함께 연결하고 기존 thenable의 catch 또는 fail도 연결한다. 그 외 반환값과 undefined는 동기 성공으로 종결한다.
+            selector를 this로 하여 callback에 parameter를 전달한다. 반환값의 then이 함수이면 성공과 실패를 then의 두 콜백으로 한 번씩 연결한다. 그 외 반환값과 undefined는 동기 성공으로 종결한다.
             본문·then 접근·등록의 동기 예외는 기록하고 실패로 종결한다. 개별 예약의 시작 콜백은 finally에서 내부 시작 promise를 resolve하며 공통 경로에는 이 추가 promise가 없다. 시작 예약 자체의 거절·예외도 실패로 종결한다.
             늦은 성공·거절과 Cancel 또는 End에서 발생한 원본 promise 종결은 이미 설정된 종결 표식으로 무시하며 슬롯·진행 수·종료 알림을 다시 반영하지 않는다.
 

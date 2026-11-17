@@ -70,7 +70,8 @@ UAnalySkyLine extends UAnaly 클래스 정의
             기반 deactive()를 먼저 실행한다.
             렌더러가 falsy이면 자신을 반환한다.
             저장한 렌더러에서 스카이라인 패스를 false로 비활성화한다.
-            저장한 패스가 truthy이면 픽셀 버퍼를 비우고 자신을 반환한다.
+            저장한 패스가 truthy이면 픽셀 버퍼를 비우고 대기·읽기 중인 캡처 요청을 취소한다.
+            자신을 반환한다.
 
     setStyle(style: SkyLineStyle) -> this
         의존:
@@ -85,20 +86,21 @@ UAnalySkyLine extends UAnaly 클래스 정의
             useSkyColor가 null 또는 undefined가 아니면 false도 포함하여 skyColor와 함께 setSky()에 전달한다.
             위 순서로 적용한 뒤 자신을 반환한다. 스타일과 패스에 대한 추가 유효성 검사나 색상 객체 변환은 수행하지 않는다.
 
-    getScreenInfo() -> Promise<{ground: number, sky: number, over: number, total: number}>
+    getScreenInfo() -> Promise<UAnalySkyLineScreenInfo>
         의존:
             deferredPromise — 결과 전달 객체 생성; 함수: {deferredPromise()}
             UAnaly — 분석 활성 상태 조회; 함수: {isActive()}
             USkyLinePass — 화면 배열 요청; 함수: {getDepthArray()}
             __GError__ — 비동기 실패 메시지 전달; 함수: {__GError__()}
+            UAbortError — 정상 취소 판별; 생성자: {UAbortError}
         동작:
             deferredPromise 객체를 먼저 생성한다.
             분석이 비활성이면 패스 연결을 시도하지 않고 인수 없이 reject한 객체를 반환한다.
             분석이 활성 상태이면 렌더러와 패스를 연결하고 false를 반환하면 인수 없이 reject한 객체를 반환한다.
             저장한 패스에서 getDepthArray()를 호출하고 반환 객체의 then·catch에 집계와 오류 처리를 등록한 뒤 최초 생성한 deferredPromise 객체를 반환한다.
-            배열이 전달되면 인덱스를 0부터 4씩 증가시키며 첫째·둘째·셋째 채널이 각각 0.5보다 클 때 ground·sky·over를 독립적으로 증가시킨다. 넷째 채널은 집계하지 않는다.
-            sky·ground·over와 total = 배열 길이 / 4를 가진 객체로 deferredPromise를 resolve한다. 채널별 분류는 상호 배타적이지 않으며 배열 길이의 나머지를 검증하지 않는다.
-            catch 경로에서는 원래 분석 인스턴스와 '화면 정보를 읽는 중 오류가 발생 하였습니다.', 코드 '9863216'으로 __GError__()를 호출한 뒤 deferredPromise를 인수 없이 reject한다.
+            배열이 전달되면 내부 집계 결과로 최초 deferredPromise를 resolve한다. 집계 호출과 resolve를 같은 성공 콜백 안에서 실행하며 별도 비동기 단계를 추가하지 않는다.
+            캡처 시작 전 조회들만 하나의 읽기를 공유하고 읽기 시작 후의 조회는 다음 캡처를 기다린다. 분석 API는 호출마다 생성한 Promise와 집계 결과 객체를 유지한다.
+            catch 경로에서 error가 UAbortError 인스턴스이면 오류 로그 없이 deferredPromise를 인수 없이 reject한다. 그 외에는 원래 분석 인스턴스와 '화면 정보를 읽는 중 오류가 발생 하였습니다.', 코드 '9863216'으로 __GError__()를 호출한 뒤 이유 없이 reject한다.
             getDepthArray() 호출이나 then·catch 등록 전에 발생한 동기 예외는 위 catch로 변환하지 않고 호출자에게 전달한다.
 
     #setPass() -> boolean
@@ -135,6 +137,16 @@ SkyLineStyle 타입 정의
         하늘 색상 적용 여부
     skyColor?: ColorLike
         하늘 색상
+
+UAnalySkyLineScreenInfo 타입 정의
+    ground: number
+        지면 영역의 픽셀 수
+    sky: number
+        하늘 영역의 픽셀 수
+    over: number
+        경계선을 넘는 모델 영역의 픽셀 수
+    total: number
+        집계 대상 화면의 전체 픽셀 수
 ```
 
 > 공개 참조용 발췌본입니다. 비공개 구현 설명과 내부 관리 정보는 생략했습니다.

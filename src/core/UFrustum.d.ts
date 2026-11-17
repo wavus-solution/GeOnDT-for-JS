@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -128,9 +128,6 @@ declare class UFrustum extends three.Frustum {
     targetObject: UFrustumTarget | undefined;
     /** @type {Set<UFrustumChangeListener>} */
     _changeListeners: Set<UFrustumChangeListener>;
-    _previousOrientationDirection: three.Vector3;
-    _previousOrientationUp: three.Vector3;
-    _hasPreviousOrientation: boolean;
     /**
      * target 로컬 좌표계에서 "전방"으로 볼 축(정규화된 단위 벡터). target에 `lookAt` 좌표가 없을 때 target quaternion으로 이 축을 회전시켜 진행 방향을 구합니다. 기본 (0, 1, 0) = +Y.
      * @type {import('three').Vector3}
@@ -192,19 +189,22 @@ declare class UFrustum extends three.Frustum {
     getAxis(target?: three.Vector3): three.Vector3;
     /**
      * rotation과 독립된 항공 자세 offset을 설정합니다.
-     * pitch와 yaw는 장착 자세 기준 시선 방향을 만들고, roll만 최종 시선축을 회전시킵니다.
-     * 내부 자세는 quaternion으로 계산하므로 pitch가 ±90도를 지나도 면이 갑자기 반전되지 않습니다.
+     * [수정사항] 기존 독립 방향 합성·최단 회전 대신 장착 자세에서 Yaw → Pitch → Roll을 순서대로 적용합니다.
+     * Yaw는 장착 기준 위쪽축, Pitch는 Yaw로 돌아간 오른쪽축, Roll은 최종 시선축을 중심으로 회전합니다.
+     * 시선과 영상의 위쪽축을 함께 계산하므로 Pitch ±90°에서도 Yaw로 인해 시선이 기울어지지 않습니다.
+     * 기본 장착축에서는 Pitch 0°가 대상 전방이며 −90°는 대상 기준 수직 아래입니다.
+     * +Yaw는 장착 기준 위에서 보아 시계 방향, +Roll은 시선 방향을 바라보아 시계 방향입니다.
      * 모든 입력 단위는 degree이며 내부 계산 시 radian으로 변환합니다. NaN·Infinity 등 유한하지 않은 값은 0으로 처리됩니다.
      * target이 등록되어 있으면 즉시 `updateTarget()`으로 행렬을 다시 계산하고, 없으면 변경 리스너만 호출합니다.
      *
      * @param {number} [pitchDeg=0] 장착 방향 기준 위(+)/아래(−) 각도 (degree)
      * @param {number} [yawDeg=0] 장착 방향 기준 오른쪽(+)/왼쪽(−) 각도 (degree)
-     * @param {number} [rollDeg=0] 시선축을 중심으로 기울이는 각도 (degree). 시선 방향은 바꾸지 않습니다
+     * @param {number} [rollDeg=0] 최종 시선축 기준 시계(+)/반시계(−) 회전각 (degree). 시선 방향은 바꾸지 않습니다
      * @returns {UFrustum} 체이닝을 위한 자기 자신
      */
     setPitchYawRoll(pitchDeg?: number, yawDeg?: number, rollDeg?: number): UFrustum;
     /**
-     * 현재 독립 pitch/yaw/roll 값을 degree 단위 Vector3로 반환합니다.
+     * 현재 항공 자세 pitch/yaw/roll 값을 degree 단위 Vector3로 반환합니다.
      * x=pitch, y=yaw, z=roll입니다.
      *
      * @param {import('three').Vector3} [target] 결과를 담을 벡터. 생략하면 새 Vector3를 만듭니다
@@ -340,7 +340,7 @@ declare class UFrustum extends three.Frustum {
          */
         rotation?: UFrustumEulerLike;
         /**
-         * degree 단위 항공 자세 offset. x=pitch, y=yaw, z=roll.
+         * degree 단위 항공 자세 offset. x=pitch, y=yaw, z=roll이며 Yaw → Pitch → Roll 순서로 적용합니다. Pitch는 위(+)/아래(−), Yaw는 장착 기준 위에서 보아 시계(+), Roll은 최종 시선 방향을 바라보아 시계(+)입니다.
          */
         pitchYawRoll?: three.Vector3Like;
         /**

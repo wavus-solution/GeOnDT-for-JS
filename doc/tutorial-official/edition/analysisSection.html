@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="../">
+    <script>
+// 공통 예제의 실제 기준 URL로 배포 모듈 주소를 해석하고 모듈을 읽기 전에 Import Map을 등록합니다.
+function installExampleImportMap() {
+    const entries = {"/extension/GESpreadObject/GESpreadObject.js":"../dist/extension/GESpreadObject/GESpreadObject.min.js","/extension/sequence/sequence.js":"../dist/extension/sequence/sequence.min.js","/extension/a3fTimeSeries/a3fTimeSeries.js":"../dist/extension/a3fTimeSeries/a3fTimeSeries.min.js","./edition/examples/analysisSection/analysisSection.main.js":"./edition/examples/analysisSection/analysisSection.main.js?v=99347c53ab78","./edition/examples/analysisSection/analysisSection.ui.js":"./edition/examples/analysisSection/analysisSection.ui.js?v=8bf5de3bf0fb"}, imports = {};
+    for (const [specifier, target] of Object.entries(entries)) imports[new URL(specifier, document.baseURI).href] = new URL(target, document.baseURI).href;
+    const map = document.createElement('script'); map.type = 'importmap'; map.textContent = JSON.stringify({imports});
+    document.currentScript.after(map);
+}
+installExampleImportMap();
+</script>
+    <title>단면 분석</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <link rel="stylesheet" href="css/pastel-glass-map-theme.css" type="text/css">
+    <link rel="stylesheet" href="css/example-editor.css" type="text/css">
+    <link rel="stylesheet" href="edition/assets/monaco/monaco-editor.css?v=ebbbdcf5172a" type="text/css">
+    <style id="example-viewer-style">
+
+    </style>
+</head>
+<body>
+<!-- 자동 생성 파일입니다. 원본 tutorial-official/examples\analysisSection\analysisSection.md을(를) 수정하세요. -->
+<main id="example-viewer" class="example-app">
+    <div id="map-wrapper"><div id="map"></div></div>
+
+    <!-- 지도 화면에서 예제 목록으로 돌아가는 유일한 통로입니다.
+         브라우저 뒤로가기만 두면 새 탭이나 공유받은 주소로 들어온 사람은 목록을 찾을 수 없습니다. -->
+    <a class="example-brand" href="edition/index.html" title="예제 목록" aria-label="예제 목록으로 이동"><img src="image/geondt-loading-color-logo.png" alt=""></a>
+    <h1 class="example-title">단면 분석</h1>
+
+    <nav class="example-rail" aria-label="예제 도구">
+        <button class="rail-button" type="button" data-panel-target="example-explanation" aria-expanded="false">
+            <span class="rail-icon">?</span><span>도움말</span>
+        </button>
+        <div data-common-ui-rail></div>
+        <div id="viewer-example-rail" class="viewer-example-rail">
+
+        </div>
+    </nav>
+
+    <button class="editor-mode-toggle" type="button" data-open-editor aria-pressed="false">
+        <span class="code-toggle-icon">&lt;/&gt;</span><span data-editor-toggle-label>코드 편집</span>
+    </button>
+
+    <aside class="glass-panel explanation-panel" id="example-explanation" aria-hidden="true">
+        <header class="panel-header">
+            <div><span class="eyebrow">EXAMPLE GUIDE</span><h2>단면 분석</h2></div>
+            <button class="panel-close" type="button" data-panel-close="example-explanation" aria-label="도움말 닫기">×</button>
+        </header>
+        <div class="panel-content markdown-document">
+<h1>단면 분석</h1>
+<p>지도에 횡단면·종단면·원통·원반경 영역을 만들고 포함된 건물과 지하시설물을 확인합니다. 완료한 영역은 목록에서 펼쳐 모델 식별자를 확인하거나 개별 삭제할 수 있습니다.</p>
+<p>우측의 ‘단면 분석’, ‘데이터’, ‘투명도’ 버튼으로 각 패널을 엽니다. 단면 분석 패널에서는 영역 그리기와 결과를, 데이터 패널에서는 대상 레이어와 지하 보기를, 투명도 패널에서는 영상·모델의 불투명도를 조절합니다.</p>
+<h2>다루는 기능</h2>
+<ul>
+<li><code>UAnalySection.setType()</code>과 <code>active()</code>로 네 가지 단면 입력을 시작합니다.</li>
+<li><code>getFilteredList()</code>와 <code>getFilteredObject()</code>로 영역별 분석 유형·높이·포함 모델을 확인합니다.</li>
+<li><code>removeFilter()</code>로 특정 영역을 지우고, 예제 소유의 분석만 초기화합니다.</li>
+<li><code>U3dModelWFSLayer</code>와 U3F 건물의 표시를 바꾸고 영상·모델의 전역 투명도를 조절합니다.</li>
+</ul>
+<h2>사전 조건</h2>
+<p>GeOnDT 라이선스, WebGL 지원 브라우저와 외부 데이터 서버 연결이 필요합니다. 시작 위치는 부산이며 U3F 건물을 먼저 준비합니다. 건물이 보이지 않으면 2.5D 건물을 선택하고 확대 수준과 서버 연결 상태를 확인하세요. 지하시설물은 부산 WFS 데이터가 제공되는 범위에서 확인할 수 있습니다.</p>
+<p>배경지도와 지형은 공통 런타임이 관리합니다. 지하 보기와 영상 투명도를 함께 조절하면 지하 데이터를 관찰하기 쉽습니다. 지형·배경지도 표시 변경은 우측 공통 패널을 사용하세요.</p>
+<h2>조작 및 예상 결과</h2>
+<table>
+<thead>
+<tr>
+<th>조작</th>
+<th>예상 결과</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>횡단면을 선택하고 ‘영역 그리기’를 누릅니다.</td>
+<td>세 지점 이상을 클릭한 뒤 더블클릭하면 엔진의 높이 입력창이 열립니다. 입력한 높이의 영역과 모델 목록을 만듭니다.</td>
+</tr>
+<tr>
+<td>종단면을 선택하고 ‘영역 그리기’를 누릅니다.</td>
+<td>시작·끝 지점을 찍고 격자 위에 단면 윤곽을 그린 뒤 더블클릭하면 영역을 완성합니다.</td>
+</tr>
+<tr>
+<td>원통을 선택하고 ‘영역 그리기’를 누릅니다.</td>
+<td>시작점을 클릭한 뒤 반경·높이를 마우스로 정하고 다시 클릭하면 원통 영역을 만듭니다.</td>
+</tr>
+<tr>
+<td>원반경을 선택하고 ‘영역 그리기’를 누릅니다.</td>
+<td>중심과 반경을 두 번의 클릭으로 정하면 원형 영역을 만듭니다.</td>
+</tr>
+<tr>
+<td>분석 유형을 바꾸거나 ‘그리기 취소’를 누릅니다.</td>
+<td>진행 중인 입력만 취소하고 완료한 영역은 유지합니다.</td>
+</tr>
+<tr>
+<td>우측 ‘데이터’ 버튼을 누르고 레이어를 선택합니다.</td>
+<td>별도 데이터 패널에서 준비 상태를 표시하고 해당 건물·지하시설물을 불러옵니다.</td>
+</tr>
+<tr>
+<td>우측 ‘투명도’ 버튼을 누르고 영상·모델 투명도를 켠 뒤 슬라이더를 움직입니다.</td>
+<td>별도 투명도 패널에서 0은 투명, 1은 불투명으로 표시합니다.</td>
+</tr>
+<tr>
+<td>결과 항목을 펼칩니다.</td>
+<td>영역 ID, 분석 유형, 모델 수와 원본 모델 ID를 확인합니다. 횡단면은 입력 높이도 표시합니다.</td>
+</tr>
+<tr>
+<td>개별 ‘삭제’ 또는 ‘전체 지우기’를 누릅니다.</td>
+<td>해당 영역 또는 예제에서 만든 모든 영역·선택 표시를 제거합니다.</td>
+</tr>
+</tbody></table>
+<p>개별 삭제는 그리기를 마치거나 취소한 뒤 사용할 수 있습니다. 진행 중인 입력의 측정 도형과 기존 영역 정리가 서로 간섭하지 않도록 그리는 동안에는 삭제 버튼을 잠급니다.</p>
+<p>삭제 버튼은 결과 카드 오른쪽에 표시되며 항목을 접어도 사용할 수 있습니다. 모델 ID는 <code>getOid()</code>의 원본 식별자를 우선 표시하고, 원본 식별자가 없는 경우 현재 메시의 식별자를 표시합니다.</p>
+<p>결과는 <strong>영역 생성 당시 로드된 모델</strong>을 대상으로 합니다. 레이어를 나중에 켜거나 모델이 추가 로드되었으면 새 영역으로 다시 분석하세요. 결과가 0개여도 영역은 생성될 수 있으므로 지도에 대상 모델이 실제로 표시되는지 먼저 확인하세요.</p>
+<h2>관련 API</h2>
+<p>유형 변경은 <code>setType()</code> 후 <code>active()</code>로 반영합니다. 완료와 시작점 입력이 같은 <code>click</code> 이벤트를 사용하므로 <code>getFilteredList()</code>에 결과가 생긴 경우에만 완료 처리합니다. 영역마다 분석 객체를 별도로 등록해 취소·삭제가 다른 완료 영역을 초기화하지 않도록 합니다.</p>
+<pre><code class="language-javascript" data-example-code-token="section.draw" data-example-code-source="main"></code></pre><p>기존 부산 U3F 주소와 전국 건물·부산 지하시설물 WFS 설정을 사용합니다. 레이어를 처음 켤 때 생성하고 준비가 끝난 뒤 마지막으로 요청한 표시 상태를 적용합니다. 종료 후 완료된 비동기 요청은 화면에 반영하지 않습니다.</p>
+<pre><code class="language-javascript" data-example-code-token="section.layers" data-example-code-source="main"></code></pre><p><code>removeFilter()</code>로 영역을 제거하고 <code>removeAnalysis()</code>로 예제 전용 분석 등록과 나머지 표시를 정리합니다. 공통 앱·배경지도·지형과 다른 기능의 분석은 유지하며, 종료 시 변경한 전역 투명도 설정을 복원합니다.</p>
+<pre><code class="language-javascript" data-example-code-token="section.remove" data-example-code-source="main"></code></pre><p>횡단면 높이는 현재 엔진의 기본 입력창을 사용합니다. 입력창의 취소·숫자 검증과 높이 좌표 변환은 엔진의 현행 동작을 따릅니다.</p>
+        </div>
+    </aside>
+
+
+
+    <div data-common-ui-panels></div>
+    <div data-common-ui-tools></div>
+    <div data-common-ui-status></div>
+
+    <div id="load" class="loading-indicator" hidden><img src="image/loading.svg" alt="불러오는 중"></div>
+
+    <aside id="example-api-help" class="example-api-help" role="tooltip" hidden>
+        <header class="example-api-help-header">
+            <strong data-api-help-title></strong>
+            <button type="button" data-api-help-close aria-label="API 도움말 닫기">×</button>
+        </header>
+        <p data-api-help-description></p>
+        <section data-api-help-dynamic-section>
+            <b>현재 설정</b>
+            <pre><code data-api-help-code></code></pre>
+        </section>
+        <section data-api-help-source-section hidden>
+            <b>실제 구현</b>
+            <small data-api-help-source-location></small>
+            <pre><code data-api-help-source-code></code></pre>
+            <button type="button" data-api-help-open-source>코드에서 보기</button>
+        </section>
+        <p data-api-help-source-error hidden></p>
+    </aside>
+</main>
+
+<section id="example-editor" class="editor-workspace" hidden aria-label="예제 코드 편집기">
+    <header class="editor-toolbar">
+        <strong class="editor-title">단면 분석</strong>
+        <div class="editor-toolbar-actions">
+            <button class="editor-search-toggle" type="button" data-editor-action="search" aria-expanded="false" aria-controls="editor-search" title="모든 탭에서 검색 (Ctrl+Shift+F)" aria-label="모든 탭에서 검색">
+                <img src="image/search_white_24dp.svg" alt=""><span>검색</span>
+            </button>
+            <button type="button" data-editor-action="reset">초기화</button>
+            <button type="button" data-editor-action="console" aria-expanded="false">Console</button>
+            <button class="editor-close-button" type="button" data-editor-action="viewer" title="코드 편집 닫기" aria-label="코드 편집 닫기">
+                <span class="editor-close-icon" aria-hidden="true">×</span><span>닫기</span>
+            </button>
+        </div>
+    </header>
+    <div class="editor-layout" id="editor-layout">
+        <section class="editor-pane" id="editor-pane" aria-label="코드 편집">
+            <div class="editor-tabs" role="tablist" aria-label="코드 종류">
+                <button type="button" role="tab" data-code-tab="javascript" aria-selected="true">JavaScript</button>
+                <button type="button" role="tab" data-code-tab="html" aria-selected="false">HTML</button>
+                <button type="button" role="tab" data-code-tab="css" aria-selected="false">CSS</button>
+                <button class="editor-run-button" type="button" data-editor-action="run"><span>▶</span> 실행</button>
+            </div>
+            <div id="monaco-editor" class="monaco-host"></div>
+            <div class="editor-search" id="editor-search" hidden>
+                <div class="editor-search-bar">
+                    <img class="editor-search-bar-icon" src="image/search_white_24dp.svg" alt="">
+                    <input class="editor-search-input" id="editor-search-input" type="search" placeholder="모든 탭에서 검색" autocomplete="off" spellcheck="false" aria-label="모든 탭에서 검색">
+                    <button class="editor-search-option" type="button" data-search-option="matchCase" aria-pressed="false" title="대소문자 구분">Aa</button>
+                    <button class="editor-search-option" type="button" data-search-option="regex" aria-pressed="false" title="정규식 사용">.*</button>
+                    <button class="editor-search-close" type="button" data-search-close aria-label="검색 닫기">×</button>
+                </div>
+                <p class="editor-search-summary" id="editor-search-summary" aria-live="polite">검색어를 입력하세요.</p>
+                <div class="editor-search-results" id="editor-search-results" role="listbox" aria-label="검색 결과"></div>
+            </div>
+            <!--+ 실행 콘솔은 편집 패널 안에 둔다. 미리보기 안에 두면 실행 뒤 `position: fixed`인 미리보기가
+                 쌓임 맥락을 만들어 편집 패널에 가려지고, 실행 전과 위치도 달라진다. -->
+            <section id="preview-console" class="preview-console" aria-label="실행 콘솔" aria-hidden="true">
+                <header><strong>Console</strong><span class="console-count" id="preview-console-count">0</span><button class="console-clear" type="button" data-console-clear>Clear</button><button type="button" data-console-close aria-label="콘솔 닫기">×</button></header>
+                <div id="preview-console-output" class="preview-console-output" aria-live="polite"><p class="console-empty">실행 로그가 여기에 표시됩니다.</p></div>
+            </section>
+        </section>
+        <div class="editor-splitter" id="editor-splitter" role="separator" aria-label="편집기와 미리보기 너비 조절" aria-orientation="vertical" tabindex="0"></div>
+        <section class="preview-pane" aria-label="실행 미리보기">
+            <div id="preview-frame-container" class="preview-frame-container"></div>
+        </section>
+    </div>
+    <div class="editor-mobile-notice" id="editor-mobile-notice" hidden>
+        <strong>코드 편집은 데스크톱 환경에서 지원합니다.</strong>
+        <p>더 넓은 화면에서 Editor를 열거나 지도 Viewer로 돌아가세요.</p>
+        <button type="button" data-editor-action="viewer">지도로 보기</button>
+    </div>
+    <div class="editor-hint-stack">
+        <div class="editor-hint" id="editor-hint" role="status" hidden>
+            <p>실행 전에는 <b>× 닫기</b>와 가장자리 <b>◀</b> 버튼으로 지도로 돌아갑니다.<br>실행한 뒤에는 같은 버튼이 편집 패널만 접고, 실행한 화면은 그대로 남습니다. 접으면 왼쪽 가장자리 <b>▶</b>로 다시 펼칩니다.</p>
+        </div>
+        <div class="editor-hint editor-shortcut-hint" id="editor-shortcut-hint" role="status" hidden>
+            <dl>
+                <dt><kbd>Ctrl</kbd><kbd>F</kbd></dt>
+                <dd>현재 파일에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd></dt>
+                <dd>열린 파일 전체에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Space</kbd></dt>
+                <dd>자동완성 보기</dd>
+                <dt><kbd>Esc</kbd></dt>
+                <dd>찾기 닫기</dd>
+            </dl>
+            <p class="editor-shortcut-note">macOS에서는 <kbd>Ctrl</kbd> 대신 <kbd>Cmd</kbd>를 사용합니다.</p>
+        </div>
+    </div>
+    <div class="editor-panel-resizer" id="editor-panel-resizer" role="separator" aria-label="코드 편집 패널 너비 조절" aria-orientation="vertical" tabindex="0" title="드래그하거나 방향키로 너비 조절"></div>
+</section>
+
+<button class="editor-edge-toggle" type="button" data-editor-edge-toggle aria-pressed="false" title="코드 편집 열기" aria-label="코드 편집 열기">
+    <span class="editor-edge-icon" data-editor-edge-icon aria-hidden="true">▶</span>
+</button>
+
+<script id="example-source" type="application/json">{"format":"manifest","helpHtml":"\u003ch1\u003e단면 분석\u003c/h1\u003e\n\u003cp\u003e지도에 횡단면·종단면·원통·원반경 영역을 만들고 포함된 건물과 지하시설물을 확인합니다. 완료한 영역은 목록에서 펼쳐 모델 식별자를 확인하거나 개별 삭제할 수 있습니다.\u003c/p\u003e\n\u003cp\u003e우측의 ‘단면 분석’, ‘데이터’, ‘투명도’ 버튼으로 각 패널을 엽니다. 단면 분석 패널에서는 영역 그리기와 결과를, 데이터 패널에서는 대상 레이어와 지하 보기를, 투명도 패널에서는 영상·모델의 불투명도를 조절합니다.\u003c/p\u003e\n\u003ch2\u003e다루는 기능\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e\u003ccode\u003eUAnalySection.setType()\u003c/code\u003e과 \u003ccode\u003eactive()\u003c/code\u003e로 네 가지 단면 입력을 시작합니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003egetFilteredList()\u003c/code\u003e와 \u003ccode\u003egetFilteredObject()\u003c/code\u003e로 영역별 분석 유형·높이·포함 모델을 확인합니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003eremoveFilter()\u003c/code\u003e로 특정 영역을 지우고, 예제 소유의 분석만 초기화합니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003eU3dModelWFSLayer\u003c/code\u003e와 U3F 건물의 표시를 바꾸고 영상·모델의 전역 투명도를 조절합니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e사전 조건\u003c/h2\u003e\n\u003cp\u003eGeOnDT 라이선스, WebGL 지원 브라우저와 외부 데이터 서버 연결이 필요합니다. 시작 위치는 부산이며 U3F 건물을 먼저 준비합니다. 건물이 보이지 않으면 2.5D 건물을 선택하고 확대 수준과 서버 연결 상태를 확인하세요. 지하시설물은 부산 WFS 데이터가 제공되는 범위에서 확인할 수 있습니다.\u003c/p\u003e\n\u003cp\u003e배경지도와 지형은 공통 런타임이 관리합니다. 지하 보기와 영상 투명도를 함께 조절하면 지하 데이터를 관찰하기 쉽습니다. 지형·배경지도 표시 변경은 우측 공통 패널을 사용하세요.\u003c/p\u003e\n\u003ch2\u003e조작 및 예상 결과\u003c/h2\u003e\n\u003ctable\u003e\n\u003cthead\u003e\n\u003ctr\u003e\n\u003cth\u003e조작\u003c/th\u003e\n\u003cth\u003e예상 결과\u003c/th\u003e\n\u003c/tr\u003e\n\u003c/thead\u003e\n\u003ctbody\u003e\u003ctr\u003e\n\u003ctd\u003e횡단면을 선택하고 ‘영역 그리기’를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e세 지점 이상을 클릭한 뒤 더블클릭하면 엔진의 높이 입력창이 열립니다. 입력한 높이의 영역과 모델 목록을 만듭니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e종단면을 선택하고 ‘영역 그리기’를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e시작·끝 지점을 찍고 격자 위에 단면 윤곽을 그린 뒤 더블클릭하면 영역을 완성합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e원통을 선택하고 ‘영역 그리기’를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e시작점을 클릭한 뒤 반경·높이를 마우스로 정하고 다시 클릭하면 원통 영역을 만듭니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e원반경을 선택하고 ‘영역 그리기’를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e중심과 반경을 두 번의 클릭으로 정하면 원형 영역을 만듭니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e분석 유형을 바꾸거나 ‘그리기 취소’를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e진행 중인 입력만 취소하고 완료한 영역은 유지합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e우측 ‘데이터’ 버튼을 누르고 레이어를 선택합니다.\u003c/td\u003e\n\u003ctd\u003e별도 데이터 패널에서 준비 상태를 표시하고 해당 건물·지하시설물을 불러옵니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e우측 ‘투명도’ 버튼을 누르고 영상·모델 투명도를 켠 뒤 슬라이더를 움직입니다.\u003c/td\u003e\n\u003ctd\u003e별도 투명도 패널에서 0은 투명, 1은 불투명으로 표시합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e결과 항목을 펼칩니다.\u003c/td\u003e\n\u003ctd\u003e영역 ID, 분석 유형, 모델 수와 원본 모델 ID를 확인합니다. 횡단면은 입력 높이도 표시합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e개별 ‘삭제’ 또는 ‘전체 지우기’를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e해당 영역 또는 예제에서 만든 모든 영역·선택 표시를 제거합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003c/tbody\u003e\u003c/table\u003e\n\u003cp\u003e개별 삭제는 그리기를 마치거나 취소한 뒤 사용할 수 있습니다. 진행 중인 입력의 측정 도형과 기존 영역 정리가 서로 간섭하지 않도록 그리는 동안에는 삭제 버튼을 잠급니다.\u003c/p\u003e\n\u003cp\u003e삭제 버튼은 결과 카드 오른쪽에 표시되며 항목을 접어도 사용할 수 있습니다. 모델 ID는 \u003ccode\u003egetOid()\u003c/code\u003e의 원본 식별자를 우선 표시하고, 원본 식별자가 없는 경우 현재 메시의 식별자를 표시합니다.\u003c/p\u003e\n\u003cp\u003e결과는 \u003cstrong\u003e영역 생성 당시 로드된 모델\u003c/strong\u003e을 대상으로 합니다. 레이어를 나중에 켜거나 모델이 추가 로드되었으면 새 영역으로 다시 분석하세요. 결과가 0개여도 영역은 생성될 수 있으므로 지도에 대상 모델이 실제로 표시되는지 먼저 확인하세요.\u003c/p\u003e\n\u003ch2\u003e관련 API\u003c/h2\u003e\n\u003cp\u003e유형 변경은 \u003ccode\u003esetType()\u003c/code\u003e 후 \u003ccode\u003eactive()\u003c/code\u003e로 반영합니다. 완료와 시작점 입력이 같은 \u003ccode\u003eclick\u003c/code\u003e 이벤트를 사용하므로 \u003ccode\u003egetFilteredList()\u003c/code\u003e에 결과가 생긴 경우에만 완료 처리합니다. 영역마다 분석 객체를 별도로 등록해 취소·삭제가 다른 완료 영역을 초기화하지 않도록 합니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\" data-example-code-token=\"section.draw\" data-example-code-source=\"main\"\u003e\u003c/code\u003e\u003c/pre\u003e\u003cp\u003e기존 부산 U3F 주소와 전국 건물·부산 지하시설물 WFS 설정을 사용합니다. 레이어를 처음 켤 때 생성하고 준비가 끝난 뒤 마지막으로 요청한 표시 상태를 적용합니다. 종료 후 완료된 비동기 요청은 화면에 반영하지 않습니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\" data-example-code-token=\"section.layers\" data-example-code-source=\"main\"\u003e\u003c/code\u003e\u003c/pre\u003e\u003cp\u003e\u003ccode\u003eremoveFilter()\u003c/code\u003e로 영역을 제거하고 \u003ccode\u003eremoveAnalysis()\u003c/code\u003e로 예제 전용 분석 등록과 나머지 표시를 정리합니다. 공통 앱·배경지도·지형과 다른 기능의 분석은 유지하며, 종료 시 변경한 전역 투명도 설정을 복원합니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\" data-example-code-token=\"section.remove\" data-example-code-source=\"main\"\u003e\u003c/code\u003e\u003c/pre\u003e\u003cp\u003e횡단면 높이는 현재 엔진의 기본 입력창을 사용합니다. 입력창의 취소·숫자 검증과 높이 좌표 변환은 엔진의 현행 동작을 따릅니다.\u003c/p\u003e","assetBaseUrl":"edition/examples/analysisSection/","runtime":{"home":{"longitude":129.155,"latitude":35.1596,"height":435,"duration":2,"pitch":45},"baseLayers":["satellite"],"terrain":{"enabled":true,"preset":"korea"},"mapTools":["home","north","zoom-in","zoom-out"],"cameraStatus":true,"help":true,"loading":true},"imports":[],"dependencies":[],"commonUi":{"imageLayerPanel":true,"terrainLayerPanel":true},"sourceTokens":{"section.draw":{"id":"section.draw","sourceId":"main","file":"./analysisSection.main.js","label":"main.js","startLine":78,"endLine":97,"code":"const analysis = new GeOnDT.analysis.UAnalySection({name: 'section-example-' + crypto.randomUUID()});\napp.addAnalysis(analysis);\nexistingSprites = new Set(app.getSceneComment().children.filter(object =\u003e object.isSprite));\ncurrent = analysis;\ntry {\n    analysis.setGridSpriteImage(context.runtime.resolveAsset('../../image/grid2.png'), 1000, 0.7);\n    analysis.setType(type);\n    analysis.active();\n    analysis.on('click', () =\u003e {\n        if (!analysis.getFilteredList().length) return;\n        // 엔진이 클릭 처리의 나머지 표시 작업을 마친 뒤 입력을 종료합니다.\n        queueMicrotask(() =\u003e {\n            if (disposed || current !== analysis) return;\n            const id = analysis.getFilteredList()[0];\n            records.set(id, {analysis, number: ++sequence});\n            stopDrawing(true);\n            message = MODES[type] + ' 영역을 생성했습니다. 현재 로드된 모델의 결과입니다.';\n            notify();\n        });\n    });"},"section.layers":{"id":"section.layers","sourceId":"main","file":"./analysisSection.main.js","label":"main.js","startLine":131,"endLine":144,"code":"if (id === 'u3f') {\n    layer = app.create3DFModelLayer({name, baseName: 'busan',\n        baseUrl: 'https://dt-data.mappick.co.kr/ServiceData/model-2.2/busan',\n        minLevel: 17, maxLevel: 19, useProxy: false, compressModel: true});\n} else {\n    layer = new GeOnDT.model.U3dModelWFSLayer({name, baseUrl: DATA_URL,\n        layerName: id === 'buildings' ? 'z_kais_tl_spbd_buld_202007' : id,\n        ...(id === 'buildings'\n            ? {fieldFloor: 'gro_flo_co', floorHeight: 3, fieldLabel: 'buld_nm'}\n            : {useTerrain: false, version: '1.0.0', color: definition.color, pipeRadius: 0.5, featureType: '3d'}),\n        minLevel: 17, useProxy: false, drawLine: false, transparent: true,\n        opacity: 1, useGlobalOpacity: true});\n    app.addLayer(layer);\n}"},"section.remove":{"id":"section.remove","sourceId":"main","file":"./analysisSection.main.js","label":"main.js","startLine":197,"endLine":200,"code":"const record = records.get(id);\nrecord.analysis.removeFilter(id);\napp.removeAnalysis(record.analysis.name);\nrecords.delete(id);"}},"sources":[{"id":"main","label":"main.js","path":"./analysisSection.main.js","language":"javascript","editable":true,"url":"edition/examples/analysisSection/analysisSection.main.js?v=99347c53ab78","content":"const MODES = {\r\n    crossSection: '횡단면', longitudinal: '종단면', cylinder: '원통', circle: '원반경'\r\n};\r\nconst DATA_URL = 'https://3d.geon.kr/geoserver/digitaltwin/ows';\r\nconst LAYERS = [\r\n    {id: 'u3f', label: 'U3F 건물 (부산)'},\r\n    {id: 'buildings', label: '2.5D 건물 (WFS)'},\r\n    {id: 'UDG_SWPI_LI', label: '부산 하수관거', color: '#4db8db'},\r\n    {id: 'UDG_CNTS_LI', label: '부산 공사구간', color: '#ffd817'},\r\n    {id: 'UDG_DRASY_LI', label: '부산 배수설비', color: '#ff851c'},\r\n    {id: 'UDG_SWDPI_LI', label: '부산 하수폐관', color: '#2de0ae'}\r\n];\r\n\r\n/**\r\n * 단면 입력과 영역별 결과·데이터 레이어를 준비합니다.\r\n *\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @returns {Promise\u003cobject\u003e} 단면 조작과 상태 조회 동작\r\n */\r\nexport async function initialize(context) {\r\n    const app = context.app;\r\n    const subscribers = new Set();\r\n    const records = new Map();\r\n    const layers = new Map();\r\n    const opacity = {\r\n        image: {enabled: app.getEnableOpacityImageLayers(), value: app.getOpacityImageLayers()},\r\n        model: {enabled: app.getEnableOpacityModelLayers(), value: app.getOpacityModelLayers()}\r\n    };\r\n    const originalOpacity = structuredClone(opacity);\r\n    const originalUnderground = app.isUnderGroundMode();\r\n    let underground = originalUnderground;\r\n    let current = null;\r\n    let existingSprites = new Set();\r\n    let sequence = 0;\r\n    let disposed = false;\r\n    let message = '분석 유형을 선택하고 영역 그리기를 누르세요.';\r\n\r\n    /** 지도와 패널에 변경을 반영합니다. */\r\n    function notify() {app.setUpdateDate(); subscribers.forEach(listener =\u003e listener());}\r\n\r\n    /**\r\n     * 진행 중인 입력을 끝내고 완료 영역은 필요에 따라 유지합니다.\r\n     *\r\n     * @param {boolean} [keep=false] 완료한 분석 객체의 유지 여부\r\n     */\r\n    function stopDrawing(keep = false) {\r\n        if (!current) return;\r\n        const analysis = current;\r\n        current = null;\r\n        // 공개 종료 API가 격자를 남기므로 이번 입력에서 추가한 격자만 회수합니다.\r\n        const scene = app.getSceneComment();\r\n        scene.children.filter(object =\u003e object.isSprite \u0026\u0026 !existingSprites.has(object)).forEach(sprite =\u003e {\r\n            scene.remove(sprite);\r\n            GeOnDT.UDEF.disposeObject3D(sprite);\r\n        });\r\n        existingSprites.clear();\r\n        // Section의 비활성화가 남기는 더블클릭·미리보기 입력도 함께 종료합니다.\r\n        app.off('dblclick');\r\n        app.off('mousemove');\r\n        analysis.deactive();\r\n        if (!keep) app.removeAnalysis(analysis.name);\r\n        app.setPanMode();\r\n        if (underground) app.setUnderGroundMode(true);\r\n    }\r\n\r\n    /**\r\n     * 분석 유형에 맞는 새 영역 입력을 시작합니다.\r\n     *\r\n     * @param {string} type 분석 유형\r\n     * @throws {Error} 종료된 예제이거나 지원하지 않는 유형인 경우\r\n     */\r\n    function start(type) {\r\n        if (disposed) throw new Error('종료된 예제입니다.');\r\n        if (!Object.hasOwn(MODES, type)) throw new Error('지원하지 않는 분석 유형입니다.');\r\n        stopDrawing();\r\n        // 취소 시 완료 영역까지 clear()되지 않도록 영역마다 분석 객체를 소유합니다.\r\n        // @example-code:start section.draw\r\n        const analysis = new GeOnDT.analysis.UAnalySection({name: 'section-example-' + crypto.randomUUID()});\r\n        app.addAnalysis(analysis);\r\n        existingSprites = new Set(app.getSceneComment().children.filter(object =\u003e object.isSprite));\r\n        current = analysis;\r\n        try {\r\n            analysis.setGridSpriteImage(context.runtime.resolveAsset('../../image/grid2.png'), 1000, 0.7);\r\n            analysis.setType(type);\r\n            analysis.active();\r\n            analysis.on('click', () =\u003e {\r\n                if (!analysis.getFilteredList().length) return;\r\n                // 엔진이 클릭 처리의 나머지 표시 작업을 마친 뒤 입력을 종료합니다.\r\n                queueMicrotask(() =\u003e {\r\n                    if (disposed || current !== analysis) return;\r\n                    const id = analysis.getFilteredList()[0];\r\n                    records.set(id, {analysis, number: ++sequence});\r\n                    stopDrawing(true);\r\n                    message = MODES[type] + ' 영역을 생성했습니다. 현재 로드된 모델의 결과입니다.';\r\n                    notify();\r\n                });\r\n            });\r\n            // @example-code:end section.draw\r\n            message = type === 'crossSection'\r\n                ? '세 지점 이상을 클릭하고 더블클릭하세요. 높이는 마지막 입력창에서 지정합니다.'\r\n                : type === 'longitudinal'\r\n                ? '시작·끝 지점을 찍고 격자 위에 단면 윤곽을 그린 뒤 더블클릭하세요.'\r\n                : type === 'circle'\r\n                ? '중심을 클릭하고 마우스로 반경을 정한 뒤 다시 클릭하세요.'\r\n                : '시작점을 클릭하고 격자 위에서 반경과 높이를 정한 뒤 다시 클릭하세요.';\r\n            notify();\r\n        } catch (error) {\r\n            stopDrawing();\r\n            throw error;\r\n        }\r\n    }\r\n\r\n    /**\r\n     * 필요한 레이어만 만들고 마지막으로 요청한 표시 상태를 적용합니다.\r\n     *\r\n     * @param {string} id 예제 데이터 식별자\r\n     * @param {boolean} visible 표시 여부\r\n     * @returns {Promise\u003cvoid\u003e} 준비·표시 완료\r\n     * @throws {Error} 레이어 생성·준비·표시에 실패한 경우\r\n     */\r\n    async function setLayerVisible(id, visible) {\r\n        if (disposed) return;\r\n        const definition = LAYERS.find(item =\u003e item.id === id);\r\n        if (!definition) throw new Error('알 수 없는 데이터 레이어입니다.');\r\n        let entry = layers.get(id);\r\n        if (!entry \u0026\u0026 !visible) return;\r\n        if (!entry) {\r\n            const name = 'section-data-' + id;\r\n            let layer;\r\n            // @example-code:start section.layers\r\n            if (id === 'u3f') {\r\n                layer = app.create3DFModelLayer({name, baseName: 'busan',\r\n                    baseUrl: 'https://dt-data.mappick.co.kr/ServiceData/model-2.2/busan',\r\n                    minLevel: 17, maxLevel: 19, useProxy: false, compressModel: true});\r\n            } else {\r\n                layer = new GeOnDT.model.U3dModelWFSLayer({name, baseUrl: DATA_URL,\r\n                    layerName: id === 'buildings' ? 'z_kais_tl_spbd_buld_202007' : id,\r\n                    ...(id === 'buildings'\r\n                        ? {fieldFloor: 'gro_flo_co', floorHeight: 3, fieldLabel: 'buld_nm'}\r\n                        : {useTerrain: false, version: '1.0.0', color: definition.color, pipeRadius: 0.5, featureType: '3d'}),\r\n                    minLevel: 17, useProxy: false, drawLine: false, transparent: true,\r\n                    opacity: 1, useGlobalOpacity: true});\r\n                app.addLayer(layer);\r\n            }\r\n            // @example-code:end section.layers\r\n            if (!layer) throw new Error('모델 레이어를 만들지 못했습니다.');\r\n            entry = {layer, visible, status: 'loading', error: ''};\r\n            layers.set(id, entry);\r\n        }\r\n        entry.visible = visible;\r\n        notify();\r\n        try {\r\n            await entry.layer.ready;\r\n            if (disposed) return;\r\n            entry.status = 'ready';\r\n            entry.error = '';\r\n            notify();\r\n            await app.showLayer(entry.layer.getName(), entry.visible);\r\n            if (disposed) return;\r\n        } catch (error) {\r\n            if (disposed) return;\r\n            entry.status = 'error';\r\n            entry.error = error instanceof Error ? error.message : String(error);\r\n            throw error;\r\n        } finally {if (!disposed) notify();}\r\n    }\r\n\r\n    /** 모든 예제 영역을 지우고 일반 지도 조작으로 돌아갑니다. */\r\n    function reset() {\r\n        stopDrawing();\r\n        records.forEach(record =\u003e app.removeAnalysis(record.analysis.name));\r\n        records.clear();\r\n        sequence = 0;\r\n        message = '분석 영역과 결과를 모두 지웠습니다.';\r\n        notify();\r\n    }\r\n\r\n    void setLayerVisible('u3f', true).catch(error =\u003e {\r\n        if (!disposed) {message = 'U3F 준비 실패: ' + error.message + ' 다른 데이터 레이어를 선택할 수 있습니다.'; notify();}\r\n    });\r\n\r\n    return {\r\n        start,\r\n        setLayerVisible,\r\n        /** 진행 중인 입력만 취소하고 완료한 영역은 유지합니다. */\r\n        cancel() {if (!disposed) {stopDrawing(); message = '그리기를 취소했습니다. 완료한 영역은 유지합니다.'; notify();}},\r\n        /**\r\n         * 지정한 영역과 선택 표시를 제거합니다.\r\n         *\r\n         * @param {string} id 영역 식별자\r\n         * @throws {Error} 다른 영역을 그리는 중인 경우\r\n         */\r\n        remove(id) {\r\n            if (disposed || !records.has(id)) return;\r\n            if (current) throw new Error('그리기를 마치거나 취소한 뒤 영역을 삭제하세요.');\r\n            // @example-code:start section.remove\r\n            const record = records.get(id);\r\n            record.analysis.removeFilter(id);\r\n            app.removeAnalysis(record.analysis.name);\r\n            records.delete(id);\r\n            // @example-code:end section.remove\r\n            message = '영역 ' + record.number + '을 삭제했습니다.';\r\n            notify();\r\n        },\r\n        /** 예제가 만든 모든 영역과 결과만 제거합니다. */\r\n        reset() {if (!disposed) reset();},\r\n        /**\r\n         * 영상 또는 모델의 전역 투명도를 지정합니다.\r\n         *\r\n         * @param {'image'|'model'} target 투명도 대상\r\n         * @param {boolean} enabled 투명도 사용 여부\r\n         * @param {number} value 0 이상 1 이하의 불투명도\r\n         * @throws {Error} 대상 또는 값이 잘못된 경우\r\n         */\r\n        setOpacity(target, enabled, value) {\r\n            if (disposed) return;\r\n            if (!Object.hasOwn(opacity, target) || !Number.isFinite(value) || value \u003c 0 || value \u003e 1) {\r\n                throw new Error('투명도는 0부터 1 사이의 숫자로 입력하세요.');\r\n            }\r\n            const suffix = target === 'image' ? 'ImageLayers' : 'ModelLayers';\r\n            app['setEnableOpacity' + suffix](enabled);\r\n            app['setOpacity' + suffix](value);\r\n            opacity[target] = {enabled, value};\r\n            notify();\r\n        },\r\n        /**\r\n         * 지하시설물 관찰을 위한 지하 보기를 전환합니다.\r\n         *\r\n         * @param {boolean} enabled 지하 보기 사용 여부\r\n         */\r\n        setUnderground(enabled) {\r\n            if (disposed) return;\r\n            stopDrawing();\r\n            underground = enabled;\r\n            app.setUnderGroundMode(enabled);\r\n            notify();\r\n        },\r\n        /** @returns {object} 입력·레이어·영역별 결과 상태 */\r\n        readState() {\r\n            return {drawing: Boolean(current), message, underground, opacity: structuredClone(opacity),\r\n                layers: LAYERS.map(item =\u003e ({...item, visible: layers.get(item.id)?.visible ?? false,\r\n                    status: layers.get(item.id)?.status ?? 'idle', error: layers.get(item.id)?.error ?? ''})),\r\n                results: [...records].map(([id, record]) =\u003e {\r\n                    const result = record.analysis.getFilteredObject()[id];\r\n                    return {id, number: record.number, type: MODES[result.type] ?? result.type, height: result.height,\r\n                        models: result.arr.map(model =\u003e String(model.getOid?.() ?? model.id ?? model.uuid ?? model.getUid?.() ?? '식별자 없음'))};\r\n                })};\r\n        },\r\n        /**\r\n         * 결과 변경을 구독합니다.\r\n         *\r\n         * @param {function(): void} listener 상태 갱신 함수\r\n         * @returns {function(): void} 구독 해제 함수\r\n         */\r\n        subscribe(listener) {subscribers.add(listener); return () =\u003e subscribers.delete(listener);},\r\n        /** 예제 소유의 영역·레이어를 정리하고 공통 표시 설정을 복원합니다. */\r\n        dispose() {\r\n            if (disposed) return;\r\n            disposed = true;\r\n            subscribers.clear();\r\n            reset();\r\n            layers.forEach(entry =\u003e app.removeLayer(entry.layer));\r\n            layers.clear();\r\n            for (const [target, saved] of Object.entries(originalOpacity)) {\r\n                const suffix = target === 'image' ? 'ImageLayers' : 'ModelLayers';\r\n                app['setOpacity' + suffix](saved.value);\r\n                app['setEnableOpacity' + suffix](saved.enabled);\r\n            }\r\n            if (underground !== originalUnderground) app.setUnderGroundMode(originalUnderground);\r\n        }\r\n    };\r\n}\r\n\r\n/**\r\n * 예제에서 생성한 분석과 레이어를 정리합니다.\r\n *\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @param {{dispose: function(): void}} example 예제 동작\r\n */\r\nexport function dispose(context, example) {example.dispose();}\r\n"},{"id":"ui","label":"ui.js","path":"./analysisSection.ui.js","language":"javascript","editable":true,"url":"edition/examples/analysisSection/analysisSection.ui.js?v=8bf5de3bf0fb","content":"const INSTRUCTIONS = {\r\n    crossSection: '세 지점 이상을 클릭한 뒤 더블클릭하면 높이 입력창이 열립니다.',\r\n    longitudinal: '시작·끝 지점을 찍고 격자 위에 단면 윤곽을 그린 뒤 더블클릭합니다.',\r\n    cylinder: '시작점을 클릭한 뒤 마우스로 원통의 반경·높이를 정하고 다시 클릭합니다.',\r\n    circle: '중심을 클릭한 뒤 마우스로 반경을 정하고 다시 클릭합니다.'\r\n};\r\n\r\n/**\r\n * 단면 입력·레이어·결과 목록을 패널에 연결합니다.\r\n *\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @param {object} example 예제 동작\r\n * @returns {function(): void} UI 구독·이벤트 정리 함수\r\n */\r\nexport function initializeUI(context, example) {\r\n    const root = context.elements.root;\r\n    const controller = new AbortController();\r\n    const {signal} = controller;\r\n    const type = root.querySelector('[data-section-type]');\r\n    const status = root.querySelector('[data-section-status]');\r\n    const results = root.querySelector('[data-section-results]');\r\n    const layerRoot = root.querySelector('[data-section-layers]');\r\n    let frame;\r\n\r\n    /**\r\n     * 동기·비동기 조작의 오류를 패널에 표시합니다.\r\n     *\r\n     * @param {function(): unknown} action 실행할 조작\r\n     */\r\n    async function run(action) {\r\n        try {await action();}\r\n        catch (error) {status.textContent = error instanceof Error ? error.message : String(error);}\r\n    }\r\n\r\n    for (const layer of example.readState().layers) {\r\n        const label = document.createElement('label');\r\n        label.className = 'section-check';\r\n        const input = document.createElement('input');\r\n        input.type = 'checkbox';\r\n        input.dataset.sectionLayer = layer.id;\r\n        const text = document.createElement('span');\r\n        text.dataset.sectionLayerStatus = layer.id;\r\n        label.append(input, text);\r\n        layerRoot.append(label);\r\n        input.addEventListener('change', () =\u003e run(() =\u003e example.setLayerVisible(layer.id, input.checked)), {signal});\r\n    }\r\n\r\n    /** 현재 입력 상태와 영역 결과를 안전한 텍스트로 표시합니다. */\r\n    function render() {\r\n        const state = example.readState();\r\n        status.textContent = state.message;\r\n        status.dataset.state = state.drawing ? 'drawing' : 'idle';\r\n        root.querySelector('[data-section-cancel]').disabled = !state.drawing;\r\n        root.querySelector('[data-section-instruction]').textContent = INSTRUCTIONS[type.value];\r\n        root.querySelector('[data-section-underground]').checked = state.underground;\r\n        state.layers.forEach(layer =\u003e {\r\n            root.querySelector('[data-section-layer=\"' + layer.id + '\"]').checked = layer.visible;\r\n            const text = root.querySelector('[data-section-layer-status=\"' + layer.id + '\"]');\r\n            text.textContent = layer.label + (layer.status === 'loading' ? ' · 준비 중' : layer.status === 'error' ? ' · 준비 실패' : '');\r\n            text.title = layer.error;\r\n        });\r\n        for (const [target, value] of Object.entries(state.opacity)) {\r\n            root.querySelector('[data-section-opacity-enabled=\"' + target + '\"]').checked = value.enabled;\r\n            root.querySelector('[data-section-opacity=\"' + target + '\"]').value = String(value.value);\r\n            root.querySelector('[data-section-opacity-output=\"' + target + '\"]').textContent = value.value.toFixed(2);\r\n        }\r\n        const open = new Set([...results.querySelectorAll('details[open]')].map(detail =\u003e detail.dataset.sectionDisclosure));\r\n        const rows = state.results.map(result =\u003e {\r\n            const row = document.createElement('article');\r\n            row.className = 'section-result';\r\n            row.dataset.sectionResult = result.id;\r\n            const details = document.createElement('details');\r\n            details.dataset.sectionDisclosure = result.id;\r\n            details.open = open.has(result.id);\r\n            const summary = document.createElement('summary');\r\n            summary.textContent = '영역 ' + result.number + ' · ' + result.type + ' · ' + result.models.length + '개';\r\n            const info = document.createElement('p');\r\n            info.className = 'section-note';\r\n            info.textContent = '영역 ID: ' + result.id + (Number.isFinite(result.height) ? ' / 높이: ' + result.height + ' m' : '');\r\n            const list = document.createElement('ul');\r\n            result.models.forEach(id =\u003e {const item = document.createElement('li'); item.textContent = '모델 ID: ' + id; list.append(item);});\r\n            if (!result.models.length) {const item = document.createElement('li'); item.textContent = '포함된 모델이 없습니다.'; list.append(item);}\r\n            const remove = document.createElement('button');\r\n            remove.type = 'button';\r\n            remove.className = 'section-button section-delete';\r\n            remove.dataset.sectionRemove = result.id;\r\n            remove.setAttribute('aria-label', '영역 ' + result.number + ' 삭제');\r\n            remove.textContent = '삭제';\r\n            remove.disabled = state.drawing;\r\n            details.append(summary, info, list);\r\n            row.append(details, remove);\r\n            return row;\r\n        });\r\n        results.replaceChildren(...rows);\r\n        root.querySelector('[data-section-empty]').hidden = rows.length \u003e 0;\r\n    }\r\n\r\n    /** 연속 상태 통지를 한 프레임으로 모읍니다. */\r\n    function scheduleRender() {\r\n        if (frame !== undefined) return;\r\n        frame = requestAnimationFrame(() =\u003e {frame = undefined; render();});\r\n    }\r\n    root.querySelector('[data-section-start]').addEventListener('click', () =\u003e run(() =\u003e example.start(type.value)), {signal});\r\n    root.querySelector('[data-section-cancel]').addEventListener('click', () =\u003e example.cancel(), {signal});\r\n    root.querySelector('[data-section-reset]').addEventListener('click', () =\u003e example.reset(), {signal});\r\n    type.addEventListener('change', () =\u003e {example.cancel(); render();}, {signal});\r\n    root.querySelector('[data-section-underground]').addEventListener('change', event =\u003e example.setUnderground(event.target.checked), {signal});\r\n    results.addEventListener('click', event =\u003e {\r\n        const button = event.target.closest('[data-section-remove]');\r\n        if (button) run(() =\u003e example.remove(button.dataset.sectionRemove));\r\n    }, {signal});\r\n    for (const target of ['image', 'model']) {\r\n        const enabled = root.querySelector('[data-section-opacity-enabled=\"' + target + '\"]');\r\n        const value = root.querySelector('[data-section-opacity=\"' + target + '\"]');\r\n        const update = () =\u003e run(() =\u003e example.setOpacity(target, enabled.checked, Number(value.value)));\r\n        enabled.addEventListener('change', update, {signal});\r\n        value.addEventListener('input', update, {signal});\r\n    }\r\n    const unsubscribe = example.subscribe(scheduleRender);\r\n    render();\r\n    return () =\u003e {controller.abort(); unsubscribe(); if (frame !== undefined) cancelAnimationFrame(frame);};\r\n}\r\n"},{"id":"html","label":"HTML","path":"./analysisSection.html","language":"html","editable":true,"url":"edition/examples/analysisSection/analysisSection.html?v=1ac11b1de68d","content":"\u003ctemplate data-example-rail\u003e\r\n    \u003cbutton class=\"rail-button\" type=\"button\" data-panel-target=\"section-panel\" aria-expanded=\"false\"\u003e\r\n        \u003cspan class=\"rail-icon\" aria-hidden=\"true\"\u003e▧\u003c/span\u003e\u003cspan\u003e단면 분석\u003c/span\u003e\r\n    \u003c/button\u003e\r\n    \u003cbutton class=\"rail-button\" type=\"button\" data-panel-target=\"section-data-panel\" aria-expanded=\"false\" aria-controls=\"section-data-panel\"\u003e\r\n        \u003cspan class=\"rail-icon\" aria-hidden=\"true\"\u003e▤\u003c/span\u003e\u003cspan\u003e데이터\u003c/span\u003e\r\n    \u003c/button\u003e\r\n    \u003cbutton class=\"rail-button\" type=\"button\" data-panel-target=\"section-opacity-panel\" aria-expanded=\"false\" aria-controls=\"section-opacity-panel\"\u003e\r\n        \u003cspan class=\"rail-icon\" aria-hidden=\"true\"\u003e◐\u003c/span\u003e\u003cspan\u003e투명도\u003c/span\u003e\r\n    \u003c/button\u003e\r\n\u003c/template\u003e\r\n\u003caside class=\"glass-panel example-panel example-option-panel section-example-panel\" id=\"section-panel\" aria-hidden=\"true\"\u003e\r\n    \u003cheader class=\"panel-header\"\u003e\r\n        \u003ch2\u003e단면 분석\u003c/h2\u003e\r\n        \u003cbutton class=\"panel-close\" type=\"button\" data-panel-close=\"section-panel\" aria-label=\"단면 분석 패널 닫기\"\u003e×\u003c/button\u003e\r\n    \u003c/header\u003e\r\n    \u003cdiv class=\"panel-content\"\u003e\r\n        \u003cp class=\"section-description\"\u003e건물과 지하시설물을 단면 영역으로 선택하고 포함된 모델을 확인합니다.\u003c/p\u003e\r\n        \u003csection aria-labelledby=\"section-draw-heading\"\u003e\r\n            \u003ch3 id=\"section-draw-heading\"\u003e분석 영역\u003c/h3\u003e\r\n            \u003clabel class=\"section-field\" for=\"section-type\"\u003e분석 유형\u003c/label\u003e\r\n            \u003cselect id=\"section-type\" data-section-type\u003e\r\n                \u003coption value=\"crossSection\"\u003e횡단면\u003c/option\u003e\r\n                \u003coption value=\"longitudinal\"\u003e종단면\u003c/option\u003e\r\n                \u003coption value=\"cylinder\"\u003e원통\u003c/option\u003e\r\n                \u003coption value=\"circle\"\u003e원반경\u003c/option\u003e\r\n            \u003c/select\u003e\r\n            \u003cdiv class=\"section-actions\"\u003e\r\n                \u003cbutton class=\"section-button section-primary\" type=\"button\" data-section-start\u003e영역 그리기\u003c/button\u003e\r\n                \u003cbutton class=\"section-button\" type=\"button\" data-section-cancel disabled\u003e그리기 취소\u003c/button\u003e\r\n            \u003c/div\u003e\r\n            \u003cp class=\"section-note\" data-section-instruction\u003e\u003c/p\u003e\r\n            \u003cp data-section-status role=\"status\" aria-live=\"polite\"\u003e\u003c/p\u003e\r\n        \u003c/section\u003e\r\n        \u003csection class=\"section-group\" aria-labelledby=\"section-results-heading\"\u003e\r\n            \u003cdiv class=\"section-heading\"\u003e\r\n                \u003ch3 id=\"section-results-heading\"\u003e영역별 결과\u003c/h3\u003e\r\n                \u003cbutton class=\"section-button section-quiet\" type=\"button\" data-section-reset\u003e전체 지우기\u003c/button\u003e\r\n            \u003c/div\u003e\r\n            \u003cp class=\"section-note\" data-section-empty\u003e생성한 분석 영역이 없습니다.\u003c/p\u003e\r\n            \u003cdiv data-section-results\u003e\u003c/div\u003e\r\n            \u003cp class=\"section-note\"\u003e생성 당시 로드된 모델을 집계합니다. 데이터나 표시 상태를 바꾼 뒤에는 새 영역을 그려 다시 분석하세요.\u003c/p\u003e\r\n        \u003c/section\u003e\r\n    \u003c/div\u003e\r\n\u003c/aside\u003e\r\n\u003caside class=\"glass-panel example-panel section-example-panel\" id=\"section-data-panel\" aria-hidden=\"true\"\u003e\r\n    \u003cheader class=\"panel-header\"\u003e\r\n        \u003ch2\u003e데이터 레이어\u003c/h2\u003e\r\n        \u003cbutton class=\"panel-close\" type=\"button\" data-panel-close=\"section-data-panel\" aria-label=\"데이터 레이어 패널 닫기\"\u003e×\u003c/button\u003e\r\n    \u003c/header\u003e\r\n    \u003cdiv class=\"panel-content\"\u003e\r\n        \u003cp class=\"section-description\"\u003e단면 분석에 사용할 건물과 지하시설물을 선택합니다.\u003c/p\u003e\r\n        \u003cdiv data-section-layers\u003e\u003c/div\u003e\r\n        \u003clabel class=\"section-check\"\u003e\u003cinput type=\"checkbox\" data-section-underground\u003e지하 보기\u003c/label\u003e\r\n        \u003cp class=\"section-note\"\u003e부산 지역에서 확인하세요. 지형 표시와 배경지도는 우측 공통 패널에서 조절합니다. 외부 데이터가 로드된 뒤 영역을 그리세요.\u003c/p\u003e\r\n    \u003c/div\u003e\r\n\u003c/aside\u003e\r\n\u003caside class=\"glass-panel example-panel section-example-panel\" id=\"section-opacity-panel\" aria-hidden=\"true\"\u003e\r\n    \u003cheader class=\"panel-header\"\u003e\r\n        \u003ch2\u003e투명도 설정\u003c/h2\u003e\r\n        \u003cbutton class=\"panel-close\" type=\"button\" data-panel-close=\"section-opacity-panel\" aria-label=\"투명도 설정 패널 닫기\"\u003e×\u003c/button\u003e\r\n    \u003c/header\u003e\r\n    \u003cdiv class=\"panel-content\"\u003e\r\n        \u003cp class=\"section-description\"\u003e영상과 모델의 투명도를 조절합니다. 0은 투명, 1은 불투명입니다.\u003c/p\u003e\r\n        \u003clabel class=\"section-check\"\u003e\u003cinput type=\"checkbox\" data-section-opacity-enabled=\"image\"\u003e영상 투명도 사용\u003c/label\u003e\r\n        \u003clabel class=\"section-range\"\u003e영상 불투명도 \u003coutput data-section-opacity-output=\"image\"\u003e\u003c/output\u003e\r\n            \u003cinput type=\"range\" min=\"0\" max=\"1\" step=\"0.01\" data-section-opacity=\"image\"\u003e\r\n        \u003c/label\u003e\r\n        \u003clabel class=\"section-check\"\u003e\u003cinput type=\"checkbox\" data-section-opacity-enabled=\"model\"\u003e모델 투명도 사용\u003c/label\u003e\r\n        \u003clabel class=\"section-range\"\u003e모델 불투명도 \u003coutput data-section-opacity-output=\"model\"\u003e\u003c/output\u003e\r\n            \u003cinput type=\"range\" min=\"0\" max=\"1\" step=\"0.01\" data-section-opacity=\"model\"\u003e\r\n        \u003c/label\u003e\r\n    \u003c/div\u003e\r\n\u003c/aside\u003e\r\n"},{"id":"css","label":"CSS","path":"./analysisSection.css","language":"css","editable":true,"url":"edition/examples/analysisSection/analysisSection.css?v=e8ade351af18","content":".section-example-panel {width: min(450px, calc(100% - 100px)); color: var(--theme-text); color-scheme: dark;}\r\n.section-example-panel h2 {margin: 0; font-size: 20px; line-height: 1.3;}\r\n.section-example-panel h3 {margin: 0; font-size: 16px; line-height: 1.5;}\r\n.section-example-panel .panel-content {padding: 16px; font-size: 14px; line-height: 1.5;}\r\n.section-example-panel .section-description {margin: 0 0 20px;}\r\n.section-example-panel .section-field {display: block; margin: 12px 0 8px;}\r\n.section-example-panel select {width: 100%; height: 40px; padding: 8px 12px; border: 1px solid #89acbc; border-radius: 6px; background: #1e4358; color: var(--theme-text); font: inherit;}\r\n.section-example-panel option {background: #1e4358; color: var(--theme-text);}\r\n.section-example-panel .section-actions, .section-example-panel .section-heading {display: flex; align-items: center; gap: 8px; flex-wrap: wrap;}\r\n.section-example-panel .section-actions {margin-top: 12px;}\r\n.section-example-panel .section-heading {justify-content: space-between;}\r\n.section-example-panel .section-button {min-height: 40px; padding: 8px 12px; border: 1px solid #89acbc; border-radius: 6px; background: #1e4358; color: var(--theme-text); font: inherit; font-size: 13px; cursor: pointer;}\r\n.section-example-panel .section-primary {background: var(--theme-accent); border-color: var(--theme-accent); color: #173e52;}\r\n.section-example-panel .section-quiet {background: transparent; border-color: transparent; text-decoration: underline; text-underline-offset: 3px;}\r\n.section-example-panel .section-button:hover:not(:disabled) {background: #254e64; color: var(--theme-text);}\r\n.section-example-panel .section-delete {min-height: 32px; padding: 4px 12px; border-color: #ffd4cc; background: #ffd4cc; color: #542923; font-weight: 600; white-space: nowrap;}\r\n.section-example-panel .section-delete:hover:not(:disabled) {background: #ffb8aa; color: #542923;}\r\n.section-example-panel .section-button:disabled {opacity: .6; cursor: not-allowed;}\r\n.section-example-panel :is(button, input, select, summary):focus-visible {outline: 2px solid var(--theme-accent); outline-offset: 2px;}\r\n.section-example-panel .section-note {margin: 8px 0; color: #d3e5ed; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere;}\r\n.section-example-panel [data-section-status] {min-height: 3em; margin: 16px 0;}\r\n.section-example-panel .section-group {margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--theme-line);}\r\n.section-example-panel summary {display: flex; justify-content: space-between; gap: 8px; cursor: pointer; font-weight: 600; line-height: 1.6; padding: 4px 0;}\r\n.section-example-panel summary::after {content: '+';}\r\n.section-example-panel details[open] \u003e summary::after {content: '−';}\r\n.section-example-panel .section-check {display: flex; align-items: flex-start; gap: 8px; margin: 10px 0; font-size: 13px;}\r\n.section-example-panel input[type=\"checkbox\"] {width: 17px; height: 17px; flex: 0 0 auto; margin-top: 2px; accent-color: var(--theme-accent);}\r\n.section-example-panel .section-range {display: grid; grid-template-columns: 1fr auto; gap: 8px; margin: 12px 0; font-size: 13px;}\r\n.section-example-panel output {padding: 0; color: inherit; font: inherit;}\r\n.section-example-panel input[type=\"range\"] {grid-column: 1 / -1; width: 100%; accent-color: var(--theme-accent);}\r\n.section-example-panel .section-result {display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; margin-top: 12px; padding: 10px; border: 1px solid #89acbc; border-radius: 6px; background: #1e4358;}\r\n.section-example-panel .section-result \u003e details {min-width: 0;}\r\n.section-example-panel .section-result summary {word-break: keep-all; overflow-wrap: anywhere;}\r\n.section-example-panel .section-result ul {max-height: 180px; overflow: auto; margin: 8px 0; padding-left: 20px; font-size: 12px; white-space: normal; overflow-wrap: anywhere;}\r\n@media (max-width: 480px) {\r\n    .section-example-panel {width: calc(100% - 92px);}\r\n    .section-example-panel .panel-content {padding-bottom: 64px;}\r\n}\r\n"}]}</script>
+<script id="example-metadata" type="application/json">{"title":"단면 분석","url":"analysisSection.html","category":"analysis","categoryLabel":"분석","summary":"횡단면·종단면·원통·원반경 영역으로 건물과 지하시설물을 선택하고 결과를 확인합니다.","tags":["단면","횡단면","종단면","원통","지하시설물","WFS"],"apis":["UAnalySection","UAnalySection.setType","UAnalySection.getFilteredList","UAnalySection.getFilteredObject","U3dModelWFSLayer"],"editor":true,"rootAlias":false,"apiHelp":false,"imageLayerPanel":true,"terrainLayerPanel":true,"featured":true,"thumbnail":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/analysisSection.png","thumbnailMotion":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/analysisSection.webm","legacy":false,"manifest":true,"sourceFile":"examples\\analysisSection\\analysisSection.md"}</script>
+<script>
+window.__EXAMPLE_BUILD_CONFIG__ = {
+    targetPrefix: 'edition/',
+    runnerUrl: 'edition/runner.html',
+    monacoModuleUrl: 'edition/assets/monaco/monaco-editor.js?v=ebbbdcf5172a',
+    // GeOnDT 타입 선언 번들입니다. 값이 없으면 코드 편집기는 자동완성 없이 동작합니다.
+    monacoTypesUrl: 'edition/assets/monaco/geondt-types.json?v=c951a9e362f9'
+};
+// 예제는 코드 편집 패널을 연 상태로 시작하며, 닫으면 editor=0이 남아 선택이 유지됩니다.
+// 패널 너비는 지도 Engine 생성 전에 확정되므로 초기 화면이 다시 배치되지 않습니다.
+// 좁은 화면에서는 편집기가 화면 전체를 덮으므로 기본 열기를 적용하지 않습니다.
+(function () {
+    var editorParameter = new URLSearchParams(window.location.search).get('editor');
+    window.__EXAMPLE_EDITOR_MODE__ = editorParameter === '1'
+        || (editorParameter !== '0' && window.innerWidth > 760);
+})();
+</script>
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/filesaver/FileSaver.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../dist/GeOnDT.min.js"></script>
+<script src="js/example-theme.js"></script>
+<script type="module">
+import(/* @vite-ignore */ new URL('js/example-page.js', document.baseURI).href);
+</script>
+</body>
+</html>
+

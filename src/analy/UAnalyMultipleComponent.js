@@ -155,7 +155,11 @@ class UAnalyMultipleComponent extends UAnaly {
         this._areaFeature = undefined;
         this._isGizmoMouseUp = false;
 
-        /** 기즈모(gizmo) 생성 시 사용할 색상이며 외부에서 변경할 수 있습니다. @type {import('three').ColorRepresentation | undefined} */
+        /**
+         * 기즈모(gizmo) 생성 시 사용할 색상이며 외부에서 변경할 수 있습니다.
+         *
+         * @type {import('three').ColorRepresentation | undefined}
+         */
         this.color = undefined;
     }
 
@@ -929,22 +933,20 @@ class UAnalyMultipleComponent extends UAnaly {
         const layer_ = /** @type {{_object: import('three').Object3D, _scene: import('three').Scene, _drawObject: {name: string}, getModelInfo: import('@union3d/3dLayer/U3dMultipleComponentLayer').U3dMultipleComponentLayer['getModelInfo'], loadModel: function(object): Promise<import('three').Object3D>}} */(/** @type {unknown} */(layer));
         const md = /** @type {{ name: string, baseurl: string }} */(modelData);
         this.removeListeners();
-        const cached = /** @type {any} */(layer_.getModelInfo(md.name, md.baseurl));
-        if (!cached) {
+        const cached = layer_.getModelInfo(md.name, md.baseurl);
+        if (!cached || !cached.ready) {
             // async 함수 자체가 결과와 예외를 전달하므로 별도 완료 객체를 중첩하지 않습니다.
             const object = await layer_.loadModel(modelData);
             layer_._scene.remove(layer_._object);
             return object;
         }
-        const wasReady = cached.isReady();
-        if (!wasReady) {
-            // 모델 저장소의 완료 계약을 표준 Promise로 관찰합니다. 구현 종류를 판별하지 않습니다.
-            await Promise.resolve(cached);
-        }
+        // 이미 완료된 캐시의 조회 실패와, 기다리던 모델의 생성 실패는 기존에 다른 계약입니다.
+        // 모델 정보나 일반 Promise를 변형하지 않고 로더가 소유한 현재 요청에서만 상태를 읽습니다.
+        const wasReady = layer._isModelLoadReady(cached);
+        await cached.ready;
         const find = layer.getLoadedModel(cached.name);
         if (!find) {
             __GError__(this, cached.name + ' 모델 생성 중 오류가 발생하였습니다.', wasReady ? '7316614' : '1514735');
-            // 이미 준비된 캐시의 조회 실패는 기존 undefined 반환 계약을 유지합니다.
             if (wasReady) return;
             throw new Error(cached.name + ' 모델을 찾을 수 없습니다.');
         }
@@ -1341,7 +1343,8 @@ class UAnalyMultipleComponent extends UAnaly {
 
     /**
      * 대상의 첫 카메라 오버레이(overlay)에 분석을 요청합니다. <br>
-     * options.componenet이 없으면 현재 선택을 사용하며 분석 자체의 비동기 완료는 기다리지 않습니다.
+     * options.componenet이 없으면 현재 선택을 사용하며 분석 자체의 비동기 완료는 기다리지 않습니다. <br>
+     * 요청 이후의 분석 실패는 콘솔에 기록하며, 이미 반환한 요청 성공 여부는 바꾸지 않습니다.
      *
      * @deprecated 제거될 메서드입니다.
      *
@@ -1363,7 +1366,12 @@ class UAnalyMultipleComponent extends UAnaly {
         const cameraView = /** @type {import('@union3d/view/U3dView').U3dView} */(/** @type {unknown} */(comp_ca.getOverlays()[0]));
 
         try {
-            cameraView.viewAnalysis.call(cameraView, options);
+            // 요청 접수와 분석 완료는 별개입니다. 완료를 기다리지 않는 이 API가
+            // 내부 Promise의 실패를 맡아 처리하여 호출자 밖에 미처리 거부를 남기지 않습니다.
+            cameraView.viewAnalysis.call(cameraView, options).catch(error => {
+                // 실패값을 문자열로 변환하지 않아 undefined나 일반 객체도 원형으로 확인할 수 있습니다.
+                console.error('[UAnalyMultipleComponent] 카메라 분석 중 오류가 발생했습니다.', error);
+            });
             defer.resolve(true);
         } catch (e) {
             defer.resolve(false);

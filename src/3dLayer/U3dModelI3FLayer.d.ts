@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -12,7 +12,8 @@ import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UTaskProcessor } from "../core/UTaskProcessor.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { I3FTile } from "../i3f/I3FTile.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { U3dQuadTileWork } from "../quadtree/U3dQuadTileWork.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /**
  * @memberOf GeOnDT.model
@@ -106,7 +107,7 @@ declare class U3dModelI3FLayer extends U3dModelLayer {
     };
     _manager: three.LoadingManager;
     _loader: any;
-    _cancel: DeferredObject<unknown>;
+    _cancel: DeferredPromise<void>;
     _change: boolean;
     _curPosition: any;
     _deleteMeshes: any;
@@ -185,6 +186,33 @@ declare class U3dModelI3FLayer extends U3dModelLayer {
 }
 
 /**
+     * 한 파일의 다운로드부터 장면 반영까지 연결하는 내부 요청입니다.
+     * 타일·URL의 현재 등록과 같은 객체일 때만 결과 및 상태를 변경할 수 있습니다.
+     */
+    type U3dI3FMeshRequest = {
+        /**
+         * 모델 파일 URL
+         */
+        url: string;
+        /**
+         * 요청한 타일
+         */
+        tile: I3FTile;
+        /**
+         * 다운로드 작업
+         */
+        work?: U3dQuadTileWork;
+        /**
+         * 장면 반영 작업
+         */
+        parseWork?: U3dQuadTileWork;
+        /**
+         * 현재 단계의 완료 제어 객체
+         */
+        completion?: DeferredPromise<void>;
+    };
+
+/**
      * 렌더 자료에 사용하는 RGB 색상입니다.
      */
     type U3dI3FColor = {
@@ -235,4 +263,4 @@ declare class U3dModelI3FLayer extends U3dModelLayer {
         materialGroup?: Array<U3dI3FMaterialGroup>;
     };
 
-export type { U3dI3FColor, U3dI3FMaterialGroup, U3dI3FRenderObject, U3dModelI3FLayer };
+export type { U3dI3FColor, U3dI3FMaterialGroup, U3dI3FMeshRequest, U3dI3FRenderObject, U3dModelI3FLayer };

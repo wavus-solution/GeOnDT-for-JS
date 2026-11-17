@@ -342,8 +342,8 @@ export function initializeUI(context, example) {
         root.querySelector('#vector2d-animation').checked = state.animationEnabled;
         root.querySelector('#vector2d-animation').disabled = !state.drawings.some(item => item.motion);
         root.querySelector('#vector2d-animation-hint').textContent = state.animationEnabled
-            ? '재생 중 · 위치·회전·크기를 편집하면 일시정지합니다'
-            : '일시정지 · 다시 켜면 변경한 위치와 형상으로 이어집니다';
+            ? '재생 중 · ' + state.drawings.filter(item => item.motion).length + '개 / 25ms · 편집하면 일시정지합니다'
+            : '멈춤 · 재생을 선택하면 변경한 위치와 형상으로 이동·회전을 시작합니다';
         root.querySelector('#vector2d-drawing-count').textContent = state.drawings.length;
         root.querySelector('#vector2d-drawing-empty').hidden = state.drawings.length > 0;
         renderList(root.querySelector('#vector2d-drawing-list'), state.drawings, (button,item) => {
@@ -380,7 +380,7 @@ export function initializeUI(context, example) {
         const keys = {fill:'fillColor', stroke:'strokeColor', 'fill-opacity':'fillOpacity', 'stroke-opacity':'strokeOpacity', width:'strokeWidth', radius:'radius'};
         for (const [key,property] of Object.entries(keys)) root.querySelector('#vector2d-edit-' + key).value = selected.style[property];
         root.querySelector('#vector2d-edit-radius-row').hidden = selected.type !== 'Point';
-        root.querySelector('label[for="vector2d-edit-radius"]').textContent = selected.layer.getName() === 'dynamicCircleLayer' ? '화면 반경(px)' : '포인트 반경';
+        root.querySelector('label[for="vector2d-edit-radius"]').textContent = selected.geometry.getParam().isDynamicRadius === true ? '화면 반경(px)' : '포인트 반경';
         for (const key of ['x', 'y', 'rotation', 'scale']) root.querySelector('#vector2d-edit-' + key).value = selected.transform[key];
         root.querySelector('#vector2d-edit-scale').disabled = selected.type === 'Point';
         root.querySelector('#vector2d-point-transform-hint').hidden = selected.type !== 'Point';

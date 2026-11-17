@@ -38,7 +38,7 @@
 공개 메서드의 이름, 매개변수 순서와 기본값, 반환값, 예외·조기 종료와 상태 변화는 기존 API 동작을 보존해야 한다.
 위치·회전·크기와 행렬 갱신 순서, 자식·POI·overlay·누적 경로·충돌·선택 보조 객체의 동기화 여부를 바꾸지 않아야 한다.
 경로 이동의 속도·시간·반복·회전·보간·완료 callback과 이벤트 발생 조건을 유지해야 한다.
-show()와 hide()는 이미 요청된 표시 상태이면 undefined로 종료하고, 표시 상태 변경을 정상적으로 마치면 true로 완료되는 결과를 반환한다. 공개 반환 선언과 내부 완료 제어의 구분은 해당 메서드의 Q-001에서 확인한다.
+show()와 hide()는 이미 요청된 표시 상태이면 undefined로 종료하고, 표시 상태 변경을 정상적으로 마치면 true로 완료되는 표준 Promise를 반환한다. 자식의 비동기 완료까지 기다리는 결과는 아니다.
 하위 클래스가 상속하거나 명시적으로 U3dComponentPosition.prototype을 호출하는 메서드 계약을 유지해야 한다.
 색상 텍스처 제외는 map의 RGB·알파에만 적용하고 기본색·조명·정점색과 다른 종류의 텍스처는 유지해야 한다. 선택·색상·투명도·깊이 변경으로 복원용 재질이 만들어져도 제외·복원 정책을 유지해야 한다.
 사용자 LOD callback에서 boolean으로 지정한 exceptTexture는 일반·인스턴스에 동일하게 적용하며 생략한 단계에서는 기존 설정을 유지해야 한다. 내부 형상 LOD는 같은 인스턴스 저장값을 공유하되 각 단계 재질의 원래 map 유무를 유지해야 한다.
@@ -105,6 +105,7 @@ U3dComponentAnimationInfo 타입 정의
 
 SmoothAniContextExt 타입 정의
     useRotation: boolean
+    useLookAt: boolean
     delayCount: number
     count: number
     object?: import('@UGroup').UGroup
@@ -207,12 +208,48 @@ WaypointRecord 타입 정의 (내부용)
     time: number
         도착 시각 (Date.now() 기준 epoch ms)
 
+U3dPredictionAnalysis 타입 정의
+    records: Array<WaypointRecord>
+        캐시 유효성 비교용 좌표·시각의 복사본
+    path: U3dPredictionPath
+        잡음을 보정한 경로 추정
+    motion: U3dPredictionMotion | undefined
+        이력 끝의 운동 추정
+
+U3dPredictionPath 타입 정의
+    pathLength: number
+        잡음에 의한 왕복 이동을 보정한 이력의 총 거리(m)
+    stepLength: number
+        예측 단계당 평균 이동 거리(m)
+    noise: number
+        직선·원호 형상을 제외한 위치 잡음 추정값(m)
+    points: Array<import('three').Vector3>
+        운동 추정에 사용할 좌표. 입력 좌표는 변경하지 않는다.
+    direction: import('three').Vector3 | undefined
+        신뢰 가능한 직선 이력의 단위 진행 방향
+    linear: boolean
+        직선 모형을 채택했는지 여부
+    stationary: boolean
+        실제 진행보다 잡음으로 설명되는 이력인지 여부
+
+U3dPredictionMotion 타입 정의
+    direction: import('three').Vector3 | undefined
+        이력 끝의 단위 진행 방향
+    yawRate: number
+        예측 단계당 수평 회전율(rad)
+    headingBaseline: number
+        방향으로 신뢰할 최소 이동 거리(m)
+    turnDecayDistance: number
+        관측 거리에서 구한 회전 감쇠 거리(m). 실제 외삽에서는 이동 시간과 누적 회전 한도를 함께 적용한다.
+    stationary: boolean
+        이동 범위가 잡음 기준보다 작은지 여부
+
 PredictedPosition 타입 정의
 
     point: WorldPositionVector3
         예측된 월드 좌표 (EPSG:3857, m)
     time: number
-        호출 시점부터 해당 지점 도착까지의 예상 경과 시간 (ms, 0 이상 정수). 평균 속도가 0이면 Infinity
+        호출 시점부터 해당 지점 도착까지의 예상 경과 시간 (ms, 0 이상 정수). 일시정지 중이거나 이동 시간을 알 수 없으면 Infinity
 
 PassCallbackPayload 타입 정의
     name: string
@@ -222,7 +259,7 @@ PassCallbackPayload 타입 정의
     distance: number
         통과 시점까지의 누적 이동 거리 (m)
     time: number
-        통과 시점까지의 누적 이동 시간 (ms). 애니메이션이 값을 주지 않으면 현재 시각(`Date.now()`)
+        통과 시점까지의 누적 이동 시간(ms). 선언 설명은 값이 없을 때 현재 시각을 안내하나 실제 도착 콜백의 대체값은 0이다. [확인 Q-007]
     speed: number
         통과 시점의 속도 (km/h)
 
@@ -239,10 +276,6 @@ CumulativeProperty 타입 정의
         좌표 정밀도
     lastInfo: CumulativeInfo | undefined
         초기 경로의 마지막 누적 정보
-    initTime: number
-        초기화 시각
-    moveBaseDist: number
-        이동 기준 누적 거리
     startPosition: WorldPosition | undefined
         이동 시작 월드 좌표
 
@@ -323,12 +356,18 @@ ComponentParam 타입 정의
     lights: Array<object>
         컴포넌트에 등록된 조명의 `getParam` 결과 목록 (deprecated 기능)
     style: object
-        brightness와 contrast는 선택적인 0 이상 배율이며 생략하면 각각 1을 사용한다. getParam은 두 값을 기록한다.
+        brightness·contrast·saturation은 선택적인 0 이상 배율이며 생략 시 기본 배율은 1이다. getParam은 세 값을 기록한다.
         컴포넌트에 설정된 스타일 정보
     style.color?: import('three').ColorRepresentation
         색상.
     style.opacity?: number
         투명도.
+    style.brightness?: number = 1
+        밝기 배율
+    style.contrast?: number = 1
+        대비 배율
+    style.saturation?: number = 1
+        채도 배율
     style.depthTest?: boolean
         깊이 테스트 활성 여부. `false`면 다른 객체에 가려져도 항상 보입니다.
     style.depthWrite?: boolean
@@ -365,6 +404,12 @@ U3dComponentPositionCO 타입 정의
         화면에 그릴 3D 모델 리소스. 없으면 위치만 있는 빈 컴포넌트가 됩니다
     objectOpacity?: number = 1
         모델 리소스 기본 투명도 (0 투명 ~ 1 불투명)
+    brightness?: number
+        공개 밝기 옵션. 이 생성자 자체는 읽지 않으며 배율은 setter로 적용한다. [확인 Q-006]
+    contrast?: number
+        공개 대비 옵션. 이 생성자 자체는 읽지 않는다. [확인 Q-006]
+    saturation?: number
+        공개 채도 옵션. 이 생성자 자체는 읽지 않는다. [확인 Q-006]
     position: import('three').Vector3
         컴포넌트 위치 (월드 좌표 EPSG:3857, m)
     updateFunc?: LOD_UpdateFunc
@@ -476,13 +521,25 @@ U3dComponentPositionCO 타입 정의
     maxVisibleDistance?: number = 1000
         `'auto'` LOD에서 컴포넌트를 표시할 카메라 최대 거리 (m)
 
+MoveSmoothlyOpt 타입 정의
+    opt.position?: GeoPosition
+        목표 위경도·고도 좌표. 선언의 opt 접두 필드는 moveSmoothly의 opt 인수에 해당한다.
+    opt.rotation?: DegreeEulerLike
+        예약 시 적용할 도 단위 회전
+    opt.axis?: 'absolute' | 'relative' = 'absolute'
+        절대·상대 회전 기준
+    opt.useLookAt?: boolean = true
+        false이면 이동 방향의 lookAt을 계산하지 않고 현재 회전을 유지한다.
+    opt.durationMs?: number | null
+        해당 구간 실행 시작부터의 도착 기한(ms)이며 일시정지 시간은 제외한다. 0은 첫 실행 프레임 도착, 양수는 필요 시 가속, null·생략은 설정 속도에 따른 등속 이동이다. 음수·비유한 값은 등록하지 않는다.
+
 U3dComponentPosition 클래스 정의
     _modelOffset: Vector3 = (0, 0, 0)
         논리 위치와 독립적인 모델 전체의 로컬 이동량이며 컴포넌트마다 소유한다.
     _modelOffsetObject: Group | undefined
         일반 모델의 애니메이션 노드와 독립적인 기준점 보정 전용 하위 변환 노드다.
 
-    setModelOffset(offset: Vector3Like = {x:0,y:0,z:0}) -> this
+    setModelOffset(offset: Vector3Like = {x: 0, y: 0, z: 0}) -> this
         역할: 모델 전체의 로컬 이동량을 절대값으로 설정한다.
         처리 기준:
             x·y·z가 숫자가 아니면 TypeError, 비유한 숫자이면 RangeError를 던지고 이전 상태를 유지한다.
@@ -490,6 +547,7 @@ U3dComponentPosition 클래스 정의
             같은 값의 반복 설정은 누적되지 않으며 생략 또는 0 벡터는 보정을 해제한다.
             입력 벡터의 복사본을 보관하므로 호출자가 입력을 변경해도 설정이 바뀌지 않는다.
         동작:
+            먼저 입력 축의 숫자 타입을 검사하고 그 다음 유한성을 검사한 뒤 해제 여부를 검사한다. 검증에 실패하면 기존 보정을 변경하지 않는다.
             보정은 논리 TRS와 원본 모델 내부 변환 사이에 적용한다. 모델 로컬 이동량은 컴포넌트 회전·크기의 영향을 받는다.
             논리 위치, 라벨, 오버레이와 경로의 기준 좌표는 유지한다.
             모델 형상과 선택에 쓰는 렌더 변환을 갱신하고 경계 상자 캐시와 렌더 갱신 시각을 갱신한다.
@@ -512,31 +570,42 @@ U3dComponentPosition 클래스 정의
     get waypointHistory() -> Array<WorldPositionVector3>
         동작: 경로 소유 이력의 좌표 복사본을 오래된 순서로 반환한다. 좌표와 도착 시각은 getCumulativePath().waypointHistory로 조회한다.
 
-    predictFuturePositions(count: number, headingWeight: number = 1, turnWeight: number = 1) -> Array<PredictedPosition> | undefined
+    predictFuturePositions(count: number, headingWeight: number = 1) -> Array<PredictedPosition> | undefined
         인터페이스:
-            count는 사용할 최근 이력 수이자 미래로 연장할 단계 수이며 결과는 1단계부터 count단계까지의 예측점을 순서대로 담은 {point, time} 배열이다.
-            headingWeight는 첫 단계 방향에서 현재 진행 방향(재생·일시정지 중인 이동 구간의 출발→도착 방향)이 차지하는 비율(0~1)이고, turnWeight는 이력에서 추정한 수평 회전율의 반영 비율(0~1)이다.
-            point는 월드 좌표 벡터(EPSG:3857, m), time은 호출 시점부터 해당 지점 도착까지의 예상 경과 시간(ms, 0 이상 정수)이다. 평균 속도가 0이고 예측 변위가 있으면 Infinity다.
+            count는 반환할 최대 단계 수이며 현재 목표·대기 경유지·이력 외삽 순서로 최대 count개의 {point, time}을 반환한다. 도착 이력이 2개 이상이면 예약 목표를 포함한 총 결과를 min(count, 이력 수)개까지 외삽으로 채운다. 이력이 10개이면 50·100개 요청에도 10개부터 반환하고 이력이 쌓일수록 개수가 늘어난다. 이미 알려진 예약 목표가 이력보다 많으면 요청 상한까지 그대로 반환한다. 분석 범위는 출력 개수와 독립적이다.
+            headingWeight는 이력 외삽의 기준점 방향에서 마지막 예약 구간 방향이 차지하는 비율(0~1)이다. 회전 추정은 내부에서 가중치 1로 전부 반영한다. 이미 예약된 목표 좌표는 바꾸지 않는다.
+            point는 월드 좌표 벡터(EPSG:3857, m), time은 호출 시점부터 해당 지점 도착까지의 예상 경과 시간(ms, 0 이상 정수)이다. 도착 시간을 계산할 수 없거나 재개 시점이 정해지지 않은 일시정지 상태이면 Infinity다.
         처리 기준:
-            숫자가 아닌 count는 TypeError, 2~100 정수가 아닌 count는 RangeError로 거부한다. 숫자가 아니거나 NaN인 headingWeight·turnWeight는 TypeError, 0~1 밖이면 RangeError로 거부한다.
-            한 예측 단계는 과거 웨이포인트 한 구간에 대응한다. 위치 예측은 수평(XY) 방위각의 일정 회전율과 직선 고도(z) 추세만 사용하며 가감속과 대기 목표점은 사용하지 않는다.
-            turnWeight가 0이면 회전 없는 직선 예측이고, count가 2이면 비교할 구간 쌍이 없어 회전율은 0이다.
-            도착 시간은 순번 간격이 아니라 이력 구간의 평균 속도(총 이동 거리 ÷ 총 경과 시간)와 예측점까지의 거리로 구한다.
+            숫자가 아닌 count는 TypeError를 던지고, 2~100 정수가 아닌 count는 RangeError를 던진다. 숫자가 아니거나 NaN인 headingWeight는 TypeError를, 0~1 밖이면 RangeError를 던진다.
+            한 단계는 앞으로 도착할 웨이포인트 한 개에 대응한다. 현재 목표와 대기 경유지를 먼저 그대로 사용하고 이후의 이력 외삽에는 거리에 따라 감쇠하는 수평 회전율과 직선 고도 추세를 사용한다.
+            초기 곡률의 절댓값 κ = abs(yawRate / 단계 거리)로부터 90도 회전에 해당하는 거리 L = π / (2κ)를 구한다. 곡률이 0이면 L은 Infinity다.
+            곡률 유지 거리 H = min(평균 속도 × 1000, L / 2)로 두어 가까운 1초 또는 최대 45도까지 초기 곡률을 유지한다. 급선회에서는 유지 시간이 1초보다 짧아질 수 있다.
+            감쇠 거리 D = min(max(최근 분석 거리의 절반, 평균 속도 × 2000), L − H)로 둔다. 소표본은 최근 분석 거리 대신 전체 관측 거리를 쓴다.
+            외삽 거리 d에서는 초기 곡률에 exp(-max(0, d − H) / D)를 곱한다. 총 방위각 변화 κ(H + D)가 90도 이하여서 초기 접선 방향의 뒤로 되감기지 않는다. count·durationMs·조회 빈도로 감쇠 거리를 정하지 않는다. 이미 예약된 경로에는 이 제한을 적용하지 않는다.
+            5개 미만의 이력은 기존 소표본 회전 추정을 사용한다. 그 이상이면 직선·원호 형상과 위치 잡음을 구분해 보정한 평균 거리와 평균 속도를 예측 간격·시간 계산에 함께 사용한다.
+            예약 목표의 시간에는 기본 속도·남은 기한·대기열 가속 보정·실제 도착 허용 범위를 반영하고, 이후 이력 외삽은 예약 목표까지의 예상 시간에 보정한 이력 평균 속도로 구한 시간을 더한다. 일시정지 중에는 외삽의 시간도 Infinity다.
             조회는 이력과 실제 이동 상태를 변경하지 않는다.
         의존:
             THREE.Vector3 — 추세 변위·거리 계산과 대체 방향의 수평 회전; 생성자: {new THREE.Vector3()}; 함수: {divideScalar(), distanceTo(), applyAxisAngle()}
+            THREE.MathUtils — 예약 구간 방향의 신뢰도 범위 제한; 정적 함수: {clamp()}
+            UAnimationController — 현재 목표와 대기 경유지의 좌표·예상 도착 시간 조회; 함수: {_getScheduledWaypoints()}
             defined — null·undefined 여부 판정; 함수: {defined()}
         동작:
-            입력을 검증한 뒤 이력이 count개 미만이면 undefined를 반환한다.
-            최근 count개 기록을 선택하고 순번을 독립변수로 하는 최소제곱 직선의 축별 기울기(추세 변위 step)를 구하며, 같은 루프에서 인접 도착점 사이 거리를 누적해 총 이동 거리를 구한다.
+            입력을 검증하고 현재 컨트롤러의 예약 목표를 최대 count개 조회한다. 예약 좌표·시간 조회는 UAnimationController._getScheduledWaypoints(count)에 위임한다.
+            예약 목표가 count개 이상이면 그 목록을 반환한다. 출력 목표 개수 predictionCount = min(count, 도착 이력 수)로 정한다. 도착 이력이 2개 미만이거나 예약 목표 수가 predictionCount 이상이면 알려진 예약 목표만 반환하며 예약 목표도 없으면 undefined를 반환한다.
+            최근 최대 100개 기록을 선택하고 순번을 독립변수로 하는 소표본 대체 추세를 구한다.
             큰 월드 좌표의 공통 오프셋으로 인한 오차를 줄이기 위해 마지막 도착점을 뺀 상대 좌표로 기울기를 계산한다.
-            평균 속도(m/ms) = 총 이동 거리 ÷ (마지막 도착 시각 − 첫 도착 시각). 경과 시간이 0이면 0으로 본다.
-            단계 거리 = 총 이동 거리 ÷ (count − 1). 곡선 이력에서는 최소제곱 기울기의 길이가 현(chord)으로 줄어 예측점이 붕괴하므로 실제 이동한 구간의 평균 길이를 사용한다.
-            첫 단계 방향을 정할 수 없으면(단계 거리 0 또는 수평 추세 상쇄) 길이가 있는 마지막 구간의 방향을 회전율만큼 세계 Z축 기준으로 회전시켜 대신 쓰고, 그것도 없으면 방향 없음으로 둔다.
-            headingWeight가 0보다 크면 현재 진행 방향을 조회한다.
+            평균 속도(m/ms) = 보정한 총 이동 거리 ÷ (마지막 도착 시각 − 첫 도착 시각). 경과 시간이 0이면 0으로 본다.
+            보정한 관측 평균 거리를 단계 거리의 초깃값으로 사용한다. 정지 부근이면 단계 거리와 평균 속도를 0으로 둔다.
+            안정된 이력 끝 접선 방향에서 시작한다. 소표본은 추세 변위와 보정 각도(관측 회전율 × (기록 수 − 1) ÷ 2)를 사용한다.
+            기준점 방향을 정할 수 없으면 길이가 있는 마지막 구간의 방향을 대신 쓰고, 그것도 없으면 방향 없음으로 둔다. 구간별 회전은 지점 생성 중에 적분한다.
+            예약 목표가 있으면 그 경로의 실제 거리 ÷ 단계 거리만큼 회전 추세를 진행시켜 이력 방향을 보정한다.
+            headingWeight가 0보다 크면 현재 진행 방향을 조회한다. 예약 목표가 있으면 마지막 예약 구간의 방향을 우선 사용하며, 목표가 하나이면 가능한 경우 현재 구간의 전체 출발→도착 방향을 사용한다.
+                구간 길이가 headingBaseline 이하면 방향 신뢰도를 0, 4배 이상이면 1로 하고 그 사이는 smoothstep으로 연결하여 headingWeight에 곱한다.
                 현재 진행 방향만 있으면 그것을 첫 단계 방향으로 쓰고, 현재 진행 방향이 없으면 첫 단계 방향을 유지한다.
-            k=1..count에 대해 예측 거리 = 단계 거리 × k로 두고 time = max(0, round(마지막 도착 시각 + 예측 거리 ÷ 평균 속도 − 현재 시각))을 구한다. 평균 속도가 0이면 예측 거리가 0일 때 0, 아니면 Infinity로 둔다.
-            {point, time}을 순서대로 배열에 담아 반환한다.
+            마지막 예약 목표를 외삽 기준점으로 삼고 그 목표의 예상 시간을 기준 시간으로 사용한다. 예약 목표가 없으면 마지막 도착점을 기준점으로, 마지막 도착 시각 − 현재 시각을 기준 시간으로 사용한다. 일시정지 중에는 예약 유무와 관계없이 기준 시간이 Infinity다.
+            남은 단계 k마다 예측 거리 = 단계 거리 × k, time = max(0, round(기준 시간 + 예측 거리 ÷ 평균 속도))으로 계산한다. 평균 속도가 0이면 변위가 없을 때 기준 시간을 0 이상으로 반올림하고, 변위가 있으면 Infinity로 둔다.
+            예약 목표 목록 뒤에 외삽 {point, time}을 추가해 반환한다.
 
     #getLastSegmentDirection(records: Array<WaypointRecord>) -> import('three').Vector3 | undefined
         의존: THREE.Vector3 — 구간 벡터 계산; 생성자: {new THREE.Vector3()}; 함수: {subVectors(), lengthSq(), normalize()}
@@ -581,6 +650,7 @@ U3dComponentPosition 클래스 정의
         앱·씬·카메라에 접근하기 위한 렌더 컨텍스트다. 생성자는 drawarg 옵션을 사용하고 undefined이면 빈 객체를 저장한다. [확인 Q-003]
     speed: number = 0
         주행 애니메이션 이동 속도 (km/h, 기본값 700). `setSpeed`로 변경합니다. 사용자 설정 기준값이며 durationMs 변속으로 바뀌는 실제 프레임 속도는 `currentSpeed`로 조회합니다.
+        필드 초기값은 0이고 정상 생성자는 옵션 또는 700으로 교체한다. setInitPathPositions에서는 이 값이 유한한 양수일 때만 거리로 초기 경과 시간을 계산한다.
     distance: number = 0
         현재 주행 경로의 총 길이(m)이며 초기값은 0이다. 경로 생성 시 갱신되고 주행 시간 산출에 사용된다. makeAnimationController는 이 값을 읽어 유한한 수가 아니면 생성 없이 종료하는 조건으로 사용한다. 외부에서 변경할 수 있다.
     duration: number = 0
@@ -592,7 +662,7 @@ U3dComponentPosition 클래스 정의
     movePointList: Array<GooglePositionWithCallback>
         `addMovePoint`로 등록한 이동 지점 목록 (위경도 좌표, 통과 콜백 포함).
     mixers: Array<import('three').AnimationMixer>
-        모델 자체 애니메이션(클립)을 재생하는 믹서 목록. `setMixers`로 교체합니다.
+        초기 빈 목록이다. 실제 클립 컨트롤러가 사용하는 _mixers와 별개이며 setMixers는 이 필드를 교체하지 않는다.
     poi: PoiLike | undefined
         컴포넌트 라벨 POI. `setLabel`로 생성되며 없으면 undefined입니다.
     color: import('three').ColorRepresentation | undefined
@@ -665,7 +735,7 @@ U3dComponentPosition 클래스 정의
             drawarg가 undefined이면 drawArg에 빈 객체를 저장한다. componentlayer._drawArg 검증을 통과한 사실만으로 해당 컨텍스트를 drawArg에 대입하지 않는다. [확인 Q-003]
             믹서 컨트롤러와 이동·경로 표시 상태를 구성한다. drawpath 또는 drawRealPath가 truthy일 때만 경로 재질과 geometry를 만든다.
             scale은 별도 벡터에 복사한다. rotation이 falsy이고 layerRotation이 있으면 옵션 rotation에 레이어 Euler 복제를 넣는다. Euler 입력은 그대로 공유하고 일반 회전 좌표는 도 단위에서 라디안으로 변환한다.
-            모델 계층의 객체에 재질 강조·복원 함수와 모델·컴포넌트 조회 함수를 등록한다. 모델 조회는 현재 컴포넌트 객체와 이름이 같은 레이어 모델을 찾는다.
+            _object가 있을 때만 모델 계층의 객체에 재질 강조·복원 함수와 모델·컴포넌트 조회 함수를 등록한다. 모델 조회는 현재 컴포넌트 객체와 이름이 같은 레이어 모델을 찾는다.
             구버전 callback 옵션이 정의되어 있으면 각각 안내를 출력하고 필드별 우선순위에 따라 callback을 보관한다. 정상 생성 객체의 getPosition과 getVectorPosition은 생성자가 등록한 조회 함수가 담당한다.
             애니메이션 컨트롤러 Map과 누적 기록·LOD 상태를 초기화한다. 허용되지 않은 LODMode는 none으로 바꾸고 초기 모델 변환·경계를 반영한다.
     get LODMode() -> string
@@ -673,13 +743,14 @@ U3dComponentPosition 클래스 정의
     get animationControllers() -> Map<string, UAnimationController>
         동작: #animationControllers Map 참조를 그대로 반환한다. 정상 생성 객체는 빈 Map에서 시작하며 ID별 컨트롤러 등록·조회·해제에 같은 Map을 사용한다.
     get currentSpeed() -> number
-        동작: 현재 동작 중인 애니메이션 컨트롤러(getAnimationNow)의 speed(km/h)를 반환한다. 컨트롤러가 없거나 dispose 상태이거나 speed가 유한한 수가 아니면 기준 속도 speed를 반환한다. `speed`는 setSpeed로 지정한 설정값이고 currentSpeed는 durationMs·경유지 누적에 따라 매 프레임 변속된 실제 값이라는 점에서 구분된다. 읽기 전용이며 컴포넌트 상태를 바꾸지 않는다.
+        의존: defined — 컨트롤러 존재 여부 확인; 함수: {defined()}
+        동작: 현재 ID의 컨트롤러가 있고 해제되지 않았으며 speed가 유한하면 해당 speed를 반환한다. 실행·일시정지 여부는 별도로 검사하지 않는다. 나머지는 컴포넌트 기준 속도 speed를 반환한다.
     get cumulativeInfo() -> Array<CumulativeInfo>
         동작: 호출할 때마다 새로운 빈 배열을 반환한다. 실제 누적 기록을 읽지 않는다.
     get cumulativeProperty() -> CumulativeProperty
-        동작: 누적 경로(궤적) 기록과 통과 콜백을 관리하는 상태. 마지막 통과 index, 통과 콜백, 이동 기준 거리 등을 담습니다.
+        동작: #cumulativeProperty의 같은 참조를 반환한다. 마지막 통과 번호·콜백·정밀도·초기 경로의 마지막 정보·기록 시작 위치를 담는다.
     get cumulativePath() -> U3dCumulativePath | undefined
-        동작: 화면에 그려진 이동 궤적(누적 경로) 객체. `drawCumulativePath`가 true인 상태로 이동해야 생성됩니다.
+        동작: #cumulativePath의 같은 참조를 반환한다. 경로 표시 여부와 별개로 도착 이력 기록에도 생성될 수 있으며, 생성 전이나 제거 후에는 undefined다.
     get pathMaterial() -> import('three').Material | undefined
         동작: 주행 경로 라인에 쓰이는 재질. 생성 옵션 `drawpath`/`drawRealPath`가 true일 때만 만들어지며 그 외에는 undefined입니다.
     set pathMaterial(material: import('three').Material)
@@ -703,19 +774,19 @@ U3dComponentPosition 클래스 정의
     setLODMode(mode: 'none' | 'auto' | 'custom' | string) -> void
         의존:
             __GError__ — 실패 조건 안내 출력; 함수: {__GError__()}
-        동작: 카메라 거리에 따른 자동 조정(LOD) 방식을 설정하는 함수. 매 프레임 `update`가 호출될 때 적용됩니다.
+        동작: mode를 문자열로 바꿔 소문자화한다. none·auto·custom 이외이면 오류 안내 후 이전 모드를 유지하고, 허용된 값이면 #LODMode를 교체한다.
     getLODMode() -> string
         동작: 현재 LOD(카메라 거리 기반 자동 조정) 모드를 반환하는 함수
     setMaxVisibleDistance(dist: number) -> void
-        동작: LOD 모드가 `'auto'`일 때 컴포넌트를 표시할 카메라 최대 거리를 설정하는 함수. 카메라가 이보다 멀어지면 자동으로 숨겨집니다.
+        동작: dist를 Number로 변환하고 NaN이면 1000, 나머지는 변환값을 #maxVisibleDistance에 저장한다. 음수·Infinity는 여기서 거부하지 않는다.
     getMaxVisibleDistance() -> number
         동작: `'auto'` LOD에서 컴포넌트가 표시되는 카메라 최대 거리를 반환하는 함수
     update(camPos: import('three').Vector3, isIdle: boolean, curTime: number) -> void
-        동작: 매 프레임 호출되어 카메라 거리를 갱신하고 LOD 모드에 따라 가시화·스타일을 조정하는 함수. 보통 레이어가 호출합니다.
+        동작: isIdle이 truthy이고 _animation이 falsy이면 종료한다. 그 외에는 카메라 거리 제곱을 갱신하고, isIdle이면 LOD 변경 없이 종료한다. 활성 프레임에서는 LOD 모드가 none이 아닐 때만 가시화·스타일을 적용한다. curTime은 사용하지 않는다.
     updateCameraDistance(camPos: import('three').Vector3 | undefined) -> number
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 카메라와 컴포넌트 사이 거리를 다시 계산해 내부 캐시를 갱신하는 함수
+        동작: camPos가 null·undefined이면 이전 거리 제곱 캐시를 반환한다. 그 외에는 현재 위치와의 거리 제곱을 캐시에 저장하고 믹서 컨트롤러가 있으면 setCameraDistanceSq에 전달한 뒤 반환한다. 반환값은 거리가 아니라 거리의 제곱이다.
     setMixerFPS(fps: number) -> void
         동작: 모델 자체 애니메이션(클립)의 갱신 빈도를 설정하는 함수. 낮추면 먼 컴포넌트의 연산 부담이 줄어듭니다.
     setUpdateFunc(func: LOD_UpdateFunc) -> void
@@ -756,30 +827,37 @@ U3dComponentPosition 클래스 정의
         동작: 컴포넌트가 instanced 메시(같은 모델을 한 번의 드로우로 여러 개 그리는 방식)로 생성되었는지 반환하는 함수
     getPitchYaw(lookAt: WorldPositionVector3, position: WorldPositionVector3) -> import('three').Euler
     disposeAnimationControllers() -> void
-        동작: 등록된 주행 애니메이션 컨트롤러를 모두 제거하고 현재·시작 애니메이션 ID를 초기화합니다. 주의 사항: 진행 중인 주행이 즉시 멈추며, 다시 주행하려면 경로를 새로 등록해야 합니다.
+        동작: _animation을 false로 바꾸고 컨트롤러 값 목록을 복사한다. Map과 현재·시작 ID를 먼저 비운 뒤 복사한 각 컨트롤러를 dispose한다. 재진입 시 이미 비운 상태를 보며 예외는 포착하지 않는다.
     showCumulativeRoute() -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 누적 경로(궤적)를 켜는(show) 함수
+        동작: 경로가 없거나 이미 표시 중이면 종료한다. 그 외에는 경로를 show하고 #drawCumulativePath를 true로 바꾼다. 경로를 새로 생성하지 않는다.
     hideCumulativeRoute() -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 누적 경로(궤적)를 끄는(hide) 함수
+        동작: 경로가 없거나 이미 숨김 상태이면 종료한다. 그 외에는 경로를 hide하고 #drawCumulativePath를 false로 바꾼다.
     removeCumulativeRoute() -> void
-        동작: 누적 경로(궤적)를 제거하는 함수
+        동작: 존재하는 경로를 dispose한 뒤 #cumulativePath를 undefined로 비우고 #drawCumulativePath를 false로 바꾼다.
     setCumulativePathStyle(opt: U3dCumulativePath_StyleOpt) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 누적 경로(궤적)의 스타일을 변경하는 함수
+            U3dCumulativePath — 스타일 함수 검증·꼬리 정책 병합과 기존 경로 적용; 정적 함수: {validateStyleFunc(), mergeTailPolicy()}; 함수: {setPathStyle()}
+        동작:
+            opt가 falsy이면 빈 객체로 대체한다. styleFunc를 직접 지정했다면 함수 또는 허용된 빈 값인지 검증하고, 생략했다면 이전 함수를 유지한다.
+            이전 스타일에 opt를 병합하고 tailPolicy가 정의되어 있으면 기존 tailPolicy와 중첩 병합한 다음 스타일을 준비한다.
+            경로가 있으면 먼저 setPathStyle(opt)를 호출한다. 성공한 뒤에만 #pathStyle을 준비한 값으로 교체하므로 적용 예외가 발생하면 저장 설정은 이전 값을 유지한다.
     setInitPathPositions(positions: Array<GeoPositionVector3>) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 누적 경로(궤적)의 초기 좌표 값(이전 히스토리)을 설정하는 함수.
+        동작:
+            positions·앱이 없거나 positions가 배열이 아니면 종료한다. 세 축이 유한한 좌표만 남기고 기존 초기 위치 목록을 비운 뒤 좌표의 구간 거리와 유효한 양의 speed로 경과 시간을 계산한다.
+            마지막 초기 좌표에서 현재 지리 위치까지의 시간을 더해 현재 시각에서 시작 epoch를 역산하고 각 초기 기록에 더한다. speed가 0·비정상이면 시간 차이는 0이며 lastInfo에는 epoch가 아닌 누적 경과 시간을 저장한다.
+            유효한 초기 좌표가 하나 이상이고 기존 경로가 있을 때만 이를 해제·제거하고 다시 생성한다. 유효한 좌표가 없으면 기존 경로와 기존 lastInfo는 그대로 남는다.
     setRotationRelative(rotation: DegreeEulerLike) -> void
         의존:
             THREE.MathUtils — 입력 회전각의 도·라디안 환산; 정적 함수: {degToRad()}
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트 회전 시 절대 축이 아니라 현재 컴포넌트의 회전 값 기준으로 회전시키는 함수
+        동작: 입력 도 단위 회전을 라디안으로 바꾼다. 모델이 없으면 자식 처리도 하지 않고 종료한다. 모델 계층의 Mesh에 축별 상대 회전을 적용하고, 자식 중 U3dComponentPosition에는 같은 입력으로 상대 회전을 재귀 적용한다.
     async getCumulativeInfo() -> Promise<Array<CumulativeInfo>>
         동작: 내부 누적 이력을 조회하지 않고 새 빈 배열로 완료한다.
     async getPassedCumulativeInfo() -> Promise<Array<CumulativeInfo>>
@@ -790,20 +868,29 @@ U3dComponentPosition 클래스 정의
         인터페이스:
             opt.position은 목표 위경도 좌표이며 x는 경도(°), y는 위도(°), z는 고도(m)이다.
             opt.rotation은 이동을 예약할 때 적용할 회전각(°)이고 opt.axis는 절대 또는 상대 회전 기준이다.
+            opt.useLookAt이 false이면 이동 방향에 따른 lookAt 계산을 끄고 현재 rotation을 유지한다. 나머지 값은 방향 계산을 사용한다.
             opt.durationMs가 0이면 다음 프레임에 목표 위치에 도착하고, 양수이면 지정 시간 안에 도착하도록 속도를 계산한다. 생략하거나 null이면 이동 거리와 설정 속도를 기준으로 등속 이동한다.
             complete는 각 목표 위치 도착 후 호출하며, 새 콜백을 지정하기 전까지 이전 콜백을 유지한다.
         처리 기준:
-            유효한 앱·목표 좌표가 없거나 현재 위치와 목표 위치가 같으면 이동을 예약하지 않고 완료한다.
+            유효한 앱·목표 좌표·변환 좌표가 없으면 이동을 예약하지 않는다. 목표와 비교하는 출발점은 실행·일시정지 중인 컨트롤러의 마지막 예약 목표이며, 없으면 현재 위치다.
             이미 이동 중이면 새 목표를 대기열에 추가하며, 밀린 이동을 따라잡기 위해 durationMs 적용 시간이 최대 1/4까지 단축될 수 있다.
-            durationMs가 음수이거나 유한하지 않은 값이면 컨트롤러가 해당 목표 등록을 거부한다.
+            durationMs를 숫자로 변환한 값이 음수이거나 유한하지 않으면 이 메서드에서 목표 등록 전에 종료한다.
             반환 Promise는 이동 시작 또는 대기열 등록 처리가 끝났음을 뜻하며 목표 위치 도착 완료를 뜻하지 않는다.
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 현재 위치에서 목표 위경도 좌표까지 직선 구간을 매 프레임 보간하여 이동한다. drawCumulativePath 옵션이 true이면 보간된 이동 위치를 누적 경로(궤적)로 기록한다.
+        동작:
+            앱·시간·목표의 세 축과 월드 변환 결과를 검사한다. 현재 위치와 목표를 복제하고 마지막 예약 목표 또는 현재 위치부터 새 목표까지의 거리를 계산한다. 비유한 거리이면 종료한다.
+            유효한 rotation을 지정했다면 axis에 맞춰 적용하고 useRotation을 켠다. complete가 함수일 때만 기존 통과 콜백을 교체하며 기존 컨텍스트의 회전·useLookAt 설정도 갱신한다. 거리 0은 이 상태 갱신 뒤에 종료한다.
+            실행·일시정지 중인 컨트롤러가 없으면 경로 꼬리 길이가 없거나 저장 시작점이 달라진 경우 현재 위치를 기록한다.
+            컨트롤러가 처음이면 이동 거리와 컨텍스트를 초기화한다. 인스턴스이면 공유 그룹과 capacity 내 슬롯을 기록하고 컨트롤러를 생성한다. 생성 실패이면 종료하며 성공하면 현재·시작 ID를 MOVE_SMOOTHLY로 설정하고 구간을 설정하여 시작한다.
+            기존 컨트롤러가 비활성이고 일시정지도 아니면 구간을 다시 설정하고 시작한다. 일시정지 상태이면 목표를 추가한 뒤 재개하고, 실행 중이면 목표만 대기열에 추가한다.
     recordCumulativePathFrame(position: WorldPositionVector3) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 현재 위치를 누적 경로에 기록한다. moveSmoothly, addMovePoint, setPosition 등 위치 변경 진입점에서 공통으로 사용한다.
+        동작:
+            position이 없거나 Number로 변환한 세 축 중 비유한 값이 있으면 종료한다.
+            기존 경로가 있고 표시가 켜져 있거나 getTail() 결과가 정의되어 있으면 갱신한다. 표시가 켜졌지만 tail이 아직 없으면 먼저 show한다. 이 조건에 해당하지 않고 표시가 켜졌으면 경로 생성을 요청한 뒤 갱신한다.
+            표시·갱신 여부와 무관하게 정상 입력의 숫자 세 축을 startPosition에 새 객체로 저장한다.
     getCumulativePath() -> U3dCumulativePath|undefined
         동작: 컴포넌트 누적 경로를 반환하는 메서드입니다.
     getLookAtFromPitchRollYaw(distanceRate: number, pathPosition: import('three').Vector3) -> import('three').Vector3 | undefined
@@ -824,17 +911,18 @@ U3dComponentPosition 클래스 정의
             UComponentMixerController — 모델 클립 및 mixer 해제; 함수: {dispose()}
             UAnimationController — 등록 이동 컨트롤러 해제; 함수: {dispose()}
             THREE.Scene — 모델·경로 제거; 함수: {remove()}
-            THREE.BufferGeometry, THREE.Material — 경로 geometry·재질 해제; 함수: {dispose()}
+            THREE.BufferGeometry — 경로 geometry 해제; 함수: {dispose()}
+            THREE.Material — 경로 재질 해제; 함수: {dispose()}
             OverlayObject — 화면 overlay 제거; 함수: {remove()}
         동작:
-            이미 해제를 시작했으면 종료한다. #disposed를 true로 설정하고 웨이포인트 이력을 비운다.
+            이미 해제를 시작했으면 종료한다. #disposed를 true로 설정한 뒤 등록 컨트롤러를 제거하여 주행을 중단하고, spline·방향 곡선·샘플 경로 배열의 참조를 비운다.
             splineObject, tempsplineObject와 oriSplineObject를 각각 정리하고 세 참조를 제거한다. 각 선의 geometry는 해제하고 컴포넌트가 공유하는 pathMaterial은 유지한다.
             마지막으로 컴포넌트 소유 pathMaterial을 한 번 해제하고 참조를 제거한다.
             누적 경로가 있으면 제거한다. _object가 있으면 믹서 컨트롤러를 해제하고 장면에서 모델을 제거한 뒤 루트부터 각 객체의 dispose 계약에 따라 해제 알림과 소유 자원 정리를 실행한다.
             라벨을 제거하고 아직 남아 있는 POI의 자원·장면 연결을 정리한다. overlay별 remove는 해당 overlay를 this로 호출한다.
-            주행 callback을 비우고 animationControllers의 현재 값 목록을 복사하여 각 컨트롤러의 dispose를 호출한다.
+            주행 시작·갱신·종료 callback을 비운다.
             이름·컨텍스트·믹서·이동점·거리·시간 상태를 정리한 뒤 남아 있는 tween을 멈춘다.
-            animationControllers가 정의되어 있으면 등록 컨트롤러 정리를 호출하고 properties와 custom LOD callback을 비운다. 도중 예외를 잡지 않으므로 #disposed는 true인 채 후속 해제가 완료되지 않을 수 있다.
+            properties와 custom LOD callback을 비운다. 도중 예외를 잡지 않으므로 #disposed는 true인 채 후속 해제가 완료되지 않을 수 있다.
     getAnimationClips() -> Record<string, import('three').AnimationAction> | undefined
         동작: 모델 자체 애니메이션 클립(액션) 목록을 조회합니다. 키를 `startAction`/`stopAction`에 넘겨 재생을 제어합니다.
     stopAction(key: string, fadeDuration: number = 0.005) -> void
@@ -844,7 +932,7 @@ U3dComponentPosition 클래스 정의
             __GInfo__ — 상태·호환 안내 출력; 함수: {__GInfo__()}
         동작: stopAction으로 이름이 변경되었다는 안내를 출력한 뒤 key와 fadeDuration을 전달해 클립 정지를 요청한다.
     startAction(key: string, fadeDuration: number = 0.005, speed: number = undefined) -> void
-        동작: 컴포넌트 모델 자체 애니메이션 클립(modelClip)을 동작시키는 함수
+        동작: 믹서 컨트롤러가 없으면 종료한다. 기존에 실행 중인 액션이 있는지 확인한 뒤 key와 fadeDuration·speed를 startAction에 전달하며, 실행 중 액션이 없을 때만 reset을 true로 지정한다.
     startAnimation(key: string, fadeDuration: number = 0.005) -> void
         의존:
             __GInfo__ — 상태·호환 안내 출력; 함수: {__GInfo__()}
@@ -854,45 +942,45 @@ U3dComponentPosition 클래스 정의
     setMixers(mixers: Array<import('three').AnimationMixer> = []) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 모델 자체 애니메이션(클립)을 재생할 믹서 목록을 교체합니다. 이후 `mixers`·`getAnimationClips`는 새 목록을 기준으로 동작합니다.
+        동작: 믹서 컨트롤러가 없으면 종료한다. 컨트롤러에 setMixers(mixers)를 전달한 뒤 getMixers() 결과 또는 null·undefined 대체값 빈 배열을 _mixers에 저장한다. 공개 mixers 필드는 변경하지 않는다.
     getMixerController() -> UComponentMixerController
         동작: 모델 클립 믹서를 관리하는 컨트롤러를 반환합니다. 클립 목록 조회·재생·FPS 조절은 이 객체를 통해 이루어집니다.
     hasMixers() -> boolean
         동작: 모델에 재생 가능한 애니메이션 클립(믹서)이 하나 이상 있는지 확인합니다.
     getProperties() -> KeyValue
-        동작: 컴포넌트 속성 정보를 조회하는 함수
+        동작: properties의 같은 참조를 반환한다.
     setProperties(input: string | UnknownRecord) -> void
-        동작: 컴포넌트 속성 정보를 설정하는 함수
+        동작: 문자열이면 JSON.parse로 변환한다. null·배열·객체가 아닌 값은 종료한다. 나머지는 JSON 직렬화·역직렬화로 복사하여 properties를 교체한다. JSON 처리 예외는 포착하지 않는다.
     addProperties(key: string, value: unknown) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트 속성 정보를 추가하는 함수
+        동작: key 또는 value가 null·undefined이면 종료한다. 속성 저장소가 없으면 먼저 빈 객체를 만들고 key를 문자열로 바꾼다. 빈 문자열이면 경고 후 종료하며 기존 값이 정의되어 있으면 변경 메서드로 전달하고, 아니면 새 값을 기록한다.
     removeProperties(key: string) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트 속성 정보를 제거하는 함수
+        동작: key 또는 속성 저장소가 null·undefined이거나 저장소의 열거 가능한 key가 없으면 종료한다. 그 외에는 properties[key]를 delete한다. 빈 문자열 key를 별도로 거부하지 않는다.
     changeProperties(key: string, value: unknown) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트 속성정보를 변경하는 함수
+        동작: key·value·속성 저장소가 null·undefined이면 종료한다. 기존 properties[key]가 null·undefined이거나 저장소의 열거 가능한 key가 없으면 경고 후 종료하고, 나머지는 그 key의 값을 교체한다.
     getModel() -> import('three').Object3D | undefined
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트 원본 모델 객체를 찾는 함수
+        동작: _object가 없으면 undefined를 반환한다. 소유 레이어의 모델 목록에서 _object와 이름이 같은 항목이 하나라도 있으면 원본 항목이 아니라 현재 컴포넌트의 _object를 반환한다. 이름이 일치하지 않으면 undefined다.
     getColor() -> import('three').ColorRepresentation
         의존:
             __GSError__ — 포착한 예외 기록; 함수: {__GSError__()}
-        동작: 컴포넌트가 출력하고있는 모델의 색상을 리턴합니다.
+        동작: 모델이 없으면 빈 문자열, 저장된 color가 truthy이면 그 값을 반환한다. 그 외에는 자식 우선 재질 목록의 첫 color.getStyle()을 반환하며 재질·색상 부재나 포착한 예외에는 빈 문자열을 반환한다.
     getOpacity() -> number
         의존:
             __GSError__ — 포착한 예외 기록; 함수: {__GSError__()}
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트가 출력하고있는 모델의 투명도를 리턴합니다.
+        동작: 모델이 없으면 NaN, 저장된 opacity가 truthy이면 그 값을 반환한다. 나머지는 첫 재질의 정의된 opacity를 반환하고 재질·값 부재나 포착한 예외에는 NaN을 반환한다. 저장된 0은 직접 반환하지 않고 재질 조회로 넘어간다.
     getDepth() -> boolean
         의존:
             __GSError__ — 포착한 예외 기록; 함수: {__GSError__()}
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 모델 재질의 깊이 버퍼 쓰기(depthWrite) 여부를 반환합니다. 첫 번째 재질 값을 대표로 사용합니다.
+        동작: 첫 재질의 정의된 depthWrite를 반환한다. 모델·재질·값이 없거나 예외를 포착하면 true를 반환한다.
     setBrightness(brightness: number = 1) -> void
         처리 기준:
             기본값 1은 원래 밝기, 0은 검정이며 같은 값을 반복 설정해도 누적되지 않는다.
@@ -953,11 +1041,11 @@ U3dComponentPosition 클래스 정의
     setRenderOrder(renderOrder: number) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 모델의 렌더 순서를 설정합니다. 값이 클수록 나중에 그려져 같은 위치의 다른 객체 위에 보입니다.
+        동작: 모델이 있으면 계층을 순회하여 Mesh 또는 UMesh인 객체에만 renderOrder를 기록한다. 다른 Object3D는 변경하지 않는다.
     getRenderOrder() -> number | undefined
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 모델의 렌더 순서를 반환합니다.
+        동작: 모델 계층에서 Mesh 또는 UMesh인 객체의 renderOrder를 차례로 읽어 마지막 값을 반환한다. 해당 객체가 없으면 undefined다.
     exceptTexture(isExcept: boolean = false) -> boolean
         의존:
             __GSError__ — 포착한 예외 기록; 함수: {__GSError__()}
@@ -973,58 +1061,67 @@ U3dComponentPosition 클래스 정의
     setParent(parent: U3dComponentPosition) -> void
         의존:
             THREE.Matrix4 — 부모의 위치·회전·크기 합성 행렬 생성; 생성자: {new Matrix4()}
-        동작: 상위 계층을 설정하는 함수 부모 / 자식 관계를 형성하여 부모의 형상관리 내용(위치, 회전, 크기, 가시화 여부)이 자식에게 반영
+        동작:
+            자기 자신이거나 U3dComponentPosition이 아닌 parent이면 종료한다. 기존 부모의 removeChild에 자신을 전달하고, 새 부모가 자신을 부모로 갖는 직접 2단계 순환이면 그 연결을 해제한다. 더 긴 순환은 검사하지 않는다.
+            parent를 저장하고 새 부모의 children에 없을 때만 자신을 추가한다. 부모의 quaternion·부모 상대 행렬을 갱신한다.
+            부모의 월드 TRS 합성 행렬을 역변환하여 자신의 현재 월드 TRS를 부모 기준 상대 matrix로 저장한다. 자신의 논리 월드 위치·회전·크기는 여기서 바꾸지 않는다.
     getParent() -> U3dComponentPosition | undefined
         동작: `setParent`로 지정한 상위 컴포넌트를 반환합니다.
     removeParent() -> void
-        동작: 지정된 상위 계층을 제거하는 함수
+        동작: 부모가 U3dComponentPosition이면 부모의 removeChild에 자신을 전달한다. matrix를 단위행렬로 바꾸고 parent를 undefined로 비운다.
     setChild(child: U3dComponentPosition | ExtendedObject3D) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 하위 계층 대상을 설정하는 함수
+        동작:
+            자기 자신 또는 null·undefined인 child이면 종료한다. child.setParent가 truthy이면 child를 this로 하여 현재 컴포넌트를 전달하고 종료한다.
+            나머지는 Object3D일 때만 처리하며 이미 등록되어 있으면 종료한다. 현재 월드 행렬을 보존하고 부모 월드 TRS의 역행렬로 상대 행렬을 구한다.
+            child.parent를 현재 컴포넌트로 바꾸고 matrixAutoUpdate를 false로 설정한다. 상대 matrix와 분해한 TRS, 보존한 월드 행렬을 기록한 뒤 children에 추가한다.
     getChildren() -> Array<U3dComponentPosition | ExtendedObject3D>
         동작: `setChild`로 등록한 하위 계층 목록을 반환하는 함수
     removeChild(child: U3dComponentPosition) -> void
-        동작: 지정된 하위 계층 대상 제거하는 함수
+        동작: children에 같은 참조가 없으면 종료하고 있으면 목록에서 제거한다. child.isComponent가 truthy일 때만 그 parent를 undefined로 비우고 matrix를 단위행렬로 바꾼다. 일반 Object3D의 parent는 여기서 해제하지 않는다.
     updateMatrix() -> void
         동작: 부모가 있으면 부모 기준으로 자신의 변환 행렬을 다시 계산합니다. 부모의 위치·회전·크기를 바꾼 뒤 호출하면 자식이 따라갑니다.
     updateChildrenMatrix() -> void
         의존:
             THREE — 자식 변환용 합성 행렬과 분해 결과 생성; 생성자: {new Euler(), new Matrix4(), new Quaternion(), new Vector3()}
-        동작: 하위 계층 ( setChild ) 으로 등록된 대상들의 matrix를 반영해주는 함수
+        동작:
+            자식 목록을 복사하고 자신의 부모가 있으면 상대 matrix를 재계산한다. 자식이 없으면 종료한다. 자신의 월드 TRS와 각 자식의 상대 matrix로 자식의 월드 TRS를 구한다.
+            컴포넌트 자식에는 논리 TRS와 모델 TRS를 적용하며 인스턴스 자식이면 공유 인스턴스 슬롯과 instancedInfo에도 반영한다.
+            일반 Object3D는 부모 역변환으로 로컬 matrix를 구해 자동 갱신을 끄고 TRS·월드 행렬을 반영한다. 현재 단계 적용을 마친 뒤 하위 자식이 있는 컴포넌트들을 재귀 갱신한다.
     getParam() -> ComponentParam
         의존:
             THREE.Vector3 — 반환 설정의 scale 복사본 생성; 생성자: {new Vector3()}
             UDEF — 좌표·각도·표시 값 변환과 자원 처리; 정적 함수: {rgbStringToHex()}
         동작: 컴포넌트 생성 파라미터를 반환하며 style에는 색상·불투명도와 설정한 밝기·대비·채도를 기록한다.
-    show() -> DeferredObject<unknown> | undefined
-        인터페이스: 현재 공개 선언의 반환형은 DeferredObject<unknown> | undefined이며 정상 변경의 완료 값은 true다. [확인 Q-001]
-        처리 기준: 하위 객체의 비동기 완료를 기다리지 않는다. 자식·장면·POI 호출의 예외를 catch하거나 reject로 변환하지 않는다.
+    show() -> Promise<unknown> | undefined
+        인터페이스: 정상 변경은 true로 완료되는 표준 Promise를 반환하며 이미 표시 중이면 undefined를 반환한다.
+        처리 기준: 하위 객체의 비동기 완료를 기다리지 않는다. 자식 컴포넌트의 비동기 실패는 __GError__로 보고하며, 자식·장면·POI 호출의 동기 예외는 catch하거나 reject로 변환하지 않는다.
         의존:
-            deferred — 호출의 완료 상태 객체 생성; 함수: {deferred()}
             defined — null·undefined 여부 판정; 함수: {defined()}
             THREE.Scene(scene) — 경로 표시 객체 등록; 함수: {add()}
             ExtendedObject3D(child) — 일반 자식의 선택적 가시화 확장점; 함수: {show()}
             PoiLike(poi) — 라벨 표시; 함수: {show()}
+            __GError__ — 자식 컴포넌트의 비동기 가시화 실패 보고; 함수: {__GError__()}
         동작:
-            DeferredObject를 만든 뒤 _show가 truthy이면 상태를 바꾸지 않고 undefined로 종료한다.
+            _show가 truthy이면 상태를 바꾸거나 Promise를 생성하지 않고 undefined로 종료한다.
             존재하는 _object를 표시하고 _show를 true로 바꾼 뒤 자식 순서대로 show를 호출한다. U3dComponentPosition과 그 하위 클래스는 해당 메서드를, 일반 자식은 존재하는 show만 호출한다.
             splineObject가 있으면 drawPath와 oriSplineObject 조건에 맞춰 원본 경로를, drawRealPath가 true이면 splineObject를 장면에 추가한다.
-            _labelVisible이 truthy이면 POI를 표시하고 true로 resolve한 객체를 반환한다.
-    hide() -> DeferredObject<unknown> | undefined
-        인터페이스: 현재 공개 선언의 반환형은 DeferredObject<unknown> | undefined이며 정상 변경의 완료 값은 true다. [확인 Q-001]
-        처리 기준: 자식 hide의 비동기 완료를 기다리지 않으며 후속 호출의 예외를 catch하거나 reject로 변환하지 않는다.
+            _labelVisible이 truthy이면 존재하는 POI를 표시한다. 라벨 유무와 관계없이 정상 변경 종료 시 Promise.resolve(true)를 반환한다.
+    hide() -> Promise<unknown> | undefined
+        인터페이스: 정상 변경은 true로 완료되는 표준 Promise를 반환하며 이미 숨김 상태이면 undefined를 반환한다.
+        처리 기준: 자식 hide의 비동기 완료를 기다리지 않는다. 자식 컴포넌트의 비동기 실패는 __GError__로 보고하며, 후속 호출의 동기 예외는 catch하거나 reject로 변환하지 않는다.
         의존:
-            deferred — 호출의 완료 상태 객체 생성; 함수: {deferred()}
             defined — null·undefined 여부 판정; 함수: {defined()}
             THREE.Scene(scene) — 경로 표시 객체 제거; 함수: {remove()}
             ExtendedObject3D(child) — 일반 자식의 선택적 비가시화 확장점; 함수: {hide()}
             PoiLike(poi) — 라벨 숨김; 함수: {hide()}
+            __GError__ — 자식 컴포넌트의 비동기 비가시화 실패 보고; 함수: {__GError__()}
         동작:
-            DeferredObject를 만든 뒤 _show가 falsy이면 상태를 바꾸지 않고 undefined로 종료한다.
+            _show가 falsy이면 상태를 바꾸거나 Promise를 생성하지 않고 undefined로 종료한다.
             존재하는 _object를 숨기고 _show를 false로 바꾼 뒤 자식 순서대로 hide를 호출한다. U3dComponentPosition과 그 하위 클래스는 해당 메서드를, 일반 자식은 존재하는 hide만 호출한다.
             splineObject가 있으면 표시 설정에 해당하는 경로 객체를 장면에서 제거하고 isTrace를 false로 바꾼 뒤 등록 컨트롤러의 추적 상태를 갱신한다. splineObject가 없으면 이 추적 해제 단계도 실행하지 않는다.
-            _labelVisible이 truthy이면 POI를 숨기고 true로 resolve한 객체를 반환한다.
+            _labelVisible이 truthy이면 존재하는 POI를 숨긴다. 라벨 유무와 관계없이 정상 변경 종료 시 Promise.resolve(true)를 반환한다.
     getBoundingBox() -> import('three').Box3
         의존:
             THREE — 빈 경계 또는 최소·최대 좌표의 경계 상자 생성; 생성자: {new Box3(), new Vector3()}
@@ -1043,16 +1140,19 @@ U3dComponentPosition 클래스 정의
     relocationObjects(relocationOffset: import('three').Vector3 = new THREE.Vector3(), isCopy: boolean = false) -> void
         의존:
             THREE.Vector3 — 이동 오프셋 벡터 생성; 생성자: {new Vector3()}
-        동작: 출력 모델을 구성하는 Mesh의 센터점으로 부터의 상대적 위치를 설정하는 메서드입니다.(센터점은 변경되지 않습니다.)
+        동작: 모델이 없으면 종료한다. 벡터가 아닌 오프셋은 각 축의 falsy 값을 0으로 대체한 Vector3로 만든다. 모델 계층의 isMesh 객체만 대상으로 isCopy이면 위치를 오프셋으로 교체하고 아니면 더한다. 존재하는 geometry의 경계·구를 다시 계산하며 컴포넌트의 논리 position은 변경하지 않는다.
     settingOverlay(position: WorldPositionVector3) -> void
         의존:
             THREE.Vector3 — 오버레이에 전달할 위경도·높이 좌표 생성; 생성자: {new Vector3()}
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트의 오버레이들의 위치를 설정합니다.
+        동작:
+            오버레이 목록이 비었거나 position의 세 축이 정의되지 않았으면 종료한다. id나 element가 없는 오버레이는 목록에서 제거한다.
+            각 오버레이의 _shift를 더한 월드 위치를 구한다. isBind이면 위경도로 변환하여 월드 위치와 함께 setPosition에 전달하고, 카메라 추적 중이 아닐 때만 변경 콜백을 실행한다.
+            오버레이 카메라가 있으면 뷰 위치·앵커를 갱신하고 연결 control 객체에 카메라 위치를 복사한다. POI가 있으면 라벨을 갱신한다.
     setUpdateAnimationFunc(func: function) -> void
         의존:
             __GError__ — 실패 조건 안내 출력; 함수: {__GError__()}
-        동작: 컴포넌트 주행/비행 애니메이션 업데이트 시 호출 할 사용자 함수 설정 메서드입니다.
+        동작: func가 함수가 아니면 오류 안내 후 기존 값을 유지한다. 함수이면 _updateAnimationFunc에 저장한다.
     setUpdateFnc() -> void
         의존:
             __GError__ — 실패 조건 안내 출력; 함수: {__GError__()}
@@ -1060,7 +1160,7 @@ U3dComponentPosition 클래스 정의
     setStartAnimationFunc(func: function) -> void
         의존:
             __GError__ — 실패 조건 안내 출력; 함수: {__GError__()}
-        동작: 애니메이션 시작 시 호출할 사용자 함수 설정 메서드입니다.
+        동작: func가 함수가 아니면 오류 안내 후 기존 값을 유지한다. 함수이면 _startAnimationFunc에 저장한다.
     setStartFnc() -> void
         의존:
             __GError__ — 실패 조건 안내 출력; 함수: {__GError__()}
@@ -1068,7 +1168,7 @@ U3dComponentPosition 클래스 정의
     setEndAnimationFunc(func: function) -> void
         의존:
             __GError__ — 실패 조건 안내 출력; 함수: {__GError__()}
-        동작: 애니메이션 종료 시 호출할 사용자 함수 설정 메서드입니다.
+        동작: func가 함수가 아니면 오류 안내 후 기존 값을 유지한다. 함수이면 _endAnimationFunc에 저장한다.
     setEndFnc() -> void
         의존:
             __GError__ — 실패 조건 안내 출력; 함수: {__GError__()}
@@ -1081,19 +1181,22 @@ U3dComponentPosition 클래스 정의
             THREE.Vector3 — 라벨 위치와 원본 모델 크기 계산용 벡터 생성; 생성자: {new Vector3()}
             defaultValue — 입력값의 undefined 대체값 선택; 함수: {defaultValue()}
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트에 라벨 POI를 지정하는 메서드입니다.
+        동작:
+            opt가 falsy이면 빈 객체로 대체하고 기존 라벨을 제거한다. 위치는 정의된 opt.position 또는 현재 위치를 사용한다.
+            모델 계층의 Mesh geometry에서 최대 z를 모으고 내림차순의 최댓값에 컴포넌트 scale.z와 마지막으로 순회한 Mesh의 scale.z를 곱한다. 유한하지 않으면 오프셋은 0으로 둔다.
+            기준 높이에 오프셋을 더해 이미지·라벨 옵션의 POI를 만들고 zOffset을 저장한다. 표시 상태는 정의된 _labelVisible 또는 false이며 앱에 등록하고 렌더 갱신 시각을 갱신한다.
     removeLabel() -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트 라벨 POI를 제거하는 메서드입니다.
+        동작: POI가 있으면 앱에서 제거한 뒤 poi를 undefined로 비운다. 없으면 아무 변경도 하지 않는다.
     showLabel() -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트 라벨 POI을 화면에 보여주는(Show) 메서드입니다.
+        동작: POI가 없으면 현재 이름의 라벨을 만든다. 그래도 없으면 종료한다. POI를 표시하고 _labelVisible을 true로 바꾼 뒤 렌더 갱신 시각을 갱신한다.
     hideLabel() -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트 라벨 POI을 화면에서 감추는(Hide) 메서드입니다.
+        동작: POI가 없으면 종료한다. POI를 숨기고 _labelVisible을 false로 바꾼 뒤 렌더 갱신 시각을 갱신한다.
     isVisibleLabel() -> boolean
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
@@ -1103,12 +1206,12 @@ U3dComponentPosition 클래스 정의
     addPathGeometry(pathGeometry: PathGeometryLike, animateNow: boolean = true, hovering: boolean = true) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트가 주행할 경로 (U3dPathGeometry)를 설정하는 메서드입니다. 입력한 `U3dPathGeometry` 경로를 따라 컴포넌트가 주행합니다.
+        동작: pathGeometry가 없으면 종료하고 있으면 _pathGeometry에 저장한다. hovering을 설정한 뒤 truthy이면 상승 애니메이션을 만들어 시작 ID를 상승으로 정하고, 아니면 일반 경로 애니메이션을 만들어 시작 ID를 ROUTE로 정한다. animateNow를 생성 함수에 전달한다.
     moveStart() -> void
         의존:
             __GInfo__ — 상태·호환 안내 출력; 함수: {__GInfo__()}
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트 주행/비행 애니메이션을 시작(Start)하는 메서드입니다.
+        동작: _animation을 true로 하고 이동 거리·구간 index·길이를 0으로 초기화한 뒤 시작 컨트롤러를 조회한다. 없으면 안내 후 종료하여 방금 설정한 상태가 남는다. 있으면 믹서를 재생하고 컨트롤러를 start한다.
     moveStop(isInit: boolean = false) -> void
         의존:
             __GInfo__ — 상태·호환 안내 출력; 함수: {__GInfo__()}
@@ -1122,12 +1225,12 @@ U3dComponentPosition 클래스 정의
         의존:
             __GInfo__ — 상태·호환 안내 출력; 함수: {__GInfo__()}
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트 주행/비행 애니메이션을 재시작(Restart)하는 메서드입니다.
+        동작: _animation을 true로 하고 이동 카운터를 초기화한 뒤 시작 컨트롤러를 조회한다. 없으면 안내 후 종료한다. 있으면 모든 컨트롤러를 clear하고 믹서를 재생한 뒤 시작 컨트롤러를 restart한다.
     moveResume() -> void
         의존:
             __GInfo__ — 상태·호환 안내 출력; 함수: {__GInfo__()}
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트 주행/비행 애니메이션을 재개(Resume)하는 메서드입니다.
+        동작: 먼저 _animation을 true로 바꾼다. 현재 컨트롤러가 없으면 안내 후 종료하고, 있으면 믹서를 재생한 뒤 컨트롤러를 resume한다.
     movePause() -> void
         의존:
             __GInfo__ — 상태·호환 안내 출력; 함수: {__GInfo__()}
@@ -1137,11 +1240,11 @@ U3dComponentPosition 클래스 정의
     addMovePoint(movePointList: Array<GooglePositionWithCallback>, pitchYawRollList: Array<import('three').Vector3>, animateNow: boolean = true, smoothCorner: boolean = true) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트가 이동할 Move Point를 추가하는 메서드입니다. 애니메이션 동작 시 Move Point를 따라 이동합니다.
+        동작: movePointList가 null·undefined이면 종료한다. 기존 목록에 추가하지 않고 입력 목록으로 교체하며 _animation을 true로 바꾸고 smoothCorner를 저장한다. pitchYawRollList가 정의되어 있으면 교체한다. crowd 타입이면 군중 애니메이션과 시작 ID를, 나머지는 일반 이동점 애니메이션과 시작 ID를 구성하며 animateNow를 전달한다.
     setOverlay(overlay: OverlayObject) -> void
         의존:
             THREE.Vector3 — 오버레이의 초기 위경도·높이 좌표 생성; 생성자: {new Vector3()}
-        동작: 컴포넌트에 오버레이(HTML 등 화면 요소)를 붙이는 메서드입니다. 붙인 오버레이는 컴포넌트가 이동할 때 함께 이동합니다.
+        동작: 입력 overlay를 검증·중복 제거 없이 목록에 먼저 추가한다. 현재 지리 위치를 새 Vector3로 만들어 현재 월드 위치와 함께 overlay.setPosition에 전달한다. 후속 호출 실패 시 앞선 목록 추가를 되돌리지 않는다.
     getOverlay() -> Array<OverlayObject>
         동작: 컴포넌트에 붙어 있는 오버레이 목록을 반환하는 메서드입니다.
     getPoiZOffset() -> number | undefined
@@ -1161,11 +1264,11 @@ U3dComponentPosition 클래스 정의
     removeOverlay(overlay: OverlayObject) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트에 등록된 오버레이를 목록에서 제거하는 메서드입니다.
+        동작: overlay가 falsy이면 종료한다. 양쪽 id가 정의되어 있고 같은 항목들을 목록에서 제거한다. 해당 오버레이의 remove나 dispose를 호출하지 않는다.
     hasOverlay(overlay: OverlayObject) -> boolean
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트가 오버레이를 가지고 있는지 확인하는 메서드입니다. 파라미터로 overlay를 넣으면 해당 overlay가 있는지 검사합니다.
+        동작: 목록이 비면 false다. overlay가 정의되어 있으면 같은 id인 항목 존재 여부를 반환하며 id 자체의 정의 여부는 검사하지 않는다. 인수가 null·undefined이면 비어 있지 않은 목록에 대해 true를 반환한다.
     hasLight() -> Boolean
         동작: _lightList에 항목이 하나 이상이면 true, 비어 있으면 false를 반환한다.
     getGeographicPosition() -> GeoPositionVector3
@@ -1175,23 +1278,23 @@ U3dComponentPosition 클래스 정의
     setCameraTrace(bool: boolean, view: string, offset: import('three').Vector3Like, targetOffset: import('three').Vector3Like) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트로 카메라 추적 시점을 설정하는 메서드입니다.
+        동작: isTrace에 bool을 기록하고 기존 컨트롤러들의 추적 설정을 먼저 갱신한 뒤 view를 저장한다. offset·targetOffset은 truthy 입력일 때만 교체한다. POI는 bool로 표시하되 3인칭이면 숨긴다. FrontView·TopView·3인칭의 verticalObjects는 bool, 나머지 시점은 !bool로 표시한다.
     updateAnimationCameraTrace() -> void
         의존: UAnimationController — 카메라 추적 설정 전달; 함수: {setCameraTrace()}
         동작: animationControllers의 현재 값들을 순회하여 각 컨트롤러에 Boolean(isTrace)를 전달한다.
     setPathColor(color: import('three').ColorRepresentation) -> void
         의존:
             THREE.Color — 경로 재질에 적용할 색 객체 생성; 생성자: {new Color()}
-        동작: 컴포넌트의 이동 경로 색상을 지정하는 함수
+        동작: 존재하는 splineObject·oriSplineObject의 재질 color를 새 Color로 교체한다. 경로 기본 설정 pathColor는 변경하지 않는다.
     setPathOpacity(opacity: number | string) -> void
-        동작: 컴포넌트의 이동 경로 라인 투명도를 지정하는 함수
+        동작: 입력을 Number로 바꾸고 비유한 값이면 종료한다. splineObject에 setOpacity 함수가 있으면 호출하고 없으면 material.opacity를 쓴다. oriSplineObject의 opacity와 pathOpacity도 기록한다.
     getPathOpacity() -> number
-        동작: 컴포넌트의 이동 경로 라인 투명도를 반환하는 함수
+        동작: oriSplineObject의 material.opacity가 null·undefined가 아니면 그 값을, 없으면 pathOpacity를 반환한다.
     setPosition(position: WorldPositionVector3, lookAt: import('three').Vector3 | undefined, fixedOverlay: boolean = false) -> void
         의존:
             THREE.Vector3 — 함께 이동할 POI의 좌표 생성; 생성자: {new Vector3()}
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트의 위치를 지정하는 함수
+        동작: position의 세 축을 논리 위치에 복사하고 모델이 있으면 현재 lookAt으로 모델을 먼저 갱신한다. 그 뒤 입력 lookAt이 정의되어 있으면 이를 저장한다. POI에 높이 오프셋을 반영하고 fixedOverlay가 falsy일 때만 오버레이를 갱신한 뒤 누적 경로 프레임을 기록한다.
     setCollisionFunction(func: function) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
@@ -1201,23 +1304,23 @@ U3dComponentPosition 클래스 정의
     setHeight(height: number | string | undefined) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 경로 주행 시 유지할 고도를 설정합니다. 설정하면 경로 좌표의 높이 대신 이 값이 z에 적용됩니다.
+        동작: height가 null·undefined이면 종료하고 나머지는 Number(height)를 _setHeight에 저장한다. 현재 위치를 즉시 바꾸지 않는다. 부드러운 곡선 생성에서는 보존하는 첫 점 이외의 선택 점 높이에 이 값을 더한다.
     setRotation(rotation: RadianEulerLike) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트의 회전값을 지정하는 함수
+        동작: rotation이 null·undefined이면 종료한다. 각 축은 정의된 입력값 또는 0으로 라디안 Euler에 기록한다. 모델이 있을 때만 모델 변환을 갱신한다.
     setRotationX(degree: Degree) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트의 x축 회전값을 지정하는 함수
+        동작: degree를 라디안으로 바꿔 rotation.x에 저장한다. 모델이 있으면 모델 변환을 반영하고 렌더 갱신 시각을 갱신한다.
     setRotationY(degree: Degree) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트의 y축 회전값을 지정하는 함수
+        동작: degree를 라디안으로 바꿔 rotation.y에 저장한다. 모델이 있으면 모델 변환을 반영하고 렌더 갱신 시각을 갱신한다.
     setRotationZ(degree: Degree) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트의 z축 회전값을 지정하는 함수
+        동작: degree를 라디안으로 바꿔 rotation.z에 저장한다. 모델이 있으면 모델 변환을 반영하고 렌더 갱신 시각을 갱신한다.
     getRotation() -> import('three').Euler
         동작: 컴포넌트의 회전값을 반환하는 함수
     checkIshaveLight(lightList: Array<LightLike>) -> boolean
@@ -1225,15 +1328,15 @@ U3dComponentPosition 클래스 정의
     rotateByAngle(degree: Degree) -> void
         의존:
             THREE — 회전 쿼터니언과 결과 Euler 생성; 생성자: {new Euler(), new Quaternion()}
-        동작: 컴포넌트를 수직축(z축) 기준으로 지정 각도로 회전시키는 함수. 누적이 아니라 절대 각도로 설정됩니다.
+        동작: degree를 Number로 바꾸고 비유한 값이면 종료한다. -360~360 밖이면 오류를 던진다. 허용 각도의 절대 Z 회전 quaternion을 Euler로 바꿔 자신의 회전과 존재하는 모델 회전에 복사한 뒤 자식 행렬을 갱신한다. 누적 회전이 아니다.
     setScale(scalar: number | string | import('three').Vector3Like) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 컴포넌트의 크기를 지정하는 함수
+        동작: 숫자·문자열이면 Number로 변환하고 유한하지 않으면 종료하며 세 축에 같은 값을 쓴다. 그 외에는 입력 x·y·z를 그대로 복사한다. 모델이 있으면 scale도 복사하고 자식 행렬 및 렌더 갱신 시각을 갱신한다.
     getScale() -> import('three').Vector3
         동작: 컴포넌트의 크기를 반환하는 함수
     multiplyScale(num: number | string) -> void
-        동작: 컴포넌트의 현재 크기에 배율을 곱하는 함수 (2면 두 배)
+        동작: num을 Number로 바꾸고 비유한 값이면 종료한다. 논리 scale에 배율을 곱한 뒤 자식 행렬과 렌더 갱신 시각을 갱신한다. setScale과 달리 자신의 모델 scale을 직접 복사하지 않는다.
     getName() -> string
         동작: 컴포넌트의 이름을 반환하는 함수
     getId() -> string | number
@@ -1285,9 +1388,9 @@ U3dComponentPosition 클래스 정의
             새 컨트롤러 옵션에 현재 distance·speed와 입력 animation·durtaion을 담는다. isTrace·updateDistance·updateAngle이 undefined일 때만 각각 false·100·45로 대체한다.
             컨트롤러를 생성해 동일 Map에 등록하고 반환한다. 생성·등록 중 예외가 발생하면 오류 안내를 출력하고 현재 controller 값을 반환한다.
     setForceMoveTween(rate: number) -> void
-        동작: 컴포넌트의 경로 이동 애니메이션 실행 중 강제로 위치를 이동 시키는 함수
+        동작: 현재 컨트롤러가 실행 중이 아니면 종료한다. Number(rate) 또는 falsy 대체값 0을 0~1로 제한하고 총 거리의 해당 비율과 현재 누적 거리 차이를 구한다. 양수이면 jump, 음수이면 rewind에 절댓값을 전달하고 0이면 변경하지 않는다.
     saveObjectSetting() -> void
-        동작: 현재의 상태를 초기 상태로 저장합니다.
+        동작: 모델이 있으면 현재 position·rotation·scale을 각각 복제하여 초기 상태 필드에 저장한다. 모델이 없으면 종료한다.
     pickMaterial(intersect: unknown, color: import('three').ColorRepresentation = HIGH_LIGHT_COLOR, opacity: number = HIGH_LIGHT_OPACITY) -> boolean
         동작: _object와 그 pickMaterial이 있으면 객체를 수신자로 intersect·color·opacity를 전달한다. 정상 종료하면 대상·메서드 유무와 무관하게 true를 반환하며 위임 결과는 사용하지 않는다.
     restoreMaterial() -> void
@@ -1308,9 +1411,11 @@ U3dComponentPosition 클래스 정의
         인터페이스: custom callback의 this는 현재 컴포넌트다. 인수는 컴포넌트·사용자 속성·거리·거리 제곱이며 화살표 함수는 자체 어휘적 this를 유지한다.
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
+            __GError__ — LOD 가시성 변경의 비동기 실패 보고; 함수: {__GError__()}
         동작:
             auto 모드이면 거리 제곱 판정 결과를 visible로 사용한다. custom 모드이면 필요한 거리를 보정한 뒤 callback을 실행하고 null·undefined 결과를 빈 설정으로 대체한다.
             visible이 null·undefined이 아니고 현재 _show와 다르면 truthy 여부로 show 또는 hide를 호출하고 verticalObjects의 visible도 visible === true로 설정한다.
+            가시성 변경의 비동기 완료는 기다리지 않고 실패는 __GError__로 보고한다. 프레임 갱신의 반환 계약과 동기 예외 전달은 유지한다.
             정의된 color를 적용하고 opacity는 숫자 변환 결과가 유한할 때만 적용한다.
             일반·인스턴스 모두 exceptTexture가 boolean일 때만 해당 값을 적용하고 생략된 단계에서는 마지막 설정을 유지한다. 정의된 depthWrite는 그대로 적용한다.
 
@@ -1318,10 +1423,10 @@ U3dComponentPosition 클래스 정의
         동작: maxVisibleDistance가 유한하지 않으면 기본 거리 1000을 사용한다. camDistSq가 선택 거리의 제곱 이하인지 반환한다.
 
     #binarySearchByCumulativeDist(infos: Array<CumulativeInfo>, target: number) -> number
-        동작: 누적 거리 배열에서 target이 속한 구간의 index를 이진 탐색한다.
+        동작: 마지막 원소 직전까지의 인접 누적 거리 구간을 이진 탐색한다. target이 두 끝값 사이에 양끝을 포함해 들어오면 앞 index를 반환하고, 일치 구간이 없으면 -1을 반환한다.
 
     #isPointOnSegment(p: import('three').Vector3, start: import('three').Vector3, end: import('three').Vector3, epsilon: number = 1e-6) -> boolean
-        동작: 점 p가 start와 end 사이 선분 위에 있는지 epsilon 오차로 판정한다.
+        동작: x·y의 (p-start)와 (end-start) 내적이 -epsilon 이상이고 선분 길이 제곱+epsilon 이하인지 반환한다. z와 선분에 수직인 거리는 검사하지 않으므로 실제 선분 위에 있는지 판정하는 함수는 아니다.
 
     #getLastDrawPathInfo(pathInfo: Array<CumulativeInfo>, point: import('three').Vector3) -> number | undefined
         의존:
@@ -1331,33 +1436,45 @@ U3dComponentPosition 클래스 정의
     #setRotationByAxisType(rotation: import('three').Euler, axis: string = "absolute") -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: axis 방식에 따라 입력 회전을 절대값 또는 상대값으로 적용한다.
+        동작: rotation이 null·undefined이면 종료한다. axis가 absolute이면 세 축을 도에서 라디안으로 바꾸어 절대 회전을 설정하고, relative이면 입력 도 회전을 상대 적용한다. 다른 axis는 경고만 남긴다.
 
     #objectUpdate(object: import('three').Object3D, position: import('three').Vector3, quaternion: import('three').Quaternion, rotation: import('three').Euler, scale: import('three').Vector3) -> void
-        동작: 하위 Object3D의 TRS와 행렬을 부모 컴포넌트 상태에 맞춰 갱신한다.
+        동작: object가 없거나 위치·quaternion·rotation·scale이 각각 Vector3·Quaternion·Euler·Vector3 인스턴스가 아니면 종료한다. 유효하면 object의 네 속성에 입력 값을 복사한다. 행렬 갱신은 이 함수에서 호출하지 않는다.
 
     #createMoveSmoothAnimation(animationID: string, ctx: object) -> UAnimationController | undefined
         의존:
             UAnimationController — 이동 실행과 도착 알림; 함수: {on()}
+            U3dCumulativePath — 도착 좌표와 시각을 이력에 기록; 함수: {recordWaypoint()}
+            Web API — 도착 callback 오류 안내; 함수: {console.warn()}
             defined — null·undefined 여부 판정; 함수: {defined()}
         동작:
             moveSmoothly 실행에 사용할 주행 애니메이션 컨트롤러를 만들고 등록한다. 생성하지 못하면 undefined를 반환한다.
-            arrive 이벤트에서 컴포넌트가 해제되지 않았고 현재 좌표의 세 축이 유한하면 좌표 복사본을 이력에 추가하고 100개를 초과한 가장 오래된 지점을 제거한다.
+            arrive 이벤트에서 컴포넌트가 해제되지 않았고 현재 좌표의 세 축이 유한하면 경로가 없는 경우 먼저 생성한다. 누적 경로의 recordWaypoint에 현재 위치와 현재 시각을 전달하여 도착 이력을 기록하며, 경로 표시가 꺼져 있어도 이 단계를 수행한다.
             이력 기록은 통과 콜백이 없어도 수행하며, 콜백 호출보다 먼저 완료한다.
-            통과 콜백이 있으면 통과 번호를 증가시키고 이름·통과 번호·거리·시간·속도를 컴포넌트를 this로 하여 전달한다. 콜백 오류는 경고로 기록한다.
+            통과 콜백이 있으면 통과 번호를 증가시키고 이름·통과 번호·거리·시간·속도를 컴포넌트를 this로 하여 전달한다. 거리·속도는 이벤트 값의 숫자 변환이 falsy이면 컴포넌트 값으로 대체하고, 시간은 유한한 숫자 변환값 또는 0이다. 콜백 오류는 경고로 기록한다. [확인 Q-007]
             구성한 컨트롤러를 반환한다.
 
-    #updateCumulativePath(position: import('three').Vector3, dist: number, time: number) -> void
+    #updateCumulativePath(position: WorldPositionVector3) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 이미 생성된 누적 경로에 현재 위치·거리·시간을 반영한다.
+            U3dCumulativePath — 현재 위치와 보정 회전을 경로에 기록; 함수: {updatePath()}
+            THREE.Quaternion — 이동 방향 Euler의 quaternion 변환; 함수: {setFromEuler()}
+            Web API — 경로 갱신 실패 안내; 함수: {console.warn()}
+        동작:
+            누적 경로 또는 scene이 없으면 종료한다.
+            lookAt이 있으면 현재 위치에서 바라보는 회전을 계산하고, 없으면 컴포넌트 회전을 사용한다.
+            회전을 공용 quaternion으로 바꿔 경로에 위치와 함께 전달하며 시각은 undefined로 두어 경로가 결정한다. 계산·갱신 중 예외는 경고로 기록하고 다시 던지지 않는다.
 
     #createCumulativePath() -> void
         의존:
             U3dCumulativePath — 최초 누적 경로 객체 생성; 생성자: {new U3dCumulativePath()}
             THREE.Vector3 — 초기 경로 크기 산출용 벡터 생성; 생성자: {new Vector3()}
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 최초 누적 경로 객체를 만들고 컴포넌트 이름과 소유 레이어 이름을 전달한다. 궤적 메시의 _ulayername·userData.componentName 정보를 U3dSelect 교차 결과의 소유 컴포넌트 조회에 사용한다. 누적 경로 표시가 꺼져 있으면 궤적 자원 생성을 지연한다.
+        동작:
+            기존 경로가 있거나 앱이 없으면 종료한다. 경계 크기의 x를 내림한 값을 기본 drawOffset으로 쓰되 NaN이면 0이고, 스타일에 정의된 drawOffset이 있으면 이를 우선한다.
+            초기 위치 목록이 있으면 마지막 초기 지점과 현재 지리 위치를 비교해 서로 다를 때만 현재 위치·시각을 추가한다. 기본 색상·불투명도·폭에 저장 스타일과 꼬리·평활화 설정을 합친다.
+            lookAt이 있으면 진행 방향, 없으면 현재 회전을 위치 보정 quaternion으로 사용한다. 컴포넌트·레이어 이름과 초기 위치·정밀도·장면을 전달하여 경로를 생성한다. 표시가 꺼졌으면 initializeTrailOnShow를 켜서 궤적 자원을 지연한다.
+            생성 후 초기 위치 목록을 비우고 #drawCumulativePath가 truthy일 때만 show한다. 경로 객체와 도착 이력은 표시 여부와 독립적으로 존재한다.
 
     _initSplineObject(oriSplineObject: ModelMesh | undefined) -> void
         의존:
@@ -1377,7 +1494,7 @@ U3dComponentPosition 클래스 정의
         동작:
             oriSplineObject와 splineObject를 먼저 제거·해제한다. _spline이 없거나 drawPath가 falsy이면 이후 표시 객체를 만들지 않는다.
             제어점 평균을 표시 원점으로 삼고, 빈 점 목록이면 원점을 0으로 둔다. oriGeometry의 position attribute를 원점 기준 상대 좌표로 교체하고 원점 위치의 oriSplineObject 선을 장면에 추가한다.
-            typePath가 'cube'일 때만 제어점과 경로 높이·폭·외곽선·색상·투명도로 splineObject 메시도 만들어 장면에 추가한다. 첫 번째 geometry 인수는 읽지 않는다.
+            typePath가 'cube'일 때만 제어점과 경로 높이·폭·외곽선·색상·투명도로 splineObject 메시도 만들어 장면에 추가한다. 외곽선 표시값은 _pathEdge를 공식 outline 키로 전달한다. 첫 번째 geometry 인수는 읽지 않는다.
 
     _drawRealPath(geometry: PathGeometryLike) -> void
         의존:
@@ -1391,7 +1508,7 @@ U3dComponentPosition 클래스 정의
         동작:
             기존 tempsplineObject를 제거·해제한다. 사용할 점 목록은 geometry.vertices, _reductionSpline.points, _spline.points, 빈 배열 순으로 null·undefined 대체하며 빈 배열 자체는 다음 후보로 넘기지 않는다.
             모든 분기에서 점 평균을 표시 원점으로 구하고 빈 목록이면 0으로 둔다. 상대 좌표의 새 선 geometry를 만들고 선의 마지막 lineDistance 값을 distance에 저장한다. 점이 없으면 distance는 undefined가 될 수 있다.
-            drawRealPath가 truthy이고 typePath가 'cube'이면 tempsplineObject 선을 장면에 추가한다. 이때 drawPath가 falsy이면 기존 splineObject를 공통 경로 정리로 해제한 뒤 새 경로 메시로 교체하며, 입력 geometry의 vertices를 삭제하고 geometry도 해제한다.
+            drawRealPath가 truthy이고 typePath가 'cube'이면 tempsplineObject 선을 장면에 추가한다. 이때 drawPath가 falsy이면 기존 splineObject를 공통 경로 정리로 해제한 뒤 새 경로 메시로 교체하며, 외곽선 표시값은 _pathEdge를 공식 outline 키로 전달한다. 입력 geometry의 vertices를 삭제하고 geometry도 해제한다.
             drawRealPath가 truthy인 비-cube 분기는 기존 splineObject의 소유 자원을 정리하고 공유 pathMaterial을 유지한 뒤, 새 선을 splineObject로 저장하여 장면에 추가한다.
             drawRealPath가 falsy여도 길이 계산용 선을 생성하지만 장면이나 컴포넌트의 선 필드에 등록하지 않고 geometry를 해제하지 않는다.
 
@@ -1407,7 +1524,7 @@ U3dComponentPosition 클래스 정의
             그 외에는 현재·다음 상대 벡터를 복제·정규화하여 사이각을 구한다. angle > 0.01 라디안일 때만 true이며 0.01 이하이면 false다.
 
     _createSpline(geometry: PathGeometryLike) -> void
-        동작: 경로 종류에 따라 선형 또는 부드러운 spline을 만든다.
+        동작: smoothCorner가 truthy이면 부드러운 spline을, 나머지는 원래 제어점을 복제한 경로를 만든다.
 
     #createSmoothSpline(geometry: PathGeometryLike) -> void
         동작:
@@ -1426,7 +1543,7 @@ U3dComponentPosition 클래스 정의
         의존:
             THREE.BufferAttribute — 경로 좌표를 position attribute로 구성; 생성자: {new BufferAttribute()}
             U3dRecoveredMixins — 벡터 목록을 geometry 좌표 배열로 변환; 정적 함수: {setVector3sArray()}
-        동작: 생성된 spline 점을 경로 지오메트리와 표시 상태에 반영한다.
+        동작: _reductionSpline을 max(1000, 제어점 수의 2배) 분할로 샘플링해 geometry.vertices에 저장한다. 벡터 목록을 Float32 좌표 배열로 바꾸어 itemSize 3의 position attribute로 교체한다.
 
     _useTruthPath(arr: Array<import('three').Vector3>) -> void
         의존:
@@ -1436,11 +1553,11 @@ U3dComponentPosition 클래스 정의
             UCatmullRomCurve3 — 방향각 보간 곡선 생성; 생성자: {new UCatmullRomCurve3()}
         동작: usetruthpath가 falsy이면 종료한다. pitchYawRollList와 arr가 정의되어 있으면 두 배열의 길이 일치를 assert한다. arr의 x·y와 방향 목록의 x·z·y를 각 곡선의 높이로 사용하여 pitch·yaw·roll 곡선을 만든다. 각 곡선은 _addstartend·_curveTension을 사용하고 catmullrom·비폐쇄로 설정한다.
 
-    _createDefaultSpline(position: import('three').Vector3, geometry: PathGeometryLike) -> void
+    _createDefaultSpline(position: WorldPositionVector3, geometry: BufferGeometry, range: number = 1000) -> void
         의존:
             THREE — 기본 경로 제어점·보간 곡선·표시 attribute 생성; 생성자: {new BufferAttribute(), new CatmullRomCurve3(), new Vector3()}
             U3dRecoveredMixins — 벡터 목록을 geometry 좌표 배열로 변환; 정적 함수: {setVector3sArray()}
-        동작: 유효한 경로가 없을 때 현재 위치를 기준으로 기본 spline을 구성한다.
+        동작: 현재 위치로 시작·종료하고, 같은 높이에서 x·y 각각 position±range 범위의 난수로 고른 네 점을 중간에 둔 CatmullRom 경로를 만든다. 설정된 tension·비폐쇄 속성을 적용하고 같은 경로를 _reductionSpline에 보관한 뒤 샘플 좌표를 geometry의 position attribute에 기록한다.
 
     _checkCollisionOperation(pathPosition: import('three').Vector3, lookAt: import('three').Vector3) -> void
         인터페이스: collision callback은 현재 컴포넌트를 this와 첫 인수로 받는다.
@@ -1467,10 +1584,10 @@ U3dComponentPosition 클래스 정의
     _applyObjectFrame(elapsedTime: number = 0) -> void
         의존:
             defined — null·undefined 여부 판정; 함수: {defined()}
-        동작: 주행 애니메이션의 현재 프레임을 일반 Object3D에 반영한다.
+        동작: _object가 null·undefined가 아닐 때만 현재 논리 TRS를 모델에 반영한다. elapsedTime은 여기서 사용하지 않는다.
 
     _applyMixerFrame(elapsedTime: number = 0) -> void
-        동작: 주행 프레임과 모델 mixer 갱신을 함께 적용한다.
+        동작: 믹서 컨트롤러가 있으면 elapsedTime과 마지막 카메라 거리 제곱을 update에 전달한다. 모델 위치 자체는 이 함수에서 바꾸지 않는다.
 
     _applyChangeFrame() -> void
         의존:
@@ -1481,10 +1598,10 @@ U3dComponentPosition 클래스 정의
     _applyPoiFrame(pathPosition: import('three').Vector3) -> void
         의존:
             THREE.Vector3 — POI 프레임에 반영할 좌표 생성; 생성자: {new Vector3()}
-        동작: 현재 경로 위치에 맞춰 POI와 연결 상태를 갱신한다.
+        동작: POI가 있으면 pathPosition의 x·y와 z+(poi.zOffset 또는 null·undefined 대체값 0)으로 새 Vector3를 만들어 POI 위치를 바꾼다.
 
     _applyJpgFrame() -> void
-        동작: 이미지 컴포넌트의 프레임별 표시 상태를 갱신한다.
+        동작: 소유 레이어의 확장자가 jpg일 때만 원본 모델의 직접 자식들을 순회하며 material.rotation이 숫자인 재질에 0.01을 더한다.
 
 createHoverUpAnimation(animateNow: boolean = true) -> void
     의존:
@@ -1493,7 +1610,11 @@ createHoverUpAnimation(animateNow: boolean = true) -> void
         defined — null·undefined 여부 판정; 함수: {defined()}
         isWrong — 입력 좌표·수치의 사용 가능 여부 판정; 함수: {isWrong()}
         UMathEngine — 월드·지리 좌표와 높이 스케일 환산; 정적 함수: {getRealScaleAtGoogle()}
-    동작: 경로 주행 시작 시 위로 이동하는 호버링 애니메이션을 준비한다.
+    동작:
+        경로·옵션이 없으면 종료한다. realHeight가 없으면 minheight를 EPSG:3857 높이로 환산하고 첫 제어점 높이를 더해 상승 거리를 정한다. 거리·시간이 유한한 양수가 아니면 안내 후 종료한다.
+        지형 높이가 비정상·미정의 표식이면 0으로 대체하고 maxheight를 더해 출발 높이를, 거리 값을 도착 높이로 사용한다. 인스턴스이면 그룹·슬롯을 문맥에 저장한다.
+        upHoverAnimation의 컨트롤러를 만든다. 완료 시 거리를 초기화하고 종료 콜백을 실행한 뒤 상승 컨트롤러를 정지한다. 이후 기존 ROUTE를 시작하거나 일반 경로를 생성하고 현재 ID를 ROUTE로 바꾼다.
+        animateNow가 falsy이면 구성만 마친다. truthy이면 시작·시작 콜백·실행 상태와 ID 설정을 수행하며 시작 예외는 오류 안내로 기록한다.
 
 createHoverDownAnimation(animateNow: boolean = false) -> void
     의존:
@@ -1501,21 +1622,31 @@ createHoverDownAnimation(animateNow: boolean = false) -> void
         __GError__ — 실패 조건 안내 출력; 함수: {__GError__()}
         defined — null·undefined 여부 판정; 함수: {defined()}
         UMathEngine — 월드·지리 좌표와 높이 스케일 환산; 정적 함수: {getRealScaleAtGoogle()}
-    동작: 경로 주행 종료 시 아래로 이동하는 호버링 애니메이션을 준비한다.
+    동작:
+        경로·옵션이 없으면 종료한다. 마지막 제어점과 환산 높이로 하강 거리·시간을 구하고 지형 높이+maxheight를 종료 높이로 정한다. 상승과 달리 거리·시간의 양수·유한성 거부 단계는 없다.
+        인스턴스 문맥을 구성하고 downHoverAnimation 컨트롤러를 만든다. 완료 시 정지·이동 상태 초기화·종료 콜백을 수행한다. repeat이면 100ms 뒤 시작 컨트롤러가 있는 경우 다시 실행하고 ID·실행 상태를 바꾼다.
+        animateNow 인수 값과 무관하게 즉시 시작한다. 시작 콜백·현재 ID·실행 상태를 기록하며 시작 예외는 오류 안내로 기록한다.
 
 initialize() -> void
     의존:
         UBox3 — 모델 객체의 경계 정보 구성; 생성자: {new UBox3()}; 함수: {setFromObject()}
         defined — null·undefined 여부 판정; 함수: {defined()}
         Guid — 객체 식별자 생성; 함수: {Guid()}
-    동작: 생성자 옵션과 모델 상태로 컴포넌트의 공개·수명주기 상태를 초기화한다.
+    동작:
+        모델이 없으면 종료한다. 초기 논리 TRS를 복제·보관하고 모델에 복사하며 일반 모델의 직접 자식 위치를 0으로 초기화한 뒤 월드 행렬을 갱신한다.
+        모델 이름·컴포넌트 이름·새 Guid 순의 키로 경계 캐시를 조회하고 없으면 모델 경계를 계산·저장한다. 각 Mesh에 경계·컴포넌트 유형·루트 참조와 컴포넌트의 경계 조회 콜백을 연결한다.
+        objectOpacity가 1 미만이면 재질 opacity와 transparent를 적용하고 아니면 transparent만 false로 둔다. 계층에 소유 레이어 이름을 기록하고 초기 모델 복제본을 보관한다.
 
 createPathAnimation(animateNow: boolean = true) -> void
     의존:
         __GError__ — 실패 조건 안내 출력; 함수: {__GError__()}
         defined — null·undefined 여부 판정; 함수: {defined()}
         UMathEngine — 월드·지리 좌표와 높이 스케일 환산; 정적 함수: {getRealScaleAtGoogle()}
-    동작: 등록된 이동 점으로 일반 경로 주행 애니메이션을 만든다.
+    동작:
+        경로·옵션이 없으면 종료한다. realHeight가 없으면 현재 위치의 지리 스케일로 minheight를 환산한다. 경로의 점 수에 따른 길이 캐시를 구해 마지막 누적 길이를 distance로 사용하고 시간·거리가 유한한 양수가 아니면 안내 후 종료한다.
+        일반·인스턴스 문맥으로 pathAnimation 컨트롤러를 만들고 디버그를 켠다.
+        완료 시 종료 콜백을 실행하고 ROUTE가 있으면 정지한다. hovering이면 하강 컨트롤러를 시작하거나 생성하며, 아니고 repeat이면 300ms 뒤 ROUTE를 재시작한다. 둘 다 아니거나 ROUTE가 없으면 실행 상태를 false로 둔다.
+        animateNow가 truthy일 때만 시작·시작 콜백·실행 상태·ID 설정을 수행하고 시작 예외는 오류 안내로 기록한다.
 
 createMovePoint(animateNow: boolean) -> void
     인터페이스: this는 경로를 구성할 U3dComponentPosition이다. animateNow가 truthy이면 구성 직후 실행을 시작한다.
@@ -1539,7 +1670,7 @@ createMovePoint(animateNow: boolean) -> void
 settingObject(object: import('three').Object3D) -> void
     의존:
         defined — null·undefined 여부 판정; 함수: {defined()}
-    동작: 모델 Object3D의 TRS와 행렬을 현재 컴포넌트 상태에 맞춘다.
+    동작: 모델에 논리 위치·크기를 복사한다. lookAt이 정의되어 있으면 계산한 진행 회전, 없으면 논리 회전을 복사하고 결과 quaternion을 컴포넌트에 복제한다. 모델 월드 행렬을 갱신한 뒤 자식 행렬을 갱신한다.
 
 pickMaterial(intersect?: unknown, color: import('three').ColorRepresentation = HIGH_LIGHT_COLOR, opacity: number = HIGH_LIGHT_OPACITY, material?: MutableMaterial) -> void
     인터페이스: Object3D에 붙여 호출하는 보조 함수이며 this는 해당 렌더 객체다. intersect는 현재 구현에서 사용하지 않고 자식에는 undefined를 전달한다.
@@ -1566,26 +1697,33 @@ restoreMaterial() -> boolean
         자식의 restoreMaterial을 순서대로 호출하고 true를 반환한다. 복원할 재질이 없어도 자식 호출과 true 반환은 수행하며 호출 예외는 잡지 않는다.
 
 makeCrowdSpline() -> void
-    동작: 군중 이동 영역 안에 사용할 임의 경로 spline을 만든다.
+    동작: 이동점 목록이 비면 drawPolygon에 geometry와 getPosition 함수가 있을 때 폴리곤 경로를 만들고 아니면 현재 위치의 기본 경로를 만든다. 이동점이 있으면 기존 _spline에서 보간 경로만 다시 만든다.
 
 createCrowdTween(animateNow: boolean) -> void
     의존:
         __GError__ — 실패 조건 안내 출력; 함수: {__GError__()}
         defined — null·undefined 여부 판정; 함수: {defined()}
-    동작: 군중 이동 경로와 반복 tween을 구성한다.
+    동작:
+        군중 곡선을 만들고 _spline이 없으면 오류 안내 후 종료한다. 200분할로 거리를 구하고 속도로 시간을 계산하며 drawPath이면 표시 선을 만든다.
+        인스턴스 문맥을 포함해 crowdAnimation 컨트롤러를 만든다.
+        완료 시 종료 콜백을 실행하고 실행 상태·현재 ID를 비운다. 군중 컨트롤러가 없으면 종료하고 있으면 정지한다. repeat이면 곡선·표시 선을 다시 만든 뒤 거리·시간을 갱신하여 같은 컨트롤러를 재시작하고 ID를 기록한다.
+        animateNow가 truthy이면 시작·시작 콜백·ID·실행 상태를 설정하고 시작 예외는 오류 안내로 기록한다.
 
 createDefaultSplineAtPolygon(polygon: CrowdPolygon) -> void
     의존:
         THREE — 폴리곤 내부 제어점과 군중 이동 곡선 생성; 생성자: {new CatmullRomCurve3(), new Vector3()}
         defined — null·undefined 여부 판정; 함수: {defined()}
         UMathEngine — 월드·지리 좌표와 높이 스케일 환산; 정적 함수: {getGoogleToGeographic(), getRealScaleAtGeographic()}
-    동작: polygon 내부에 군중 이동용 기본 spline 점을 만든다.
+    동작:
+        이전 종료점이 있으면 복제해 첫 점으로 사용한다. 폴리곤 좌표 목록과 중심이 유효할 때만 진행하고 좌표 목록의 복사본을 섞는다. 높이는 polygon._height 또는 현재 높이 또는 0이다.
+        각 유효 꼭짓점과 중심 사이의 x·y 난수를 고르고 위도별 높이 스케일을 적용한다. 폴리곤 밖 점은 경계로 보정한다.
+        점이 둘 이상이면 비폐쇄 catmullrom 곡선을 만들어 tension을 적용하고 마지막 점 복제본을 다음 경로의 시작 후보로 저장한다.
 
 drawPathCrowd() -> void
     의존:
         THREE — 원점 기준 경로 좌표·geometry·표시 선 생성; 생성자: {new Vector3(), new BufferGeometry(), new Line()}
         defined — null·undefined 여부 판정; 함수: {defined()}
-    동작: 군중 이동 경로의 표시용 선을 생성한다.
+    동작: _spline이 없으면 종료한다. 기존 군중 선이 있으면 geometry를 해제하고 장면에서 제거한다. max(점 수×20, 1000) 분할로 곡선을 샘플링하고 첫 점을 원점으로 한 상대 좌표 geometry·공유 pathMaterial 선을 만든다. 선을 원점에 배치하고 장면에 표시한다.
 
 ```
 

@@ -147,8 +147,17 @@ dependencies: []
 
 ## 다루는 기능
 
+- Cylinder·Box·Circle·Sphere·Pipe·UserGeometry·Loft·경로·단층 도형은 선택 도형 설정의 `외곽선 여부`로 테두리를 켜고 끕니다. Point와 Line은 별도 외곽선을 만들지 않습니다.
+- 외곽선을 지원하는 9종 모두 기본으로 외곽선이 켜져 있고 두께를 조절할 수 있습니다. 초기 공전 도형의 박스·구·원·파이프에도 외곽선이 켜져 있습니다.
+- 공식 옵션은 `outline`·`outlineType`·`lineColor`·`lineWidth`·`lineOpacity`입니다. 표시 여부는 `setOutline`·`getOutline`, 단위는 `setOutlineType`·`getOutlineType`, 스타일은 `setLineColor`·`getLineColor`, `setLineWidth`·`getLineWidth`, `setLineOpacity`·`getLineOpacity`로 변경·조회합니다.
+- 예전 `useline`·`useLine`·`edge`와 `outlineWidth`·`outlineOpacity`는 호환 처리하면서 공식 이름으로 변경하라는 콘솔 경고를 표시합니다. JSON 저장 결과에는 공식 이름만 담깁니다.
+- 예제의 기본 외곽선은 `outlineType: 'meter'`, `lineWidth: 0.3`으로 0.3m입니다. 줌 아웃하거나 카메라를 멀리 이동하면 도형과 함께 가늘어집니다. `외곽선 단위`를 픽셀로 바꾸거나 `setParam({outlineType: 'pixel', lineWidth: 2})`를 호출하면 화면에서 2px 두께를 유지합니다. 단위만 바꾸면 기존 두께 숫자는 유지되며 자동 환산하지 않습니다.
+- 박스·사용자 도형·Loft를 선택하면 `스타일 → 외곽선`의 `코너 둥글기` 슬라이더로 `outlineTension`을 0~1 사이에서 조절합니다. 0은 각진 연결, 1은 둥근 연결이며 드래그 중 바로 반영됩니다. JSON 설정과도 값을 동기화합니다.
+- `외곽선 투명도`는 본체와 독립된 `lineOpacity`이며 기본값은 1입니다. `setLineOpacity`·`getLineOpacity`로 변경·조회하고 본체 `opacity`를 바꾸거나 외곽선을 다시 켜도 값을 유지합니다.
+
 - 메인 `vector` 레이어와 초기 공전 도형용 `subVectorLayer`를 만들어 지도에 추가합니다.
 - 각 레이어의 도형을 종류와 번호로 붙인 이름(box1, circle1 …)으로 목록에 표시하고, 선택한 도형의 설정을 왼쪽 선택 도형 설정 창에서 개별 변경합니다.
+- 선택 도형 설정은 `형상`과 `스타일` 탭으로 나뉩니다. 크기·분할 수는 형상 탭에서, 본체 색상·투명도·외곽선·표시 옵션은 스타일 탭에서 변경합니다. 삭제 버튼은 창 하단에 고정됩니다.
 - 켜고 끌 수 있는 JSON으로 설정 창에서 선택한 도형의 설정을 텍스트로도 변경하며, 선택 도형 설정 창의 입력값과 서로 맞춰집니다.
 - 도형 종류를 고르고 지도를 클릭해 종류별 기본 설정으로 도형을 생성합니다.
 - 메인 레이어에 담긴 도형을 JSON으로 저장하고 팝업에서 확인·복사합니다.

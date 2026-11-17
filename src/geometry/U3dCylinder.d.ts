@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,13 +8,14 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
-import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineAliasCO } from "./U3dGeometry.js";
+import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineCO, UGeometryOutlineLine } from "./U3dGeometry.js";
 import type { UMeta } from "../meta/UMeta.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { EventCallBack, GeoPositionVector3, KeyValue, WorldPositionVector3 } from "../types/global.js";
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dCylinder {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -22,7 +23,6 @@ interface GeOnDTMixedInstance_U3dCylinder {
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -52,24 +52,40 @@ interface GeOnDTMixedInstance_U3dCylinder {
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: any): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -137,8 +153,8 @@ interface GeOnDTMixedInstance_U3dCylinder {
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -192,6 +208,7 @@ interface GeOnDTMixedInstance_U3dCylinder {
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
@@ -250,7 +267,7 @@ declare const U3dCylinder_base: Omit<typeof U3dGeometry, "prototype"> & {
  * ~extends import('@U3dGeometry') <br>
  *
  * `3D 원기둥(Cylinder)` 객체를 생성·관리하는 클래스입니다. <br>
- * 윗면/밑면 반지름과 높이로 원기둥·원뿔대·원뿔을 만들고, 재질 타입(`basic`/`topimage`/`standard`)과 외곽선(`edge`)을 지정할 수 있습니다. <br>
+ * 윗면/밑면 반지름과 높이로 원기둥·원뿔대·원뿔을 만들고, 재질 타입(`basic`/`topimage`/`standard`)과 외곽선(`outline`)을 지정할 수 있습니다. <br>
  * 좌표는 생성 후 월드 좌표(EPSG:3857)를 받는 `setVertex` 또는 위경도를 받는 `setPositions`로 지정하며, 첫 번째 좌표에 원기둥이 놓입니다. <br>
  * `setVertex`는 바로 반영되고, `setPositions`로 준 위경도는 도형이 속한 레이어가 월드 좌표(EPSG:3857)로 바꿔 넣는 시점에 반영됩니다. <br>
  *
@@ -259,7 +276,7 @@ declare const U3dCylinder_base: Omit<typeof U3dGeometry, "prototype"> & {
  * 지오메트리 자체를 돌리려면 `setRotateXFromGeometry`를, 도형 객체를 돌리려면 `setRotation`을 사용합니다. <br>
  *
  * 반지름·높이·분할 수·외곽선 같은 형상 필드에 직접 대입한 값은 곧바로 화면에 반영되지 않습니다. <br>
- * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용되므로, 값을 바꿀 때는 `setParam`을 사용하십시오. <br>
+ * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용됩니다. 분할 수는 `setRadialSegments`·`setHeightSegments` 또는 `setParam`으로 변경하십시오. <br>
  *
  * @group geometry
  * @extends {__GeOnDTMixinBase_U3dCylinder}
@@ -268,7 +285,7 @@ declare const U3dCylinder_base: Omit<typeof U3dGeometry, "prototype"> & {
 declare class U3dCylinder extends U3dCylinder_base {
     /**
      * 생성 옵션으로 원기둥(Cylinder)을 생성합니다. <br>
-     * 윗면/밑면 반지름과 높이로 원기둥을 만들고, 재질 타입(`basic` 단색 / `topimage` 윗면 이미지 / `standard` 표준 재질), 외곽선(`edge`) 등을 함께 지정할 수 있습니다. <br>
+     * 윗면/밑면 반지름과 높이로 원기둥을 만들고, 재질 타입(`basic` 단색 / `topimage` 윗면 이미지 / `standard` 표준 재질), 외곽선(`outline`) 등을 함께 지정할 수 있습니다. <br>
      * 재질 타입과 윗면 이미지는 이 시점에만 반영되며 이후 `setParam`으로는 바꿀 수 없습니다. <br>
      *
      * @param {U3dCylinderCO} [opt={}] 원기둥(Cylinder) 생성 옵션 (반지름·높이·재질 타입·외곽선 등) <br>
@@ -329,27 +346,17 @@ declare class U3dCylinder extends U3dCylinder_base {
      */
     thetaLength: number | undefined;
     /**
-     * 외곽선(테두리 선)을 표시하는지 여부입니다. <br>
-     * 생성 옵션에 넣지 않으면 켜진 상태(`true`)로 만들어지며, 이는 꺼진 상태로 만들어지는 육면체·구와 반대입니다. <br>
-     * 켜면 면과 면이 만나는 모서리를 선으로 덧그려 형태를 또렷하게 보여줍니다. <br>
-     * 선 색은 `lineColor`로 정하며 기본은 검정입니다. <br>
-     * 표시 여부는 `setParam({outline: ...})`으로 바꾸며, 이때 외곽선이 다시 만들어집니다. <br>
-     *
-     * @type {boolean}
-     */
-    edge: boolean;
-    /**
      * @type {number}
      *
      * @ignore
      */
     _googleScale: number;
     /**
-     * @type {import('three').LineSegments | undefined}
+     * @type {UGeometryOutlineLine | undefined}
      *
      * @ignore
      */
-    _outline: three.LineSegments | undefined;
+    _outline: UGeometryOutlineLine | undefined;
     /**
      * @override
      *
@@ -377,7 +384,10 @@ declare class U3dCylinder extends U3dCylinder_base {
      */
     _initCylinder(): void;
     /**
-     * 외곽선 갱신 함수 (기존 외곽선을 정리한 뒤 `edge`가 켜져 있을 때만 다시 생성) <br>
+     * 위·아래 원둘레와 옆면 경계선으로 원기둥의 테두리를 하나의 U3dLine으로 표시합니다. <br>
+     * 원둘레와 옆면 윤곽 모두 실제 경계 중심에 지정한 전체 두께를 표시합니다. <br>
+     * 16분할 이상의 완전한 원둘레는 경계 표본을 보강하고 공통 라인의 연결부 처리를 사용합니다. <br>
+     * 부분 원호와 낮은 분할 수의 다각형 단면은 원래 모서리를 유지합니다. <br>
      *
      * @ignore
      */
@@ -446,13 +456,29 @@ declare class U3dCylinder extends U3dCylinder_base {
      */
     override updateVertex(): void;
     /**
+     * 원둘레 방향 분할 수를 변경합니다. 값이 바뀌면 형상과 외곽선을 갱신합니다. <br>
+     * 지오메트리에 직접 준 회전·이동은 형상을 다시 만든 뒤 재적용해야 합니다. <br>
+     * @param {number} segments 3 이상의 유한한 정수 <br>
+     */
+    setRadialSegments(segments: number): void;
+    /** @returns {number} 원둘레 방향 분할 수. 기본값은 32입니다 <br> */
+    getRadialSegments(): number;
+    /**
+     * 높이(축) 방향 분할 수를 변경합니다. 값이 바뀌면 형상과 외곽선을 갱신합니다. <br>
+     * 지오메트리에 직접 준 회전·이동은 형상을 다시 만든 뒤 재적용해야 합니다. <br>
+     * @param {number} segments 1 이상의 유한한 정수 <br>
+     */
+    setHeightSegments(segments: number): void;
+    /** @returns {number | undefined} 높이(축) 방향 분할 수. 미지정이면 undefined이며 실제 형상에는 기본값 1을 사용합니다 <br> */
+    getHeightSegments(): number | undefined;
+    /**
      * 원기둥(Cylinder)의 속성(색상·투명도·반지름·높이·세그먼트 등)을 한 번에 변경합니다. <br>
-     * 전달한 값만 반영되고 나머지는 기존 값이 유지되며, 호출할 때마다 지오메트리와 외곽선이 다시 만들어집니다. <br>
+     * 전달한 값만 반영되고 나머지는 기존 값이 유지됩니다. 형상 값이 바뀌거나 인자 없이 호출하면 형상을 다시 만듭니다. <br>
+     * 스타일만 변경하면 형상과 외곽선을 유지하고, 외곽선 표시를 전환하면 외곽선만 생성·해제합니다. <br>
      *
      * 생성 옵션 중 `type`, `topimageurl`처럼 재질을 정하는 값은 이 함수로 바뀌지 않습니다. <br>
      * 재질을 바꾸려면 원기둥을 새로 만듭니다. <br>
-     * 지오메트리가 새로 만들어지므로 `setRotate*FromGeometry`·`setTranslateFromGeometry`로 준 회전과 이동도 함께 사라집니다. <br>
-     * 필요하면 호출 뒤에 다시 적용합니다. <br>
+     * 형상을 다시 만들면 `setRotate*FromGeometry`·`setTranslateFromGeometry`로 준 회전과 이동도 사라지므로 다시 적용합니다. <br>
      * 반지름·높이·세그먼트·각도·외곽선 옵션이 잘못되면 변경 전에 TypeError 또는 RangeError를 발생시킵니다. <br>
      *
      * @override
@@ -570,7 +596,7 @@ declare class U3dCylinder extends U3dCylinder_base {
      * U3dCylinder 생성자 옵션 <br>
      * 외곽선(`outline`)은 넣지 않으면 켜진 상태로 만들어집니다. <br>
      */
-    type U3dCylinderCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dCylinderCO_Content, never>;
+    type U3dCylinderCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dCylinderCO_Content, never>;
 
 /**
      * ~extends U3dGeometryStyleParam <br>

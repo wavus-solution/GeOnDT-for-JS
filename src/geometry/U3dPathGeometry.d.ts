@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -11,7 +11,7 @@ import type { UAnalyGizmoModel } from "../analy/UAnalyGizmoModel.js";
 import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
 import type { UBufferGeometry } from "../core/geometry/UBufferGeometry.js";
 import type { U3dMouseEvent } from "../event/U3dMouseEvent.js";
-import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineAliasCO } from "./U3dGeometry.js";
+import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineCO } from "./U3dGeometry.js";
 import type { U3dSphere } from "./U3dSphere.js";
 import type { UExtrudeGeometry } from "./UExtrudeGeometry.js";
 import type { UMeta } from "../meta/UMeta.js";
@@ -21,6 +21,7 @@ import type { EventCallBack, GeoPositionVector3, KeyValue, WorldPositionVector3 
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dPathGeometry {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -28,7 +29,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -58,24 +58,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: number): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): number | undefined;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -142,8 +158,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -197,6 +213,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_sphere": three.Sphere | undefined;
@@ -383,12 +400,6 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
      * @ignore
      */
     _segments: number;
-    /**
-     * @type {boolean}
-     *
-     * @ignore
-     */
-    _edge: boolean;
     /**
      * @type {boolean}
      *
@@ -665,11 +676,15 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
      * @returns {number} 불투명도 (0~1). 재질이 없거나 불투명도 값이 없으면 0 <br>
      */
     override getOpacity(): number;
+    /** @override @param {'meter' | 'pixel'} type 외곽선 두께 단위 */
+    override setOutlineType(type: "meter" | "pixel"): void;
+    /** @override @param {number} width 외곽선 두께 */
+    override setLineWidth(width: number): void;
     /**
      * 경로 속성을 일괄 변경합니다. <br>
      * 지정하지 않은 항목은 현재 값을 유지합니다. <br>
      * 색상·불투명도는 재질에 즉시 적용하고, 경로 속성이 설정된 경우 형상 재생성 시에도 유지되도록 기록합니다. <br>
-     * 너비·높이·곡선 장력·분할 수·외곽선을 변경하면 형상을 다시 생성하며, 이 변경은 `draw()` 또는 `createPathMesh()`로 경로 속성과 앱이 설정되고 좌표가 2개 이상인 경로에만 적용됩니다. <br>
+     * 너비·높이·곡선 장력·분할 수·외곽선의 실제 값이 달라질 때 형상을 다시 생성하며, 이 변경은 `draw()` 또는 `createPathMesh()`로 경로 속성과 앱이 설정되고 좌표가 2개 이상인 경로에만 적용됩니다. <br>
      *
      * @override
      *
@@ -690,6 +705,12 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
      * @returns {U3dPathGeometryParam} 현재 속성. 호출할 때마다 새 객체를 반환 <br>
      */
     override getParam(): U3dPathGeometryParam;
+    /**
+     * 경로 외곽선 표시 여부를 반환합니다. <br>
+     * @override
+     * @returns {boolean} 외곽선 표시 여부 <br>
+     */
+    override getOutline(): boolean;
     /**
      * 경로에 점을 추가합니다. <br>
      * 마우스 이벤트를 전달하면 클릭 지점에, 좌표를 전달하면 해당 위치에 점을 추가하며, 직전 점과 같은 위치이면 추가하지 않습니다. <br>
@@ -782,7 +803,7 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
      * 좌표를 월드 좌표로 변환하고 곡선으로 보간한 101개 지점으로 `createMeshFromVec3`를 호출하므로 jsts 라이브러리가 필요합니다. <br>
      * 세로 범위는 첫 좌표의 높이에서 `pathheight`만큼 아래·위로 설정하고, 중심선 양쪽으로 `buffer`만큼 넓힌 형상을 생성합니다. <br>
      *
-     * @param {PathGeometryInfo} [opt] 경로 옵션. `geopoints`와 `app` 필수이며 `buffer`(기본값 400)·`pathheight`(기본값 40)·`pathcolor`·`opacity`·`tension`·`edge` 사용 <br>
+     * @param {PathGeometryInfo} [opt] 경로 옵션. `geopoints`와 `app` 필수이며 `buffer`(기본값 400)·`pathheight`(기본값 40)·`pathcolor`·`opacity`·`tension`·`outline` 사용 <br>
      * @returns {U3dPathGeometry | undefined} 형상을 생성한 경로(현재 인스턴스). `geopoints`나 `app`이 없거나 형상 생성에 실패하면 `undefined` <br>
      */
     createMesh(opt?: PathGeometryInfo): U3dPathGeometry | undefined;
@@ -801,17 +822,17 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
     /**
      * 월드 좌표 목록을 중심선으로 하여 양쪽으로 넓힌 다각형을 세로로 돌출한 형상을 생성합니다. <br>
      * 다각형 확장에 jsts 라이브러리를 사용하며, 이 메서드의 거리와 높이 값은 위도 환산 없이 월드 좌표 길이로 적용합니다. <br>
-     * 기존 지오메트리와 재질은 해제하며, 외곽선(`edge`)을 사용하면 인접한 면의 각도가 10도 이상인 모서리에 `lineColor` 색상의 선을 추가합니다. <br>
+     * 기존 지오메트리·재질·외곽선은 해제하며, 외곽선(`outline`)을 사용하면 인접한 면의 각도가 10도 이상인 모서리에 `lineColor` 색상의 선 하나를 추가합니다. <br>
      *
      * @param {Array<import('three').Vector3>} pts 중심선 좌표 목록 (월드 좌표, EPSG:3857, 2개 이상) <br>
-     * @param {PathGeometryInfo} [opt] 형상 옵션. `buffer`·`minheight`(기본값 0)·`maxheight`(기본값 100)·`centerheight`·`color`·`opacity`·`transparent`·`addstartend`·`edge` 사용 <br>
+     * @param {PathGeometryInfo} [opt] 형상 옵션. `buffer`·`minheight`(기본값 0)·`maxheight`(기본값 100)·`centerheight`·`color`·`opacity`·`transparent`·`addstartend`·`outline` 사용 <br>
      * @returns {this | undefined} 형상을 생성한 경로(현재 인스턴스). 좌표가 배열이 아니거나 2개 미만이거나 jsts가 없으면 `undefined` <br>
      */
     createMeshFromVec3(pts: Array<three.Vector3>, opt?: PathGeometryInfo): this | undefined;
     /**
      * 좌표 목록과 경로 속성으로 경로 형상을 생성합니다. <br>
      * 좌표를 곡선으로 보간하고 곡선을 따라 윗면·아랫면·양쪽 옆면으로 구성된 띠 형상을 생성하며, 곡선 중심은 좌표 높이(z)에 `minheight`를 더한 높이에 위치합니다. <br>
-     * 외곽선(`edge`)을 사용하면 면 가장자리를 흰색 선으로 표시하는 셰이더 재질을, `textureUrl`을 지정하면 이미지 재질을 사용합니다. <br>
+     * 외곽선(`outline`)을 사용하면 면 가장자리를 흰색 선으로 표시하는 셰이더 재질을, `textureUrl`을 지정하면 이미지 재질을 사용합니다. <br>
      * `opt.app`이 없으면 형상을 생성하지 않습니다. <br>
      * 전달한 `opt`는 복사하지 않고 경로 속성으로 보관하며(`points` 항목 추가), `vertices` 배열도 복사하지 않고 좌표 목록으로 보관합니다. <br>
      *
@@ -830,7 +851,7 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
      *     maxheight: 10,   // minheight 이하이므로 세로 두께 10m
      *     tension: 0.5,
      *     segments: 200,
-     *     edge: true
+     *     outline: true
      * });
      * vectorLayer.addGeometry(path);
      */
@@ -1067,7 +1088,7 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
      *
      * `U3dPathGeometry` 생성자 옵션입니다. <br>
      * 지정한 값은 `draw()`에서 경로 속성을 생략한 항목의 기본값으로 사용됩니다. <br>
-     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`에 정의되어 있습니다. <br>
+     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineCO`에 정의되어 있습니다. <br>
      */
     type U3dPathGeometryCO_Content = {
         /**
@@ -1121,17 +1142,22 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
      *
      * `U3dPathGeometry` 생성자 옵션입니다. <br>
      * 지정한 값은 `draw()`에서 경로 속성을 생략한 항목의 기본값으로 사용됩니다. <br>
-     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`에 정의되어 있습니다. <br>
+     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineCO`에 정의되어 있습니다. <br>
      */
-    type U3dPathGeometryCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dPathGeometryCO_Content, never>;
+    type U3dPathGeometryCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dPathGeometryCO_Content, never>;
 
 /**
-     * ~extends U3dOutlineAliasCO <br>
+     * ~extends U3dOutlineCO <br>
      *
      * `U3dPathGeometry.setParam`에 전달하는 경로 속성입니다. <br>
+     * 동일한 형상 값과 외곽선 스타일 변경은 기존 자원을 유지하며, 실제 형상·표시 상태가 달라질 때만 다시 생성합니다. <br>
      * 높이 항목은 별칭을 함께 받으며, 여러 이름을 지정하면 `minheight` → `minHeight` → `height`, `maxheight` → `maxHeight` → `pathheight` 순서로 사용합니다. <br>
      */
     type U3dPathGeometrySetParam_Content = {
+        /**
+         * 외곽선 두께. outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀 <br>
+         */
+        lineWidth?: number;
         /**
          * 경로 색상 <br>
          */
@@ -1179,20 +1205,25 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
     };
 
 /**
-     * ~extends U3dOutlineAliasCO <br>
+     * ~extends U3dOutlineCO <br>
      *
      * `U3dPathGeometry.setParam`에 전달하는 경로 속성입니다. <br>
+     * 동일한 형상 값과 외곽선 스타일 변경은 기존 자원을 유지하며, 실제 형상·표시 상태가 달라질 때만 다시 생성합니다. <br>
      * 높이 항목은 별칭을 함께 받으며, 여러 이름을 지정하면 `minheight` → `minHeight` → `height`, `maxheight` → `maxHeight` → `pathheight` 순서로 사용합니다. <br>
      */
-    type U3dPathGeometrySetParam = U3dPathGeometrySetParam_Content & Omit<U3dOutlineAliasCO, never>;
+    type U3dPathGeometrySetParam = U3dPathGeometrySetParam_Content & Omit<U3dOutlineCO, never>;
 
 /**
-     * ~extends U3dOutlineAliasCO <br>
+     * ~extends U3dOutlineCO <br>
      *
      * 경로 형상 생성 메서드(`draw`·`createPathMesh`·`createMesh`·`createMeshFromVec3`·`import`)에 전달하는 경로 속성입니다. <br>
      * 메서드마다 사용하는 항목과 기본값이 다르며, `createPathMesh`로 생성한 경로의 속성은 `export`로 저장할 수 있습니다. <br>
      */
     type PathGeometryInfo_Content = {
+        /**
+         * 외곽선 두께. outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀 <br>
+         */
+        lineWidth?: number;
         /**
          * 좌표 변환과 지형 조회에 사용하는 앱(`U3dApp`). `createPathMesh`와 `createMesh`에는 필수입니다 <br>
          */
@@ -1284,12 +1315,12 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
     };
 
 /**
-     * ~extends U3dOutlineAliasCO <br>
+     * ~extends U3dOutlineCO <br>
      *
      * 경로 형상 생성 메서드(`draw`·`createPathMesh`·`createMesh`·`createMeshFromVec3`·`import`)에 전달하는 경로 속성입니다. <br>
      * 메서드마다 사용하는 항목과 기본값이 다르며, `createPathMesh`로 생성한 경로의 속성은 `export`로 저장할 수 있습니다. <br>
      */
-    type PathGeometryInfo = PathGeometryInfo_Content & Omit<U3dOutlineAliasCO, never>;
+    type PathGeometryInfo = PathGeometryInfo_Content & Omit<U3dOutlineCO, never>;
 
 /**
      * `U3dPathGeometry.export`가 반환하는 경로 저장 정보입니다. <br>
@@ -1300,7 +1331,9 @@ declare class U3dPathGeometry extends U3dPathGeometry_base {
          * 경로 형상을 다시 생성하는 데 필요한 속성 <br>
          */
         pathOption: {
-            edge: boolean;
+            outline: boolean;
+            outlineType: "meter" | "pixel";
+            lineWidth: number;
             maxheight: number;
             minheight: number;
             tension: number;

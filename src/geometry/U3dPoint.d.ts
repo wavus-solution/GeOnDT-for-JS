@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -9,11 +9,12 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
 import type { UTexture } from "../core/texture/UTexture.js";
-import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam } from "./U3dGeometry.js";
+import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineCO } from "./U3dGeometry.js";
 import type { EventCallBack, GeoPositionVector3, KeyValue, WorldPositionVector3 } from "../types/global.js";
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dPoint {
+"outline": boolean;
 "name": string;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -21,7 +22,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<string, (arg0: three.WebGLRenderer, arg1: three.Scene<three.Object3DEventMap>, arg2: three.Camera, arg3: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, arg4: three.Material<three.MaterialEventMap>, arg5: three.Group<three.Object3DEventMap>) => void>;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -51,24 +51,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: number): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): number | undefined;
-"_getGeometryOpacity"(): number;
 "setBrightness"(brightness?: number | undefined): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -199,6 +215,7 @@ readonly "normalMatrix": three.Matrix3;
  * ~extends import('@U3dGeometry').U3dGeometryCO <br>
  *
  * U3dPoint 생성자 옵션 <br>
+ * 이미지 마커에는 별도 외곽선 옵션을 지원하지 않습니다. <br>
  */
 type U3dPointCO_Content = {
     /**
@@ -237,8 +254,9 @@ type U3dPointCO_Content = {
  * ~extends import('@U3dGeometry').U3dGeometryCO <br>
  *
  * U3dPoint 생성자 옵션 <br>
+ * 이미지 마커에는 별도 외곽선 옵션을 지원하지 않습니다. <br>
  */
-type U3dPointCO = Omit<Omit<U3dGeometryCO, never> & U3dPointCO_Content, never>;
+type U3dPointCO = Omit<U3dGeometryCO, keyof U3dOutlineCO | "lineWidth" | "lineOpacity" | "lineColor" | "outlineColor" | "outlineWidth" | "outlineOpacity"> & U3dPointCO_Content;
 
 /**
  * ~extends U3dGeometryStyleParam <br>
@@ -273,7 +291,7 @@ type U3dPointParam_Content = {
  *
  * `getParam` 함수가 반환하는 Point 속성 객체 <br>
  */
-type U3dPointParam = U3dPointParam_Content & U3dGeometryStyleParam;
+type U3dPointParam = U3dPointParam_Content & Omit<U3dGeometryStyleParam, keyof U3dOutlineCO | "lineWidth" | "lineOpacity" | "lineColor" | "outlineColor" | "outlineWidth" | "outlineOpacity">;
 
 declare const U3dPoint_base: Omit<typeof U3dGeometry, "prototype"> & {
     new (opt?: U3dGeometryCO, isInit?: boolean): GeOnDTMixedInstance_U3dPoint & InstanceType<typeof U3dGeometry>;
@@ -284,6 +302,7 @@ declare const U3dPoint_base: Omit<typeof U3dGeometry, "prototype"> & {
  * ~extends import('@U3dGeometry').U3dGeometryCO <br>
  *
  * U3dPoint 생성자 옵션 <br>
+ * 이미지 마커에는 별도 외곽선 옵션을 지원하지 않습니다. <br>
  *
  * @typedef {object} U3dPointCO_Content
  * @property {number} [size=1] Point 크기. `sizeAttenuation`이 false면 화면 픽셀, true면 월드 단위(미터)로 해석됩니다. <br>
@@ -299,7 +318,7 @@ declare const U3dPoint_base: Omit<typeof U3dGeometry, "prototype"> & {
  * @memberof U3dPoint
  * @inner
  *
- * @typedef {Omit<U3dGeometryCO, never> & U3dPointCO_Content} U3dPointCO
+ * @typedef {Omit<U3dGeometryCO, keyof U3dOutlineCO | 'lineWidth' | 'lineOpacity' | 'lineColor' | 'outlineColor' | 'outlineWidth' | 'outlineOpacity'> & U3dPointCO_Content} U3dPointCO
  */
 /**
  * ~extends U3dGeometryStyleParam <br>
@@ -316,7 +335,7 @@ declare const U3dPoint_base: Omit<typeof U3dGeometry, "prototype"> & {
  * @property {boolean} sizeAttenuation 카메라에서 멀어질수록 Point를 작게 그릴지 여부 <br>
  * @property {boolean} depthTest 깊이 판정 사용 여부. false면 다른 객체에 가려지지 않고 항상 위에 그려집니다 <br>
  *
- * @typedef {U3dPointParam_Content & U3dGeometryStyleParam} U3dPointParam
+ * @typedef {U3dPointParam_Content & Omit<U3dGeometryStyleParam, keyof U3dOutlineCO | 'lineWidth' | 'lineOpacity' | 'lineColor' | 'outlineColor' | 'outlineWidth' | 'outlineOpacity'>} U3dPointParam
  */
 /**
  * ~extends import('@U3dGeometry') <br>
@@ -349,7 +368,7 @@ declare class U3dPoint extends U3dPoint_base {
      *
      * @type {Record<string, number>}
      */
-    static "__#11367@#scaleList": Record<string, number>;
+    static "__#11542@#scaleList": Record<string, number>;
     /**
      * 캐시된 Point 재질(materialList)과 그 텍스처를 모두 정리(dispose)합니다. <br>
      * 캐시 텍스처는 살아있는 U3dPoint 인스턴스들이 공유하므로, 앱 종료나 전체 리셋 시점에만 호출해야 합니다. <br>
@@ -361,7 +380,7 @@ declare class U3dPoint extends U3dPoint_base {
      * @param {import('three').Texture | null | undefined} texture
      * @returns {boolean}
      */
-    static "__#11367@#isCachedTexture"(texture: three.Texture | null | undefined): boolean;
+    static "__#11542@#isCachedTexture"(texture: three.Texture | null | undefined): boolean;
     /**
      * 이미지 URL과 offset으로 재질 캐시 키를 만듭니다. <br>
      *
@@ -369,7 +388,7 @@ declare class U3dPoint extends U3dPoint_base {
      * @param {import('three').Vector3Like | undefined} offset
      * @returns {string}
      */
-    static "__#11367@#cacheKey"(url: string, offset: three.Vector3Like | undefined): string;
+    static "__#11542@#cacheKey"(url: string, offset: three.Vector3Like | undefined): string;
     /**
      * 두 offset이 같은 보정값인지 비교합니다. <br>
      *
@@ -377,7 +396,7 @@ declare class U3dPoint extends U3dPoint_base {
      * @param {import('three').Vector3Like | undefined} b
      * @returns {boolean}
      */
-    static "__#11367@#sameOffset"(a: three.Vector3Like | undefined, b: three.Vector3Like | undefined): boolean;
+    static "__#11542@#sameOffset"(a: three.Vector3Like | undefined, b: three.Vector3Like | undefined): boolean;
     /**
      * 포인트 도형을 생성합니다. <br>
      * 색상·크기·이미지(`img`) 등을 옵션으로 지정할 수 있으며, 좌표는 생성 후 `setVertex`(월드)나 `setPositions`(위경도)로 넣습니다. <br>

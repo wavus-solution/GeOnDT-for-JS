@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -34,7 +34,7 @@ import type { U3dQuadSet } from "../quadtree/U3dQuadSet.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { U3dQuadTileWork } from "../quadtree/U3dQuadTileWork.js";
 import type { EventCallBack, GeoPositionVector3, GooglePositionVector3, KeyValue, ModelMesh, WorldPositionVector3 } from "../types/global.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_UCharacterControls {
@@ -63,7 +63,7 @@ interface GeOnDTMixedInstance_UCharacterControls {
 "dispose"(): void;
 "getObject"(): three.PerspectiveCamera;
 "getDirection"(v: three.Vector3): three.Vector3;
-"setModelFile"(filePath: string, rotate?: three.Euler | { x: number; y: number; z: number; } | undefined): DeferredObject<void>;
+"setModelFile"(filePath: string, rotate?: three.Euler | { x: number; y: number; z: number; } | undefined): Promise<void>;
 "setWalkModel"(walkModel: any): void;
 "getWalkModel"(): any;
 "setWalkSpeed"(speed: number): void;
@@ -97,6 +97,7 @@ interface GeOnDTMixedInstance_UCharacterControls {
 "off"(type: any, listener: any): void;
 "isDeBug": boolean;
 "setWireframe"(setWireframe: boolean): void;
+"_hasGeoLocation": boolean;
 "_defaultHeight": number;
 "_averagePos": three.Vector3;
 "_setAveragePosition": boolean;
@@ -140,7 +141,7 @@ interface GeOnDTMixedInstance_UCharacterControls {
 "_frustum": UFrustum | undefined;
 "_quadtreeSet": U3dQuadSet | undefined;
 "_light": ULight | three.Light | undefined;
-"reLoad"(): Promise<string>;
+"reLoad"(): Promise<void>;
 "initializeU3f"(): Promise<boolean>;
 "createModel"(tile: U3dQuadTile): boolean;
 "parseXML"(xml: XMLHttpRequest): void;
@@ -157,8 +158,9 @@ interface GeOnDTMixedInstance_UCharacterControls {
 "getBoundingBox"(): three.Box3;
 "checkIsExistModel"(name: string, baseurl?: string | undefined): boolean;
 "getModelInfo"(name: string, baseurl?: string | undefined): ModelInfo | undefined;
+"_isModelLoadReady"(model: ModelInfo): boolean;
 "load"(model: ModelInfo, textureUrl?: string | undefined): Promise<ModelObject3D>;
-"getU3FInfo"(model: string | KeyValue | ModelInfo | undefined, baseurl: string): DeferredObject<any>;
+"getU3FInfo"(model: string | KeyValue | ModelInfo | undefined, baseurl: string): Promise<KeyValue[]>;
 "getTexture"(url: string): Promise<three.Texture<any, three.TextureEventMap>>;
 "getObjectCenter"(): three.Vector3;
 "update"(): void;
@@ -240,15 +242,17 @@ interface GeOnDTMixedInstance_UCharacterControls {
 "getToonImgUrl"(): string | undefined;
 "setToonImgUrl"(url: string): void;
 "settingModelLayerMaterial"(material: ModelMaterial): void;
-"setTileFromEditedModel"(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile>;
+"setTileFromEditedModel"(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile | undefined>;
 "getEditedEventById"(id: string): EditedEvent | undefined;
 "mergedMeshDivision"(object: ModelMesh, afterFunction?: ((mesh: three.Object3D<three.Object3DEventMap>, drawArg: UDrawArg) => void) | undefined): three.Object3D<three.Object3DEventMap>[] | undefined;
+"_getMeshDivisionPromise"(object: three.Object3D<three.Object3DEventMap>): Promise<three.Object3D<three.Object3DEventMap>[]> | undefined;
 "checkDivisionMeshIdle"(): void;
 "setEditEvent"(meshes: three.Object3D<three.Object3DEventMap>[]): void;
 "removeEdit"(modelId: string): void;
 "getMaterialIndexByFace"(object: three.Object3D<three.Object3DEventMap>, faceIndex: number): void | SplitInfo;
 "removeMaterialIndex"(object: ModelMesh, materialIndex: number): boolean;
 "setSplitEvent"(parent: ModelMesh, child: ModelMesh): EditedEvent | undefined;
+"_restoreSplitModels"(original: ModelMesh, meshList: three.Object3D<three.Object3DEventMap>): void;
 "_readyState": "pending" | "fulfilled" | "rejected";
 "_readyResolve"(): void;
 "_readyReject"(reason: Error): void;
@@ -318,8 +322,8 @@ readonly "ready": Promise<U3dModelBasicLayer>;
 "intersectFrustum"(frustum: three.Frustum): boolean;
 "getCacheKeys"(): string[];
 "getCacheLength"(): number;
-"setCancelByTile"(tile: U3dQuadTile, value: DeferredObject<U3dQuadTile>): void;
-"getCancelByTile"(tile: U3dQuadTile): DeferredObject<U3dQuadTile> | undefined;
+"setCancelByTile"(tile: U3dQuadTile, value: DeferredPromise<U3dQuadTile>): void;
+"getCancelByTile"(tile: U3dQuadTile): Promise<U3dQuadTile> | undefined;
 "unkey"(type: string, key?: string | undefined): void;
 "removeCancelByTile"(tile: U3dQuadTile): void;
 "cancelTile"(tile: U3dQuadTile): void;

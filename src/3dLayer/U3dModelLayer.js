@@ -10,10 +10,11 @@ import {UGroup} from '@union3d/core/UGroup';
 import {UCache} from '@union3d/core/UCache';
 import {UMesh} from '@union3d/core/mesh/UMesh';
 import {USharedMesh} from '@union3d/core/mesh/USharedMesh';
-import {U3dMessage} from '@U3dMessage';
-import {deferred} from '@util/deferred';
+import {U3dMessage, __GError__} from '@U3dMessage';
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import {UTextureLoader} from '@union3d/core/loader/UTextureLoader';
 import {INTERNAL} from '@union3d/3dLayer/U3dModelLayer.internal';
+import {U3dEvent} from '@union3d/event/U3dEvent';
 import {U3dQuadTileWorkProcess} from '@union3d/quadtree/U3dQuadTileWorkProcess';
 
 const centroid = new THREE.Vector3();
@@ -199,7 +200,7 @@ class U3dModelLayer extends U3dLayer {
     /** @type {Array<string>} */ editedList = [];
     /** @type {Record<string, EditedEvent>} */ editedEvent = {};
     // 같은 원본을 복원한 뒤 다시 분리해도 이전 요청이 새 편집 결과를 덮어쓰지 않게 한다.
-    /** @type {WeakMap<import('three').Object3D, object>} */ #divisionRequests = new WeakMap();
+    /** @type {WeakMap<import('three').Object3D, {pending: Promise<Array<import('three').Object3D>> | undefined}>} */ #divisionRequests = new WeakMap();
 
     /** @type {boolean} */ _useTexture;
     /** @type {boolean | undefined} */ _setWireframe;
@@ -352,8 +353,12 @@ class U3dModelLayer extends U3dLayer {
         for (const tile of cache) {
             const result = this.createModel(tile);
             if (result instanceof Promise) {
-                result.then(() => {
+                result.then(success => {
+                    // 네이티브 Promise 콜백은 나중에 실행되므로 실패 결과와 해제된 대상을 다시 확인합니다.
+                    if (success === false || this._disposed || tile._disposed) return;
                     this.addTileFromScene(tile);
+                }).catch(error => {
+                    if (!this._disposed && !tile._disposed) __GError__(this, '모델 타일 갱신에 실패했습니다. ' + error, '306002');
                 });
             } else if (result === true) {
                 this.addTileFromScene(tile);
@@ -586,8 +591,6 @@ class U3dModelLayer extends U3dLayer {
     #removeListProcess(uid) {
         if (!defined(this.removedList) || this.removedList.length === 0) return false;
         const result = this.removedList.find(function (value) {
-            value = value.toUpperCase();
-            uid = uid.toUpperCase();
             return value === uid;
         });
 
@@ -634,34 +637,13 @@ class U3dModelLayer extends U3dLayer {
                             removedList.push(mergedId);
                         }
                     }
-                    uid += UDEF.U3F_DETACHED_TOKEN;
                 }
             } else if (defined(object.isMerged) && object.isMerged()) {
                 self.#divisionMesh(object);
                 if (!self.removeFilter(uid)) {
                     removedList.push(uid);
                 }
-                uid += UDEF.U3F_DETACHED_TOKEN;
             }
-        } else {
-            const googleX = Number(uid.split("_")[0]);
-            const googleY = Number(uid.split("_")[1]);
-            const app = self._app;
-            if (!defined(app)) return;
-            const geographic = app.getGoogleToGeographic(googleX, googleY);
-            if (geographic) {
-                const result = /** @type {Array<import('three').Intersection>} */(app.intersectModelAtGeographicPoint(geographic, 3, false, self.getScene()));
-                if (result && result.length > 0) {
-                    for (const result_ of result) {
-                        const object_ = /** @type {ModelMesh} */(result_.object);
-                        if (defined(object_.isMerged) && object_.isMerged()) {
-                            self.#divisionMesh(object_);
-                        }
-                    }
-                }
-            }
-            if (self._ext === ".u3f")
-                uid += UDEF.U3F_DETACHED_TOKEN;
         }
         if (!self.removeFilter(uid))
             removedList.push(uid);
@@ -750,9 +732,12 @@ class U3dModelLayer extends U3dLayer {
 
         if (defined(afterTile) && defined(oriTile)) {
             if (self._classtype == 'U3dModelWFSLayer') {
-                self.createModel(afterTile);
-                self.createModel(oriTile);
-
+                for (const tile of [afterTile, oriTile]) {
+                    // 편집 API 자체는 즉시 반환하지만 재요청의 실패는 이 경로에서 관찰합니다.
+                    Promise.resolve(self.createModel(tile)).catch(error => {
+                        if (!self._disposed && !tile._disposed) __GError__(self, '편집 후 모델 타일 재요청에 실패했습니다. ' + error, '306008');
+                    });
+                }
             } else {
                 self.createModelByFrustum(afterTile, drawArg);
                 self.createModelByFrustum(oriTile, drawArg);
@@ -807,7 +792,8 @@ class U3dModelLayer extends U3dLayer {
         const self = this;
         if (!defined(info) || !defined(faceIndex)) return;
 
-        const modelId = object.getUid ? object.getUid() : /** @type {string} */(/** @type {unknown} */(object.id));
+        const modelId = UMesh._getObjectId(object);
+        if (!defined(modelId)) return;
         if (!self.editFilter(modelId)) {
             self.editedList.push(modelId);
         }
@@ -873,8 +859,8 @@ class U3dModelLayer extends U3dLayer {
         const self = this;
         const removedList = self.removedList;
 
-        let result = removedList.filter(function (value) {
-            return value.toString().includes(uid);
+        const result = removedList.filter(function (value) {
+            return value === uid;
         });
         if (result && result.length > 0) {
             result.forEach((value) => {
@@ -885,12 +871,6 @@ class U3dModelLayer extends U3dLayer {
                 }
 
                 let object;
-                let valueStr = value + "";
-                if (valueStr.includes(UDEF.U3F_DETACHED_TOKEN)) {
-                    value = value.replace(UDEF.U3F_DETACHED_TOKEN, '')
-                    object = self.getModelById(value, false);
-                    if (defined(object)) object.visible = false;
-                }
                 const info_ = self.getEditedEventById(value);
                 if (defined(info_)) {
                     let mergedId = info_.editData['split'];
@@ -922,43 +902,6 @@ class U3dModelLayer extends U3dLayer {
                 self.checkDivisionMeshIdle();
             }
             return;
-        } else if (!result || result.length === 0) {
-            const found = removedList.find(function (value) {
-                return value === uid;
-            });
-            result = found ? [found] : [];
-        }
-
-        if (!result || result.length === 0) {
-            return;
-        }
-
-        if (!result || result.length === 0) {
-            return;
-        }
-
-        const object = self.getModelById(uid);
-        if (defined(object) && !object._disposed && !self.#divisionRequests.has(object)) {
-            self.#wakeModel(object);
-            //+ wfs 2.5D 용도별 스타일
-            if (isStyleInfo(object)) {
-                const info = /** @type {{styleinfo: {visible: boolean}}} */(object.userData).styleinfo;
-                if (info.visible)
-                    object.visible = true;
-                else
-                    object.visible = false;
-            } else {
-                if (self.getVisible())
-                    object.visible = true;
-                else
-                    object.visible = false;
-            }
-        }
-
-        const foundResult = result[0];
-        const index = removedList.indexOf(foundResult);
-        if (index > -1) {
-            removedList.splice(index, 1);
         }
     }
 
@@ -970,8 +913,7 @@ class U3dModelLayer extends U3dLayer {
         const self = this;
 
         self.removedList.forEach(function (uid) {
-            const modelId = uid.toString().replace(UDEF.U3F_DETACHED_TOKEN, '');
-            const object = self.getModelById(modelId);
+            const object = self.getModelById(uid);
             // 편집 중인 분리 자식이 남은 원본은 checkDivisionMeshIdle에서만 복원한다.
             if (defined(object) && !object._disposed && !self.#divisionRequests.has(object)) {
                 self.#wakeModel(object);
@@ -1553,11 +1495,8 @@ class U3dModelLayer extends U3dLayer {
         const self = this;
         if (!defined(mesh)) return;
         const meshExt = /** @type {ModelMesh} */(mesh);
-        const userData = /** @type {MeshUserDataExt} */(meshExt.userData);
-        let modelID = defined(meshExt.getUid) ? meshExt.getUid() : userData.id;
-        if (!defined(modelID)) {
-            modelID = editedEvent.id;
-        }
+        const modelID = UMesh._getObjectId(meshExt);
+        if (!defined(modelID)) return;
         if (!self.editFilter(modelID) && defined(editedEvent)) {
             self.editedList.push(modelID);
         }
@@ -1589,29 +1528,14 @@ class U3dModelLayer extends U3dLayer {
             if (traverseOut) return;
             if (mesh instanceof THREE.Mesh) {
                 const meshExt = /** @type {ModelMesh} */(/** @type {unknown} */(mesh));
-                const modelId = meshExt.getUid?.();
+                const modelId = UMesh._getObjectId(meshExt);
                 if (defined(modelId)) {
-                    if ((isMerged || (meshExt.isMerged && meshExt.isMerged() === isMerged)) && modelId.toString() === id.toString()) {
+                    if ((isMerged || (meshExt.isMerged && meshExt.isMerged() === isMerged)) && modelId === id) {
                         model = meshExt;
                         traverseOut = true;
                     }
                 }
 
-                // old Id
-                const userData = /** @type {MeshUserDataExt} */(meshExt.userData);
-                if (defined(userData.oid)) {
-                    const oidList = userData.oid.split(',');
-                    for (let i = 0; i < oidList.length; i++) {
-                        const oid = oidList[i];
-                        if (id.split instanceof Function) {
-                            const tempId = id.split('_')[0];
-                            if ((isMerged || (meshExt.isMerged && meshExt.isMerged() === isMerged)) && oid.toString() === tempId.toString()) {
-                                model = meshExt;
-                                traverseOut = true;
-                            }
-                        }
-                    }
-                }
             }
         });
         return model;
@@ -1722,14 +1646,14 @@ class U3dModelLayer extends U3dLayer {
      * @param {ModelMesh} mesh 모델 Mesh
      * @param {U3dModelLayer} layer 레이어
      * @param {import('@UDrawArg').UDrawArg} drawArg 레이어 drawArg
-     * @return {Promise<import('@U3dQuadTile').U3dQuadTile>} 찾아진 타일 Array
+     * @return {Promise<import('@U3dQuadTile').U3dQuadTile | undefined>} 찾아진 타일. 원본 타일도 없으면 undefined
      *
      * @ignore
      */
     setTileFromEditedModel(mesh, layer, drawArg) {
         const self = this;
-        /** @type {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<import('@U3dQuadTile').U3dQuadTile | undefined>} */
+        const promise = deferredPromise();
 
         /** @type {Array<import('@U3dQuadTile').U3dQuadTile>} */const findTile = [];
         const meshExt = /** @type {ModelMesh} */(mesh);
@@ -1817,12 +1741,15 @@ class U3dModelLayer extends U3dLayer {
                 let resultMesh_ = /** @type {import('three').Object3D | undefined} */(objExt.mergedMeshDivision?.(self.editedList));
                 if (defined(resultMesh_) && resultMesh_.children.length > 0) {
                     objExt._sleeping = true;
-                    const divisionRequest = {};
+                    /** @type {{pending: Promise<Array<import('three').Object3D>> | undefined}} */
+                    const divisionRequest = {pending: undefined};
+                    /** @type {Array<Promise<void>>} */
+                    const textureTasks = [];
                     self.#divisionRequests.set(object, divisionRequest);
                     const isCurrentDivision = () => !self._disposed && !objExt._disposed && objExt._sleeping &&
                         self.#divisionRequests.get(object) === divisionRequest;
-                    // 중복 ID의 분리 결과만 합성 대상으로 묶으며 원본 자식 참조는 유지한다.
-                    const list = INTERNAL.getDuplicatedInfoList(resultMesh_.children);
+                    // 로더가 지정한 피처 구성 관계로 합성하며 조각별 고유 ID는 유지한다.
+                    const list = INTERNAL.getComposedInfoList(resultMesh_);
                     /** @type {Array<ModelMesh>} */let childrenList = [];
                     /** @type {Array<string>} */let imageUrls = [];
                     const parentMesh = /** @type {ModelMesh | null} */(/** @type {unknown} */(objExt.parent));
@@ -1870,7 +1797,7 @@ class U3dModelLayer extends U3dLayer {
                             }
                         })
                         const loadTexturePromise = self.#loadTexture(imageUrls[imageUrls.length - 1])
-                        loadTexturePromise.then(function (texture) {
+                        textureTasks.push(loadTexturePromise.then(function (texture) {
                             if (!isCurrentDivision()) {
                                 texture.dispose();
                                 return;
@@ -1940,7 +1867,7 @@ class U3dModelLayer extends U3dLayer {
                                         }
                                         child._curImagelevel = level;
                                     }
-                                    let removeCheckId = /** @type {string} */(child.getUid?.()) + UDEF.U3F_DETACHED_TOKEN;
+                                    let removeCheckId = /** @type {string} */(child.getUid?.());
                                     if (!self.removeFilter(removeCheckId) && !child._disposed && !child._sleeping)
                                         child.visible = true;
 
@@ -1962,18 +1889,33 @@ class U3dModelLayer extends U3dLayer {
                             if (!textureUsed) texture.dispose();
                         }).catch(/** @this {unknown} */ function (/** @type {unknown} */ error) {
                             /** @type {{__GInfo__: (scope: unknown, msg: string, code: string) => void}} */(/** @type {unknown} */(globalThis)).__GInfo__(this, 'texture load error : ' + error, '8949013');
-                        })
+                        }));
                     }
                     if (Object.keys(list).length > 0) {
-                        resultMesh_ = self.#addComposedMesh(resultMesh_, list, imageUrls, isCurrentDivision);
-                        return resultMesh_?.children;
+                        resultMesh_ = self.#addComposedMesh(resultMesh_, list, imageUrls, isCurrentDivision, object, textureTasks);
                     }
-
-                    return childrenList;
+                    const resultMeshes = Object.keys(list).length > 0 ? resultMesh_?.children : childrenList;
+                    divisionRequest.pending = Promise.allSettled(textureTasks).then(() => {
+                        divisionRequest.pending = undefined;
+                        return resultMeshes || [];
+                    });
+                    return resultMeshes;
                 }
             }
         }
         return undefined;
+    }
+
+    /**
+     * 해당 원본의 분리 처리가 끝나면 결과 모델들을 전달합니다. 텍스처 실패도 완료에 포함합니다.
+     *
+     * @param {import('three').Object3D} object 분리 원본
+     * @returns {Promise<Array<import('three').Object3D>> | undefined} 진행 중인 분리 결과, 대기할 작업이 없으면 undefined
+     *
+     * @ignore
+     */
+    _getMeshDivisionPromise(object) {
+        return this.#divisionRequests.get(object)?.pending;
     }
 
     //+ 같은 병합 Mesh에서 분리된 Mesh들이 Idle 상태인지 확인
@@ -2113,7 +2055,7 @@ class U3dModelLayer extends U3dLayer {
 
                 editInfo.mesh = meshExt
 
-                if (self.removeFilter(/** @type {string} */(meshExt.getUid?.()) + UDEF.U3F_DETACHED_TOKEN)) {
+                if (self.removeFilter(/** @type {string} */(meshExt.getUid?.()))) {
                     meshExt.visible = false;
                 }
                 if (editInfo.afterFunction && defined(self._drawArg)) {
@@ -2207,7 +2149,7 @@ class U3dModelLayer extends U3dLayer {
         const self = this;
         if (!defined(object) || !defined(faceIndex)) return;
         const objExt = /** @type {ModelMesh} */(object);
-        const modelId = objExt.getUid ? objExt.getUid() : /** @type {string} */(/** @type {unknown} */(objExt.id));
+        const modelId = UMesh._getObjectId(objExt);
         const editEvent = self.getEditedEventById(modelId);
         if (!defined(editEvent)) return;
         const data = editEvent.editData;
@@ -2224,7 +2166,7 @@ class U3dModelLayer extends U3dLayer {
     removeMaterialIndex(object, materialIndex) {
         const self = this;
         if (!defined(object) || !defined(materialIndex)) return false;
-        const modelId = object.getUid ? object.getUid() : /** @type {string} */(/** @type {unknown} */(object.id));
+        const modelId = UMesh._getObjectId(object);
         const editEvent = self.getEditedEventById(modelId);
         if (defined(editEvent)) {
             const data = editEvent.editData;
@@ -2272,15 +2214,26 @@ class U3dModelLayer extends U3dLayer {
      */
     setSplitEvent(parent, child) {
         const self = this;
-        const id = /** @type {string} */(child.getUid?.());
+        const id = UMesh._getObjectId(child);
+        if (!defined(id) || !defined(UMesh._getObjectId(parent))) return;
         if (!self.editFilter(id)) {
             self.editedList.push(id);
-        } else {
-            return;
+        }
+
+        // 같은 논리 모델이 다시 로드되면 편집 내용은 유지하고 실제 객체 참조만 교체한다.
+        // 이전 객체를 그대로 보관하면 선택은 새 메시를 보지만 편집·복원은 옛 메시를 수정한다.
+        const existing = self.editedEvent[id];
+        if (existing) {
+            existing.editData = existing.editData || {};
+            existing.editData.split = UMesh._getObjectId(parent);
+            existing.mesh = child;
+            existing._oriTile = parent._tile;
+            existing._afterTile = parent._tile;
+            return existing;
         }
 
         /** @type {EditData} */const editData = {};
-        editData['split'] = /** @type {string} */(parent.getUid?.());
+        editData['split'] = UMesh._getObjectId(parent);
         /** @type {EditedEvent} */
         const editInfo = {
             id: id,
@@ -2296,6 +2249,45 @@ class U3dModelLayer extends U3dLayer {
     }
 
     /**
+     * 재로딩한 U3F의 분리 조각과 피처 합성 모델에 기존 편집 상태를 복원합니다.
+     * 원본의 삭제 목록은 분리 표시를 위한 숨김도 포함하므로, 일반 분리 요청의 삭제 검사와
+     * 구분합니다. 로더가 복원 필요성을 판정한 결과에만 사용하며 새 사용 대상을 만들지 않습니다.
+     *
+     * @param {ModelMesh} original 재로딩한 병합 원본
+     * @param {import('three').Object3D} meshList 로더가 복원한 분리 조각의 그룹
+     *
+     * @ignore
+     */
+    _restoreSplitModels(original, meshList) {
+        /** @type {{pending: Promise<Array<import('three').Object3D>> | undefined}} */
+        const request = {pending: undefined};
+        original._sleeping = true;
+        this.#divisionRequests.set(original, request);
+        const isCurrent = () => !this._disposed && !original._disposed && original._sleeping &&
+            this.#divisionRequests.get(original) === request;
+        const groups = INTERNAL.getComposedInfoList(meshList);
+        /** @type {Array<string>} */
+        const imageUrls = [];
+        if (original._opt?.images) INTERNAL.appendDivisionImageUrls(original._opt.images, imageUrls);
+
+        // 편집 위치를 먼저 적용해야 이전 기록의 위치를 새 메시의 초기 위치로 덮어쓰지 않는다.
+        this.setEditEvent(meshList.children);
+        for (const child of meshList.children) {
+            const model = /** @type {ModelMesh} */(child);
+            this.setSplitEvent(original, model);
+            model.setManualUpdate?.();
+        }
+        // 재로딩 복원도 일반 분리와 같은 완료 신호를 제공하여 선택기가 합성 텍스처보다 먼저 확정되지 않게 합니다.
+        /** @type {Array<Promise<void>>} */
+        const textureTasks = [];
+        this.#addComposedMesh(meshList, groups, imageUrls, isCurrent, original, textureTasks);
+        request.pending = Promise.allSettled(textureTasks).then(() => {
+            request.pending = undefined;
+            return meshList.children;
+        });
+    }
+
+    /**
      * @param {ModelMesh} object
      * @return {void}
      *
@@ -2308,7 +2300,7 @@ class U3dModelLayer extends U3dLayer {
             for (const obj of child) {
                 const objExt = /** @type {ModelMesh} */(obj);
                 if (objExt.getUid) {
-                    const id = objExt.getUid() + UDEF.U3F_DETACHED_TOKEN;
+                    const id = objExt.getUid();
                     if (self.removeFilter(id)) {
                         objExt._sleeping = true;
                         objExt.visible = false;
@@ -2326,8 +2318,8 @@ class U3dModelLayer extends U3dLayer {
      */
     #loadTexture(url) {
         const self = this;
-        /** @type {DeferredObject<import('@UTexture').UTexture | import('@UCanvasTexture').UCanvasTexture>} */
-        const promise = deferred();
+        /** @type {DeferredPromise<import('@UTexture').UTexture | import('@UCanvasTexture').UCanvasTexture>} */
+        const promise = deferredPromise();
 
         if (!defined(url)) {
             console.info('url undefined!');
@@ -2351,18 +2343,20 @@ class U3dModelLayer extends U3dLayer {
     }
 
     /**
-     * 같은 ID의 분리 자식들을 합성 모델에 옮기고 텍스처 적용을 예약합니다.
+     * 로더가 같은 편집 단위로 연결한 조각들을 합성 모델에 옮기고 텍스처 적용을 예약합니다.
      * 합성 재질은 받은 텍스처의 복제본을 소유하며, 미사용 응답과 로더 원본은 해제합니다.
      *
      * @param {import('three').Object3D} meshList 분리 결과를 보관하는 원본 그룹
-     * @param {Record<string, Array<ModelMesh>>} infoList 같은 ID별 분리 모델 목록
+     * @param {Record<string, Array<ModelMesh>>} infoList 합성 puid별 분리 모델 목록
      * @param {Array<string>} imageUrls 텍스처 URL 목록
      * @param {() => boolean} isCurrentDivision 원본의 현재 분리 작업인지 확인하는 함수
+     * @param {ModelMesh} original 분리 전 원본 메시
+     * @param {Array<Promise<void>>} textureTasks 합성 텍스처 완료를 함께 추적할 목록
      * @returns {import('three').Object3D | undefined} 합성 결과를 추가한 원본 그룹, 입력 그룹이 비면 undefined
      *
      * @ignore
      */
-    #addComposedMesh(meshList, infoList, imageUrls, isCurrentDivision) {
+    #addComposedMesh(meshList, infoList, imageUrls, isCurrentDivision, original, textureTasks) {
         const self = this;
         if (Object.values(infoList).length === 0) return;
         if (meshList.children.length === 0) return;
@@ -2385,24 +2379,32 @@ class U3dModelLayer extends U3dLayer {
                 }
                 let loadTexturePromise = self.#loadTexture(imageUrls[imageUrls.length - 1])
                 mergeMesh.visible = false;
-                loadTexturePromise.then((map) => {
+                textureTasks.push(loadTexturePromise.then((map) => {
                     if (!isCurrentDivision() || mergeMesh._disposed || mergeMesh._sleeping) {
                         map.dispose();
                         return;
                     }
                     mergeMesh.material.forEach(function (material) {
-                        material.map = map.clone();
+                        // 재로딩 전 사용자가 지정한 텍스처 제외 상태도 함께 유지한다.
+                        if (material._exceptTexture) material._oriMap = map.clone();
+                        else material.map = map.clone();
                         material.needsUpdate = true;
                     })
                     // 합성 재질은 각 clone을 소유한다. 로더가 반환한 원본 Texture의 GPU 참조는 남기지 않는다.
                     map.dispose();
-                    mergeMesh.visible = true;
+                    mergeMesh.visible = !self.removeFilter(UMesh._getObjectId(mergeMesh));
+                    // 조각과 ID를 공유하지 않으므로 합성 편집 단위 자체의 재등록도 통지한다.
+                    self.dispatchEvent({type: U3dEvent.MESH.LOADED, data: mergeMesh});
                 }).catch((error) => {
                     /** @type {{__GInfo__: (scope: unknown, msg: string, code: string) => void}} */(/** @type {unknown} */(globalThis)).__GInfo__(self, 'texture load error : ' + error, '8949013');
-                })
+                }));
 
 
                 meshList.add(mergeMesh);
+                // 조각과 합성 모델은 별도 ID를 가진다. 합성 편집도 원본의 분리 수명에 연결한다.
+                self.setEditEvent([mergeMesh]);
+                self.setSplitEvent(original, mergeMesh);
+                mergeMesh.setManualUpdate?.();
 
             }
         }

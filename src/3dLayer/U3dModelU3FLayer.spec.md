@@ -30,16 +30,27 @@
 
 ```spec
 U3FLoadState 타입 정의
-    initialization: {request: DeferredObject<object> | undefined, cancel: function(unknown): void} | undefined
+    initialization: {request: DeferredPromise<object> | undefined, cancel: function(unknown): void} | undefined
         현재 초기화의 정보 요청과 취소 함수다. 완료·실패·취소 시 참조를 먼저 해제한다.
-    requests: Map<DeferredObject<object>, {loader: UFileLoader, id: string}>
+    requests: Map<DeferredPromise<object>, {loader: UFileLoader, id: string}>
         레이어가 소유한 U3G·JSON 정보 요청별 로더와 소비자 ID다. 요청 통지 또는 삭제 시 제거한다.
+    tileRequests: Map<string, DeferredPromise<boolean>>
+        타일 키별로 현재 모델 등록 결과를 소유한 요청이다. 교체·타일 해제·레이어 해제 시 이전 요청을 false로 완료하며, 현재 요청만 같은 키의 상태와 캐시를 변경할 수 있다.
+
+    modelRequests: Map<string, Map<string, U3FModelRequest>>
+        타일 키·모델 URL별 진행 중 작업이다. 다운로드부터 이미지·병합까지 시작 그룹의 소유권을 유지하며 취소 시 호출자 대기부터 종료한다.
+
+U3FModelRequest 타입 정의
+    tile: U3dQuadTile — 요청을 시작한 타일
+    group: Object3D | undefined — 요청을 시작한 그룹이며 동일 키의 재생성 그룹과 구분한다.
+    completion: DeferredPromise<unknown> — 호출자에게 전달할 완료 결과
+    cancel: () -> void — 자기 대기와 반영 권한을 회수한다.
 
 LAYER_LOAD_STATES: WeakMap<U3dModelU3FLayer, U3FLoadState> = 빈 WeakMap
     파일 내부에서 레이어별 로딩 상태를 관리하며 레이어를 강하게 보관하지 않는다.
 
 getLayerLoadState(layer: U3dModelU3FLayer) -> U3FLoadState
-    동작: 기존 로딩 상태를 반환한다. 없으면 initialization이 undefined이고 requests가 빈 Map인 상태를 등록하여 반환한다.
+    동작: 기존 로딩 상태를 반환한다. 없으면 initialization이 undefined이고 requests·tileRequests·modelRequests가 각각 빈 Map인 상태를 등록하여 반환한다.
 
 U3dModelU3FLayer extends U3dModelLayer 클래스 정의
     의존: U3dModelLayer — 모델 레이어 기반 기능; 상속: {U3dModelLayer}
@@ -76,7 +87,7 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
         동작:
             원래 opt의 nullish 여부를 보관하고 new.target의 OPT_KEYS로 옵션 키를 정규화한 뒤 부모를 초기화한다. 원래 입력 또는 정규화된 opt.baseUrl이 nullish이면 각각 4364476 또는 4364687 로그 후 자식 초기화를 중단한다. [확인 Q-001]
             원본 최소·최대 레벨을 -9999로, 정보·이전 위치·현재 위치를 undefined로 초기화한다.
-            옵션별 기본값을 적용하고 텍스처 대기열·타일 URL·모델 식별자·ADD와 REPLACE 범위·합성 정보 저장소를 빈 상태로 만든다.
+            defaultValue로 받는 옵션은 undefined일 때만 기본값을 적용하고 null은 그대로 둔다. 텍스처 대기열·타일 URL·모델 식별자·ADD와 REPLACE 범위·합성 정보 저장소를 빈 상태로 만든다.
             useProxy가 false이면 프록시 접두사를 빈 문자열로 바꾸며 boundingBox가 있으면 이를 원형으로 하는 새 객체를 보관한다.
             파일 로더는 anonymous와 arraybuffer로 설정하고 텍스처 로더 및 패키지 정보 객체를 생성한다.
             makeU3FPackage는 undefined, isShareMaterial은 false로 대체하며 style은 전달값 그대로 저장한다. [확인 Q-015]
@@ -126,7 +137,7 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             UDEF — 패키지 방식; 상수: {NON_PACKAGED_MODEL, PACKAGED_MODEL}
             U3fPackagedInfo — JSON 반영; 함수: {set()}
             U3dMessage — 로딩 실패; 정적 함수: {error()}
-            U3dLayer — 초기화 ready의 종결; 함수: {_resolveReady(), _rejectReady()}
+            U3dLayer — 초기화 ready의 종결과 실패 상태 복원; 함수: {_resolveReady(), _rejectReady()}; 속성 쓰기: {_initialized}
             UFileLoader — 초기화 소비자 취소; 함수: {cancelById()}
             DOMException — 레이어 삭제 취소 사유; 생성자: {new DOMException()}
             U3dLayer — 레이어 수명 확인; 함수: {isDisposed()}; 속성 읽기: {_taskProcessorDisposing}
@@ -136,15 +147,15 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             현재 초기화의 취소 함수를 등록한다. 취소 시 현재 참조를 먼저 해제하고 원래 사유로 레이어를 거부한다.
                 같은 초기화가 소유한 미완료 정보·JSON 요청을 거부하고 소비자 ID로 취소한다. 다른 소비자는 취소하지 않는다.
             초기화 결과 반영 전과 부모 완료 후에는 현재 초기화인지와 레이어 수명을 확인한다. 취소·삭제된 이전 작업의 결과는 적용하지 않는다.
-            _needXml이 참이면 다음 정보 요청을 반환한다.
-                basename에 .u3g가 포함되지 않았을 때만 접미사를 추가하고 정보를 요청한다.
+            진행 중 초기화(state.initialization)가 없고 _needXml이 참이면 다음 정보 요청을 반환한다.
+                _basename에 .u3g가 포함되지 않았을 때만 접미사를 추가하고 정보를 요청한다.
                 정보의 bbox가 있으면 경계와 _info를 저장하고 패키지 사용 여부 및 makeJson을 반영한 뒤 영역을 계산한다.
                 패키지 방식이며 makeJson이 참이면 JSON 로딩을 별도로 시작한다. 성공 시 패키지 정보를 설정하고 요청 실패 시 makeJson을 0으로 바꾸어 바이너리 패키지로 대체한다.
                 정보 또는 JSON 준비 후 부모 initialize를 인수 없이 호출한다. CREATE 수신자가 삭제하지 않았을 때 현재 초기화 참조를 해제하고 _resolveReady로 레이어 자신을 전달한다. JSON 완료는 반환 정보 요청에 연결하지 않는다.
                 정보 요청·경계 계산·JSON 반영·부모 초기화의 예외는 해당 실행 위치에서 직접 받아 3610581 오류를 기록하고 취소 함수로 원래 사유를 전달한다.
                 부모 초기화의 예외는 해당 초기화가 현재이고 레이어가 폐기 중이 아닐 때만 _initialized를 false로 되돌린 뒤 실패를 통지한다. 장면의 그룹은 제거하지 않는다.
-            _needXml이 거짓이면 영역 계산과 부모 초기화를 같은 보호 범위에서 수행하고 undefined를 반환한다.
-            실패 뒤 완료 객체를 reset하여 새 초기화를 시작할 수 있으며 이전에 종결된 응답은 새 초기화의 상태를 변경하지 않는다.
+            진행 중 초기화(state.initialization)가 없고 _needXml이 거짓이면 영역 계산과 부모 초기화를 같은 보호 범위에서 수행하고 undefined를 반환한다.
+            실패·취소 시 현재 초기화 참조를 해제하며 이전에 종결된 응답은 새 초기화의 상태를 변경하지 않는다. 이 메서드 자체는 부모의 ready를 재설정하지 않는다.
             레이어 자체의 실패는 공통 완료 인터페이스가 Error로 정규화한다. 원래 Error는 보존하고 그 밖의 사유는 cause에 보관한다. 반환한 정보 요청과 별도 JSON 요청의 실패값은 그대로 유지한다.
 
     getBoundingBox() -> Box3
@@ -161,7 +172,7 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
         인터페이스: drawArg는 현재 구현에서 사용하지 않는다.
         의존:
             defined — URL 확인; 함수: {defined()}
-            deferred — 결과 종결; 함수: {deferred()}
+            deferredPromise — 결과 종결; 함수: {deferredPromise()}
             UFileLoader — 정보 파일 요청; 함수: {load()}
             UDEF — 소비자 ID 생성; 함수: {createUUID()}
             U3dLayer — 레이어 수명 확인; 함수: {isDisposed()}; 속성 읽기: {_taskProcessorDisposing}
@@ -178,7 +189,7 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
     getLayerJson(url: string) -> Promise<object>
         의존:
             UFileLoader — JSON 요청; 생성자: {new UFileLoader()}; 함수: {setResponseType(), load()}; 속성 쓰기: {crossOrigin}
-            deferred — 결과 종결; 함수: {deferred()}
+            deferredPromise — 결과 종결; 함수: {deferredPromise()}
             UDEF — 소비자 ID 생성; 함수: {createUUID()}
             U3dLayer — 레이어 수명 확인; 함수: {isDisposed()}; 속성 읽기: {_taskProcessorDisposing}
             DOMException — 삭제된 요청의 취소 사유; 생성자: {new DOMException()}
@@ -189,31 +200,34 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             성공 결과는 resolve하며 비동기 오류·취소는 사유 없이 reject한다. 요청 구성의 동기 실패는 원래 사유로 reject한다.
             레이어 삭제는 아직 미완료인 공개 JSON 요청도 AbortError로 거부하고 해당 소비자만 취소한다.
 
-    getTileInfo(tile: U3dQuadTile, indexX: number, indexY: number, level: number, url: string) -> Promise<TileInfo>
+    getTileInfo(tile: U3dQuadTile, indexX: number, indexY: number, level: number, url: string) -> Promise<TileInfo | undefined>
         의존:
             defined — 기록 유무 검사; 함수: {defined()}
-            deferred — 결과 종결; 함수: {deferred()}
+            deferredPromise — 결과 종결; 함수: {deferredPromise()}
             UDEF — 패키지 판정; 상수: {PACKAGED_MODEL}
             U3fPackagedInfo — JSON 타일 조회; 함수: {isValidTile(), setInfo()}
             TileInfo — 정보 객체; 생성자: {new TileInfo()}
             UMathEngine — 타일 경로 계산; 정적 함수: {createUrl3DF()}
             U3dQuadTile — 타일 중심; 속성 읽기: {_rectangle3d, _rlevel}
             UGeoRect — 중심 계산; 함수: {centerMap()}
-            U3dModelLayer — 타일 키와 데이터 캐시; 함수: {createKeyByTile()}; 속성 읽기: {_baseUrl, _cacheTiles}
-            UCache — 바이너리 조회·저장; 함수: {get(), add()}
+            U3dModelLayer — 타일 키·수명과 데이터 캐시; 함수: {createKeyByTile(), isTileDisposed()}; 속성 읽기: {_baseUrl, _cacheTiles, _disposed, _drawArg}
+            UCache — 바이너리 조회·저장 및 손상 응답 제거; 함수: {get(), add(), remove()}
             UFileLoader — 정보 요청; 함수: {load()}
         동작:
-            makeJson이 참이고 패키지 방식이면 유효 타일의 TileInfo를 채워 resolve하고, 유효하지 않으면 undefined로 resolve한다. [확인 Q-004]
+            해제된 레이어이거나 drawArg가 없으면 false 사유로 거부한다. 호출 당시 타일 키의 모델 등록 요청을 보관한다.
+            makeJson이 참이고 패키지 방식이면 유효 타일의 TileInfo를 채워 resolve하고, 유효하지 않으면 undefined로 resolve한다.
             그 외에는 타일 중심·레벨·축 반전으로 기본 경로를 계산한다.
-            URL 캐시가 있으면 즉시 파싱하고 같은 deferred를 반환한다.
-            미캐시 응답은 타일 키의 URL 목록과 캐시에 등록한 뒤 파싱한다.
-            오류는 전달받은 사유로, 취소는 loader abort 문자열로 reject한다.
+            URL 캐시가 있으면 즉시 파싱하고 같은 완료 Promise를 반환한다.
+            미캐시 응답은 레이어·drawArg·타일 수명과 보관한 모델 등록 요청의 동일성을 확인한다. 무효이면 false 사유로 거부하며 URL 목록·캐시를 변경하지 않는다. 유효한 응답만 타일 키의 URL 목록과 캐시에 등록한 뒤 파싱한다.
+            캐시·네트워크 양쪽에서 파서가 동기로 던진 예외를 잡아 해당 URL 캐시를 제거하고 원래 예외로 거부한다. 손상된 메타데이터 때문에 모델 등록 Promise가 대기에 남지 않게 한다.
+            오류 콜백은 전달받은 사유로 reject한다. 별도 취소 콜백에는 loader abort 문자열 거부가 작성되어 있지만, 현재 UFileLoader는 취소를 오류 콜백으로 전달하므로 실제 취소도 전달된 AbortError로 거부한다.
 
     getModelInfo(tile: U3dQuadTile, index: number, url: string, baseurl: string, drawArg: UDrawArg, tileInfo: TileInfo) -> Promise<unknown> | undefined
         의존:
+            deferredPromise — 취소 시 먼저 종결할 호출자 결과; 함수: {deferredPromise()}
             defined — 결과 확인; 함수: {defined()}
-            Promise — 읽기·변환·병합 결과; 정적 함수: {all()}
-            U3dModelLayer — 타일 유효성과 캐시; 함수: {isTileDisposed(), getCache()}; 속성 읽기: {_cacheModeles, _compressModel}
+            U3dModelLayer — 타일 유효성과 캐시; 함수: {isTileDisposed(), getCache()}; 속성 읽기: {_cacheModeles, _compressModel, _name, _disposed}
+            U3dLayer — 레이어별 Worker 사용권 확보와 요청 키; 함수: {_useTaskProcessor(), createKeyByTile()}; 속성 읽기: {_taskProcessorDisposing}
             U3dQuadTile — 부모 진행 가능 여부; 함수: {getParent(), updatePossible()}
             UCache — 로딩 중복 표식; 함수: {get(), add(), remove()}
             UTaskProcessor — Worker 로딩; 함수: {scheduleTask()}
@@ -226,17 +240,21 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             U3dMessage — 일부 모델 실패; 정적 함수: {error()}
             Web API — 전역 압축 도구; 속성 읽기: {globalThis.__UNION3D__}; 함수: {pako.inflate()}
         동작:
-            타일이 해제되었거나 URL이 모델 캐시에 있으면 undefined를 반환한다.
+            레이어 해제·Worker 해제 중·타일 해제 또는 URL 캐시 적중이면 undefined를 반환한다.
+            타일 키와 URL별 진행 요청을 찾는다. 같은 타일·그룹의 요청이면 기존 완료 Promise를 반환하고, 다른 요청이면 먼저 취소한 뒤 시작 타일·그룹·완료 Promise·취소 함수를 새 항목으로 등록한다.
+            반영 권한은 URL 항목이 자기 요청이고 레이어·Worker·타일이 해제되지 않았으며 현재 캐시 그룹이 시작 그룹과 같을 때만 유지한다.
             Worker 사용 시 현재 레이어 정보·인덱스·분할·압축·패키지 옵션으로 작업을 예약한다.
-            Worker 결과 도착 시 타일 해제 또는 부모 갱신 불가이면 타일을 정리하고 reject한다.
-            직접 로딩은 UFileLoader 콜백을 Promise로 연결하고 Yield 뒤 타일 해제를 다시 확인한다. 압축 시 inflate하고 패키지 또는 단일 파서를 선택한다.
+            직접 로딩은 UFileLoader 콜백을 Promise로 연결하고 다운로드·Yield 뒤 반영 권한을 확인한다. 권한이 없으면 undefined로 거부하고, 있으면 압축 설정에 따라 inflate한 뒤 패키지 또는 단일 파서를 선택한다.
+            Worker 또는 직접 파싱 결과를 받은 뒤 반영 권한을 다시 확인한다. 권한이 없거나 Worker 경로에서 부모 타일의 갱신이 불가능하면 undefined로 거부하며 같은 키의 새 타일·그룹은 해제하지 않는다.
             비어 있지 않은 파싱 결과의 URL을 캐시에 등록한다. undefined 또는 빈 결과는 false로 거부한다.
-            단일 모델과 패키지 하위 모델은 공통 변환 함수에서 Yield 뒤 첫 항목에 modelurl·baseurl·index를 기록하고 변환 결과를 기다린다. 빈 첫 항목은 false로 거부한다.
+            단일 모델과 패키지 하위 모델은 공통 변환 함수에서 Yield 뒤 소유권을 확인하고 빈 첫 항목을 false로 거부한다. 텍스처 변환에도 같은 소유권 판정을 전달한다.
+            첫 항목에 modelurl·baseurl·index를 기록하고 변환 결과를 기다린다.
             단일 모델은 변환 결과를 그대로 반환한다. 패키지는 완료된 순서로 정상 결과를 모으고 Promise.all로 모든 비치명 실패의 정리까지 기다린다.
             패키지의 truthy 실패는 전체 작업을 거부하고, falsy 실패는 로그를 남기고 해당 모델을 건너뛴다. 전체 정상 결과가 없으면 undefined로 거부한다.
-            패키지 변환 완료 후 타일 해제를 다시 확인하며 해제됐으면 true로 거부한다. mergeInfos가 있으면 마지막 개별 작업의 성공 여부와 관계없이 병합을 한 번 기다린다. Worker의 V25_TEST 경로는 병합 대신 캐시 그룹을 숨긴다.
-            Worker 예약·직접 다운로드 실패와 다운로드 취소는 false로 거부한다. 파싱·변환·병합의 실패는 반환 Promise로 전파하며 실패 시 URL 표식을 제거한다.
-            별도 외부 Deferred와 수동 완료 카운터를 만들지 않으며, 병합의 falsy 실패도 부분 모델 실패로 세지 않고 전체 실패로 전달한다.
+            패키지 변환 완료 후 반영 권한을 다시 확인하며 없으면 true로 거부한다. mergeInfos가 있으면 마지막 개별 작업의 성공 여부와 관계없이 병합을 한 번 기다린다. mergeInfos가 없고 Worker와 V25_TEST가 모두 참이면 캐시 그룹을 숨긴다.
+            Worker 예약 실패와 직접 다운로드의 오류 콜백은 false로 거부한다. 직접 로더의 별도 onAbort 인수는 전달하지 않으며 UFileLoader가 취소를 onError로 전달하므로 같은 false 경로를 사용한다. 파싱·변환·병합의 실패는 반환 Promise로 전파하며 현재 요청만 자기 URL 표식을 제거한다.
+            최종 성공에서도 반영 권한을 확인한 뒤 자기 요청 항목만 제거하고 빈 타일별 묶음을 회수한다. 권한이 남아 있으면 결과로 resolve하고 사라졌으면 false로 reject한다. 최종 실패는 같은 정리 뒤 원래 사유로 reject하며 병합의 falsy 실패도 전달한다.
+            취소는 자기 URL 요청 항목을 소유한 경우에만 실행한다. 현재 그룹이 시작 그룹과 같을 때만 URL 캐시 표식을 제거하고 자기 요청을 회수한 뒤, 네트워크 완료를 기다리지 않고 호출자 Promise를 false로 reject한다. 늦은 실패는 새 요청의 성공 표식을 제거하지 않는다.
 
     setForceUpdate(force: boolean) -> void
         동작: _forceUpdate를 전달값으로 변경한다.
@@ -260,6 +278,7 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             UDEF — 범위 종류; 상수: {TILE_REFINE.ADD, TILE_REFINE.REPLACE}
             편집 이벤트 — 사용자 후처리; 콜백: {afterFunction()}
         동작:
+            먼저 modelRequests의 해당 키 모델 요청을 취소하여 false로 거부하고, tileRequests에서도 해당 키의 요청을 제거하여 false로 완료한다. 늦은 응답의 반영 권한을 먼저 없앤다.
             편집 이벤트의 _isAdd를 false로 바꾸고 해당 타일의 기록된 모든 URL에 Worker abort를 보낸 뒤 URL 목록을 삭제한다.
             캐시가 Group이면 자식 모델 URL 표식·기즈모 연결·boundsTree를 정리한다.
             캐시 그룹이 REPLACE이면 같은 키의 ADD 범위 materialIndex를 originIndex로 복원한다. 분할된 childMeshId는 중복 제거한다.
@@ -279,8 +298,8 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             defined — 타일 확인; 함수: {defined()}
             U3dModelLayer — 범위와 해제 판정; 함수: {isTileDisposed(), createKeyByTile()}; 속성 읽기: {_minlevel, _maxlevel}
         동작:
-            타일이 nullish이거나 레벨이 허용 범위 밖이면 종료한다.
-            isTileDisposed가 참일 때만 키를 계산하여 해제한다.
+            tile이 nullish가 아니고 레벨이 허용 범위 안일 때만 다음을 수행하며, 그 외에는 종료한다.
+                isTileDisposed가 참일 때만 키를 계산하여 해제한다.
 
     override dispose(drawArg?: UDrawArg) -> Promise<boolean>
         인터페이스: drawArg는 사용하지 않으며 반환 Promise는 부모 정리 후 공유 재질 해제까지 연결한다.
@@ -290,16 +309,18 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             UDEF — 공간 인덱스와 공유 자원; 속성 읽기: {RBUSH}; 정적 함수: {disposeResource()}
             UDEF.RBUSH — 전역 인덱스 초기화; 함수: {clear()}
             UFileLoader — 정보 요청 소비자 취소; 함수: {cancelById()}
-            U3dLayer — Worker 소유권 해제; 함수: {_releaseTaskProcessors()}
+            U3dLayer — 처분 시작 표시와 Worker 소유권 해제; 함수: {_releaseTaskProcessors()}; 속성 쓰기: {_taskProcessorDisposing}
             DOMException — 초기화·정보 요청의 취소 사유; 생성자: {new DOMException()}
         동작:
             _taskProcessorDisposing을 먼저 true로 설정하여 취소 수신자의 재초기화도 차단한다.
-            파일 내부 로딩 상태가 있으면 WeakMap에서 제거한다. 진행 중인 초기화를 AbortError로 종결하고 남은 공개 정보 요청을 보관 목록에서 먼저 제거한 뒤 같은 사유로 거부하여 소비자 ID로 취소한다.
+            파일 내부 로딩 상태가 있으면 WeakMap에서 제거하고 진행 중인 초기화를 AbortError로 종결한다.
+            타일별 모델 등록 요청도 모두 false로 완료하고 tileRequests를 비운다. 진행 중 모델 요청은 false로 거부하여 반영 권한을 회수한다. 늦은 타일 응답은 캐시나 새로운 요청의 상태를 변경하지 않는다.
+            남은 공개 정보 요청을 보관 목록에서 먼저 제거한 뒤 같은 AbortError 사유로 거부하여 소비자 ID로 취소한다.
             늦은 응답은 요청 시작 시 캡처한 요청 목록만 정리하며 파일 보관소에 레이어를 다시 등록하지 않는다.
             같은 URL의 다른 레이어 소비자가 남아 있으면 다운로드를 유지하며 마지막 소비자의 취소만 실제 중단으로 이어진다.
             부모 dispose를 호출하고 전역 RBUSH가 있으면 즉시 비운다.
             부모 성공 후 _sharedMaterial 참조를 undefined로 끊고 재질이 있으면 해제하며 부모 결과를 반환한다. 부모 실패 시 성공 콜백은 실행하지 않는다.
-            finally에서 Worker 소유권을 해제한다.
+            동기 finally에서 Worker 소유권을 해제한다. 부모 Promise 완료나 공유 재질 해제까지 기다린 뒤 실행되는 Promise.finally가 아니다.
 
     getTexture(self: U3dModelU3FLayer, tile: U3dQuadTile, url: string) -> Promise<Texture>
         인터페이스: 명시적으로 전달한 self의 로더를 사용하며 tile은 사용하지 않는다.
@@ -321,7 +342,7 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             Object3D — 그룹 비우기; 함수: {clear()}
             UDEF — 범위 저장소 구분; 상수: {TILE_REFINE.ADD, TILE_REFINE.REPLACE}
         동작:
-            모든 타일 작업을 취소한다.
+            tileRequests의 모델 등록 대기를 false로 완료하고 해당 목록을 비운다. 모델 요청도 false로 거부하여 반영 권한을 회수한 뒤 모든 타일 작업을 취소한다. 초기화와 공개 정보 요청 목록은 여기서 비우지 않는다.
             _cache가 UCache이면 self와 fncDeleteGroup으로 deleteAll하며 나머지 세 캐시도 각각 UCache일 때만 clear한다.
             _group이 있으면 clear하고 _labelGroup이 있으면 clear한 뒤 undefined로 변경한다.
             _modelIds·_tileModelMap·_refineCache·_composedCache를 새 빈 객체로 교체하고 ADD와 REPLACE 범위 저장소도 초기화한다. 텍스처 대기열과 _tileBufferMap은 여기서 비우지 않는다.
@@ -332,6 +353,7 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             U3dModelLayer — 기본 갱신·캐시·유효성; 함수: {prototype.update.call(), getCacheByKey(), isTileDisposed()}; 속성 읽기: {_visible, _checkUpdateTime, _workProcess, _drawArg, _cacheModeles}
             UCheckTime — 갱신 간격; 함수: {isUpdate(), updateTime()}
             WorkProcess — 처리량 검사; 함수: {getWorkingLevel2()}
+            U3dMessage — 상세 갱신 체인의 실패 통지; 정적 함수: {error()}
             UDrawArg — 타일과 거리·가시성; 함수: {intersectsBox(), getModelImageDistance(), getTile()}; 속성 읽기: {_app}
             U3dQuadTile — 카메라 거리; 함수: {distanceToCameraPosition()}
             UCache — 모델 키 조회; 함수: {getKeys()}
@@ -340,7 +362,7 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             Yield — 반복 중 양보; 함수: {Yield()}
         동작:
             drawArg·앱이 없거나 레이어가 숨겨졌거나 isTextureUpdate가 거짓이면 종료한다.
-            _visible이 참이고 _isTextureUpdate가 참일 때 다음 갱신을 처리한다.
+            drawArg가 nullish가 아니고 앱이 있으며 _visible과 _isTextureUpdate가 모두 참일 때 다음 갱신을 처리한다.
                 기본 갱신 시간이 되었거나 강제 갱신이면 부모 update를 실행한다.
                     강제 갱신은 플래그를 false로 초기화하고 탐색 제한을 건너뛴다.
                     일반 탐색은 2순위 작업 수가 40 초과, 레이어 경계 미교차, 모델 타일 키 없음이면 탐색만 종료한다. 이전 모델 수가 truthy이고 모델 수·마지막 키가 모두 같을 때도 탐색만 종료한다.
@@ -393,34 +415,36 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
         인터페이스: force는 사용하지 않으며 Promise 성공은 모델 작업 등록 완료를 나타낸다.
         의존:
             defined — 캐시 및 결과 검사; 함수: {defined()}
-            deferred — 등록 및 작업 종결; 함수: {deferred()}
-            U3dModelLayer — 기반 판정·상태·큐; 함수: {prototype.createModelByFrustum.call(), getStateTile(), setStateTile(), isTileDisposed(), resetStateTile(), createGroupByKey(), addWork()}; 속성 읽기: {_cache, _baseUrl, _compressModel, _cacheModeles}
+            deferredPromise — 등록 및 작업 종결; 함수: {deferredPromise()}
+            U3dModelLayer — 기반 판정·상태·큐; 함수: {prototype.createModelByFrustum.call(), getStateTile(), setStateTile(), createKeyByTile(), isTileDisposed(), resetStateTile(), createGroupByKey(), getCache(), addWork()}; 속성 읽기: {_cache, _baseUrl, _compressModel, _cacheModeles, _disposed}
             UDEF — 상태·작업 종류; 상수: {TILE_STATE._failed, TILE_STATE._loading, TILE_STATE._end, PACKAGED_MODEL, _MSG_WORK._UPDATE_MESH_BUILDING}
             UMathEngine — 모델 주소; 정적 함수: {createUrl3DF()}
             UGeoRect — 중심; 함수: {centerMap()}
             UCache — 타일·모델 조회; 함수: {get(), createKeyByTile()}
             U3dQuadTileWork — 취소·필터가 있는 작업; 생성자: {new U3dQuadTileWork()}
+            __GError__ — 일반 모델 작업 정리 체인의 실패 통지; 함수: {__GError__()}
         동작:
             부모 판정이 거짓이면 undefined로 종료한다. failed 상태는 undefined로 초기화하고 loading 상태이면 종료하며 그 외는 loading으로 변경한다.
-            타일 중심·레벨·반전 설정으로 주소를 만든다. 캐시 그룹이 있으면 end 상태로 바꾸고 false로 resolve한 deferred를 반환한다.
-            타일 정보를 요청한다.
+            캐시 그룹이 있으면 같은 키의 이전 요청을 tileRequests에서 제거하고 false로 완료한다. 현재 타일은 end 상태로 바꾸고 false로 완료되는 표준 Promise를 반환하며 URL·새 요청 제어 객체·정리 callback은 만들지 않는다.
+            캐시가 없으면 타일 중심·레벨·반전 설정으로 주소를 만든다. 새 결과 Promise를 현재 레이어 로딩 상태의 tileRequests에 등록하고 같은 키의 이전 요청은 false로 완료한다. 결과가 종결될 때도 현재 참조와 같은 항목만 제거한다.
+            타일 정보를 요청한다. 요청 생성이 동기로 실패하면 상태를 초기화하고 false 사유로 거부한다. 결과 callback은 현재 요청인지 먼저 검사하고, 그룹 생성 후에도 다시 검사한다. 이전 요청의 callback은 false로 완료하고 현재 타일 상태를 변경하지 않는다.
             결과 시 타일이 해제되었으면 상태 초기화와 종료 콜백을 실행하고 false로 resolve한다. 종료 함수는 배열로 전달한다.
             결과 또는 levels가 없으면 상태를 초기화하여 false로 resolve한다.
             캐시 그룹이 없으면 생성하고 end 상태로 변경한다.
             패키지는 패키지 인덱스·확장자·package 접미사, 일반 모델은 전체 범위의 인덱스로 URL을 만든다. 압축 설정이면 .gz를 덧붙인다.
-            캐시된 모델은 건너뛰며 미캐시 URL을 취소 목록에 등록하고 모델 작업을 큐에 넣는다. 작업의 취소는 작업 deferred를 resolve하며 필터는 타일 미해제 여부다.
-            작업 finally는 패키지의 타일 URL 목록 전체 또는 일반 모델의 해당 URL만 제거한다.
-            작업 등록 직후 true로 resolve한다. 타일 정보 실패는 상태 초기화 후 false 사유로 reject한다.
+            캐시된 모델은 건너뛰며 미캐시 URL을 취소 목록에 등록하고 시작 그룹 참조와 함께 모델 작업을 큐에 넣는다. 작업의 취소는 작업 deferred를 resolve하며 필터는 타일 미해제 여부다.
+            작업 종결 callback은 같은 URL 목록 참조가 유지된 경우에만 정리한다. 패키지는 성공·실패 양쪽에서 타일 URL 목록 전체를, 일반 모델은 finally에서 해당 URL 하나를 제거하고 빈 목록이면 키도 삭제한다. 일반 모델의 finally 체인이 거부되면 레이어가 폐기되지 않았을 때만 오류를 기록한다.
+            작업 등록 직후 true로 resolve한다. 타일 정보 실패는 false 사유로 reject하며 현재 요청일 때만 상태를 초기화한다. 옛 실패가 같은 키의 새 loading 상태를 지우지 않는다.
 
-    loadBlockModel(self: U3dModelU3FLayer, baseurl: string, startindex: number, endindex: number, blocksize: number, max: number, tile: U3dQuadTile, drawArg: UDrawArg, endPromise: DeferredObject<boolean>) -> void
+    loadBlockModel(self: U3dModelU3FLayer, baseurl: string, startindex: number, endindex: number, blocksize: number, max: number, tile: U3dQuadTile, drawArg: UDrawArg, endPromise: DeferredPromise<boolean>) -> void
         의존:
             UDEF — 모델 작업 종류; 상수: {_MSG_WORK._UPDATE_MESH_BUILDING}
-            U3dModelLayer — 유효성·상태·큐; 함수: {isTileDisposed(), resetStateTile(), addWork()}
+            U3dModelLayer — 유효성·상태·큐; 함수: {isTileDisposed(), resetStateTile(), getCache(), addWork()}
             U3dQuadTileWork — 작업 등록; 생성자: {new U3dQuadTileWork()}
         동작:
             startindex 이상 endindex 미만을 순회하고 i가 max와 같으면 true로 resolve하고 반복을 끝낸다.
             타일 해제 시 상태 초기화와 종료 콜백을 실행하고 false로 resolve하여 반환한다. 종료 함수는 배열로 전달한다.
-            각 URL에 대한 모델 작업을 등록한다. 필터는 타일 미해제 여부이며 blocksize는 작업 입력으로만 전달한다.
+            각 URL에 대한 모델 작업을 시작 그룹 참조와 함께 등록한다. 필터는 타일 미해제 여부이며 blocksize는 작업 입력으로만 전달한다.
 
     setMeshColor(color: string | number) -> void
         의존:
@@ -430,15 +454,15 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
             UDEF — 타일 종류; 상수: {TILE_TYPE.MODEL}
         동작:
             색상이 nullish이면 종료하고 그 외에는 문자열 변환 없이 _meshColor에 저장한다. [확인 Q-007]
-            캐시 키의 유효 타일 중 미해제 또는 경계 교차인 타일에 상세 갱신을 요청한다.
+            color가 nullish가 아니면 캐시 키로 찾은 타일이 존재하고 그 _disposed가 거짓일 때, 레이어의 isTileDisposed가 거짓이거나 경계가 교차하면 상세 갱신을 요청한다.
 
     override mergedMeshDivision(mesh: ModelMesh, faceIndex?: number | function(Object3D, UDrawArg): void, onAfterFunction?: function(Object3D, UDrawArg, string): void) -> any
         의존:
             defined — 인수 판정; 함수: {defined()}
             U3dModelLayer — 기존 분할·편집 등록; 함수: {prototype.mergedMeshDivision.call(), addFaceIndexInfo()}
         동작:
-            faceIndex가 nullish 또는 함수이면 함수만 후처리로 부모에 전달하고 부모 결과를 반환한다.
-            숫자이면 면의 분할 정보를 구해 addFaceIndexInfo로 후처리와 함께 등록한 뒤 원본 mesh를 반환한다.
+            faceIndex가 함수이면 기존의 두 인수 후처리를 부모에 전달한다. nullish이고 onAfterFunction이 있으면 모델·drawArg·모델 ID를 전달하도록 연결한 뒤 부모의 동기 결과를 그대로 반환한다.
+            그 외 정의된 값은 별도 숫자형 검사 없이 면의 분할 정보 조회에 전달한다. 반환된 정보를 addFaceIndexInfo로 후처리와 함께 등록한 뒤 원본 mesh를 반환한다.
 
     setPickMaterial(key: string, color: string | number, opacity: number, meshId: string, isSetOutline: boolean = false) -> Array<ModelMesh> | void
         의존:
@@ -471,9 +495,9 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
                 자식 편집의 색상 표식·재질 편집을 지우고 범위의 isDivided·childMeshId를 삭제하여 removed를 true로 만든다.
             materialIndex가 정의되어 있으면 마지막에 부모 결과로 removed를 덮어쓰고 반환한다.
 
-    getBoundingBoxInfo(mesh: ModelMesh) -> Array<{id: string, info: object}> | void
+    getBoundingBoxInfo(mesh: ModelMesh) -> Array<{id: string, info: object}> | undefined
         동작:
-            mesh가 없거나 재질이 배열이 아니면 종료한다.
+            mesh가 없거나 재질이 배열이 아니면 undefined를 반환한다.
             geometry 그룹 중 materialIndex가 0이 아닌 gid를 중복 제거하고 그 gid의 합성 항목을 id와 원본 info 참조로 모아 반환한다.
 
     getComposedInfo(gid: string, childId: string) -> U3dModelU3FLayerComposedInfo | undefined
@@ -495,9 +519,9 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
     applyEditedTextures(tile: U3dQuadTile, level: number) -> void
         의존:
             U3dModelLayer — 편집 및 캐시; 함수: {getCache(), editFilter()}; 속성 읽기: {editedList}
-            ModelMesh — 편집 식별·텍스처 교체; 함수: {getUid(), changeSharedTextureImage(), changeTextureImage()}
+            ModelMesh — 편집 식별·텍스처 교체; 속성 읽기: {puid}; 함수: {changeSharedTextureImage(), changeTextureImage()}
         동작:
-            편집 목록이 비면 종료한다. 캐시 컨테이너의 자식 중 id·oid·getUid가 편집된 그룹만 선택한다.
+            편집 목록이 비면 종료한다. 캐시 컨테이너의 자식 중 puid가 편집 목록에 있는 객체를 포함한 그룹만 선택한다.
             _opt가 있고 비합성·미교체 자식에서 이미지 URL이 비고 원본 이미지가 있으면 URL을 복원한다.
             첫 자식이 비병합인 그룹은 공유 그룹으로, 병합 자식은 Set으로 모은다.
             공유 그룹에서 교체 중 자식이 하나라도 있으면 건너뛰며 미해제·비휴면·다른 레벨인 첫 자식으로 그룹 교체를 시작한다.
@@ -538,11 +562,12 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
     divisionMeshFromFace(mesh: ModelMesh, faceIndex: number) -> {materialIndex: number, composedInfo: U3dModelU3FLayerComposedInfo, tileMaxKey: string} | void
         의존: defined — 인덱스·분할 결과 확인; 함수: {defined()}
         동작:
-            mesh·geometry가 없거나 faceIndex가 nullish이면 종료한다.
-            면 인덱스의 3배가 속한 그룹을 찾고 해당 gid의 합성 목록이 있으며 길이가 0보다 클 때만 순서대로 분할을 시도한다.
-            첫 유효 결과에서 중단하고 _pickMaterials를 확보하여 재질 인덱스·원본 합성 항목·tileMaxKey를 반환한다. 결과가 없으면 undefined다.
+            mesh·geometry가 있고 faceIndex가 nullish가 아니면 다음을 수행하며, 그 외에는 종료한다.
+                면 인덱스의 3배가 속한 그룹의 배열 인덱스를 찾고 없으면 종료한다.
+                찾은 그룹 gid의 합성 목록이 있으며 길이가 0보다 클 때만 순서대로 분할을 시도한다.
+                첫 유효 결과에서 중단하고 _pickMaterials를 확보하여 재질 인덱스·원본 합성 항목·tileMaxKey를 반환한다. 결과가 없으면 undefined다.
 
-    setGroupsDivisionRefine(mesh: ModelMesh, index: number, composedInfo: U3dModelU3FLayerComposedInfo, targetIndex: number) -> number | undefined
+    U3dModelU3FLayer.setGroupsDivisionRefine(mesh: ModelMesh, index: number, composedInfo: U3dModelU3FLayerComposedInfo, targetIndex: number) -> number | undefined
         동작: 재질 구간 분할과 복원 캐시 갱신 결과를 반환한다.
 
     applyPickMaterial(mesh: ModelMesh, group: Object3D, composedInfo: Array<U3dModelU3FLayerComposedInfo>, isSetOutline: boolean = false) -> void
@@ -570,7 +595,7 @@ U3dModelU3FLayer extends U3dModelLayer 클래스 정의
     getRefineCache(type: string, key: string) -> Array<KeyValue> | void
         동작: 해당 type 캐시가 있으면 key의 원본 배열을 반환하고 없으면 undefined다.
 
-    validationMeshInfo(meshInfo: Array<{id: string | number, oid: string | number}>, list: Array<string>, mesh: ModelMesh) -> void
+    U3dModelU3FLayer.validationMeshInfo(meshInfo: Array<{id: string | number, oid: string | number}>, list: Array<string>, mesh: ModelMesh) -> void
         동작: 전달한 모델 정보와 합성 캐시의 대응 관계를 검사하며 내부 예외도 그대로 전달한다. [확인 Q-009]
 
 disposeU3FModel(self: U3dModelU3FLayer, tile: U3dQuadTile) -> void
@@ -601,25 +626,25 @@ changeTexture(opt: KeyValue) -> Promise<boolean> | null
         _changingTexture를 true로 하고 로딩한다.
         도착 시 타일 또는 메시가 해제·휴면이면 플래그를 false로 바꾸고 새 텍스처를 해제한다. 내부 성공 체인으로 이어져 외부 결과는 true다.
         material이 있는 경로에서만 품질을 설정하고 공유 메시는 changeTextures로, 그 외는 기존 map을 dispose한 뒤 새 map과 needsUpdate를 적용한다.
-            _curImagelevel을 갱신하고 useModelAndTexture와 초기 이미지가 모두 참이면 visible을 true로 한다. 제거된 병합 메시이면 다시 숨긴다.
+            _curImagelevel을 갱신하고 useModelAndTexture와 초기 이미지가 모두 참이면 visible을 true로 한다. mesh.puid가 삭제 목록에 있고 병합된 메시이면 다시 숨긴다.
             편집 텍스처를 재적용한다.
-        성공 시 갱신 통지·true resolve·교체 플래그 해제 순서다. 실패는 갱신 통지 후 false reject와 플래그 해제를 수행하며 경로별 순서를 보존한다.
+        성공 시 갱신 통지·true resolve·교체 플래그 해제 순서다. 적용 체인의 실패는 갱신 통지·플래그 해제·false reject 순서이며, 로딩 체인의 실패는 갱신 통지·false reject·플래그 해제 순서다.
 
-modelProcess(opt: KeyValue) -> DeferredObject<boolean>
+modelProcess(opt: KeyValue) -> Promise<boolean>
     인터페이스: 반환값은 opt.endPromise 원본이다. resolve 값 true는 로딩 결과 처리 완료, false는 처리된 중단·실패를 뜻하며, 객체 반환 자체가 비동기 처리 완료를 뜻하지 않는다.
     의존:
         defined — 입력·결과 확인; 함수: {defined()}
-        U3dModelLayer — 타일과 캐시; 함수: {isTileDisposed()}; 속성 읽기: {_cache}
+        U3dModelLayer — 타일과 캐시; 함수: {isTileDisposed(), getCache()}; 속성 읽기: {_cache, _disposed}
         U3dQuadTile — 부모 갱신; 함수: {getParent(), updatePossible()}
         UCache — 결과 그룹; 함수: {get()}
         UDEF — 패키지·범위; 상수: {PACKAGED_MODEL, TILE_REFINE.ADD, TILE_REFINE.REPLACE}
         U3dMessage — 결과 누락; 정적 함수: {error()}; 상수: {CNT.CMM.NON_OBJECT_1}
     동작:
-        opt를 읽고 self·tile의 유효성 검사보다 먼저 타일 해제 및 부모 갱신 가능 여부에 접근한다. [확인 Q-016]
-        해제·부모 갱신 불가·필수 주소나 drawArg 부재이면 endPromise를 false로 resolve하고 그 객체를 반환한다.
+        opt를 읽고 self의 존재·주소·drawArg 검사보다 먼저 레이어 상태·타일 캐시와 타일 부모에 접근한다. [확인 Q-016]
+        레이어·타일 해제·예약한 그룹 교체·부모 갱신 불가·필수 주소나 drawArg 부재이면 endPromise를 false로 resolve하고 그 객체를 반환한다.
         모델 로딩을 시작하며 결과 Promise가 없으면 false로 resolve한다.
-        성공 결과에서 패키지는 첫 하위 배열, 단일 모델은 첫 객체의 index를 읽는다. 결과가 없거나 배열이 아니거나 index가 없으면 로그 후 false로 resolve한다.
-        완료 시 타일이 해제되었으면 타일을 정리하고 false로 resolve한다.
+        완료 시 레이어·타일 해제 또는 예약한 그룹 교체이면 자기 작업만 false로 완료한다. 같은 키의 현재 그룹을 해제하지 않는다.
+        성공 결과가 nullish이면 로그 후 false로 resolve한다. 첫 항목이 있으면 패키지는 첫 하위 배열의 첫 객체에서, 단일 모델은 첫 객체에서 index를 읽는다. 이 접근 뒤 배열 여부와 index 존재를 검사하며 실패하면 로그 후 false로 resolve한다. 앞선 접근 자체가 던진 예외는 공통 실패 경로에서 false로 종결한다.
         캐시 객체가 REPLACE이면 같은 타일 ADD 범위를 재질 인덱스 0으로 숨기고 REPLACE 표식을 저장한다. 그 뒤 true로 resolve한다.
         로딩 실패나 로딩 성공 후 처리 중 발생한 예외는 false로 resolve한다. 함수 자체는 이 비동기 처리 완료를 기다리지 않고 endPromise를 반환한다.
 
@@ -627,14 +652,14 @@ async createTextureFromImageRawArray(self: U3dModelU3FLayer, thumbimages: Array<
     의존:
         defined — 입력 검증; 함수: {defined()}
         UDEF — 입력 단언; 정적 함수: {assert()}
-        deferred — 이미지별 결과; 함수: {deferred()}
+        deferredPromise — 이미지별 결과; 함수: {deferredPromise()}
     동작:
         로더·비어 있지 않은 이미지 배열·종결 객체를 검증한다.
         IS_SERIAL이 true이면 복사 URL 배열로 직렬 로더를 호출한다.
         IS_SERIAL이 false이면 이미지별 deferred를 만들어 로딩하고 Promise.all 성공에서 결과가 하나면 단일 텍스처, 여러 개면 배열로 promLast를 resolve한다. 현재 상수는 false다.
         실패는 promLast를 reject하며 반환 Promise는 이미지 완료를 기다리지 않는다.
 
-_LoadImageChainAsync(self: U3dModelU3FLayer, arrayUrl: Array<string>, promLast: DeferredObject<Texture | Array<Texture>>, curUrl?: string, textures?: Array<Texture>) -> void
+_LoadImageChainAsync(self: U3dModelU3FLayer, arrayUrl: Array<string>, promLast: DeferredPromise<Texture | Array<Texture>>, curUrl?: string, textures?: Array<Texture>) -> void
     의존:
         defined — 인수·로더 확인; 함수: {defined()}
         UDEF — 입력과 품질; 정적 함수: {assert(), setTextureImprovement(), noResizeTexture()}; 상수: {IMPROVE_TEXTURE_LEVEL.none}
@@ -660,20 +685,24 @@ setMaterialStyle(material: ModelMaterial, style: any) -> void
         material이 없거나 isMaterial이 거짓, style이 없거나 열거 값이 비면 종료한다. [확인 Q-015]
         color가 truthy이면 색상에 적용하고 emissive가 truthy이면 emissive가 있는 경우 동일 값을 세 인수로 set한다.
 
-convertObj2Mesh(self: U3dModelU3FLayer, objs: any, tile: U3dQuadTile, drawArg: UDrawArg, tileInfo: TileInfo) -> Promise<Array<U3FParsedObj>> | undefined
+convertObj2Mesh(self: U3dModelU3FLayer, objs: any, tile: U3dQuadTile, drawArg: UDrawArg, tileInfo: TileInfo, isCurrent: () -> boolean) -> Promise<Array<U3FParsedObj>> | undefined
+    인터페이스: isCurrent는 호출자가 제공한 현재 요청·타일·그룹의 반영 권한 판정 함수다.
     의존:
         defined — 입력·그룹 확인; 함수: {defined()}
         UDEF — 변환 체인; 정적 함수: {createPromise()}
-        U3dModelLayer — 타일·캐시; 함수: {isTileDisposed(), getCache(), createKeyFromTile()}; 속성 읽기: {_useTexture}
+        U3dModelLayer — 타일·캐시; 함수: {getCache(), createKeyFromTile()}; 속성 읽기: {_useTexture}
         UDrawArg — 장면; 속성 읽기: {_scene}
         U3dMessage — 입력 누락; 정적 함수: {error(), info()}
+        isCurrent — 요청 반영 권한 확인; 콜백: {isCurrent()}
     동작:
         objs 또는 drawArg가 nullish이면 즉시 오류를 던진다.
-        비동기 체인에서 타일이 없거나 해제이면 정리 후 true 사유로 reject한다. 장면이 없으면 오류를 출력하고 true로 reject하며, 그룹이 없어도 true로 reject한다.
+        결과 Promise의 실행 시작에 isCurrent로 반영 권한을 확인하고 없으면 true로 거부한다. 장면이 없으면 오류를 출력하고 true로 reject하며, 그룹이 없어도 true로 reject한다. 새 타일·그룹은 정리하지 않는다.
         복원 입력의 중심 정보가 없으면 안내 메시지를 출력하고 true로 reject한다.
-        타일 모델 저장소를 확보한다. 내부 이미지 없음 판정이 참이면 텍스처 없이 진행한다.
-        useTexture가 참이면 내부 조회한 미리보기 입력 부재는 텍스처 없이 진행하고 배열 입력은 배열 로더, 그 외는 단일 로더로 변환한다. useTexture가 거짓이고 imagecount가 0이 아니면 종결되지 않는다. [확인 Q-013]
-        텍스처 완료 시 타일이 해제되었으면 타일·텍스처를 정리하고 true로 reject한다.
+        타일 모델 저장소를 확보하고 이미지 준비를 시작할 때 반영 권한을 다시 확인한다. 없으면 true로 거부한다.
+        _useTexture가 거짓이면 이미지 유무를 검사하지 않고 텍스처 없이 형상 생성을 계속한다.
+        _useTexture가 참일 때 내부 이미지 없음 판정이 참이면 텍스처 없이 진행한다.
+        _useTexture가 참이고 이미지가 있는 경우 미리보기 입력을 조회한다. 입력이 없으면 텍스처 없이 진행하고, 배열이면 배열 로더, 그 외에는 단일 로더를 사용한다.
+        텍스처 완료 시 반영 권한이 사라졌으면 받은 텍스처만 해제하고 true로 reject한다.
         유효하면 타일 저장소를 재확보하고 메시 생성 반환값과 무관하게 원본 objs로 resolve한다. 후속 실패는 true로 reject한다.
 
 processChangeTexture(self: U3dModelU3FLayer, mesh: ModelMesh, modellevel: number, tile: U3dQuadTile, force3: boolean, resolve?: any) -> boolean | void
@@ -705,22 +734,22 @@ resetMaterialColor(material: ModelMaterial) -> void
 
 MODEL_HOOKS: U3FModelHooks
     finishMesh는 finishRestoredMesh, deleteTexture는 같은 이름의 함수, notifyLoadedModel은 같은 이름의 함수다.
+    createModelMesh와 mergeModelMesh가 같은 객체를 내부 복원·병합 함수에 전달한다. 해당 함수들은 이 연결을 호출하거나 전달만 하며 객체나 멤버를 교체하지 않는다.
 
 finishRestoredMesh(self: U3FFinishModelOwner, mesh: ModelMesh, obj: U3FParsedObj) -> boolean | undefined
     의존:
         defined — 메시 기능과 공간 색인 확인; 함수: {defined()}
-        U3dModelLayer — 삭제·편집·이벤트; 함수: {removeFilter(), editFilter(), setEditEvent(), setSplitEvent(), dispatchEvent()}; 속성 읽기: {removedList}
-        UU3fMesh — 편집 분할과 수동 갱신; 함수: {getUid(), isMerged(), mergedMeshDivision(), setManualUpdate()}
-        UDEF — 삭제 식별자와 공간 탐색; 상수: {U3F_DETACHED_TOKEN, BOUNDING_METHOD, BOUNDING_TYPE.TREE}; 속성 읽기: {RBUSH}
+        U3dModelLayer — 삭제·편집 복원·이벤트; 함수: {removeFilter(), editFilter(), _restoreSplitModels(), dispatchEvent()}; 속성 읽기: {removedList}
+        UU3fMesh — 편집 분할과 수동 갱신; 함수: {isMerged(), mergedMeshDivision(), setManualUpdate()}; 속성 읽기: {puid}
+        UDEF — 공간 탐색; 상수: {BOUNDING_METHOD, BOUNDING_TYPE.TREE}; 속성 읽기: {RBUSH}
         THREE — 공간 등록 구; 생성자: {new Sphere()}
         UDEF.RBUSH — 공간 등록; 함수: {insert()}
         UBufferGeometry — 공간 트리; 함수: {computeBoundsTree()}
         U3dEvent — 로드 이벤트; 상수: {MESH.LOADED}
     동작:
-        isMerged 기능이 있으면 getUid와 삭제 접미사를 결합해 제거 여부를 검사한다. 일치하면 숨기고 isMerged가 거짓인 분리 모델은 휴면으로 둔다.
-        기능이 없으면 id 또는 oid 제거 필터가 일치하고 병합된 메시일 때만 숨긴다.
-        복원 입력에서 색상 편집된 항목의 위치를 구한다.
-        id·oid 편집 필터 또는 편집 위치가 유효하고 병합된 메시이면 숨긴 뒤 분할한다. 분할 자식이 있으면 편집 이벤트, 각 자식 분할 이벤트, 수동 갱신 순서로 처리하고 true를 반환한다.
+        isMerged 기능이 있으면 메시 puid로 삭제 여부를 검사한다. 일치하면 숨기고 isMerged가 거짓인 분리 모델은 휴면으로 둔다. 기능이 없으면 같은 puid가 삭제 목록에 있고 _isMerged가 truthy인 경우만 숨긴다.
+        복원 입력의 조각 또는 합성 편집 단위에 편집·분리 기록이 있는 첫 위치를 구한다. 색상 편집뿐 아니라 이동·회전·축척 복원도 포함한다.
+        메시 puid가 편집 목록에 있거나 위 위치가 유효하고 병합된 메시이면 숨긴 뒤 분할한다. 분할 자식이 있으면 _restoreSplitModels로 조각과 합성 편집 단위의 상태·현재 참조를 복원하고 true를 반환한다.
         그 외는 수동 갱신하고 RBUSH가 정의되면 복사 경계와 새 Sphere 및 mesh를 insert한다. TREE 방식이며 geometry.boundsTree가 없을 때만 트리를 만든다.
         MESH.LOADED 이벤트를 발행하고 undefined를 반환한다. 콜백 예외는 잡지 않는다.
 
@@ -746,7 +775,7 @@ U3FGetEditedModelIndexOwner 타입 정의
     기반 타입: Pick<U3dModelU3FLayer, 'editedEvent' | 'editedList'>
 
 U3FRestoreModelMeshesOwner 타입 정의
-    기반 타입: U3FFinishModelOwner & Pick<U3dModelU3FLayer, '_animation' | '_classtype' | '_drawArg' | '_isShareMaterial' | '_modelIds' | '_name' | '_opacity' | '_renderOrder' | '_sharedMaterial' | '_tileModelMap' | '_transparent' | '_useBaseMaterial' | '_useBoxHelper' | '_useEditMode' | 'createKeyFromTile' | 'createModelMesh' | 'setMaterial' | 'validationMeshInfo'>
+    기반 타입: U3FFinishModelOwner & Pick<U3dModelU3FLayer, '_animation' | '_classtype' | '_drawArg' | '_isShareMaterial' | '_modelIds' | '_name' | '_opacity' | '_renderOrder' | '_sharedMaterial' | '_tileModelMap' | '_transparent' | '_useBaseMaterial' | '_useBoxHelper' | '_useEditMode' | 'createKeyFromTile' | 'createModelMesh' | 'getCache' | 'setMaterial' | 'validationMeshInfo'>
 
 U3FMergeModelMesh24Owner 타입 정의
     기반 타입: Pick<U3dModelU3FLayer, '_classtype' | '_composedCache' | '_modelIds' | '_name' | '_opacity' | '_refineCache' | '_renderOrder' | '_tileModelMap' | '_transparent' | '_useBoxHelper' | 'applyPickMaterial' | 'createKeyFromTile' | 'editFilter' | 'getCache' | 'getEditedEventById' | 'isTileDisposed' | 'setMaterial'>
@@ -774,7 +803,7 @@ U3FPreviewInput 타입 정의
     기반 타입: string | ArrayBuffer | Array<string | ArrayBuffer> | undefined
 
 U3FFinishModelOwner 타입 정의
-    기반 타입: Pick<U3dModelU3FLayer, 'removeFilter' | 'editFilter' | 'removedList' | 'editedList' | 'editedEvent' | 'setEditEvent' | 'setSplitEvent' | 'dispatchEvent'>
+    기반 타입: Pick<U3dModelU3FLayer, 'removeFilter' | 'editFilter' | 'removedList' | 'editedList' | 'editedEvent' | '_restoreSplitModels' | 'dispatchEvent'>
 
 U3FImageSelectionState 타입 정의
     기반 타입: object
@@ -795,11 +824,11 @@ U3FFinishModelCallback 함수 타입 정의
 
 U3FParsedObj 타입 정의
     기반 타입: KeyValue
-    파서가 반환한 동적 모델 객체다.
+    파서가 반환한 동적 모델 객체다. 식별 준비 뒤 id는 메시 puid, oid는 원본 피처 속성이며 rootPuid는 등록·분리 루트, composedPuid는 복수 조각의 편집 단위를 뜻한다.
 
 U3dModelU3FLayerComposedInfo 타입 정의
     기반 타입: {id: string, start: number, count: number} & KeyValue
-    합성 메시의 인덱스 범위와 동적 편집 정보다.
+    합성 메시의 인덱스 범위와 동적 편집 정보다. id는 합성 편집 단위의 puid 또는 합성이 없는 조각 puid이고 uid는 실제 조각 puid다.
 
 U3dModelU3FLayerCO 타입 정의
     기반 타입: U3dModelLayerCO & U3dModelU3FLayerCO_Content

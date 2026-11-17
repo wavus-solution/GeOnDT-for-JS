@@ -1,0 +1,116 @@
+<nav data-example-rail aria-label="조망권 분석 도구">
+    <button id="analysisView-toggle" class="rail-button" type="button" data-panel-target="analysisView-panel" aria-controls="analysisView-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">▦</span><span>분석</span>
+    </button>
+</nav>
+
+<aside class="glass-panel example-panel legacy-migration-panel analysisView-panel" id="analysisView-panel" aria-hidden="true">
+    <header class="panel-header">
+        <div><span class="eyebrow">LANDSCAPE</span><h2>조망권 분석</h2></div>
+        <div class="analysisView-header-actions">
+            <button class="btn btn-default btn-view-down" type="button" data-action="capture">화면 저장</button>
+            <button class="panel-close popup-exit" type="button" data-panel-close="analysisView-panel" aria-label="분석 패널 닫기">×</button>
+        </div>
+    </header>
+    <dl class="current-view" aria-label="현재 분석 관측점">
+        <div><dt><span class="point-dot" aria-hidden="true"></span>현재 시점</dt><dd id="analysisView-current-point">미선택</dd></div>
+        <div><dt><span class="point-dot target-dot" aria-hidden="true"></span>현재 조망점</dt><dd id="analysisView-current-target">미선택</dd></div>
+    </dl>
+    <div class="analysisView-tabs" role="tablist" aria-label="분석 작업">
+        <button id="analysisView-points-tab" type="button" role="tab" aria-selected="true" aria-controls="analysisView-points-panel" data-analysis-tab="points">관측점 관리</button>
+        <button id="analysisView-floor-tab" type="button" role="tab" aria-selected="false" aria-controls="analysisView-floor-panel" tabindex="-1" data-analysis-tab="floor">층별 자동분석</button>
+    </div>
+    <div class="panel-content analysisView-workspace">
+        <div id="analysisView-points-panel" role="tabpanel" aria-labelledby="analysisView-points-tab">
+            <p class="analysisView-hint">시점과 조망점을 등록한 뒤 가시선을 그려 조망권을 확인하세요.</p>
+            <div class="analysisView-point-grid">
+                <section class="analysisView-card" aria-labelledby="analysisView-points-title">
+                    <div class="analysisView-card-heading">
+                        <h3 id="analysisView-points-title"><span class="point-dot" aria-hidden="true"></span>시점</h3>
+                        <span class="analysisView-count" id="analysisView-point-count" aria-label="등록된 시점 수">0</span>
+                    </div>
+                    <p class="analysisView-hint">카메라가 위치할 곳</p>
+                    <div class="analysisView-list-actions">
+                        <button class="btn btn-primary btn-add-view-point" type="button" data-action="add" data-kind="viewPoint">+ 추가</button>
+                        <button class="btn btn-default btn-load-view-point" type="button" data-action="load" data-kind="viewPoint">예시 불러오기</button>
+                    </div>
+                    <div class="view-point-list view-list" aria-label="시점 목록"></div>
+                    <div class="analysisView-list-footer">
+                        <div class="button-row">
+                            <button class="btn btn-default btn-view-point-prev" type="button" data-action="prev" data-kind="viewPoint" aria-label="이전 시점">‹ 이전</button>
+                            <button class="btn btn-default btn-view-point-next" type="button" data-action="next" data-kind="viewPoint" aria-label="다음 시점">다음 ›</button>
+                        </div>
+                        <button class="btn analysisView-clear btn-remove-view-point" type="button" data-action="remove" data-kind="viewPoint">전체 지우기</button>
+                    </div>
+                </section>
+                <section class="analysisView-card" aria-labelledby="analysisView-targets-title">
+                    <div class="analysisView-card-heading">
+                        <h3 id="analysisView-targets-title"><span class="point-dot target-dot" aria-hidden="true"></span>조망점</h3>
+                        <span class="analysisView-count" id="analysisView-target-count" aria-label="등록된 조망점 수">0</span>
+                    </div>
+                    <p class="analysisView-hint">카메라가 바라볼 곳</p>
+                    <div class="analysisView-list-actions">
+                        <button class="btn btn-primary btn-add-view-target" type="button" data-action="add" data-kind="viewTarget">+ 추가</button>
+                        <button class="btn btn-default btn-load-view-target" type="button" data-action="load" data-kind="viewTarget">예시 불러오기</button>
+                    </div>
+                    <div class="view-target-list view-list" aria-label="조망점 목록"></div>
+                    <div class="analysisView-list-footer">
+                        <div class="button-row">
+                            <button class="btn btn-default btn-view-target-prev" type="button" data-action="prev" data-kind="viewTarget" aria-label="이전 조망점">‹ 이전</button>
+                            <button class="btn btn-default btn-view-target-next" type="button" data-action="next" data-kind="viewTarget" aria-label="다음 조망점">다음 ›</button>
+                        </div>
+                        <button class="btn analysisView-clear btn-remove-view-target" type="button" data-action="remove" data-kind="viewTarget">전체 지우기</button>
+                    </div>
+                </section>
+            </div>
+        </div>
+        <div id="analysisView-floor-panel" role="tabpanel" aria-labelledby="analysisView-floor-tab" hidden>
+            <p class="analysisView-hint">건물을 선택하고 층 범위를 지정해 관측점을 한 번에 생성하세요.</p>
+            <section class="analysisView-card analysisView-building-card" aria-labelledby="analysisView-floor-title">
+                <div class="analysisView-card-heading">
+                    <h3 id="analysisView-floor-title"><span class="analysisView-step">1</span>분석할 건물</h3>
+                    <button class="btn btn-primary btn-select" type="button" data-action="select" aria-pressed="false">건물 선택</button>
+                </div>
+                <p id="analysisView-building">선택된 건물 없음</p>
+                <p class="analysisView-hint">건물 선택을 누른 뒤 지도에서 건물을 클릭하세요.</p>
+            </section>
+            <section class="analysisView-card" aria-labelledby="analysisView-range-title">
+                <h3 id="analysisView-range-title"><span class="analysisView-step">2</span>관측점 생성 범위</h3>
+                <div class="floor-controls">
+                    <label>생성 대상
+                        <select name="type"><option value="viewPoint">시점</option><option value="viewTarget">조망점</option></select>
+                    </label>
+                    <label>시작층<input id="analysisView-floor-start" type="number" min="1" step="1" value="1"></label>
+                    <label>종료층<input id="analysisView-floor-end" type="number" min="1" step="1" value="5"></label>
+                </div>
+                <button class="btn btn-primary btn-compute-floor" type="button" data-action="floor" aria-describedby="analysisView-floor-help" disabled>층별 관측점 생성</button>
+                <p class="analysisView-hint" id="analysisView-floor-help">건물을 선택하면 관측점을 생성할 수 있습니다.</p>
+            </section>
+        </div>
+    </div>
+    <footer class="analysisView-footer">
+        <div class="analysisView-tools">
+            <section aria-labelledby="analysisView-line-title">
+                <h3 id="analysisView-line-title">가시영역</h3>
+                <div class="button-row">
+                    <button class="btn btn-primary btn-draw-line" type="button" data-action="draw">가시선 그리기</button>
+                    <button class="btn btn-default btn-remove-line" type="button" data-action="remove-line">가시선 지우기</button>
+                </div>
+            </section>
+            <section aria-labelledby="analysisView-animation-title">
+                <h3 id="analysisView-animation-title">관측점 순회</h3>
+                <div class="button-row">
+                    <button class="btn btn-primary btn-animate-start" type="button" data-action="animate">시작</button>
+                    <button class="btn btn-default btn-animate-stop" type="button" data-action="stop">중지</button>
+                    <button class="btn btn-default btn-panmode" type="button" data-action="pan">지도모드</button>
+                </div>
+            </section>
+        </div>
+        <p id="analysisView-status" class="analysis-note" role="status" aria-live="polite">시점과 조망점을 등록하거나 예시 관측점을 불러오세요.</p>
+    </footer>
+</aside>
+
+<section class="glass-panel popup-capture" aria-label="화면 저장 미리보기" hidden>
+    <button class="panel-close" type="button" data-action="close-capture" aria-label="미리보기 닫기">×</button>
+    <img alt="조망권 분석 화면">
+</section>

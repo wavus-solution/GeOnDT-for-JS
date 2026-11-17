@@ -3,8 +3,7 @@ import * as THREE from 'three';
 import {U3dComponentPosition} from '@union3d/3dLayer/U3dComponentPosition';
 import {defined} from '@util/defined.js';
 import {defaultValue} from '@util/defaultValue.js';
-import {deferred} from '@union3d/util/deferred.js';
-import {__GInfo__, __GSError__} from '@U3dMessage';
+import {__GError__, __GInfo__, __GSError__} from '@U3dMessage';
 import {INTERNAL} from '@union3d/3dLayer/U3dComponentInstancedPosition.internal';
 import {INTERNAL as COLOR_ADJUSTMENT} from '@union3d/3dLayer/U3dComponentPosition.internal';
 
@@ -21,31 +20,83 @@ const TEMP_POI_VEC = new THREE.Vector3();
 class U3dComponentInstancedPosition extends U3dComponentPosition {
     /** @type {boolean} */
     #colorAdjustmentSelected = false;
-    /** 마지막 기본색의 선형 RGB를 선택 복원용으로 보존합니다. @type {import('three').Color | undefined} */
+    /**
+     * 마지막 기본색의 선형 RGB를 선택 복원용으로 보존합니다.
+     *
+     * @type {import('three').Color | undefined}
+     */
     #baseColor;
-    /** 애니메이션 갱신을 허용하는 카메라 거리입니다. @type {number} */
+    /**
+     * 애니메이션 갱신을 허용하는 카메라 거리입니다.
+     *
+     * @type {number}
+     */
     #animationDistance;
-    /** mixer 활성 여부를 조회하는 선택 callback입니다. @type {undefined | function(): boolean} */
+    /**
+     * mixer 활성 여부를 조회하는 선택 callback입니다.
+     *
+     * @type {undefined | function(): boolean}
+     */
     isMixerEnabled;
-    /** 한 인스턴스 그룹이 사용하는 최대 ID 범위입니다. @type {number} */
+    /**
+     * 한 인스턴스 그룹이 사용하는 최대 ID 범위입니다.
+     *
+     * @type {number}
+     */
     _instancedMaxCount;
-    /** 현재 인스턴스가 속한 그룹 번호입니다. @type {number | undefined} */
+    /**
+     * 현재 인스턴스가 속한 그룹 번호입니다.
+     *
+     * @type {number | undefined}
+     */
     groupIndex;
-    /** 현재 인스턴스의 변환과 가시성 정보입니다. @type {InstancedTRSInfo | undefined} */
+    /**
+     * 현재 인스턴스의 변환과 가시성 정보입니다.
+     *
+     * @type {InstancedTRSInfo | undefined}
+     */
     instancedInfo;
-    /** 현재 인스턴스가 속한 공유 렌더 그룹입니다. @type {import('three').Group | undefined} */
+    /**
+     * 현재 인스턴스가 속한 공유 렌더 그룹입니다.
+     *
+     * @type {import('three').Group | undefined}
+     */
     instancedGroup;
-    /** 중복을 제거한 애니메이션 식별자 목록입니다. @type {Array<string | number>} */
+    /**
+     * 중복을 제거한 애니메이션 식별자 목록입니다.
+     *
+     * @type {Array<string | number>}
+     */
     _animateList;
-    /** tween 갱신 FPS 설정값입니다. @type {number} */
+    /**
+     * tween 갱신 FPS 설정값입니다.
+     *
+     * @type {number}
+     */
     tweenFps;
-    /** 인스턴스 애니메이션 시작 시점을 분산하는 난수 오프셋입니다. @type {number} */
+    /**
+     * 인스턴스 애니메이션 시작 시점을 분산하는 난수 오프셋입니다.
+     *
+     * @type {number}
+     */
     offset;
-    /** 각 공유 mesh에서 현재 ID에 해당하는 entity 목록입니다. @type {Array<InstancedMeshInstance> | undefined} */
+    /**
+     * 각 공유 mesh에서 현재 ID에 해당하는 entity 목록입니다.
+     *
+     * @type {Array<InstancedMeshInstance> | undefined}
+     */
     instances;
-    /** 현재 frustum callback에서 mixer 갱신 대상으로 선택되었는지 나타냅니다. @type {boolean} */
+    /**
+     * 현재 frustum callback에서 mixer 갱신 대상으로 선택되었는지 나타냅니다.
+     *
+     * @type {boolean}
+     */
     _updateMixer = true;
-    /** 우선 반환할 원본 모델 참조입니다. @type {import('three').Object3D | undefined} */
+    /**
+     * 우선 반환할 원본 모델 참조입니다.
+     *
+     * @type {import('three').Object3D | undefined}
+     */
     _rootObject;
 
     /**
@@ -692,12 +743,13 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
 
     /**
      * 컴포넌트와 연결된 인스턴스·자식·경로·라벨을 표시합니다.
+     * 자식의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
      *
      * @override
-     * @returns {DeferredObject<unknown>} 성공 시 true로 resolve하고 필수 인스턴스 정보가 없으면 reject하는 deferred 객체
+     *
+     * @returns {Promise<unknown>} 성공 시 true, 필수 인스턴스 정보가 없으면 undefined 사유로 거부되는 Promise
      */
     show() {
-        const promise = deferred();
         const scene = this.scene;
 
         if (!this._show) {
@@ -706,12 +758,10 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
                 const index = this.getInstancedId();
                 const info = this.instancedInfo;
                 if (!defined(info)) {
-                    promise.reject();
-                    return promise;
+                    return Promise.reject();
                 }
                 if (!defined(index)) {
-                    promise.reject();
-                    return promise;
+                    return Promise.reject();
                 }
 
                 // entity의 _info도 함께 바꿔 이후 mesh 갱신이 현재 가시성을 유지하게 합니다.
@@ -734,7 +784,10 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
             );
             for (let i = 0; i < children.length; i++) {
                 const child = children[i];
-                child.show();
+                // 부모의 완료값은 유지하고 자식의 실패는 별도로 보고합니다.
+                Promise.resolve(child.show()).catch(error => {
+                    __GError__(child, '자식 컴포넌트 표시에 실패했습니다. ' + error, '306011');
+                });
             }
         }
 
@@ -749,23 +802,24 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
         if (this._labelVisible) {
             this.poi?.show();
         }
-        promise.resolve(true);
-        return promise;
+        // 동기 가시성 변경에는 외부 resolve/reject가 필요하지 않습니다.
+        // 호출마다 독립된 표준 Promise를 반환하여 성공값과 체이닝 계약을 유지합니다.
+        return Promise.resolve(true);
     }
 
     /**
      * 컴포넌트와 연결된 인스턴스·자식·경로·라벨을 숨깁니다.
+     * 자식의 비동기 완료는 기다리지 않고 실패만 엔진 오류로 보고합니다.
      *
      * @override
-     * @returns {DeferredObject<unknown>} 성공 시 true로 resolve하고 componentLayer나 필수 인스턴스 정보가 없으면 reject하는 deferred 객체
+     *
+     * @returns {Promise<unknown>} 성공 시 true, componentLayer나 필수 인스턴스 정보가 없으면 undefined 사유로 거부되는 Promise
      */
     hide() {
-        const promise = deferred();
         const scene = this.scene;
 
         if (!this.componentLayer) {
-            promise.reject();
-            return promise;
+            return Promise.reject();
         }
         if (this._show) {
             this._show = false;
@@ -773,12 +827,10 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
                 const index = this.getInstancedId();
                 const info = this.instancedInfo;
                 if (!defined(info)) {
-                    promise.reject();
-                    return promise;
+                    return Promise.reject();
                 }
                 if (!defined(index)) {
-                    promise.reject();
-                    return promise;
+                    return Promise.reject();
                 }
                 // entity의 _info도 함께 바꿔 이후 mesh 갱신이 현재 가시성을 유지하게 합니다.
                 info.visible = false;
@@ -793,11 +845,13 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
 
         // 자식이 있을 경우 가시화 같이 제어
         if (this.children && this.children.length > 0) {
-            /** @type {Array<U3dComponentPosition | U3dComponentInstancedPosition>} */
+            /** @type {Array<import('@U3dComponentPosition').U3dComponentPosition | import('@U3dComponentInstancedPosition').U3dComponentInstancedPosition>} */
             const children = this.children;
             for (let i = 0; i < children.length; i++) {
                 const child = children[i];
-                child.hide();
+                Promise.resolve(child.hide()).catch(error => {
+                    __GError__(child, '자식 컴포넌트 숨김에 실패했습니다. ' + error, '306011');
+                });
             }
         }
 
@@ -818,8 +872,7 @@ class U3dComponentInstancedPosition extends U3dComponentPosition {
             this.poi?.hide();
         }
 
-        promise.resolve(true);
-        return promise;
+        return Promise.resolve(true);
     }
 
 

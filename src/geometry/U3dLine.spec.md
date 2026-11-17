@@ -10,7 +10,7 @@
 
 ### 1.2 책임 범위
 
-- `LineGeometry`, 일반 선용 `LineMaterial`과 월드 위치 출력용 전용 material을 생성하고 선의 두께, 단위, 색상 모드와 화면 해상도 상태를 초기화한다.
+- `LineGeometry`, 실선·점선 공통 경계 커버리지를 지원하는 `ULineMaterial`과 월드 위치 출력용 전용 material을 생성하고 선의 두께, 단위, 색상 모드와 화면 해상도 상태를 초기화한다.
 - 월드 좌표 제어점을 Catmull-Rom 곡선으로 보간하여 굵은 선의 segment 위치와 선택적인 segment 색상을 만든다.
 - 보간 위치를 경계 중심 기준 로컬 좌표로 바꾸고 선 객체의 위치를 해당 중심으로 이동한다.
 - 모델·지형 레이어 Scene의 Mesh를 선의 XY 경계로 선필터링하고 등간격 곡선 표본마다 수직 raycast를 수행한다.
@@ -22,9 +22,11 @@
 
 ### 1.3 주요 동작 방식
 
-생성자는 `U3dGeometry`의 자동 초기화를 미루고 `Line2`의 prototype과 인스턴스 상태를 결합한 뒤 `LineGeometry`, 일반 선용 `LineMaterial`과 이를 원본으로 하는 월드 위치 출력용 전용 material을 구성한다. 색상 배열은 vertex color 모드로, 단일 색상은 material 단색 모드로 저장한다.
+생성자는 `U3dGeometry`의 자동 초기화를 미루고 `Line2`의 prototype과 인스턴스 상태를 결합한 뒤 `LineGeometry`, 실선·점선 공통 경계 커버리지를 지원하는 `ULineMaterial`과 이를 원본으로 하는 월드 위치 출력용 전용 material을 구성한다. 색상 배열은 vertex color 모드로, 단일 색상은 material 단색 모드로 저장한다.
 
 형상 갱신은 `_vertices`를 Catmull-Rom 곡선으로 만들고 곡선 길이와 `divisions`로 표본 수를 정한다. 각 표본 위치와 선택적인 그라디언트 색상을 `LineGeometry`의 segment attribute로 변환한 다음, 위치 배열에서 계산한 중심을 빼고 선 객체 자체를 중심 위치로 옮긴다.
+
+실선의 공유 정점에는 이웃 정점 attribute를 구성하여 공통 재질에서 연결부의 중복 합성을 막는다. 원본 정점·선분 인덱스와 점선 거리는 유지하며, 역방향 인덱스와 닫힌 연속 경로를 지원한다. 분기점은 가장 매끄러운 한 쌍만 연결하고 8개를 넘는 분기는 기존 끝마개를 유지하여 탐색 비용을 제한한다.
 
 `drapeOnSurface()`는 원본 제어점을 곡선 길이 기준으로 등간격 표본화한다. app의 모델·지형 Scene을 한 번 순회하여 표본 전체의 XY 경계와 겹치는 Mesh를 수집하고, 각 표본의 XY에서 후보 경계 상단보다 위에서 아래로 ray를 쏜다. 교차한 표본만 최상단 교차 Z와 offset으로 바꾸고 전체 계산 성공 뒤 파생 상태와 기존 `LineGeometry`의 attribute를 교체한다.
 
@@ -143,12 +145,23 @@ DRAPE_MESH_RAYCAST: function
         UDEF._originRaycast가 함수이면 해당 원본을 저장하고, 아니면 현재 THREE.Mesh.prototype.raycast를 저장한다.
 
 U3dLine extends U3dGeometry 클래스 정의
+
+    static attachRenderer(renderer: WebGLRenderer) -> void
+        의존: ULineMaterial — renderer의 선 AA 연결; 함수: {attachRenderer()}
+        동작: 사용자 콜백과 별개로 실제 draw 직전에 AA를 갱신하도록 renderer를 연결한다.
+
+    static detachRenderer(renderer: WebGLRenderer) -> void
+        의존: ULineMaterial — renderer의 선 AA 연결 해제; 함수: {detachRenderer()}
+        동작: 연결이 소유한 함수를 복원하며 renderer 자체와 장면 자원은 해제하지 않는다.
     의존:
         U3dGeometry — 좌표, 스타일과 이벤트 기반; 상속: {U3dGeometry}
         Line2 — 굵은 선 렌더 객체 기능과 Object3D 상태 결합; 상속: {Line2}
         subExtends — Line2 prototype 기능과 생성 상태 결합; 함수: {subExtends(), subSuper()}
     동작:
         클래스 정의 뒤 subExtends(U3dLine, Line2)를 실행하여 U3dLine에 없는 Line2 prototype 멤버와 subSuper()를 결합한다.
+
+    isOutline: boolean = false
+        일반 선은 false이며 도형이 자동 생성한 외곽선은 true이다. 외곽선의 부모 도형에서 getOutlineObject()로 이 선을 조회할 수 있다.
 
     linewidth: number
         사용자가 입력한 논리적 선 두께
@@ -205,7 +218,7 @@ U3dLine extends U3dGeometry 클래스 정의
     _initLine() -> void
         역할: 현재 색상 모드와 선 속성으로 일반 선 material과 월드 위치 출력용 전용 material을 만들고 초기 좌표 또는 제어점 경로를 선택한다.
         의존:
-            LineMaterial — 굵은 선 material 생성과 화면 해상도 설정; 생성자: {new LineMaterial()}; 속성 읽기: {resolution}
+            ULineMaterial — 실선·점선 공통 경계 커버리지를 지원하는 굵은 선 material 생성과 화면 해상도 설정; 생성자: {new ULineMaterial()}; 속성 읽기: {resolution}
             createLineSegmentsWorldPositionMaterial — 일반 선 material의 셰이더 실루엣을 바탕으로 월드 위치 출력용 material 생성; 함수: {createLineSegmentsWorldPositionMaterial()}
             THREE.Vector2 — material 해상도 값 설정; 함수: {set()}
             Web API window — 초기 viewport 크기 조회; 속성 읽기: {innerWidth, innerHeight}
@@ -214,7 +227,7 @@ U3dLine extends U3dGeometry 클래스 정의
         동작:
             그라디언트 모드이면 흰색과 vertex color를, 단색 모드이면 현재 color를 사용하는 LineMaterial을 생성한다.
             material에 linewidth와 worldUnits를 적용하고 clipping을 비활성화한다. 별도의 polygon offset은 활성화하지 않으며 U3dGeometry가 저장한 opacity도 적용하지 않는다. [확인 Q-004]
-            material resolution을 생성 시점의 window innerWidth와 innerHeight로 설정하고 이후 viewport 변경을 직접 추적하지 않는다. [확인 Q-009]
+            material resolution의 초기값을 window innerWidth와 innerHeight로 설정한다. 이후 색상 재질이 렌더 콜백에서 실제 viewport와 DPR을 반영하며 촬영 대상 크기는 별도 AA uniform에 기록한다.
             일반 선 material을 원본으로 월드 위치 출력용 전용 material을 생성하여 customWorldPositionMaterial에 저장한다.
             _coordinates가 비어 있지 않으면 상속 setPositions()로 같은 배열을 다시 저장하고 변경 이벤트를 전달하지만 이 함수 안에서는 월드 제어점이나 선 형상을 만들지 않는다. [확인 Q-003]
             _coordinates가 비어 있고 _vertices가 비어 있지 않으면 현재 제어점으로 형상을 갱신한다.
@@ -248,7 +261,7 @@ U3dLine extends U3dGeometry 클래스 정의
         의존:
             defined — uniform과 opacity uniform 존재 확인; 함수: {defined()}
             LineMaterial — 적용 투명도 변경; 속성 쓰기: {uniforms.opacity.value}
-        동작: 모든 하위 자식 재질에 입력 투명도를 적용한 뒤 material의 opacity uniform이 있으면 입력값을 저장한다. 본체의 상속 opacity와 material의 transparent 상태는 변경하지 않는다. [확인 Q-004]
+        동작: 모든 하위 자식 재질에 입력 투명도를 적용한 뒤 material의 opacity uniform이 있으면 입력값을 저장한다. 본체의 상속 opacity와 material의 transparent 요청값은 변경하지 않는다. 색상용 ULineMaterial은 경계 합성을 위해 유효 transparent를 true로 유지하며 이 uniform 투명도를 반영한다. [확인 Q-004]
 
     override setColor(color: THREE.ColorRepresentation | Array<THREE.ColorRepresentation>) -> void
         역할: 단색 또는 제어점별 그라디언트 모드를 선택하고 형상을 다시 생성한다.
@@ -502,10 +515,10 @@ U3dLine extends U3dGeometry 클래스 정의
             customWorldPositionMaterial이 있으면 해제하고 undefined로 바꾼다.
             UDEF.disposeResource에 현재 객체를 전달하여 geometry와 일반 선 material, 자식과 리스너를 정리한다.
 
-    _setRelativePosition(positions: Array<number>) -> void
+    _setRelativePosition(positions: Array<number>, pairs?: Array<U3dLineSegment>) -> void
         역할: 월드 표본 위치를 경계 중심 기준 로컬 segment로 바꾸고 선 객체를 해당 중심에 배치한다.
         처리 기준:
-            positions가 비어 있거나 geometry가 없거나 계산 경계가 비어 있으면 상태를 변경하지 않는다.
+            geometry가 없거나 계산 경계가 비어 있으면 종료한다. 빈 정점 또는 빈 선분은 렌더 위치와 연결부 attribute를 비운다.
         의존:
             defined — 입력 배열과 geometry 상태 확인; 함수: {defined()}
             THREE.Box3 — 월드 표본 경계 확장, 빈 상태 판정과 중심 계산; 생성자: {new THREE.Box3()}; 함수: {expandByPoint(), isEmpty(), getCenter()}
@@ -517,6 +530,15 @@ U3dLine extends U3dGeometry 클래스 정의
             월드 경계 중심을 구하고 positions를 변경하지 않은 채 각 축에서 중심을 뺀 새 로컬 위치 배열을 만든다.
             geometry 인스턴스에 과거 결합된 computeBoundingBox가 있으면 삭제하여 LineGeometry prototype 경계 계산을 사용하게 한다.
             로컬 위치를 geometry segment로 설정하여 로컬 bounding box와 sphere를 함께 갱신하고 선 객체 위치에 월드 중심을 복사한다.
+            연속 경로 또는 인덱스 선분의 공유 정점에서 이웃을 찾아 연결부 attribute와 U_LINE_JOIN define을 갱신한다.
+
+updateLineJoins(geometry: LineGeometry, material: ShaderMaterial, positions: Array<number>, pairs?: Array<U3dLineSegment>) -> void
+    역할: 선분 시작·끝에 이웃 정점의 로컬 좌표를 전달한다. 별도 렌더 객체와 재질을 만들지 않는다.
+    동작:
+        타입 배열의 연결 목록으로 정점별 선분을 수집하며 닫힌 연속 경로의 복제 끝점은 첫 점과 연결한다.
+        이웃 두 개는 연결하고, 3~8개 분기는 가장 매끄러운 한 쌍의 방향 내적이 -0.5 미만일 때만 연결한다.
+        연결부가 있으면 instancePrevious·instanceNext attribute와 U_LINE_JOIN define을 설정한다.
+        연결부가 없으면 해당 attribute와 define을 제거한다. 입력 위치와 공개 선분 인덱스는 바꾸지 않는다.
 ```
 
 ## 4. 공통 처리 기준과 제약

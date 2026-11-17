@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -10,28 +10,6 @@ import type { UTerrainMesh } from "../../core/mesh/UTerrainMesh.js";
 import type { UShaderTerrainDecalManager } from "./UShaderTerrainDecalManager.js";
 import type { TerrainMaterial } from "./UShaderTerrainDecalUtils.js";
 import type { UTerrainMaterial } from "../../shader/UTerrainMaterial.js";
-
-/**
- * Terrain shader 실제 렌더 계측 callback 연결 상태입니다.
- */
-type TerrainShaderProgramDiagnosticBinding = {
-    /**
-     * 계측 대상 terrain tile key입니다.
-     */
-    tileKey: string;
-    /**
-     * 실제 렌더를 기다리는 prewarm cache key입니다.
-     */
-    expectedCacheKeys: Set<string>;
-    /**
-     * 기존 렌더 완료 callback입니다.
-     */
-    previousOnAfterRender: three.Object3D["onAfterRender"];
-    /**
-     * 계측을 연결한 렌더 완료 callback입니다.
-     */
-    wrapper: three.Object3D["onAfterRender"];
-};
 
 /**
  * Terrain Shader Prewarm 생성 옵션입니다.
@@ -49,15 +27,6 @@ type UTerrainShaderPrewarmCO = {
  * @typedef {Partial<{getUniforms:function():unknown,getAttributes:function():unknown}>} TerrainShaderWarmupProgram
  */
 /**
- * Terrain shader 실제 렌더 계측 callback 연결 상태입니다.
- *
- * @typedef {object} TerrainShaderProgramDiagnosticBinding
- * @property {string} tileKey 계측 대상 terrain tile key입니다.
- * @property {Set<string>} expectedCacheKeys 실제 렌더를 기다리는 prewarm cache key입니다.
- * @property {import('three').Object3D['onAfterRender']} previousOnAfterRender 기존 렌더 완료 callback입니다.
- * @property {import('three').Object3D['onAfterRender']} wrapper 계측을 연결한 렌더 완료 callback입니다.
- */
-/**
  * Terrain Shader Prewarm 생성 옵션입니다.
  *
  * @memberof UTerrainShaderPrewarm
@@ -65,9 +34,9 @@ type UTerrainShaderPrewarmCO = {
  * @property {import('@union3d/manager/terrain/UShaderTerrainDecalManager').UShaderTerrainDecalManager} manager prewarm 대상 terrain 상태를 소유한 manager입니다.
  */
 /**
- * 실제 terrain mesh가 사용할 shader 변형만 미리 link하고, 그 결과를 실제 렌더 program과 비교 계측합니다.
+ * 실제 terrain mesh가 사용할 shader 변형을 미리 link하고 지연 정보 조회까지 준비합니다.
  *
- * prewarm template cache와 계측 callback 연결은 이 객체가 소유합니다. manager는 앱(`_app`)과
+ * prewarm template cache와 비동기 준비 자원은 이 객체가 소유합니다. manager는 앱(`_app`)과
  * tile registry만 제공하며, 소유 상태를 직접 들고 있지 않습니다.
  */
 declare class UTerrainShaderPrewarm {
@@ -75,20 +44,30 @@ declare class UTerrainShaderPrewarm {
     constructor(opt: UTerrainShaderPrewarmCO);
     /** @type {import('@union3d/manager/terrain/UShaderTerrainDecalManager').UShaderTerrainDecalManager} */
     _manager: UShaderTerrainDecalManager;
-    /** @type {Map<string, import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>} 앱 수명 동안 prewarm한 shader program 참조를 유지합니다. */
+    /**
+     * 앱 수명 동안 prewarm한 shader program 참조를 유지합니다.
+     *
+     * @type {Map<string, import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>}
+     */
     templateCache: Map<string, UTerrainMaterial>;
-    /** @type {WeakMap<import('three').WebGLRenderer, number>} renderer별 program 참조를 분리하는 앱 수명 식별자입니다. */
+    /**
+     * renderer별 program 참조를 분리하는 앱 수명 식별자입니다.
+     *
+     * @type {WeakMap<import('three').WebGLRenderer, number>}
+     */
     rendererIds: WeakMap<three.WebGLRenderer, number>;
-    /** @type {Set<string>} 실제 렌더 계측을 마친 prewarm cache key입니다. */
-    diagnosedWarmupCacheKeys: Set<string>;
-    /** @type {Map<import('three').Mesh, TerrainShaderProgramDiagnosticBinding>} mesh별 렌더 계측 callback 연결입니다. */
-    programDiagnosticBindings: Map<three.Mesh, TerrainShaderProgramDiagnosticBinding>;
-    /** @type {number} 비동기 컴파일과 지연 정보 조회를 기다리는 prewarm 수입니다. */
+    /**
+     * 비동기 컴파일과 지연 정보 조회를 기다리는 prewarm 수입니다.
+     *
+     * @type {number}
+     */
     warmupPendingCount: number;
     /**
-     * @type {Set<import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>} compileAsync 완료를 기다리는 warm material입니다.
+     * compileAsync 완료를 기다리는 warm material입니다.
      * 대기 중에 template을 정리하면 three.js의 준비 확인 루프가 해제된 material의 program을 읽어 예외를 내므로,
      * 정리는 cache에서만 먼저 빼고 실제 dispose는 compile이 끝난 뒤에 수행합니다.
+     *
+     * @type {Set<import('@union3d/shader/UTerrainMaterial').UTerrainMaterial>}
      */
     pendingWarmupMaterials: Set<UTerrainMaterial>;
     /**
@@ -104,18 +83,12 @@ declare class UTerrainShaderPrewarm {
      */
     isProgramReady(material: TerrainMaterial, defines?: Record<string, number | undefined>, mesh?: three.Mesh): boolean;
     /**
-     * Terrain shader program 계측 callback을 원래 상태로 복원합니다.
-     *
-     * @param {import('@UTerrainMesh').UTerrainMesh | import('three').Mesh} [mesh] 복원할 mesh입니다.
-     */
-    disposeProgramDiagnostics(mesh?: UTerrainMesh | three.Mesh): void;
-    /**
-     * 실제 terrain mesh에서 사용할 shader 변형만 미리 link합니다.
+     * 실제 terrain mesh에서 사용할 shader 변형을 미리 link하고 정보 조회 뒤 대기 중인 타일의 준비를 다시 알립니다.
      *
      * @param {import('@UTerrainMesh').UTerrainMesh | import('three').Mesh} mesh 화면에 연결될 terrain mesh입니다.
      * @param {TerrainMaterial} material terrain mesh가 사용할 material입니다.
      * @param {Record<string, number|undefined>} [defines={}] 적용 예정인 terrain decal define입니다.
-     * @param {string} [tileKey=''] 실제 렌더 program을 연결할 terrain tile key입니다.
+     * @param {string} [tileKey=''] 호출부 호환을 위해 유지하는 terrain tile key입니다.
      * @returns {boolean} prewarm을 시작했으면 `true`입니다.
      */
     prewarmPrograms(mesh: UTerrainMesh | three.Mesh, material: TerrainMaterial, defines?: Record<string, number | undefined>, tileKey?: string): boolean;
@@ -128,4 +101,4 @@ declare class UTerrainShaderPrewarm {
     #private;
 }
 
-export type { TerrainShaderProgramDiagnosticBinding, UTerrainShaderPrewarm, UTerrainShaderPrewarmCO };
+export type { UTerrainShaderPrewarm, UTerrainShaderPrewarmCO };

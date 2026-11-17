@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -107,6 +107,13 @@ declare class UOutlinePass extends OutlinePass {
      */
     setOutlineStyleForObject(object: three.Object3D, style?: object): number;
     getOutlineStyleForObject(object: any, effective?: boolean): any;
+    /**
+     * 실제 렌더링 시각과 GPU에 저장된 속도로 대상의 누적 bounce 주기를 반환합니다.
+     * @param {import('three').Object3D} object 외곽선 대상
+     * @returns {number | undefined} 누적 파동 주기이며 bounce 대상이 아니면 undefined입니다.
+     * @ignore
+     */
+    _getBounceProgress(object: three.Object3D): number | undefined;
     /**
      * 오브젝트(outline 대상)마다 개별 색상을 간단히 지정하는 compact helper 입니다.
      * - visible/hidden/dash 색상을 모두 동일하게 쓰고 싶을 때 `{ color }`만 전달하면 됩니다.

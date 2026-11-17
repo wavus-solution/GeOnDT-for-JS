@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -81,7 +81,11 @@ declare class UAnalyMultipleComponent extends UAnaly {
         renderOrder: number;
     };
     name: any;
-    /** 기즈모(gizmo) 생성 시 사용할 색상이며 외부에서 변경할 수 있습니다. @type {import('three').ColorRepresentation | undefined} */
+    /**
+     * 기즈모(gizmo) 생성 시 사용할 색상이며 외부에서 변경할 수 있습니다.
+     *
+     * @type {import('three').ColorRepresentation | undefined}
+     */
     color: three.ColorRepresentation | undefined;
     /**
      * 컴포넌트 생성에 추가로 전달할 옵션의 원본 참조를 반환합니다.
@@ -345,7 +349,8 @@ declare class UAnalyMultipleComponent extends UAnaly {
     lightAnalysis(options: any): void;
     /**
      * 대상의 첫 카메라 오버레이(overlay)에 분석을 요청합니다. <br>
-     * options.componenet이 없으면 현재 선택을 사용하며 분석 자체의 비동기 완료는 기다리지 않습니다.
+     * options.componenet이 없으면 현재 선택을 사용하며 분석 자체의 비동기 완료는 기다리지 않습니다. <br>
+     * 요청 이후의 분석 실패는 콘솔에 기록하며, 이미 반환한 요청 성공 여부는 바꾸지 않습니다.
      *
      * @deprecated 제거될 메서드입니다.
      *

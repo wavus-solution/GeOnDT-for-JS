@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -26,7 +26,7 @@ import type { WorldPosition } from "../types/global.js";
  * @param {WorldPosition[]} opt.vertex 사용자 건물 3D 월드 좌표 리스트
  * @param {GeoPosition[]} opt.points 사용자 건물 위경도 좌표 리스트
  * @param {object} [opt.style] 사용자 건물 스타일
- * @param {Color} [opt.style.color=0x3399CC] 건물 색상
+ * @param {import('three').Color} [opt.style.color=0x3399CC] 건물 색상
  * @param {number} [opt.style.side=THREE.FrontSide] 렌더링 될 면 `THREE.FrontSide=0`(앞면) `THREE.BackSide=1`(뒷면) `THREE.DoubleSide=2`(양면)
  * @param {number} [opt.style.opacity=1] 건물 투명도
  * @param {boolean} [opt.style.transparent=false] 건물 투명도 적용 여부

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -33,30 +33,31 @@ declare class U3dHeightLayer extends U3dLayer {
      */
     static terrains: Map<string, UPlaneBufferGeometry>;
     /**
-     * @param {string} key 고도를 가져올 타일 키 값
-     * @returns {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry | undefined}
+     * 처리 경로가 같은 공유 지형 geometry를 조회합니다.
      *
-     * @ignore
+     * @param {string} key 원래 타일 키 문자열입니다.
+     * @returns {undefined | import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry}
      */
-    static getTerrains(key: string): UPlaneBufferGeometry | undefined;
+    static getTerrains(key: string): undefined | UPlaneBufferGeometry;
     /**
-     * @param {string} key 고도를 적용할 타일 키 값
-     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} value
+     * 해당 처리 경로에만 공유 지형 geometry를 등록합니다.
      *
-     * @ignore
+     * @param {string} key 원래 타일 키 문자열입니다.
+     * @param {import('@union3d/geometry/UPlaneBufferGeometry').UPlaneBufferGeometry} value 캐시에서 공유할 지오메트리
      */
     static setTerrains(key: string, value: UPlaneBufferGeometry): void;
     /**
-     * @param {string} key 고도를 제거할 타일 키 값
+     * 해당 처리 경로의 geometry 참조만 제거합니다. <br>
+     * 실제 해제는 호출자가 담당합니다.
      *
-     * @ignore
+     * @param {string} key 원래 타일 키 문자열입니다.
      */
     static deleteTerrains(key: string): void;
     /**
-     * @param {string} key
-     * @returns {boolean}
+     * 해당 처리 경로에 원래 타일 키가 등록되어 있는지 확인합니다.
      *
-     * @ignore
+     * @param {string} key 원래 타일 키 문자열입니다.
+     * @returns {boolean}
      */
     static hasTerrains(key: string): boolean;
     /**
@@ -147,7 +148,8 @@ declare class U3dHeightLayer extends U3dLayer {
      * 입력값은 기존 배율과 곱하지 않고 새 배율로 저장하며, 0.1 미만이면 0.1로 보정합니다. <br>
      * scale을 생략하거나 undefined 또는 null을 전달하면 초기값 1.0을 적용합니다. <br>
      * 문자열을 전달하면 현재 배율과 타일 메시를 변경하지 않고 TypeError가 발생합니다. <br>
-     * 호출 시 레이어 캐시에 등록된 타일 중 현재 메시가 있는 타일에는 즉시 적용하고, 아직 메시가 없는 타일에는 이후 고도가 연결될 때 저장된 배율을 적용합니다.
+     * 호출 시 레이어 캐시에 등록된 타일 중 현재 메시가 있는 타일에는 즉시 적용하고, 아직 메시가 없는 타일에는 이후 고도가 연결될 때 저장된 배율을 적용합니다. <br>
+     * 현재 지도 컨트롤러가 지형 충돌을 사용 중이면 모든 타일 배율을 반영한 뒤 현재 카메라 위치의 충돌 높이도 다시 계산합니다.
      *
      * @param {number | null | undefined} [scale=1.0] 지형 타일 메시의 Z축에 설정할 배율, 생략하거나 undefined·null이면 1.0이며 0.1 미만은 0.1로 보정됨
      * @throws {TypeError} scale이 문자열일 때 발생합니다.
@@ -158,7 +160,7 @@ declare class U3dHeightLayer extends U3dLayer {
      * 부모가 아직 내려받는 중이면 부모의 로드 완료를 한 번 기다린 뒤 이어서 진행합니다. <br>
      * 성공과 실패는 반환값이 아니라 opt.promise와 타일 작업 상태로 전달합니다.
      *
-     * @param {import('@U3dQuadTile').U3dQuadTile} tile 부모 고도를 대신 적용할 타일
+     * @param {import('@U3dQuadTile').U3dQuadTile} tile 부모 고도를 적용할 타일
      * @param {U3dHeightWorkOption} opt 작업 상태와 완료 결과를 받을 옵션
      * @returns {undefined} 항상 undefined이며, 생성 성공 여부는 opt.promise가 받음
      */
@@ -175,10 +177,10 @@ declare class U3dHeightLayer extends U3dLayer {
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} [tile] 고도를 반영할 타일
      * @param {ArrayLike<number>} [ioBuf] 가로 표본 수와 세로 표본 수의 곱만큼 담긴 고도 표본 배열
-     * @param {U3dHeightTileHeader} [headerBuf] 이 표본에만 적용할 격자 크기와 배율·오프셋·없음 값 정보
-     * @returns {boolean | undefined} 고도를 반영하면 true, ioBuf를 생략하면 undefined
+     * @param {U3dHeightTileHeader} [headerBuf] 현재 표본의 격자·배율·오프셋·NoData 정보(생략하면 기존 캐시 사용)
+     * @returns {undefined | boolean} 고도를 반영하면 true, ioBuf를 생략하면 undefined
      */
-    override updateHeight(tile?: U3dQuadTile, ioBuf?: ArrayLike<number>, headerBuf?: U3dHeightTileHeader): boolean | undefined;
+    override updateHeight(tile?: U3dQuadTile, ioBuf?: ArrayLike<number>, headerBuf?: U3dHeightTileHeader): undefined | boolean;
     /**
      * 이전에 받아 보관해 둔 고도 표본과 헤더를 화면에 있는 같은 타일에 다시 적용합니다. <br>
      * 커스텀 지형 편집처럼 원본 고도는 그대로 두고 결과만 다시 계산해야 할 때 사용합니다. <br>

@@ -15,6 +15,9 @@
 비동기 작업 결과는 표준 Promise 체이닝을 따른다. then 콜백은 마이크로태스크로 실행되고 반환값은 다음 체인 결과가 되며 예외는 거부로 전달된다.
 ```
 
+```spec
+```
+
 ## 3. 정규 자연어 수도코드
 
 ```spec
@@ -582,6 +585,7 @@ U3dApp extends U3dObject 클래스 정의
             UDEF — 실제 직접 import API; 함수: {UDEF.checkInternetExplorer(), UDEF.setUseSunFlare()}
             THREE — 실제 직접 import API; 생성자: {new THREE.Plane(), new THREE.Vector3()}
         동작:
+            _disposed를 false로 초기화한다.
             super()로 객체 기반을 초기화하고 _classtype=U3dApp·_disposed=false를 저장한다.
             인터넷 익스플로러이면 지원 오류를 기록하고 나머지 초기화 없이 반환한다.
             _THREE에 THREE를 연결하고 _bInitialized·_stopModel·_appUpdate3d·_isTwenning을 false, _mode를 PAN으로 초기화한다.
@@ -653,9 +657,12 @@ U3dApp extends U3dObject 클래스 정의
 
     dispose() -> void
         의존:
+            UHeightReapplyBatchExecutor — 대기 고도 요청 취소·참조 해제; 정적 함수: {cancelApp()}
+            UHeightEditOrderManager — 앱별 편집 순서·객체 참조 해제; 정적 함수: {releaseApp()}
             UErrorCollector — 동기 해제 오류 수집과 최종 전달; 생성자: {new UErrorCollector()}; 함수: {attempt(), finish()}
             UEventDispatcher — 앱 이벤트 연결 해제; 함수: {removeEventListenerAll()}
             UProcessManager — 작업 취소·종결; 함수: {dispose()}
+            UHeightSkirt1_0 — 보정 전 지형 경계 복원; 함수: {UHeightSkirt1_0.restoreSurface()}
             URenderer — 렌더러·DOM 정리; 함수: {clear(), dispose(), domElement.remove()}
             U3dLayerList — 등록 레이어 정리; 함수: {disposeAll()}
             UMapControls — 입력 연결 정리; 함수: {dispose()}
@@ -669,11 +676,11 @@ U3dApp extends U3dObject 클래스 정의
             _disposed가 truthy이면 중복 정리 없이 반환한다.
             UErrorCollector의 attempt()로 동기 해제 호출의 오류를 개별 수집하여 이후 자원 정리와 참조 제거를 계속한다. 종료 콜백의 재진입과 종료 후 재호출은 중복 정리하지 않는다.
             _disposed가 falsy인 첫 종료 경로이면 다음 순서로 자원을 정리한다.
-                _disposed를 먼저 true로 바꿔 재진입을 차단하고 지도 영역 전환을 취소한 뒤 _bInitialized를 false로 만들고 processManager를 종료한다. 모델 작업은 이후 트리 해제 단계에서 루트의 DISPOSE 이벤트로 취소한다.
+                _disposed를 먼저 true로 바꿔 재진입을 차단하고 지도 영역 전환을 취소한다. 앱의 보정 전 지형 경계를 복원한 뒤 _bInitialized를 false로 만들고 processManager를 종료한다. 경계 복원 실패도 UErrorCollector로 수집한다. 모델 작업은 이후 트리 해제 단계에서 루트의 DISPOSE 이벤트로 취소한다.
                 #beforeUnloadHandler가 truthy이면 beforeunload 리스너를 제거하고 #beforeUnloadHandler를 undefined로 만든다.
                 _terrainLayer·_measureLayer 참조를 undefined로 만든다.
                 _eventHandler가 defined이면 이벤트 핸들러를 해제하고 _eventHandler를 undefined로 만든다.
-                #removeFpsDom()으로 FPS DOM을 제거하고 모든 앱 이벤트 연결을 해제한 뒤 _editHeightBoxList를 undefined로 만든다.
+                #removeFpsDom()으로 FPS DOM을 제거하고 모든 앱 이벤트 연결을 해제한 뒤 대기 고도 배치를 취소하고 편집 순서 관리자를 해제하여 요청 레이어·활성 CustomLand 참조와 순번을 비우고 _editHeightBoxList를 undefined로 만든다.
                 _isTwenning이 truthy이면 defined인 _tweenfrom2To·_tweenMid2To·_tweenFrom2Mid·_tweenFrom2Mid2를 각각 정지하고 _isTwenning을 false로 만든다.
                 _gizmoType을 undefined로 만든 뒤 removeAllPOI(), removeAllObject(), removeAllOverlay(), removeAllView(), removeAllViewLight()를 순서대로 실행한다.
                 defined인 지도 컨트롤을 해제하고 _mapControl을 undefined로 만든 뒤 disposeQuadTree()를 실행한다.
@@ -686,6 +693,7 @@ U3dApp extends U3dObject 클래스 정의
                 #settingGUI가 truthy이면 removeDevToolView()로 개발 도구를 제거한다.
                 _appUpdate3d를 false, _measureLayer를 undefined, _nameBaseLayer를 baseLayer, _sizeWorld를 0, _idLoad·_rectangle을 undefined로 만든다.
                 등록 객체와 콜백을 참조하는 indexManager를 undefined로 만든다. 공유 파서 풀의 종료는 레이어의 마지막 사용자 해제에 위임한다.
+            앱 해제 초기에 완료 대기와 타이머를 취소하여 트리 교체 중의 재진입 해제에서도 대기를 남기지 않는다.
             disposeQuadTree()가 실패해도 레이어·장면·렌더러·UDrawArg 등의 후속 정리를 시도하며, 렌더러 clear()가 실패해도 DOM 제거와 dispose()를 각각 시도한다.
             정리가 끝난 뒤 수집기의 finish()를 호출한다. 오류가 하나이면 원래 사유를 그대로 전달하고, 여러 개이면 호출 순서대로 원래 사유를 담은 errors 배열을 가진 Error를 전달한다. null·undefined도 실패로 전달하며 하위 정리가 모아 전달한 오류는 해당 객체로 보존한다.
             동기 메서드로 유지하며 하위 해제 메서드가 반환한 Promise의 완료를 기다리거나 비동기 거부를 수집하지 않는다.
@@ -764,6 +772,7 @@ U3dApp extends U3dObject 클래스 정의
         의존:
             Web API — DOM 배치; 함수: {HTMLElement.appendChild()}
             URenderer — 실제 직접 import API; 생성자: {new URenderer()}
+            ULineMaterial — 선 AA draw 연결; 함수: {ULineMaterial.attachRenderer()}
             defined — 실제 직접 import API; 함수: {defined()}
         동작:
             기존 _renderer가 있으면 MSAA 요청값을 읽어 재생성에 사용한다.
@@ -771,6 +780,7 @@ U3dApp extends U3dObject 클래스 정의
                 기존 렌더러의 domElement가 truthy이면 DOM을 제거하고 domElement를 undefined로 만든다.
                 기존 렌더러를 dispose()한다.
             isPostProcess()·getPostOption() 결과와 로그 깊이·드로잉 버퍼·MSAA 요청값으로 URenderer를 만든다.
+            생성 직후 ULineMaterial.attachRenderer()로 선 AA 갱신을 실제 draw 직전에 연결한다. 최초 생성과 재생성에 동일하게 적용한다.
             새 _renderer에 앱을 연결하고 sortObjects=true, toneMapping=UDEF.TONEMAPPING, toneMappingExposure=_toneExposure를 저장한다. 후처리 옵션을 새 렌더러 결과로 반영한다.
             enableSwipe()로 저장 스와이프 설정을 적용하고 컨테이너에 렌더러 DOM을 추가한다.
             드로잉 인자가 truthy이면 그 렌더러 참조를 교체하고 새 렌더러를 반환한다.
@@ -1135,17 +1145,33 @@ U3dApp extends U3dObject 클래스 정의
         동작:
             this.#manager.testManager 값을 반환한다.
 
-    addAutoHeightUpdate(x: number, y: number, object: Object3D, updateFnc: Function) -> void
+    addAutoHeightUpdate(x: number, y: number, object: object, updateFnc: function(object, U3dQuadTile, number): void) -> symbol | null
+        처리 기준: 인덱스가 없거나 좌표가 유한수가 아니거나 대상이 객체 참조가 아니거나 콜백이 함수가 아니면 null을 반환한다.
         의존:
-            UIndexManager — 위치별 갱신 등록; 함수: {insertAtPoint()}
+            UIndexManager — ID 기반 위치별 갱신 등록; 함수: {addAtPoint()}
         동작:
-            this.getIndexManager().insertAtPoint( x, y, object, updateFnc, U3dEvent.MESH.UPDATE_HEIGHT_MESH )에 입력을 전달한다.
+            위치·대상 객체·콜백·UPDATE_HEIGHT_MESH 카테고리를 UIndexManager.addAtPoint()에 전달하고 반환 ID를 그대로 반환한다. ID와 등록 내용의 연결 및 같은 대상의 중복 등록 방지는 UIndexManager가 담당한다.
 
-    removeAutoHeightUpdate(x: number, y: number, object: Object3D) -> void
+    updateAutoHeightUpdate(updateId: symbol, option: {x?: number, y?: number, object?: object, updateFnc?: function(object, U3dQuadTile, number): void} = {}) -> boolean
+        처리 기준:
+            indexManager가 없거나 option이 객체가 아니면 false를 반환한다.
+            전달한 updateFnc가 함수가 아니거나 object가 객체 참조가 아니면 기존 등록을 바꾸지 않고 false를 반환한다.
         의존:
-            UIndexManager — 위치별 갱신 제거; 함수: {removeAtPoint()}
+            UIndexManager — ID 기반 등록 값·위치 수정; 함수: {updateById()}
         동작:
-            this.getIndexManager().removeAtPoint( x, y, object, U3dEvent.MESH.UPDATE_HEIGHT_MESH )에 입력을 전달한다.
+            전달된 x·y는 같은 이름으로, object는 key로, updateFnc는 value로 manager option에 복사한다. UPDATE_HEIGHT_MESH 카테고리의 UIndexManager.updateById() 결과를 그대로 반환한다.
+
+    removeAutoHeightUpdate(x: number, y: number, object: object) -> void
+        의존:
+            UIndexManager — 기존 좌표·key 기반 등록 제거; 함수: {removeAtPoint()}
+        동작:
+            입력 좌표·대상 객체와 UPDATE_HEIGHT_MESH 카테고리를 UIndexManager.removeAtPoint()에 전달한다.
+
+    removeAutoHeightUpdateById(updateId: symbol) -> boolean
+        의존:
+            UIndexManager — ID 기반 등록 제거; 함수: {removeById()}
+        동작:
+            updateId와 UPDATE_HEIGHT_MESH 카테고리를 UIndexManager.removeById()에 전달하고 결과를 그대로 반환한다. indexManager가 없으면 false를 반환한다.
 
     execAutoHeightUpdate(event: {data: U3dQuadTile}) -> void
         의존:
@@ -1520,7 +1546,7 @@ U3dApp extends U3dObject 클래스 정의
             __GError__ — 실제 직접 import API; 함수: {__GError__()}
         동작:
             레벨이 0 이상의 유한한 정수가 아니면 false를 반환하고 기존 설정을 유지한다. 지형 최소 레벨은 지형 상한 이하, 지형 상한은 최소·현재 영역 시작 레벨 이상이어야 한다. 모델 상한은 모델 최소·현재 영역 시작 레벨 이상이어야 한다. 범위 검사도 대입 전에 수행하며 실패하면 설정을 바꾸지 않는다.
-            지형이면 setterName에 따라 앱의 _minlevel 또는 _maxlevel을 변경하고 true를 반환한다. 모델 최대 레벨은 _modelMaxLevel에 저장하고 true를 반환한다. 이 설정은 트리 생성 여부와 무관하게 보관하고 다음 타일 갱신에서 사용한다.
+            지형이면 setterName에 따라 앱의 _minlevel 또는 _maxlevel을 변경하고 true를 반환한다. 모델 최대 레벨은 _modelMaxLevel에 저장하고 invalidateMaskModelLimit()으로 진행 중인 강제 마스크의 임시 상한 복원 권한을 해제한 뒤 true를 반환한다. 유효한 공개 설정은 기존 값과 같아도 복원 권한을 해제하며 잘못된 모델 설정과 지형 설정에는 영향을 주지 않는다. 이 설정은 트리 생성 여부와 무관하게 보관하고 다음 타일 갱신에서 사용한다.
             나머지 호출은 getQuadTrees(type)로 대상 루트 목록의 복사본을 조회하며 배열이 아니거나 비었으면 오류를 기록하고 false를 반환한다.
             getType()이 type과 같은 항목 중 setterName이 함수인 것에 level을 전달한다.
             하나라도 적용했는지 반환한다.
@@ -1645,9 +1671,11 @@ U3dApp extends U3dObject 클래스 정의
         동작:
             this._methodHeight 값을 반환한다.
 
-    setMethodHeight(val) -> void
+    setMethodHeight(val: string) -> void
+        의존: UHeightSkirt1_0 — 경계 복원과 렌더 전 연결; 함수: {UHeightSkirt1_0.restoreSurface(), UHeightSkirt1_0.computeDynamicSkirt()}
         동작:
-            기존 UDEF.HEIGHT_METHOD.NOW가 _1_0이면 DynamicSkirt1_0 렌더 이전 콜백을 제거한다.
+            현재 앱의 보정 전 지형 경계를 복원한다.
+            기존 앱 _methodHeight가 _1_0이면 DynamicSkirt1_0 렌더 이전 콜백을 제거한다. 다른 앱이 바꾼 전역 값으로 자기 훅의 제거 여부를 판단하지 않는다.
             전역 NOW와 앱 _methodHeight에 입력을 저장한다.
             새 NOW가 _1_0이면 렌더 이전에 UHeightSkirt1_0.computeDynamicSkirt(this)를 실행할 콜백을 등록한다.
 
@@ -1771,16 +1799,21 @@ U3dApp extends U3dObject 클래스 정의
         동작:
             this._editHeightBoxList 값을 반환한다.
 
+    async runHeightUpdateBatch(action: Function) -> Promise<void>
+        인터페이스: action은 인수 없는 함수이며 void 또는 Promise<void>를 반환한다. 중간 지형 조회·레이어 설정 변경은 배치 밖에서 수행하며 같은 앱의 수집 가능한 동시 요청도 이 활성 범위에 포함되므로 호출자가 동시 편집을 조정한다.
+        의존: UHeightReapplyBatchExecutor — 명시적 앱별 높이 편집 배치; 정적 함수: {run()}
+        동작: 현재 앱과 action을 실행기에 전달하여 작업과 최종 재적용을 await하고 그 오류를 그대로 전달한다. 성공 후 앱이 종료되지 않았으면 최종 반영의 갱신 신호를 기록한다. 같은 앱의 중첩 배치는 거절한다.
+
     updateHeightLayers(box, minlevel, maxlevel) -> void
         의존:
-            defined — 실제 직접 import API; 함수: {defined()}
-            U3dQuadTile — 실제 직접 import API; 함수: {U3dQuadTile.getMaxLevel()}
-            UMathEngine — 실제 직접 import API; 함수: {UMathEngine.MetersToTile(), UMathEngine.TileBounds()}
+            defined — 박스·드로잉 인자·레벨의 존재 판정; 함수: {defined()}
+            UDrawArg — 요청 시점 pass 레벨; 함수: {getPassLevel()}
+            UHeightReapplyBatchExecutor — 배치 수집 또는 원래 타일 순회; 정적 함수: {capture(), applyImmediate()}
         동작:
             box나 드로잉 인자가 없으면 반환한다.
-            minlevel이 없으면 passLevel, maxlevel이 없으면 전역 최대 타일 레벨을 사용하고 고도 레이어가 없으면 반환한다.
-            상자를 사방 100씩 확장하고 각 레이어의 truthy _minlevel 또는 지정 최소부터 최대까지 타일 인덱스 범위를 구한다.
-            범위의 각 타일 경계를 계산하여 updateHeightByUser(infoTile)에 전달한다.
+            minlevel이 없으면 현재 드로잉 인자의 passLevel, maxlevel이 없으면 이 앱의 _maxlevel을 사용하고 고도 레이어가 없으면 반환한다.
+            명시적 배치가 요청을 수집하면 여기서 반환한다. 수집 시점의 레이어·확장 XY·확정 레벨을 보관한다.
+            수집하지 않았으면 상자를 사방 100씩 확장하고 원래 레이어 순서로 즉시 실행한다. 실행기는 레이어의 truthy _minlevel 또는 지정 최소부터 최대까지 원래 X 바깥·Y 안쪽 순회와 기존 infoTile 필드로 updateHeightByUser를 호출한다.
 
     defined(value)
         의존:
@@ -2188,13 +2221,13 @@ U3dApp extends U3dObject 클래스 정의
             2D가 아니거나 컨트롤 또는 position이 없으면 입력 position·target 참조를 그대로 묶어 반환한다.
             2D이면 현재 카메라 위치와 컨트롤로 getTopViewFlyPosition()이 생성한 수직 시점 이동 좌표를 반환한다.
 
-    flyToPosition(position: WorldPosition, target: WorldPosition, duration: number) -> Promise<void>
+    flyToPosition(position: WorldPosition, target?: WorldPosition, duration?: number) -> Promise<void>
         의존:
             UMapControls — 카메라 이동 시작; 함수: {flyTo()}
             deferredPromise — 실제 직접 import API; 함수: {deferredPromise()}
         동작:
             stopFly()로 기존 이동을 중단하고 deferredPromise 결과를 만든다.
-            #getTopViewFlyPosition()으로 이동 좌표를 준비한 뒤 mapControl.flyTo()에 position·target·duration과 stop·complete 시 resolve할 콜백을 전달한다.
+            #getTopViewFlyPosition()으로 이동 좌표를 준비한 뒤 mapControl.flyTo()에 position·target·duration과 stop·complete 시 resolve할 콜백을 전달한다. 월드 좌표 기준 이동 거리 1 이하 또는 0시간 지정은 즉시 이동한다.
             트윈을 _currentTween에 저장하고 deferredPromise를 반환한다.
 
     flyTo(position: GeoPosition, duration: number) -> Promise<boolean>
@@ -2220,7 +2253,7 @@ U3dApp extends U3dObject 클래스 정의
             offset이 defined이면 is2DMode()로 방향을 선택한다.
                 2D이면 수직 방향, 그 외에는 getCameraPosition()에서 클릭점으로 향하는 반대 방향을 정규화하여 offset만큼 떨어진 새 카메라 위치를 만든다.
             self._mapControl.object.isOrthographicCamera가 truthy이면 현재 카메라 z를 읽어 이동점 z에 저장한다.
-            flyToPosition(이동점, 새 타겟)의 결과를 반환한다.
+            flyToPosition(이동점, 새 타겟)의 결과를 반환한다. 이동 거리가 월드 좌표 기준 1을 초과하면 기본 3000ms 애니메이션으로 이동한다.
 
     flyToTarget(offset: number = 1, duration: number = 3000) -> Promise<boolean>
         의존:
@@ -2575,14 +2608,16 @@ U3dApp extends U3dObject 클래스 정의
                     _layerlist._listmap을 순회하며 getWorkingCount()가 0보다 큰 첫 레이어에서 true를 반환한다.
                 조회 레이어가 없거나 모든 검사에서 작업 수가 양수가 아니면 false를 반환한다.
 
-    createWorkingEndEvent(name) -> void
+    createWorkingEndEvent(name?: unknown, modelOnly: boolean = false) -> void
         의존:
             defined — 직접 런타임 연계; 함수: {defined()}
             U3dAppEventHandler — 직접 런타임 연계; 함수: {createWorkingEndEvent()}
-            U3dLayer — 직접 런타임 연계; 함수: {getVisible(), createWorkingEndEvent()}
+            U3dLayer — 직접 런타임 연계; 함수: {getType(), getVisible(), createWorkingEndEvent()}; 속성 읽기: {_workCheckGeneration}
         동작:
-            이벤트 핸들러가 있으면 createWorkingEndEvent(name)를 호출한다.
-            레이어 목록이 있으면 표시 중인 각 레이어에 createWorkingEndEvent()를 호출한다.
+            이벤트 핸들러 호출 전에 현재 레이어와 각 _workCheckGeneration을 지역 Map에 보관한다.
+            이벤트 핸들러가 있으면 createWorkingEndEvent(name, modelOnly)를 호출한다. name은 기존 호출과의 호환용으로 유지하며 감시 범위에는 사용하지 않는다.
+            LOAD 콜백 뒤 앱이 해제·트리 변경·영역 적용 중이면 종료한다. 현재 목록에서 호출 전에 포착했고 세대가 유지된 표시 레이어에만 createWorkingEndEvent()를 호출하되, 내부 modelOnly가 true이면 MODEL 레이어만 포함한다.
+            교체된 세대와 콜백에서 추가된 레이어는 새 검색에서 감시한다. 변경되지 않은 레이어의 기존 감시를 취소하지 않으며, 기존 인수 생략·이름만 전달하는 호출은 전체 감시를 유지한다.
 
     getWorkingCount() -> number
         의존:
@@ -2632,8 +2667,9 @@ U3dApp extends U3dObject 클래스 정의
             Web API — 직접 런타임 연계; 함수: {setTimeout()}
             defined — 직접 런타임 연계; 함수: {defined()}
         동작:
-            500ms 타이머 뒤 모듈 listenEndWork()를 호출한다.
-            완료 시 callback이 있으면 앱 this와 param으로 callback.call()을 호출한다.
+            최초 500ms 뒤 작업량을 확인하며 작업 중이면 같은 간격으로 다시 확인한다.
+            완료 시 대기 등록을 먼저 제거한 뒤 callback이 있으면 앱 this와 param으로 callback.call()을 호출한다.
+            전체·부분 트리 재시작·해제 또는 앱 해제 시 타이머와 이전 완료 콜백을 취소한다. 조회 중 재진입한 변경도 완료로 처리하지 않는다.
 
     keepModelByDistance(tileloadall: boolean, maxDistance?: number) -> Promise<boolean>
         의존:
@@ -2644,7 +2680,8 @@ U3dApp extends U3dObject 클래스 정의
             maxDistance가 defined인 경우:
                 _maxDistanceModel에 maxDistance를 저장한다.
                 기존 거리와 maxDistance가 엄격히 다르면 update()를 호출한다.
-            applyAppFromParameter({tileloadall})를 호출하고 완료 콜백에서 deferredPromise를 true로 resolve한다.
+            applyAppFromParameter({tileloadall})로 상태를 적용한 뒤 취소 수신자를 가진 내부 완료 대기를 등록한다.
+            정상 완료하면 true로 이행하고 트리 변경·앱 해제 시 AbortError로 거절하며 조회 실패는 원래 사유로 거절한다.
             deferredPromise를 반환한다.
 
     applyAppFromParameter(opt: object, callback?: Function, param?: object) -> void
@@ -2658,14 +2695,12 @@ U3dApp extends U3dObject 클래스 정의
             opt.tileloadall이 defined인 경우:
                 그 선택값이 true인 경우:
                     setStopModel(true)로 모델 정지를 설정한다.
-                    listenEndWork()에 작업 완료 콜백을 등록한다.
-                        callback이 defined이면 완료 콜백의 앱 this와 param으로 callback.call(this,param)을 호출한다.
+                    callback이 defined인 경우에만 listenEndWork(callback,param)에 완료 대기를 등록한다.
                 그 선택값이 true가 아닌 경우:
                     rRatioTileSize_가 defined이면 setRatioTileSize(rRatioTileSize_)로 복구하나 현재 지역값이 undefined여서 이 복구는 실행되지 않는다.
                     setStopModel(false)로 모델 정지를 해제한다.
                     disposeTileModelAll()로 모델을 모두 지운 뒤 update()를 호출한다.
-                    listenEndWork()에 작업 완료 콜백을 등록한다.
-                        callback이 defined이면 완료 콜백의 앱 this와 param으로 callback.call(this,param)을 호출한다.
+                    callback이 defined인 경우에만 listenEndWork(callback,param)에 완료 대기를 등록한다.
             redraw가 true이면 update()를 호출한다.
             opt.stopmodel이 defined이면 마지막에 setStopModel(opt.stopmodel)을 호출한다.
 
@@ -2722,21 +2757,22 @@ U3dApp extends U3dObject 클래스 정의
             U3dQuadSet — 민감도 보존과 실제 타일 해제; 함수: {getUpdateSensitivity(), disposeQuadTree()}
         동작:
             쿼드 세트가 있으면 getUpdateSensitivity()를 #tileUpdateSensitivity에 보존하고 앱·레이어의 구 트리 참조를 취소 알림 전에 분리한다.
-            앱과 레이어의 로딩 완료 예약을 초기화한다. 구 모델 루트의 해제 이벤트가 강제 로딩·마스크 작업을 취소하며, 각 작업은 루트에 등록한 이벤트를 정리한다.
+            앱과 레이어의 로딩 완료 예약을 초기화하고 listenEndWork의 타이머·일반 완료 대기도 모두 취소한다. 구 모델 루트의 해제 이벤트가 강제 로딩·마스크 작업을 취소하며, 각 작업은 루트에 등록한 이벤트를 정리한다.
             U3dQuadSet.disposeQuadTree()로 두 종류를 해제한다. 고도 적용 기록은 기존 지형 루트의 이름으로 구분하므로 같은 레벨의 새 타일도 다시 적용하며 해제된 루트 객체를 보관하지 않는다.
             생성은 #createQuadTreeSet, 해제는 #disposeQuadTree, 재시작은 #rebuildQuadTree 전용 경로에서 해당 작업만 수행하고 _quadTreeChanging 하나로 재진입을 차단한다. 해제·재시작의 앱 참조 분리는 #disconnectQuadTree, 새 연결은 #connectQuadTree, 종료 정리와 오류 전달은 #finishQuadTreeOperation이 담당하며 쿼드셋의 해제 상태는 isDisposed()로 조회한다. 한 완료 대기 정리가 실패해도 다른 레이어와 실제 타일 정리를 이어간 뒤 오류를 전달한다.
 
     disposeTerrainQuadTree() -> void
         동작:
-            지형·영상 레이어의 트리 참조와 전체·영상·고도 완료 예약만 분리한다.
+            지형·영상 레이어의 트리 참조와 전체·영상·고도 완료 예약을 분리하고 종류를 구분하지 않는 listenEndWork 대기는 취소한다.
             지형 루트와 해당 프레임·가시 상태만 해제하며 모델 루트·프레임·완료 예약을 유지한다.
             마지막 종류를 해제하면 앱의 컨테이너 참조도 분리한다. 대상이 없으면 아무 작업도 하지 않는다.
             공유 워커 풀은 레이어 소유권으로 유지하며 개별 트리 해제에서 dispose하지 않는다.
 
     disposeModelQuadTree() -> void
         동작:
-            모델 레이어의 트리 참조와 전체·모델·거리별 완료 예약만 분리한다.
-            모델 루트 해제 이벤트로 작업을 취소하고 지연된 이전 결과를 무시한다. 앱별 탐색 상한은 기존처럼 접근 가능한 일반 속성 _modelMaxLevel에 보관하며 getModelMaxLevel()과 기존 setMaxQuadTreeLevel(level, MODEL)로 조회·변경한다. 미지정 앱은 기존 공개 정적 속성 U3dQuadModelTile.g_maxLevel을 사용한다. 트리가 없어도 모델 설정을 변경할 수 있고 앱별 지정값은 재생성 후에도 유지하며 다른 앱의 지정값에 영향을 주지 않는다. 모델 타일의 기존 상한 메서드는 이 앱 설정으로 위임한다. 마스크 작업 종료 시에는 미지정 여부까지 복원하여 공용 기본값을 계속 따르게 한다. 레이어별 완료 알림의 타일 키는 요청 내부 Set에 수집하여 같은 타일의 마스크 생성과 값 계산을 한 번만 수행한다.
+            모델 레이어의 트리 참조와 전체·모델·거리별 완료 예약을 분리하고 종류를 구분하지 않는 listenEndWork 대기는 취소한다.
+            모델 루트 해제 이벤트로 작업을 취소하고 지연된 이전 결과를 무시한다. 앱별 탐색 상한은 기존처럼 접근 가능한 일반 속성 _modelMaxLevel에 보관하며 getModelMaxLevel()과 기존 setMaxQuadTreeLevel(level, MODEL)로 조회·변경한다. 미지정 앱은 기존 공개 정적 속성 U3dQuadModelTile.g_maxLevel을 사용한다. 트리가 없어도 모델 설정을 변경할 수 있고 앱별 지정값은 재생성 후에도 유지하며 다른 앱의 지정값에 영향을 주지 않는다. 모델 타일의 기존 상한 메서드는 이 앱 설정으로 위임한다. 마스크 작업 종료 시에는 자신이 적용한 임시 상한이 유지될 때만 미지정 여부까지 복원하여 대기 중 변경한 설정을 보존한다. 레이어별 완료 알림의 타일 키는 요청 내부 Set에 수집하여 같은 타일의 마스크 생성과 값 계산을 한 번만 수행한다.
+            같은 앱의 강제 마스크 생성은 UAnalyParticle 모듈의 비공개 WeakSet에 앱을 등록하여 값 계산·표시 완료 또는 실패·취소까지 중복 실행을 막는다. 앱에 별도 실행 속성을 추가하지 않으며 비강제 마스크는 등록·해제하지 않는다.
             모델 루트와 해당 프레임만 해제하며 지형과 고도 캐시를 유지한다.
             두 개별 해제는 중첩 실행을 차단한다. 단일 실패는 원래 오류를, 복수 실패는 errors 배열을 가진 Error로 전달하며 하위 오류 묶음도 보존한다. 해제 콜백에서 앱이 종료되면 남은 종류도 정리한다.
 
@@ -3952,18 +3988,19 @@ U3dApp extends U3dObject 클래스 정의
         동작:
             saveChangeUpdate() 뒤 setUpdateDate()를 호출한다.
 
-    forceLoadModel(visible: boolean = true, minx: number = -213890.2, maxx: number = -212195.6, miny: number = 102175.8, maxy: number = 104582.4) -> Promise<void> | undefined
+    forceLoadModel(visible: boolean = true, minx: number = -213890.2, maxx: number = -212195.6, miny: number = 102175.8, maxy: number = 104582.4, signal?: AbortSignal) -> Promise<void> | undefined
         의존:
             U3dQuadSet — 모델 루트 존재 판정·범위 갱신; 함수: {hasQuadTree(), on(), off(), updateModel()}
             UScene / THREE — 임시 범위·타일 박스와 자원 해제
             U3dApp — 모델 완료 대기; 상수: {EVENT.MODEL_LOADED}
             U3dQuadModelTile — 모델 루트 수명 알림; 이벤트: {TILE.DISPOSE}
         동작:
+            이미 취소된 signal은 상태나 자원을 변경하지 않고 원래 reason으로 거절한다. 실행 중 취소는 이 요청의 종료 경로로 전달하며 정상·실패 종료에서 신호 리스너도 해제한다.
             유한하지 않거나 순서가 잘못된 경계는 RangeError로 거절한다. 앱 해제·영역 적용·트리 교체 중이거나 모델 루트가 없거나 갱신 중지이면 undefined로 종료한다.
             getQuadTrees(MODEL)로 모델 루트를 조회하고 컨테이너와 함께 기록한 뒤 앱 갱신을 중지하고 FORCE_MODEL_LOADED 수집과 MODEL_LOADED 완료 대기를 등록한다. 각 모델 루트의 DISPOSE 이벤트로 취소하며 별도의 앱 세대값이나 취소 목록은 두지 않는다.
-            visible이면 적색 범위 박스를 지면 고도+30에, 완료된 녹색 타일 박스를 지면 고도+50에 표시한다.
+            visible이면 적색 범위 박스를 지면 고도+30에, 살아 있는 완료 타일의 녹색 박스를 지면 고도+50에 표시한다. 같은 알림의 앞선 수신자가 폐기한 타일은 표시 수집에서 제외한다. 고도 조회·장면 추가 전에 소유 목록에 기록하고, 준비 중 동기 취소가 발생하면 후속 등록과 검색을 중단한다. 후속 FORCE_MODEL_LOADED 알림에서도 고도 조회·장면 추가 예외를 종료 처리로 전달하여 이벤트 호출부로 전파하지 않고 자원 정리와 Promise 거절을 완료한다. 장면은 추가 이벤트 중 예외·즉시 제거가 발생해도 기존 자식 목록을 실제 부모와 맞춰 박스 제거가 누락되지 않게 한다.
             지형 개별 재시작은 모델 대기를 유지한다. 모델 해제·재시작과 앱 종료는 등록 작업을 취소하여 Promise를 거절한다.
-            정상 완료·취소·예외 모두 표시 여부와 관계없이 트리·앱·루트 이벤트와 임시 박스의 geometry·material을 정리하고 갱신 중지를 해제한다. 트리 교체 도중 이전 완료 알림은 무시한다.
+            트리·앱·루트 이벤트는 요청 고유 이름으로 등록·해제하여 다른 작업의 동명 콜백을 제거하지 않는다. 정상 완료·취소·예외 모두 표시 여부와 관계없이 해당 이벤트와 임시 박스의 geometry·material을 정리하고 갱신 중지를 해제한다. 트리 교체 도중 이전 완료 알림은 무시한다.
             정리 시작 시 재진입을 차단하고 이벤트·각 박스의 분리·재질·형상 정리를 독립적으로 시도한다. 정리 오류가 있어도 갱신 중지를 복원하고 Promise를 종료한다. 오류 하나는 원래 객체를, 여러 오류는 기존 실패·취소 원인을 먼저 담고 정리 순서대로 수집한 errors 배열을 가진 Error로 거절한다. 오류 없이 완료하면 완료값은 undefined다.
 
     setInteriorPanControl(set: boolean) -> void
@@ -4934,16 +4971,22 @@ setMapRegion(region: MapRegion, options?: MapRegionTransitionOptions) -> Promise
         전체 옵션은 선택이고 baseLayerName 생략 시 현재 배경을 유지한다.
         목적 영역의 시작 레벨이 앱의 _maxlevel을 넘으면 현재 영역·진행 중 이동을 유지하고 거절한다.
         view의 경도·위도·거리·방위·기울기는 모두 선택이며 생략 값은 현재 카메라에서 읽는다.
+        직교 카메라의 생략 거리는 공개 배율과 화면 크기를 반영한 시야에서 환산하며, 방향·기울기 계산과 명시 거리 입력은 기존 기준을 유지한다.
         수직 시점은 위치와 별도로 방위각을 전달해 실제 화면 방향과 컨트롤 각도를 유지한다.
         즉시·애니메이션·일반 갱신·실패 복구에서 같은 방향 규칙을 사용하며 현재 모드의 회전 제한을 우선한다.
         생략한 시점은 목적 경계와 거리 제한에 맞추며, 명시한 좌표 축이 영역 밖이면 거절한다.
         duration 기본은 100ms이며 0은 즉시 적용한다.
         영역 종류 또는 사용자 타일 인덱스가 바뀌면 restartQuadTree 공통 경로로 트리를 교체한다.
-        동일 영역·동일 타일은 트리와 현재 카메라 제한을 유지한다.
+        동일 영역·동일 타일은 트리와 현재 카메라 제한을 유지하되 지면 가시성에 필요한 경우 far만 확장한다.
         영역 종류나 타일이 달라지면 목적 영역의 기본 줌·최대 거리·far를 계산하고 현재 최소 거리를 유지한다. 이전 영역의 사용자 제한은 재사용하지 않는다.
+        전환 중 재진입한 요청은 실제 적용 시 확정된 영역·제한·시점으로 다시 계산하여 중간 상태를 재사용하지 않는다.
+        영역 값 적용 직후 종류도 함께 갱신하여 재진입 콜백에서 종류·인덱스·제한이 일치한다. 이동 중단 콜백 뒤의 제한을 새로 읽고 중단 전 복사본은 실패 복구에만 사용한다.
+        예약 후 바뀐 제한이 목적 영역에서 유효하지 않으면 현재 영역과 트리를 변경하지 않고 거절한다.
+        지하 격자는 현재 영역 너비와 원래 설정 간격으로 분할 수를 계산하며 작은 영역에서도 최소 한 칸을 유지한다.
         영역 적용 직전의 범위·카메라·제한·배경은 실패 복구에만 사용하고 적용 처리 종료 시 복사본 참조를 제거한다.
         예약된 트리 재시작까지 성공한 뒤에만 customIndex를 갱신하므로 실패한 범위가 이후 생략 요청에 남지 않는다.
         적용이 끝난 뒤 이동 중단·실패는 적용 영역을 유지하며 이전 요청 취소 계약도 유지한다.
+        타일·배경 콜백에서 새 사용자 이동이 시작되면 이전 요청의 시점 적용과 복구용 시점 복원은 그 이동을 중단하거나 덮어쓰지 않는다.
         getMapRegion은 custom 생성·전환을 custom으로 반환한다.
 
 removeModelByObject(obj) -> void
@@ -5117,14 +5160,6 @@ createFlyControls() -> void
         drawarg,camera,domelement,automove로 UFlyControls를 만든다. [확인 Q-109]
         movementSpeed=100,rollSpeed=π/12,autoForward=true,dragToLook=false를 설정한다.
         _flyControl과 _controls.fly에 저장하고 eanbled=false를 설정한다.
-
-listenEndWork(self: U3dApp, callback: Function, param: unknown) -> void
-    의존:
-        defined — 직접 런타임 연계; 함수: {defined()}
-        Web API — 직접 런타임 연계; 함수: {setTimeout()}
-    동작:
-        self.getWorkingLevel2()<=0이면 정의된 callback을 self this와 param으로 호출하고 종료한다.
-        그 외에는 같은 self,callback,param으로 500ms 뒤 다시 실행한다.
 
 rotateObject(model, scene, degreeX, degreeY, degreeZ) -> void
     의존:

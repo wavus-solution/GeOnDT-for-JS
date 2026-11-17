@@ -1,0 +1,74 @@
+<template data-example-rail>
+    <button class="rail-button" type="button" data-panel-target="section-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">▧</span><span>단면 분석</span>
+    </button>
+    <button class="rail-button" type="button" data-panel-target="section-data-panel" aria-expanded="false" aria-controls="section-data-panel">
+        <span class="rail-icon" aria-hidden="true">▤</span><span>데이터</span>
+    </button>
+    <button class="rail-button" type="button" data-panel-target="section-opacity-panel" aria-expanded="false" aria-controls="section-opacity-panel">
+        <span class="rail-icon" aria-hidden="true">◐</span><span>투명도</span>
+    </button>
+</template>
+<aside class="glass-panel example-panel example-option-panel section-example-panel" id="section-panel" aria-hidden="true">
+    <header class="panel-header">
+        <h2>단면 분석</h2>
+        <button class="panel-close" type="button" data-panel-close="section-panel" aria-label="단면 분석 패널 닫기">×</button>
+    </header>
+    <div class="panel-content">
+        <p class="section-description">건물과 지하시설물을 단면 영역으로 선택하고 포함된 모델을 확인합니다.</p>
+        <section aria-labelledby="section-draw-heading">
+            <h3 id="section-draw-heading">분석 영역</h3>
+            <label class="section-field" for="section-type">분석 유형</label>
+            <select id="section-type" data-section-type>
+                <option value="crossSection">횡단면</option>
+                <option value="longitudinal">종단면</option>
+                <option value="cylinder">원통</option>
+                <option value="circle">원반경</option>
+            </select>
+            <div class="section-actions">
+                <button class="section-button section-primary" type="button" data-section-start>영역 그리기</button>
+                <button class="section-button" type="button" data-section-cancel disabled>그리기 취소</button>
+            </div>
+            <p class="section-note" data-section-instruction></p>
+            <p data-section-status role="status" aria-live="polite"></p>
+        </section>
+        <section class="section-group" aria-labelledby="section-results-heading">
+            <div class="section-heading">
+                <h3 id="section-results-heading">영역별 결과</h3>
+                <button class="section-button section-quiet" type="button" data-section-reset>전체 지우기</button>
+            </div>
+            <p class="section-note" data-section-empty>생성한 분석 영역이 없습니다.</p>
+            <div data-section-results></div>
+            <p class="section-note">생성 당시 로드된 모델을 집계합니다. 데이터나 표시 상태를 바꾼 뒤에는 새 영역을 그려 다시 분석하세요.</p>
+        </section>
+    </div>
+</aside>
+<aside class="glass-panel example-panel section-example-panel" id="section-data-panel" aria-hidden="true">
+    <header class="panel-header">
+        <h2>데이터 레이어</h2>
+        <button class="panel-close" type="button" data-panel-close="section-data-panel" aria-label="데이터 레이어 패널 닫기">×</button>
+    </header>
+    <div class="panel-content">
+        <p class="section-description">단면 분석에 사용할 건물과 지하시설물을 선택합니다.</p>
+        <div data-section-layers></div>
+        <label class="section-check"><input type="checkbox" data-section-underground>지하 보기</label>
+        <p class="section-note">부산 지역에서 확인하세요. 지형 표시와 배경지도는 우측 공통 패널에서 조절합니다. 외부 데이터가 로드된 뒤 영역을 그리세요.</p>
+    </div>
+</aside>
+<aside class="glass-panel example-panel section-example-panel" id="section-opacity-panel" aria-hidden="true">
+    <header class="panel-header">
+        <h2>투명도 설정</h2>
+        <button class="panel-close" type="button" data-panel-close="section-opacity-panel" aria-label="투명도 설정 패널 닫기">×</button>
+    </header>
+    <div class="panel-content">
+        <p class="section-description">영상과 모델의 투명도를 조절합니다. 0은 투명, 1은 불투명입니다.</p>
+        <label class="section-check"><input type="checkbox" data-section-opacity-enabled="image">영상 투명도 사용</label>
+        <label class="section-range">영상 불투명도 <output data-section-opacity-output="image"></output>
+            <input type="range" min="0" max="1" step="0.01" data-section-opacity="image">
+        </label>
+        <label class="section-check"><input type="checkbox" data-section-opacity-enabled="model">모델 투명도 사용</label>
+        <label class="section-range">모델 불투명도 <output data-section-opacity-output="model"></output>
+            <input type="range" min="0" max="1" step="0.01" data-section-opacity="model">
+        </label>
+    </div>
+</aside>

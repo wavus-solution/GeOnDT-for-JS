@@ -1,18 +1,18 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
 import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/examples/jsm/math/ConvexHull.js";
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dModelLayer, U3dModelLayerCO } from "./U3dModelLayer.js";
+import type { U3FParsedObj } from "./U3dModelU3FLayer.js";
 import type { UBox3 } from "../core/UBox3.js";
 import type { UDrawArg } from "../core/UDrawArg.js";
 import type { UGroup } from "../core/UGroup.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { GeoPosition, KeyValue, ModelMesh } from "../types/global.js";
-import type { DeferredObject } from "../util/deferred.js";
 
 /**
  * ~extends import('@union3d/3dLayer/U3dModelLayer').U3dModelLayer <br>
@@ -30,6 +30,12 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
      * @param {Partial<U3dModelBasicLayerCO>} [opt={}] 모델 목록·주소와 XML·배치 설정
      */
     constructor(opt?: Partial<U3dModelBasicLayerCO>);
+    /**
+     * 생성 옵션에 위경도 위치가 명시되었는지 나타냅니다. 생략 시 적용하는 기본 좌표와 구분합니다.
+     *
+     * @type {boolean}
+     */
+    _hasGeoLocation: boolean;
     /**@type{number}*/
     _defaultHeight: number;
     /**@type{import('three').Vector3}*/
@@ -89,11 +95,11 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
     _printSprite: any;
     /**
      * 현재 모델 목록을 다시 로드하고 완료 객체를 반환합니다.
-     * 기존 공개 선언은 문자열 결과이지만 현재 성공 경로는 값을 전달하지 않습니다.
+     * 성공 시 별도 결과값 없이 완료하며 실패 원인은 그대로 전달합니다.
      *
-     * @returns {Promise<string>}
+     * @returns {Promise<void>} 모델 목록의 재로딩 완료
      */
-    reLoad(): Promise<string>;
+    reLoad(): Promise<void>;
     /**
      * U3F 자료로 표시 객체를 구성하고 레이어 배치 설정을 적용합니다.
      * 텍스처 요청은 별도로 진행하며 그 완료를 기다리지 않습니다. 일부 로드 실패는 로그만 남깁니다.
@@ -184,10 +190,18 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
      */
     getModelInfo(name: string, baseurl?: string): ModelInfo | undefined;
     /**
+     * 이 레이어가 기록한 현재 모델 요청에 완료 통지가 접수되었는지 확인합니다.
+     * 성공 여부는 ready를 기다려 판정합니다. 외부에서 교체한 Promise의 상태는 추측하지 않습니다.
+     *
+     * @param {ModelInfo} model 조회한 모델 정보
+     * @returns {boolean} 현재 요청의 resolve 또는 reject가 호출되었으면 true
+     */
+    _isModelLoadReady(model: ModelInfo): boolean;
+    /**
      * 파일 확장자로 로더를 선택하고 형식별 후처리 결과를 전달합니다.
-     * 입력 항목을 목록과 공유하고 파일 이름·완료 인터페이스를 보완할 수 있습니다.
-     * 성공 결과와 실패 전달은 형식별 기존 계약을 따릅니다. 모든 오류가 반환 객체의 거부로 전달되지는 않습니다.
-     * GLB의 로더 실패와 장면 후처리 예외는 반환 객체 및 모델의 실패 콜백에 전달합니다.
+     * 입력 항목을 목록과 공유하고 파일 이름을 보완합니다. 모델 정보의 ready에는 이 호출과 같은 Promise를 기록합니다.
+     * 로딩 성공 값은 반환 Promise와 모델의 성공 콜백에, 로더·후처리 실패는 반환 Promise와 모델의 실패 콜백에 전달합니다.
+     * 선택 완료 콜백의 예외와 비동기 실패는 오류로 보고하며 이미 정해진 로딩 결과는 바꾸지 않습니다.
      *
      * @param {ModelInfo} model 모델 데이터
      * @param {string} [textureUrl=undefined] 텍스처 URL
@@ -195,18 +209,17 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
      */
     load(model: ModelInfo, textureUrl?: string): Promise<ModelObject3D>;
     /**
-     * 모델 자료를 요청하고 파서와 공유하는 완료 객체를 반환합니다.
-     * 기존 초기화 경로가 반환 객체의 resolve/reject도 사용하므로 완료 제어 인터페이스를 유지합니다.
-     * 입력 타입과 달리 요청 구현은 model.baseurl을 직접 읽습니다.
+     * 모델 자료를 요청하고 파싱 결과를 Promise로 반환합니다.
+     * 문자열 주소 또는 모델 정보의 baseurl을 사용하며 요청·파싱 실패는 호출자에게 전달합니다.
      *
      * @param {ModelInfo | KeyValue | string | undefined} model U3F 모델 파라미터
      * @param {string} baseurl U3F 모델 URL
-     * @returns {DeferredObject<any>} promise 함수. 작업 성공 시 Load한 U3F 3D Object 배열을 반환한다.
+     * @returns {Promise<Array<U3FParsedObj>>} 로딩·파싱한 U3F 객체 배열
      */
-    getU3FInfo(model: ModelInfo | KeyValue | string | undefined, baseurl: string): DeferredObject<any>;
+    getU3FInfo(model: ModelInfo | KeyValue | string | undefined, baseurl: string): Promise<Array<U3FParsedObj>>;
     /**
      * 텍스처를 요청하여 완료 결과를 반환합니다.
-     * 기존 동작상 로드 오류뿐 아니라 진행 콜백이 호출되어도 거부합니다.
+     * 실제 로딩·후처리 실패를 거부하며 진행률 통지는 실패로 처리하지 않습니다.
      *
      * @param {string} url 텍스처 URL
      * @returns {Promise<import('three').Texture>} promise 함수. 작업 성공 시 Load한 텍스처를 반환.
@@ -303,6 +316,7 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
      * @param {boolean} useClone 별도 복제 그룹을 만들어 표시할지 여부
      */
     mergeVertices(tolerance: number, useClone: boolean): void;
+    #private;
 }
 
 /**
@@ -355,6 +369,10 @@ declare class U3dModelBasicLayer extends U3dModelLayer {
          * 모델 데이터 형식
          */
         ext: string;
+        /**
+         * 엔진이 로딩 시작 시 기록하는 완료 Promise. 입력하지 않고 조회 결과에서 기다리며, 모델 정보 자체는 thenable이 아닙니다.
+         */
+        ready?: Promise<ModelObject3D>;
         /**
          * 형식별 로드 결과를 받는 콜백
          */

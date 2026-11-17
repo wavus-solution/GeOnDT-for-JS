@@ -143,7 +143,7 @@ app<span class="token punctuation">.</span><span class="token function">showLaye
 <details class="api-disclosure">
 <summary title="반환값 펼치기">반환값</summary>
 <ul>
-<li><code>return</code> (<code>Promise&lt;void&gt;</code>) : 에셋 로드가 끝나면 완료되는 Promise</li>
+<li><code>return</code> (<code>Promise&lt;void | ModelObject3D&gt;</code>) : 형식별 모델 로드 결과로 완료되는 Promise. 모델 정보를 생략한 재로드는 값 없이 완료합니다.</li>
 </ul>
 </details>
 <pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> layer <span class="token operator">=</span> app<span class="token punctuation">.</span><span class="token function">createMultipleComponentLayer</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
@@ -166,6 +166,24 @@ app<span class="token punctuation">.</span><span class="token function">showLaye
 <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
 </code></pre>
 <p>반드시 <code>listmodel</code> 또는 <code>loadModel()</code>의 비동기 로드가 완료된 뒤 해당 에셋으로 컴포넌트를 생성해야 합니다.</p>
+<h3 id="모델-로딩-결과와-체이닝">모델 로딩 결과와 체이닝</h3>
+<p><code>loadModel()</code>·<code>reLoad()</code>·레이어의 비동기 작업은 표준 Promise를 반환합니다. <code>then</code>은 새 Promise를 만들며, 다음 콜백에는 앞 콜백의 반환값이 전달됩니다. 실패 처리는 같은 체인의 끝에 연결합니다.</p>
+<p><code>getModelInfo()</code>는 모델 정보를 반환합니다. 정보 자체를 <code>await</code>하거나 <code>then()</code>을 호출하지 마십시오. 로딩이 시작된 정보에는 해당 요청의 <code>ready</code>가 기록되므로 이미 진행 중인 요청을 다시 다운로드하지 않고 기다릴 수 있습니다. 이 <code>ready</code>의 완료값은 형식별 로드 결과이며, 레이어 초기화를 기다리는 <code>layer.ready</code>와 구분합니다. 로딩 실패는 같은 Promise로 전달됩니다.</p>
+<pre class="language-javascript"><code class="language-javascript"><span class="token keyword">const</span> modelInfo <span class="token operator">=</span> layer<span class="token punctuation">.</span><span class="token function">getModelInfo</span><span class="token punctuation">(</span><span class="token string">'helicopter2'</span><span class="token punctuation">,</span> <span class="token string">'component/drone/Drone_02/'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+<span class="token keyword">if</span> <span class="token punctuation">(</span>modelInfo<span class="token operator">?.</span>ready<span class="token punctuation">)</span> <span class="token punctuation">{</span>
+    <span class="token keyword">await</span> modelInfo<span class="token punctuation">.</span>ready<span class="token punctuation">;</span>
+<span class="token punctuation">}</span>
+
+layer<span class="token punctuation">.</span><span class="token function">loadModel</span><span class="token punctuation">(</span><span class="token punctuation">{</span>
+    <span class="token literal-property property">name</span><span class="token operator">:</span> <span class="token string">'helicopter2'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">baseurl</span><span class="token operator">:</span> <span class="token string">'component/drone/Drone_02/'</span><span class="token punctuation">,</span>
+    <span class="token literal-property property">fileName</span><span class="token operator">:</span> <span class="token string">'Drone_02.3ds'</span>
+<span class="token punctuation">}</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token string">'모델 로딩 완료'</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">then</span><span class="token punctuation">(</span><span class="token parameter">message</span> <span class="token operator">=></span> console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span><span class="token punctuation">)</span>
+    <span class="token punctuation">.</span><span class="token function">catch</span><span class="token punctuation">(</span><span class="token parameter">error</span> <span class="token operator">=></span> console<span class="token punctuation">.</span><span class="token function">error</span><span class="token punctuation">(</span><span class="token string">'모델 로딩 실패'</span><span class="token punctuation">,</span> error<span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+</code></pre>
+<p>재로드는 새 Promise를 만들며, 이전에 받아 둔 Promise의 결과는 바뀌지 않습니다. <code>resolve()</code>·<code>reject()</code>·<code>reset()</code>·<code>done()</code>·<code>fail()</code>을 반환 Promise에 사용하지 않습니다. 이미 완료된 작업에 등록한 콜백도 현재 동기 코드 다음에 실행됩니다.</p>
 <h2 id="3-컴포넌트-생성하기">3. 컴포넌트 생성하기</h2>
 <p>에셋 등록이 완료되면 <code>addPosition()</code>으로 원하는 위치에 컴포넌트를 생성합니다.<br><code>object</code>에는 앞에서 지정한 <code>ModelDataInfo.name</code>을 입력합니다.<br>GeOnDT에서 컴포넌트는 <code>U3dComponentPosition</code> / <code>U3dComponentInstancedPosition</code> 클래스로 정의됩니다.</p>
 <h4 class="api-heading" id="api-2">API</h4>

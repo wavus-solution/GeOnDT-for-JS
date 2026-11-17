@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -185,9 +185,10 @@ declare class U3dMaskLayer extends U3dModelLayer {
     removeAll(): void;
     /**
      * 타일 키에 대응하는 마스크 격자가 없을 때만 생성합니다.
-     * 기존 격자는 다시 초기화하지 않습니다.
+     * 중첩 생성의 최신 크기를 보존하며, 실패한 격자의 등록과 자원을 되돌려 같은 키의 재시도를 허용합니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 마스크를 생성할 타일
+     * @throws {unknown} 격자 생성 실패. 정리도 실패하면 원래 오류와 정리 오류를 errors에 담아 전달합니다.
      */
     createMask(tile: U3dQuadTile): void;
     /**
@@ -231,7 +232,7 @@ declare class U3dMaskLayer extends U3dModelLayer {
     /**
      * 참조 레이어의 모델 높이를 격자 셀에 반영하고 요청 타일의 박스를 표시합니다.
      * 공유 메시와 이미 처리한 메시를 제외하고, 모든 점 검사 이후 타일 상 태와 완료 객체를 갱신합니다.
-     * infoLayer가 없으면 완료되지 않는 기존 경로도 유지합니다.
+     * infoLayer가 없으면 값을 변경하지 않고 완료합니다.
      *
      * @param {string} tileKey 높이를 반영할 타일 키
      * @param {AbortSignal} [signal] 모델 작업의 취소 신호

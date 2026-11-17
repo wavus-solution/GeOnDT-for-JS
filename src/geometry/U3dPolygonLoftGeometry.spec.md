@@ -29,7 +29,7 @@ U3dPolygonLoftGeometryCO_Content 부분 타입 명세
             외곽선 색상이다.
 
 U3dPolygonLoftGeometryCO extends U3dGeometryCO 부분 타입 명세
-    U3dOutlineAliasCO와 U3dPolygonLoftGeometryCO_Content를 합성한다.
+    U3dOutlineCO와 U3dPolygonLoftGeometryCO_Content를 합성한다.
     이 명세에서 사용하는 필드:
         outline, useline, useLine, edge?: boolean
             앞에서부터 null 또는 undefined가 아닌 값을 선택하며 모두 없으면 true다.
@@ -73,21 +73,17 @@ U3dPolygonLoftGeometry extends U3dGeometry 클래스 정의
 
     #height, #topScale: number
         자동 윗면 생성 설정이다.
-    #useLine: boolean
+    outline: boolean
         재생성 후 외곽선을 표시할지 결정한다.
     #topVertices: Array<WorldPositionVector3> | undefined
         지정한 윗면이며 저장할 때 배열만 복사한다.
     #bottomSlice, #topSlice: Array<WorldPositionVector3> = 빈 배열
         마지막 생성에 사용한 정점 복사본이다.
-    #sideEdges: Double_Array<WorldPositionVector3> = 빈 배열
-        마지막 bridge가 기록한 측면 패널 경계 선분이다.
-    #geometryCenter: Vector3
-        본체 버퍼의 로컬 원점이다. 객체 위치의 z 보정이나 이후 이동과 별개로 외곽선도 같은 원점을 사용한다.
     #googleScale: number = 1
         형상 생성 시 계산한 월드 좌표 축척의 역수이다.
     _disposed: boolean = false
         자원 해제 재진입을 차단한다.
-    _outline: LineSegments | undefined
+    _outline: U3dLine | undefined
         현재 생성한 외곽선 객체이다.
     _classtype: string = 'U3dPolygonLoftGeometry'
         형상 이름에 사용하는 클래스 식별자이다.
@@ -110,15 +106,15 @@ U3dPolygonLoftGeometry extends U3dGeometry 클래스 정의
             부모를 opt와 false로 초기화하고 subSuper로 UMesh를 결합한다.
             색상·높이·불투명도·배율은 defaultValue로 기본값을 적용한다.
             topVertices가 배열이면 배열만 복사하고 아니면 undefined로 저장한다.
-            opt.outline, opt.useline, opt.useLine, opt.edge 순서로 null·undefined가 아닌 값을 우선 선택하고 모두 없으면 true로 대체한 뒤 boolean으로 저장한다.
+            공통 정규화 후 outline을 부모의 공통 상태에 저장한다. 기본값은 true이다.
             재질과 초기 형상을 준비한다.
 
     get height() -> number
         동작: #height를 반환한다.
     get topScale() -> number
         동작: #topScale을 반환한다.
-    get useLine() -> boolean
-        동작: #useLine을 반환한다.
+    get useLine() -> boolean (부모의 호환 접근자)
+        동작: 변경 안내 경고 후 getOutline()으로 위임한다.
     get isDisposed() -> boolean
         동작: _disposed를 반환한다.
     getBottomSlice() -> Array<WorldPositionVector3>
@@ -157,7 +153,7 @@ U3dPolygonLoftGeometry extends U3dGeometry 클래스 정의
             두 단면의 원본 좌표 전체를 포함한 경계 상자의 중심을 계산한다.
             중심을 전달하여 로컬 좌표 버퍼 형상을 생성한다.
             기존 geometry가 있으면 해제한 뒤 새 geometry를 저장하고 position에 원본 좌표의 중심을 복사한다.
-            position.z에 0.1을 더하고 #useLine이 참이면 외곽선을 생성하며 거짓이면 제거한다.
+            position.z에 0.1을 더하고 외곽선 생성 전략을 등록한다. outline이 참이면 생성하고 거짓이면 제거하되, 이후 표시 전환에도 같은 전략을 사용한다.
 
     override setParam(param: U3dPolygonLoftGeometryCO) -> void
         의존:
@@ -173,8 +169,9 @@ U3dPolygonLoftGeometry extends U3dGeometry 클래스 정의
             opacity의 0~1 범위, height의 비음수, topScale의 양수와 숫자 유한성, topVertices의 벡터 배열, 외곽선 별칭의 boolean을 검증한다.
             각 검증은 null과 undefined를 건너뛰며 topVertices는 닫는 중복 점을 제외한 3개 이상의 유한한 THREE.Vector3가 필요하다. 검증 실패는 상태 반영 전에 예외로 전달한다. 부모 설정을 적용한 뒤 존재하는 높이·배율을 저장한다.
             topVertices가 존재하면 배열만 복사하며 null이나 undefined로 기존 윗면을 해제하지 않는다.
-            param.outline ?? param.useline ?? param.useLine ?? param.edge 순서로 선택하고 존재할 때 저장한다.
-            현재 설정으로 형상을 다시 생성한다.
+            공통 정규화 후 부모 setParam에서 outline 상태를 검증하고 저장한다.
+            높이·배율·윗면 좌표 값이 실제로 바뀌거나 인자 없는 호출·빈 옵션일 때 형상을 다시 생성한다. 같은 윗면 좌표를 가진 새 배열은 형상 변경으로 보지 않는다.
+            스타일만 바꾸면 기존 형상과 외곽선을 유지한다. outline 상태만 바뀌면 기반 setParam의 공통 갱신 경로가 본체 형상·위치를 유지하고 저장한 전략으로 외곽선만 생성·해제한다.
 
     setHeight(height: number) -> void
         동작: height 옵션으로 설정을 갱신한다.
@@ -184,12 +181,12 @@ U3dPolygonLoftGeometry extends U3dGeometry 클래스 정의
         동작: topVertices 옵션에 vertex를 넣어 설정을 갱신한다.
     getTopVertex() -> Array<WorldPositionVector3> | undefined
         동작: #topVertices가 있으면 배열과 벡터를 복사하며 없으면 undefined를 반환한다.
-    setUseLine(useLine: boolean) -> void
-        동작: useLine 옵션으로 설정을 갱신한다.
+    setOutline(outline?: boolean) -> void
+        동작: 부모 setOutline으로 표시 여부를 갱신한다. 인자 없는 예전 생성 호출은 경고 후 setOutline(true)로 호환 처리한다. 예전 setUseLine은 부모의 호환 메서드가 경고 후 setOutline으로 위임한다.
     override getParam() -> U3dPolygonLoftGeometryParam
         의존:
             U3dGeometry — 공통 설정 조회; 함수: {getParam}
-        동작: 부모 설정에 #height, #topScale, 윗면 복사본과 #useLine을 합쳐 반환한다.
+        동작: 부모 설정에 #height, #topScale, 윗면 복사본과 outline을 합쳐 반환한다.
     getBottomArea() -> number
         의존:
             defined — 존재 판정; 함수: {defined()}
@@ -206,21 +203,19 @@ U3dPolygonLoftGeometry extends U3dGeometry 클래스 정의
                 정점이 3개 미만이면 0을 반환하고 아니면 XY 면적에 #googleScale의 제곱을 곱하여 반환한다.
             지정되지 않았으면 바닥 면적에 #topScale의 제곱을 곱하여 반환한다.
 
-    setOutline() -> void
+    _updateLoftOutline() -> void
         의존:
-            THREE — 선 재질과 객체; 생성자: {LineBasicMaterial, LineSegments}
-            defined — 선 색상 존재 판정; 함수: {defined()}
-            UMesh — 자식 추가; 함수: {add}; 속성 읽기: {renderOrder}
-            U3dGeometry — 선 색상; 속성 읽기: {_lineColor}
+            U3dLine — 인덱스 선분 생성; 생성자: {U3dLine}
+            U3dGeometry — 현재 형상의 생성 전략 등록과 모서리 추출; 함수: {_replaceOutline(), _createEdgeOutline()}
         동작:
-            기존 외곽선을 제거한다.
-            두 단면 중 하나라도 정점 수가 3 미만이면 외곽선을 생성하지 않는다.
-            저장한 단면·측면 패널 경계·형상 중심으로 외곽선을 생성한다.
-            _lineColor가 있으면 사용하고 없으면 '#000000'을 사용하며 현재 opacity, transparent=(opacity<1), linewidth=100인 선 재질을 만든다.
-            LineSegments의 renderOrder를 본체의 현재 값보다 1 높도록 연결하고 _outline에 저장한 뒤 자식으로 추가한다. 부모 값을 바꿔도 기존 외곽선의 다음 렌더 목록 정렬에 반영된다.
+            갱신 시점의 geometry를 받는 생성 전략과 본체 기준 렌더 순서 차이 1을 _replaceOutline에 전달한다. 기존 외곽선의 해제와 빈 형상 판정은 공통 컨트롤러가 담당한다.
+            UserGeometry와 같은 _createEdgeOutline(geometry, true, 1, U3dLine) 경로로 본체의 모서리를 추출한다. 인접 면의 법선 각도가 1도 이상인 모서리와 열린 경계를 포함하며, 같은 평면의 삼각분할 대각선은 제외한다.
+            추출한 모서리는 공통 _createOutlineSegments에서 공유 정점과 인덱스 쌍으로 변환한다. tension=0인 독립 선분에 lineColor·lineWidth·lineOpacity를 적용하여 본체 투명도와 독립적인 월드 두께 선을 만든다.
+            공통 컨트롤러가 U3dLine의 renderOrder를 본체보다 1 높도록 연결하고 _outline에 저장한 뒤 자식으로 추가한다. 부모 값을 바꿔도 기존 외곽선의 다음 렌더 목록 정렬에 반영된다.
+            모서리 중심에 정렬한 선의 전체 월드 두께를 표시한다. 경계 양쪽의 돌출을 허용하며 별도 실루엣 마스크를 생성하지 않는다.
     clearOutline() -> void
         의존:
-            UDEF — 자식 해제; 함수: {disposeObject3D}
+            U3dLine — 소유 형상·색상 재질·월드 위치 재질 해제; 함수: {dispose}
             UMesh — 자식 제거; 함수: {remove}
         동작: _outline 참조를 먼저 비우고 이 객체만 제거·해제한다. 사용자가 추가한 다른 자식 선은 보존한다.
     dispose() -> void
@@ -254,20 +249,6 @@ buildPolygonLoftGeometry(slices: Loft_Geom_Slices, center: WorldPositionVector3)
         바닥 삼각형은 역순, 윗면 삼각형은 원래 순서로 정점 좌표를 추가한 뒤 측면 삼각형을 추가한다.
         일반 숫자 배열의 각 XYZ에서 center를 먼저 빼서 큰 절대 좌표의 Float32 양자화 손실을 방지한다. 입력 단면의 좌표는 변경하지 않는다.
         U3dPolygonLoftGeometry 이름의 버퍼에 로컬 좌표의 Float32 position을 설정하고 정점 법선과 로컬 경계 상자·구를 계산해 반환한다.
-
-buildPolygonLoftOutlineGeometry(bottomPoints: Array<WorldPositionVector3>, topPoints: Array<WorldPositionVector3>, sideEdges: Double_Array<WorldPositionVector3>, center: WorldPositionVector3) -> UBufferGeometry
-    역할: 단면 경계와 bridge가 기록한 측면 패널 경계만 그린다.
-    의존:
-        UBufferGeometry — 선분 버퍼; 생성자: {new UBufferGeometry()}
-        THREE — 정점 저장; 생성자: {Float32BufferAttribute}
-    동작:
-        바닥과 윗면 링의 모든 선분을 추가한다. 중복과 길이 0인 선분은 제외한다.
-        sideEdges의 각 선분을 중복 없이 추가한다. 삼각분할 대각선은 bridge 생성 단계에서 제외하므로 비평면 측면에서도 표시하지 않는다.
-        이름 U3dPolygonLoftOutlineGeometry인 버퍼에 position을 설정하고 경계 상자·구를 계산해 반환한다.
-getLoftEdgeKey(start: WorldPositionVector3, end: WorldPositionVector3) -> string
-    동작: 두 점의 XYZ 문자열을 순서에 관계없이 정렬하여 동일 선분에 같은 키를 반환한다.
-appendSegment(positions: Array<number>, start: WorldPositionVector3, end: WorldPositionVector3, center: WorldPositionVector3) -> void
-    동작: 시작점과 끝점의 각 XYZ에서 center를 빼서 positions에 차례로 추가한다.
 
 buildPolygonLoftSlices(polygon: Array<WorldPositionVector3>, height: number, topScale: number, topPolygon?: Array<WorldPositionVector3>) -> Loft_Geom_Slices
     의존:
@@ -347,7 +328,7 @@ toVector3(point: Vector3Like | Vector3) -> Vector3
 단면 계산과 조회는 월드 좌표를 사용하며 삼각분할은 XY 투영을 기준으로 한다.
 렌더 버퍼는 원본 단면 경계 상자의 중심을 뺀 로컬 좌표이며 메시 위치에 그 중심과 Z 보정 0.1을 적용한다.
 측면 계산용 모듈 임시 벡터는 동기 계산에서만 재사용하며 반환 faces에는 벡터 복사본을 저장한다.
-외곽선 생성은 현재 geometry의 모서리를 사용한다. 별도 단면 연결 외곽선 함수는 현재 활성 호출이 없다.
+외곽선은 렌더 본체의 geometry에서 EdgesGeometry의 기준각 1도로 추출한다. 별도 단면·측면 경계 조립이나 외곽선 전용 중심 캐시를 사용하지 않는다. 평면 내부 대각선은 제외하지만 비평면 단면·측면의 실제 접힘은 모서리로 표시한다.
 ```
 
 > 공개 참조용 발췌본입니다. 비공개 구현 설명과 내부 관리 정보는 생략했습니다.

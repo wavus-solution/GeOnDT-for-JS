@@ -4,6 +4,7 @@
  * @returns {Promise<Record<string, unknown>>} 예제 상태
  */
 export async function initialize(context) {
+    const modelAlarmTypes = new Map();
 
     //라이센스 인증
         const __runLegacyReadyCallback = function () {
@@ -27,6 +28,11 @@ export async function initialize(context) {
             ///////////////////////////////////////////////// 이벤트 등록 //////////////////////////////////////////////////////////////
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     
+            $(document).on('change.geondtAlarmTypes', '.model-alarm-type', function () {
+                const target = $(this).closest('.edit-item').attr('target');
+                modelAlarmTypes.set(String(target), this.value);
+            });
+
             //+ 알람을 추가할 POI 및 건물 선택
             $(document).on('click', '.basic', function (e) {
                 let type = e.target.value;
@@ -52,6 +58,7 @@ export async function initialize(context) {
     
             //+ 초기화
             $(document).on('click', '#reset', function (e) {
+                modelAlarmTypes.clear();
                 app.off('click'); //+ 마우스 클릭 event 해제
                 app.off('dblclick'); //+ 마우스 더블클릭 event 해제
                 analy.removeAllAlarm(); //+ 모든 알람 제거
@@ -71,6 +78,7 @@ export async function initialize(context) {
             //+ 알람편집목록
             //+ [전체삭제] 버튼 / 알람편집 목록 전체삭제
             $(document).on('click', '.btn-remove-all', function (e) {
+                modelAlarmTypes.clear();
                 analy.removeAllAlarm();
                 $('input[type="radio"][value="pan"]').prop('checked', true);
             });
@@ -175,6 +183,7 @@ export async function initialize(context) {
                 selectList.map(function (select) {
                     //+ select의 타입 식별하기
                     var targetType = analy.getInstanceType(select);
+                    if (targetType !== 'POI') applyModelAlarmType(select);
                     if (targetType == 'POI') {
     
                         //+ 객체 타입이 |POI|로 생성된 객체 목록 일 경우
@@ -256,6 +265,7 @@ export async function initialize(context) {
                 var alarmSpeed = prop.children("#alarmSpeedPrint").children()[0].value;
                 var typeName = "type" + target;
                 var targetType = analy.getInstanceType(target);
+                if (targetType !== 'POI') applyModelAlarmType(target);
     
                 if (targetType == 'POI') {
     
@@ -323,6 +333,7 @@ export async function initialize(context) {
             //+ removeAlarm(id) function을 호출하여 삭제합니다.
             $(document).on("click", ".btn-alarm-remove", function (e) {
                 var target = e.target.id;
+                modelAlarmTypes.delete(String(target));
                 analy.removeAlarm(target);
             });
     
@@ -378,6 +389,30 @@ export async function initialize(context) {
             /////////////////////////////////////////////////  function  선언  ////////////////////////////////////////////////////////
             ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     
+            /**
+             * 선택한 파동 항목을 외곽선의 bounce 옵션으로 연결합니다.
+             * @param {string | number} id 건물 또는 그룹 ID
+             * @returns {void} 반환값 없음
+             */
+            function applyModelAlarmType(id) {
+                const type = modelAlarmTypes.get(String(id)) || 'color';
+                analy.setModelSelectType(type === 'bounce' ? 'outline' : type,
+                    type === 'bounce' ? {mode: Union3D.effect.U3dObjectBarrier.MODE.BOUNCE} : undefined);
+            }
+
+            /**
+             * 건물 알람 행에 색상·외곽선·외곽선 파동 선택지를 만들고 기존 선택값을 유지합니다.
+             * @param {string | number} id 건물 또는 그룹 ID
+             * @returns {string} 알람 타입 선택 HTML
+             */
+            function modelAlarmTypeSelect(id) {
+                const selected = modelAlarmTypes.get(String(id)) || 'color';
+                const options = [['color', '색상'], ['outline', '외곽선'], ['bounce', '외곽선 파동']];
+                return '<div class="model-alarm-type-prop"><label>알람 타입 : <select class="model-alarm-type">' +
+                    options.map(([value, label]) => '<option value="' + value + '"' + (selected === value ? ' selected' : '') + '>' + label + '</option>').join('') +
+                    '</select></label></div>';
+            }
+
             //+ 편집 목록에 필요한 리스트를 '알람편집목록 / cursor 상세 옵션'에 나타냄
             //+ analy에 해당 함수를 콜백 함수로 넘겨주어 작업 이후 호출됨
             function printModelEdit() {
@@ -496,6 +531,8 @@ export async function initialize(context) {
                             str += '<input id="stroke" type="color" name="stroke" value="#00ff00"/>'
                             str += '</div>';
     
+                            str += modelAlarmTypeSelect(model.name);
+
                             str += '<div class="text-right">';
                             str += '<div class="btn-group">';
                             //+ 알람 시작
@@ -524,6 +561,8 @@ export async function initialize(context) {
                             str += '<input id="stroke" type="color" name="stroke" value="#00ff00"/>'
                             str += '</div>';
     
+                            str += modelAlarmTypeSelect(model.getUid());
+
                             str += '<div class="text-right">';
                             str += '<div class="btn-group">';
                             //+ 알람 시작
@@ -606,26 +645,18 @@ export async function initialize(context) {
                 }
             }
     
-            var terrainLayer = new Union3D.terrain.U3dHeightXYZLayer({
-                name: 'Korea Terrain', //+ 레이어 이름, defaultValue(opt.name, Guid()) : 임의의 문자열을 생성하는 함수. @return {string}, *필수 입력
-                baseurl: context.layerInfo.terrain.baseurl, //+ 고도 데이터 기본 URL, *필수 입력
-                ext: '.umf', //+ 파일 확장자,  *필수 입력
-                reverseY: true, //+ X축 반전 여부, defaultValue(opt.reverseY, false), *필수 입력
-                minlevel: 9,  //+ 가시화 최소 레벨
-                maxlevel: 15, //+ 가시화 최대 레벨
-                useproxy: false, //+ 프록시 사용 여부, defaultValue(opt.useproxy, faLse)
-                maxprocess: 2, //+ process 최대값
-                interpolationheight: true,  //+ 고도보간 기능 사용 여부
-                rectangle: Union3D.UMathEngine.getGoogleRectangleDefine(3, 2, 2) //+ 구글맵 타일 인덱스 번호(x, y, 레벨)로 해당 타일의 영역정보를 반환하는 함수
-            });
-            app.addLayer(terrainLayer);
-            app.showLayer('Korea Terrain', true);
-    
             window.app = app;
         };
 
     await __runLegacyReadyCallback();
-    return {app: context.app};
+    return {
+        app: context.app,
+        /** 예제에서 추가한 타입 선택 구독과 선택값을 정리합니다. @returns {void} 반환값 없음 */
+        dispose() {
+            $(document).off('.geondtAlarmTypes');
+            modelAlarmTypes.clear();
+        }
+    };
 }
 
 /**

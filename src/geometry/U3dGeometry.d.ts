@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,6 +8,9 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { UEventDispatcher, UEventDispatcherCO } from "../core/UEventDispatcher.js";
+import type { UMesh } from "../core/mesh/UMesh.js";
+import type { U3dLine } from "./U3dLine.js";
+import type { U3dOutlineFactory, UGeometryOutlineTarget } from "./U3dOutline.js";
 import type { ColorLike, GeoPositionVector3, KeyValue, WorldPositionVector3 } from "../types/global.js";
 import type { measureGroundDepthOffset } from "../util/measureGroundDepthOffset.js";
 
@@ -34,6 +37,16 @@ declare class U3dGeometry extends UEventDispatcher {
      */
     static EVENT: U3dGeometryEMI;
     /**
+     * 예전 외곽선 옵션을 경고와 함께 공식 이름으로 변환합니다. 입력 객체는 변경하지 않습니다. <br>
+     * 하위 생성자와 setParam도 같은 변환을 먼저 적용하므로 경고는 입력당 한 번만 출력됩니다. <br>
+     * @template {Record<string, *>} T
+     * @param {T} param 생성 옵션 또는 변경 옵션 <br>
+     * @returns {T} 공식 옵션 이름으로 변환한 복사본 <br>
+     * @protected
+     * @ignore
+     */
+    protected static _normalizeOutlineOptions<T extends Record<string, any>>(param: T): T;
+    /**
      * 3D 도형의 기반 객체를 생성합니다(주로 하위 클래스에서 상속하여 사용합니다). <br>
      *
      * @param {U3dGeometryCO} [opt={}] 생성 옵션 (이름·색상·투명도·좌표 등 공통 옵션) <br>
@@ -41,6 +54,12 @@ declare class U3dGeometry extends UEventDispatcher {
      * 상속 클래스에서 초기화를 미룰 때만 false를 사용합니다 <br>
      */
     constructor(opt?: U3dGeometryCO, isInit?: boolean);
+    /**
+     * 외곽선 표시 여부입니다. 하위 도형도 이 공통 상태를 사용합니다. <br>
+     * 변경은 `setOutline`, 조회는 `getOutline`을 사용합니다. <br>
+     * @type {boolean}
+     */
+    outline: boolean;
     /**
      * 도형 이름입니다. <br>
      * 레이어에서 도형을 찾을 때 쓰는 식별자이며, 생성 옵션에 넣지 않으면 무작위 문자열이 자동으로 만들어집니다. <br>
@@ -95,14 +114,6 @@ declare class U3dGeometry extends UEventDispatcher {
      * @type {boolean}
      */
     dynamicDepthOffset: boolean;
-    /**
-     * 마지막으로 적용한 지형 기준 높이 오프셋(미터)
-     *
-     * @type {number}
-     *
-     * @ignore
-     */
-    _heightOffset: number;
     /**
      * 매 프레임 렌더 직전에 실행할 콜백 모음입니다. <br>
      * 키는 콜백을 구분하는 이름이며, 이 클래스는 깊이 보정을 적용하는 `depthOffset` 하나를 미리 등록해 둡니다. <br>
@@ -173,6 +184,13 @@ declare class U3dGeometry extends UEventDispatcher {
     _classtype: string;
     _lineColor: any;
     /**
+     * 도형에 별도 외곽선이 필요한지 반환합니다. U3dLine과 U3dPoint는 제외합니다.
+     * @returns {boolean} 외곽선 지원 여부
+     * @protected
+     * @ignore
+     */
+    protected _supportsOutline(): boolean;
+    /**
      * 초기화 함수 <br>
      *
      * @ignore
@@ -225,6 +243,16 @@ declare class U3dGeometry extends UEventDispatcher {
      * @param {Array<WorldPositionVector3>} vertex 꼭짓점 의 월드 좌표(EPSG:3857) 배열 <br>
      */
     setVertex(vertex: Array<WorldPositionVector3>): void;
+    /**
+     * 중심 좌표만 바뀐 기본 도형은 기존 형상·외곽선에 위도 배율만 반영합니다.
+     * 정점에 적용한 회전과 외곽선의 로컬 변환도 함께 유지합니다.
+     * @param {number} previousScale 기존 미터 → 월드 배율
+     * @param {number} scale 새 미터 → 월드 배율
+     * @returns {boolean} 기존 형상을 재사용했는지 여부
+     * @protected
+     * @ignore
+     */
+    protected _updatePrimitiveGeometryScale(previousScale: number, scale: number): boolean;
     /**
      * 도형의 꼭짓점 좌표(월드 좌표(EPSG:3857)) 배열을 반환합니다. <br>
      * 복사본이 아니라 도형이 쓰는 배열 그대로이므로, 원소를 고치면 도형의 좌표도 함께 바뀝니다. <br>
@@ -282,18 +310,92 @@ declare class U3dGeometry extends UEventDispatcher {
      */
     addPosition(x: three.Vector3 | number, y?: number, z?: number): void;
     /**
+     * 전용 외곽선이 없는 도형의 메시 외곽선을 갱신합니다.
+     * @param {UGeometryOutlineTarget} [target] 실제 엔진 렌더 객체. 별도 메시를 사용하는 도형만 지정합니다.
+     * @protected
+     * @ignore
+     */
+    protected _updateCommonOutline(target?: UGeometryOutlineTarget): void;
+    /**
+     * @overload
+     * @param {import('three').BufferGeometry} geometry 본체 형상
+     * @param {boolean} depthTest 깊이 검사 여부
+     * @param {number} thresholdAngle 모서리 추출 기준각
+     * @param {typeof import('@union3d/geometry/U3dLine').U3dLine} LineType 선 생성자
+     * @returns {UGeometryOutlineLine} 인덱스 기반 모서리 외곽선
+     */
+    protected _createEdgeOutline(geometry: three.BufferGeometry, depthTest: boolean, thresholdAngle: number, LineType: typeof U3dLine): UGeometryOutlineLine;
+    /**
+     * @overload
+     * @param {import('three').BufferGeometry} geometry 본체 형상
+     * @param {boolean} depthTest 깊이 검사 여부
+     * @param {number} [thresholdAngle] 모서리 추출 기준각
+     * @returns {import('three/examples/jsm/lines/LineSegments2.js').LineSegments2} 기본 선분 외곽선
+     */
+    protected _createEdgeOutline(geometry: three.BufferGeometry, depthTest: boolean, thresholdAngle?: number): three_examples_jsm_lines_LineSegments2_js.LineSegments2;
+    /**
+     * @overload
+     * @param {import('three').BufferGeometry} edges 선분 형상
+     * @param {boolean} depthTest 깊이 검사 여부
+     * @param {typeof import('@union3d/geometry/U3dLine').U3dLine} LineType 선 생성자
+     * @returns {UGeometryOutlineLine} 인덱스 기반 모서리 외곽선
+     */
+    protected _createOutlineSegments(edges: three.BufferGeometry, depthTest: boolean, LineType: typeof U3dLine): UGeometryOutlineLine;
+    /**
+     * @overload
+     * @param {import('three').BufferGeometry} edges 선분 형상
+     * @param {boolean} [depthTest] 깊이 검사 여부
+     * @returns {import('three/examples/jsm/lines/LineSegments2.js').LineSegments2} 기본 선분 외곽선
+     */
+    protected _createOutlineSegments(edges: three.BufferGeometry, depthTest?: boolean): three_examples_jsm_lines_LineSegments2_js.LineSegments2;
+    /**
+     * 원의 경계를 중심으로 양쪽에 반 두께씩 확장한 공유 정점 띠로 그립니다.
+     * @param {import('three').BufferGeometry} geometry 원판 형상
+     * @param {boolean} depthTest 깊이 검사 여부
+     * @returns {import('three').Mesh} 원판 평면에서 월드 두께만큼 확장되는 테두리
+     * @protected
+     * @ignore
+     */
+    protected _createCircleOutline(geometry: three.BufferGeometry, depthTest: boolean): three.Mesh;
+    /**
+     * 곡면을 반 두께만 확장하고 축소한 실루엣을 제외하여 경계 중심의 테두리를 그립니다.
+     * 깊이 검사로 다른 객체의 가림을 유지합니다.
+     * @param {import('three').BufferGeometry} geometry 본체의 로컬 형상
+     * @param {boolean} [depthTest=true] 다른 객체에 대한 깊이 검사 여부
+     * @returns {import('three').Mesh} 독립된 형상과 재질을 소유하는 외곽선
+     * @protected
+     * @ignore
+     */
+    protected _createSilhouetteOutline(geometry: three.BufferGeometry, depthTest?: boolean): three.Mesh;
+    /**
+     * 공통 처리로 만든 외곽선만 제거하고, 본체·공유 텍스처·사용자 자식은 보존합니다.
+     * @protected
+     * @ignore
+     */
+    protected _disposeCommonOutline(): void;
+    /**
+     * 도형별 생성 전략과 외곽선의 자원 수명을 연결합니다.
+     * @param {U3dOutlineFactory} create 외곽선 생성 함수
+     * @param {number} [offset=0] 부모 기준 렌더 순서
+     * @protected
+     * @ignore
+     */
+    protected _replaceOutline(create: U3dOutlineFactory, offset?: number): void;
+    /**
      * 외곽선의 렌더 순서를 도형의 현재 값에 연결합니다.
      * 렌더 목록을 만들 때부터 적용되므로 부모 값을 직접 바꿔도 다음 정렬에 반영됩니다.
      *
      * @param {import('three').Object3D} outline 외곽선 객체
      * @param {number} [offset=0] 부모 렌더 순서에 더할 값
+     * @param {UGeometryOutlineTarget} [owner] 외곽선을 포함하는 엔진 렌더 객체
      * @protected
      * @ignore
      */
-    protected _bindOutlineRenderOrder(outline: three.Object3D, offset?: number): void;
+    protected _bindOutlineRenderOrder(outline: three.Object3D, offset?: number, owner?: UGeometryOutlineTarget): void;
     /**
      * 외곽선(테두리 선) 색상을 설정합니다. <br>
-     * 외곽선을 가진 도형에만 적용되며, 외곽선이 없는 도형에서 호출하면 색을 바꾸지 않고 콘솔에 기록을 남깁니다. <br>
+     * 외곽선이 꺼져 있어도 색상을 보관하여 다음에 켤 때 적용합니다. <br>
+     * `THREE.Color` 입력은 복사하여 보관합니다. <br>
      * 올바르지 않은 색상 값은 TypeError 또는 RangeError를 발생시키며 기존 색상을 유지합니다. <br>
      *
      * @param {ColorLike} lineColor 외곽선 색상. 16진수 숫자(`0x000000`), CSS 색 문자열(`'#000000'`) 또는 `THREE.Color`를 넣습니다 <br>
@@ -302,11 +404,175 @@ declare class U3dGeometry extends UEventDispatcher {
     /**
      * 외곽선 색상을 반환합니다(`setLineColor`와 짝을 이룹니다). <br>
      * 지정한 적이 없으면 기본값 `'#000000'`입니다. <br>
-     * 외곽선이 없는 도형에서는 `setLineColor`가 값을 저장하지 않으므로 생성 옵션에 넣은 값이 그대로 남습니다. <br>
+     * 외곽선 표시 여부와 관계없이 마지막으로 지정한 색상을 반환합니다. <br>
+     * `THREE.Color`를 지정한 경우 복사본을 반환하므로 색상 변경에는 `setLineColor`를 사용하십시오. <br>
      *
      * @returns {ColorLike} 외곽선 색상 <br>
      */
     getLineColor(): ColorLike;
+    /**
+     * 외곽선 표시 여부를 변경합니다. 색상·두께·불투명도는 유지합니다. <br>
+     * U3dLine과 U3dPoint는 별도 외곽선을 생성하지 않습니다. <br>
+     * @param {boolean} outline 외곽선을 표시할지 여부 <br>
+     */
+    setOutline(outline: boolean): void;
+    /**
+     * 외곽선 표시 여부를 반환합니다. <br>
+     * @returns {boolean} 외곽선 표시 여부 <br>
+     */
+    getOutline(): boolean;
+    /**
+     * 현재 도형이 생성한 외곽선 객체를 반환합니다. <br>
+     * 반환된 객체의 `isOutline`은 true이며, 외곽선이 없거나 도형이 해제되었으면 undefined입니다. <br>
+     * 크기·좌표 변경이나 외곽선 표시 전환으로 객체가 재생성되면 다시 조회하십시오. <br>
+     * 표시 여부는 `getOutline()`으로 조회합니다. <br>
+     *
+     * @returns {(import('three').Mesh & {isOutline: true}) | undefined} 현재 외곽선 객체 <br>
+     */
+    getOutlineObject(): (three.Mesh & {
+        isOutline: true;
+    }) | undefined;
+    /**
+     * @deprecated `outline`으로 통일되었습니다. 변경은 `setOutline()`을 사용하세요. <br>
+     * @param {boolean} outline 외곽선 표시 여부 <br>
+     */
+    set useline(outline: boolean);
+    /**
+     * @deprecated `outline`으로 통일되었습니다. 조회는 `getOutline()`을 사용하세요. <br>
+     * @returns {boolean} 외곽선 표시 여부 <br>
+     */
+    get useline(): boolean;
+    /**
+     * @deprecated `outline`으로 통일되었습니다. 변경은 `setOutline()`을 사용하세요. <br>
+     * @param {boolean} outline 외곽선 표시 여부 <br>
+     */
+    set useLine(outline: boolean);
+    /**
+     * @deprecated `outline`으로 통일되었습니다. 조회는 `getOutline()`을 사용하세요. <br>
+     * @returns {boolean} 외곽선 표시 여부 <br>
+     */
+    get useLine(): boolean;
+    /**
+     * @deprecated `outline`으로 통일되었습니다. 변경은 `setOutline()`을 사용하세요. <br>
+     * @param {boolean} outline 외곽선 표시 여부 <br>
+     */
+    set edge(outline: boolean);
+    /**
+     * @deprecated `outline`으로 통일되었습니다. 조회는 `getOutline()`을 사용하세요. <br>
+     * @returns {boolean} 외곽선 표시 여부 <br>
+     */
+    get edge(): boolean;
+    /**
+     * @deprecated `setOutline`으로 변경되었습니다. 호출하면 변경 안내 경고를 출력합니다.
+     * @param {boolean} outline 외곽선 표시 여부 <br>
+     */
+    setUseLine(outline: boolean): void;
+    /**
+     * @deprecated `setLineColor`를 사용하세요. 호출하면 변경 안내 경고를 출력합니다.
+     * @param {ColorLike} color 외곽선 색상 <br>
+     */
+    setOutlineColor(color: ColorLike): void;
+    /**
+     * @deprecated `getLineColor`를 사용하세요. 호출하면 변경 안내 경고를 출력합니다.
+     * @returns {ColorLike} 외곽선 색상 <br>
+     */
+    getOutlineColor(): ColorLike;
+    /**
+     * @deprecated `setLineWidth`를 사용하세요. 호출하면 변경 안내 경고를 출력합니다.
+     * @param {number} width 외곽선 두께 (outlineType에 따른 미터 또는 CSS 픽셀) <br>
+     */
+    setOutlineWidth(width: number): void;
+    /**
+     * @deprecated `getLineWidth`를 사용하세요. 호출하면 변경 안내 경고를 출력합니다.
+     * @returns {number} 외곽선 두께 (outlineType에 따른 미터 또는 CSS 픽셀) <br>
+     */
+    getOutlineWidth(): number;
+    /**
+     * @deprecated `setLineOpacity`를 사용하세요. 호출하면 변경 안내 경고를 출력합니다.
+     * @param {number} opacity 외곽선 불투명도 (0~1) <br>
+     */
+    setOutlineOpacity(opacity: number): void;
+    /**
+     * @deprecated `getLineOpacity`를 사용하세요. 호출하면 변경 안내 경고를 출력합니다.
+     * @returns {number} 외곽선 불투명도 (0~1) <br>
+     */
+    getOutlineOpacity(): number;
+    /**
+     * 외곽선을 지원하는 도형의 테두리 두께를 설정합니다. <br>
+     * 전체 두께의 절반씩 실제 경계 안쪽과 바깥쪽에 표시하는 중앙 정렬을 사용합니다. <br>
+     * 단위는 outlineType에 따릅니다. meter는 미터, pixel은 화면 CSS 픽셀입니다. <br>
+     * 위경도 좌표를 사용하는 도형에는 본체와 같은 위도 보정 배율을 적용합니다. <br>
+     * 외곽선이 꺼져 있어도 값을 보관하며 다음에 켤 때 적용합니다. <br>
+     *
+     * @param {number} width 0보다 큰 유한한 두께 (outlineType에 따른 미터 또는 CSS 픽셀). 기본값은 1입니다 <br>
+     */
+    setLineWidth(width: number): void;
+    /**
+     * 외곽선에 설정한 두께를 반환합니다. 단위는 outlineType에 따릅니다. <br>
+     *
+     * @returns {number} 외곽선 두께 (outlineType에 따른 미터 또는 CSS 픽셀) <br>
+     */
+    getLineWidth(): number;
+    /**
+     * 외곽선 두께의 단위를 설정합니다. 값이 생략된 생성 옵션은 pixel입니다. <br>
+     * meter는 미터, pixel은 화면 CSS 픽셀이며 기존 lineWidth 값은 유지합니다. <br>
+     * @param {'meter' | 'pixel'} type 외곽선 두께 단위 <br>
+     */
+    setOutlineType(type: "meter" | "pixel"): void;
+    /** @returns {'meter' | 'pixel'} 외곽선 두께 단위. 기본값은 pixel <br> */
+    getOutlineType(): "meter" | "pixel";
+    /**
+     * 메시로 만든 외곽선에 정점 깊이별 픽셀 두께 환산을 연결합니다.
+     * 색상·좌표 출력 재질이 같은 두께를 사용하며 meter 모드의 기존 형상은 유지합니다.
+     * @param {import('three').Mesh & {customWorldPositionMaterial?: import('three').Material}} outline 외곽선 메시
+     * @param {number} [widthRatio=1] 전체 두께에 대한 비율
+     * @protected
+     * @ignore
+     */
+    protected _bindOutlinePixelWidth(outline: three.Mesh & {
+        customWorldPositionMaterial?: three.Material;
+    }, widthRatio?: number): void;
+    /**
+     * 본체와 독립된 외곽선의 불투명도를 설정합니다. <br>
+     * 외곽선이 꺼져 있어도 값을 보관하며 재생성할 때 다시 적용합니다. <br>
+     * 0이면 외곽선 렌더링을 생략하고, 1이면 완전히 불투명하게 표시합니다. <br>
+     * 잘못된 값은 변경 전에 TypeError 또는 RangeError를 발생시킵니다. <br>
+     * @param {number} opacity 외곽선 불투명도 (0~1). 기본값은 1 <br>
+     */
+    setLineOpacity(opacity: number): void;
+    /**
+     * 본체와 독립된 외곽선의 불투명도를 반환합니다.
+     * @returns {number} 외곽선 불투명도 (0~1). 기본값은 1
+     */
+    getLineOpacity(): number;
+    /**
+     * 모서리 기반 외곽선의 코너가 둥근 정도를 설정합니다. <br>
+     * 0은 각진 연결, 1은 기존의 둥근 연결이며 중간 값은 반 두께에 대한 코너 반경 비율입니다. <br>
+     * 기본값은 1이며 선 두께·본체 형상·선분 경로는 유지합니다. 급각의 돌출은 반 두께의 네 배로 제한하며 곡면 실루엣의 곡률은 바꾸지 않습니다. <br>
+     *
+     * @param {number} tension 0~1 범위의 유한한 숫자 <br>
+     */
+    setOutlineTension(tension: number): void;
+    /**
+     * 모서리 기반 외곽선의 둥근 정도를 반환합니다. <br>
+     *
+     * @returns {number} 0은 각진 연결, 1은 둥근 연결인 반경 비율. 기본값은 1 <br>
+     */
+    getOutlineTension(): number;
+    /**
+     * 본체와 같은 위도 보정을 적용한 렌더 월드 두께를 반환합니다.
+     * @returns {number} 렌더 좌표계의 외곽선 두께
+     * @protected
+     * @ignore
+     */
+    protected _getOutlineWorldWidth(): number;
+    /**
+     * 외곽선을 그리는 선 객체의 전체 월드 두께를 반환합니다.
+     * @returns {number} 선 렌더링 두께
+     * @protected
+     * @ignore
+     */
+    protected _getOutlineRenderWidth(): number;
     /**
      * 월드 좌표(EPSG:3857)를 위경도로 변환해 도형에 좌표로 추가합니다. <br>
      * 월드 좌표(EPSG:3857)를 그대로 두려면 `addVertex`를 사용합니다. <br>
@@ -341,12 +607,6 @@ declare class U3dGeometry extends UEventDispatcher {
      * box.setHeightOffset(30);   // 그 지점 지형 위 30m
      */
     setHeightOffset(z?: number): void;
-    /**
-     * `setHeightOffset`으로 마지막에 적용한 지형 기준 높이 오프셋을 반환합니다.
-     *
-     * @returns {number} 지형 표면 기준 높이 오프셋(미터). 설정한 적이 없으면 0
-     */
-    getHeightOffset(): number;
     /**
      * 지정한 위경도 지점의 지형 표면 높이(해발, 미터)를 읽습니다. <br>
      * 도형이 레이어에 등록되어 있지 않거나 그 지점의 지형을 아직 불러오지 않았으면 0을 돌려줍니다.
@@ -384,7 +644,8 @@ declare class U3dGeometry extends UEventDispatcher {
     setTransparent(val: boolean): void;
     /**
      * 도형의 투명도를 설정합니다(0이면 완전 투명, 1이면 불투명). <br>
-     * 외곽선을 포함한 모든 하위 자식 객체의 재질에도 같은 투명도를 적용합니다. <br>
+     * 자동 생성 외곽선을 제외한 일반 하위 자식 재질에도 같은 투명도를 적용합니다. <br>
+     * 외곽선의 투명도는 `setLineOpacity`로 독립적으로 설정합니다. <br>
      *
      * @param {number} opacity 투명도 (0~1) <br>
      */
@@ -398,7 +659,7 @@ declare class U3dGeometry extends UEventDispatcher {
      */
     protected _setGeometryOpacity(opacity: number): void;
     /**
-     * 모든 하위 자식 객체의 단일·배열 재질과 투명도 유니폼에 같은 값을 적용합니다.
+     * 자동 생성 외곽선을 제외한 하위 자식의 단일·배열 재질과 투명도 유니폼에 같은 값을 적용합니다.
      * 재질이 없는 그룹도 순회하여 그 안의 자식까지 처리합니다.
      *
      * @param {number} opacity 불투명도 (0~1)
@@ -671,7 +932,7 @@ declare class U3dGeometry extends UEventDispatcher {
      * `position`은 좌표가 하나인 도형에만 적용하며, 좌표가 여러 개인 도형은 모양이 한 점으로 합쳐지지 않도록 적용하지 않고 콘솔에 기록만 남깁니다.
      * 공통 숫자·boolean·좌표 항목이 잘못되면 변경 전에 TypeError 또는 RangeError를 발생시킵니다. <br>
      *
-     * @param {U3dGeometryStyleParam} [param] 변경할 속성 객체. `color`·`opacity`·`brightness`·`contrast`·`shadow`·`lineColor`·`wireframe`·`depthOffset`·`dynamicDepthOffset`·`depthOffsetFunction`·`position`·`rotation`·`scale`을 읽으며, 넣지 않은 항목은 현재 값을 유지합니다
+     * @param {U3dGeometryStyleParam} [param] 변경할 속성 객체. `color`·`opacity`·`brightness`·`contrast`·`shadow`·`lineColor`·`lineWidth`·`lineOpacity`·`outlineType`·`outlineTension`·`wireframe`·`depthOffset`·`dynamicDepthOffset`·`depthOffsetFunction`·`position`·`rotation`·`scale`을 읽으며, 넣지 않은 항목은 현재 값을 유지합니다
      *
      * @example
      * geometry.setParam({ color: '#ff0000', opacity: 0.5 });
@@ -688,9 +949,10 @@ declare class U3dGeometry extends UEventDispatcher {
      * 그 안에서 `super.getParam()`을 펼쳐 공통 속성을 함께 담습니다. <br>
      * 위치(`position`)·회전(`rotation`)·크기(`scale`)는 JSON으로 그대로 저장할 수 있도록 `{x, y, z}` 형태의 일반 객체로 담습니다. <br>
      * `rotation`은 도(degree) 단위입니다. <br>
-     * `position`은 좌표가 하나인 도형에만 담기며, 좌표가 여러 개인 도형은 `undefined`입니다.
+     * `position`은 좌표가 하나인 도형에만 담기며, 좌표가 여러 개인 도형은 `undefined`입니다. <br>
+     * 지형 기준 높이는 현재 좌표에 반영되어 있으므로 `heightOffset`은 반환하지 않습니다.
      *
-     * @returns {U3dGeometryStyleParam} 현재 속성 객체. `color`·`opacity`·`brightness`·`contrast`·`lineColor`·`shadow`·`wireframe`·`depthOffset`·`dynamicDepthOffset`·`depthOffsetFunction`·`position`·`rotation`·`scale`이 담기며, 호출할 때마다 새 객체를 만들어 돌려줍니다
+     * @returns {U3dGeometryStyleParam} 현재 속성 객체. `color`·`opacity`·`brightness`·`contrast`·`lineColor`·`outline`·`lineWidth`·`lineOpacity`·`outlineType`·`outlineTension`·`shadow`·`wireframe`·`depthOffset`·`dynamicDepthOffset`·`depthOffsetFunction`·`position`·`rotation`·`scale`이 담기며, 호출할 때마다 새 객체를 만들어 돌려줍니다
      *
      * @example
      * const param = geometry.getParam();
@@ -777,6 +1039,26 @@ declare class U3dGeometry extends UEventDispatcher {
          * 외곽선(테두리 선) 색상. 외곽선을 그리는 도형에만 적용됩니다 <br>
          */
         lineColor?: ColorLike;
+        /**
+         * 외곽선 지원 도형의 전체 테두리 두께 (outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀). 실제 경계 중심에 두께의 절반씩 안쪽과 바깥쪽에 표시합니다. 0보다 큰 유한한 숫자이며, 생성 후 `setLineWidth` 또는 `setParam`으로 변경합니다 <br>
+         */
+        lineWidth?: number;
+        /**
+         * 본체 `opacity`와 독립된 외곽선 불투명도 (0~1). 0이면 외곽선을 렌더링하지 않습니다. `setLineOpacity` 또는 `setParam`으로 변경합니다 <br>
+         */
+        lineOpacity?: number;
+        /**
+         * (deprecated) `lineColor`로 통일되었습니다. 사용 시 변경 안내 경고를 출력합니다 <br>
+         */
+        outlineColor?: ColorLike;
+        /**
+         * (deprecated) `lineWidth`로 통일되었습니다. 사용 시 변경 안내 경고를 출력합니다 <br>
+         */
+        outlineWidth?: number;
+        /**
+         * (deprecated) `lineOpacity`로 통일되었습니다. 사용 시 변경 안내 경고를 출력합니다 <br>
+         */
+        outlineOpacity?: number;
     };
 
 /**
@@ -784,28 +1066,36 @@ declare class U3dGeometry extends UEventDispatcher {
      *
      * U3dGeometry 생성자 옵션 입니다. <br>
      */
-    type U3dGeometryCO = Omit<Omit<UEventDispatcherCO, never> & U3dGeometryCO_Content, never>;
+    type U3dGeometryCO = Omit<Omit<UEventDispatcherCO, never> & U3dGeometryCO_Content & U3dOutlineCO, never>;
 
 /**
      * 외곽선(테두리 선) 표시 여부를 지정하는 옵션입니다. <br>
-     * 도형 종류와 무관하게 `outline` 하나로 지정하며, 나머지 셋은 예전 코드가 쓰던 같은 뜻의 이름입니다. <br>
-     * 여러 이름을 함께 넣으면 `outline` → `useline` → `useLine` → `edge` 순으로 먼저 찾은 값을 사용합니다. <br>
+     * 도형 종류와 무관하게 `outline` 하나로 지정합니다. <br>
+     * 예전 이름을 사용하면 `outline`으로 변경하라는 경고를 출력하며 호환 처리합니다. 공식 이름을 함께 지정하면 공식 값이 우선합니다. <br>
      */
-    type U3dOutlineAliasCO = {
+    type U3dOutlineCO = {
         /**
-         * 외곽선을 표시할지 여부. 켜면 면과 면이 만나는 모서리를 선으로 덧그리며, 선 색은 `lineColor`로 정합니다 <br>
+         * 외곽선 두께 단위. meter는 미터, pixel은 화면 CSS 픽셀이며 줌과 무관한 두께를 유지합니다. `setOutlineType` 또는 `setParam`으로 변경합니다 <br>
+         */
+        outlineType?: "meter" | "pixel";
+        /**
+         * 모서리 기반 외곽선의 코너 반경 비율 (0~1). 0은 각진 연결, 1은 기존의 둥근 연결입니다. 급각의 돌출은 반 두께의 네 배로 제한하며 본체·선분 경로와 곡면 실루엣의 곡률은 유지합니다. `setOutlineTension` 또는 `setParam`으로 변경합니다 <br>
+         */
+        outlineTension?: number;
+        /**
+         * U3dLine·U3dPoint를 제외한 하위 도형의 외곽선 표시 여부. 구는 분할선 없는 바깥 윤곽, 파이프는 실제 메시 윤곽과 열린 끝의 단면 테두리, 원기둥은 위·아래 테두리와 시점에 따른 옆면 윤곽, 나머지 도형은 경계 양쪽으로 돌출을 허용한 모서리를 표시합니다. 색상은 `lineColor`, 불투명도는 `lineOpacity`로 정하며 기존 지원 도형은 고유 기본값을 유지하고 나머지는 false입니다 <br>
          */
         outline?: boolean;
         /**
-         * `outline`의 예전 이름. 새 코드에서는 사용하지 않습니다 <br>
+         * (deprecated) `outline`으로 변경하세요. 사용 시 경고를 출력합니다 <br>
          */
         useline?: boolean;
         /**
-         * `outline`의 예전 이름. 새 코드에서는 사용하지 않습니다 <br>
+         * (deprecated) `outline`으로 변경하세요. 사용 시 경고를 출력합니다 <br>
          */
         useLine?: boolean;
         /**
-         * `outline`의 예전 이름. 새 코드에서는 사용하지 않습니다 <br>
+         * (deprecated) `outline`으로 변경하세요. 사용 시 경고를 출력합니다 <br>
          */
         edge?: boolean;
     };
@@ -832,13 +1122,57 @@ declare class U3dGeometry extends UEventDispatcher {
          */
         contrast?: number;
         /**
-         * 지형 표면을 기준으로 도형을 띄울 높이 (미터)
+         * `setParam`에서 지형 표면을 기준으로 도형을 띄울 높이 (미터). 현재 좌표에 한 번 적용하며 `getParam` 반환값에는 포함되지 않습니다
          */
         heightOffset?: number;
         /**
          * 외곽선(테두리 선) 색상
          */
         lineColor?: ColorLike;
+        /**
+         * 외곽선 표시 여부
+         */
+        outline?: boolean;
+        /**
+         * 외곽선 두께 단위. 기본값은 pixel
+         */
+        outlineType?: "meter" | "pixel";
+        /**
+         * 모서리 기반 외곽선의 코너 반경 비율 (0~1). 기본값은 1이며 0은 각진 연결, 1은 둥근 연결
+         */
+        outlineTension?: number;
+        /**
+         * 외곽선 지원 도형의 테두리 두께 (outlineType이 meter이면 미터, pixel이면 화면 CSS 픽셀). 0보다 큰 유한한 숫자
+         */
+        lineWidth?: number;
+        /**
+         * 본체 `opacity`와 독립된 외곽선 불투명도 (0~1)
+         */
+        lineOpacity?: number;
+        /**
+         * (deprecated) `lineColor`로 변경하세요. 사용 시 경고를 출력합니다
+         */
+        outlineColor?: ColorLike;
+        /**
+         * (deprecated) `lineWidth`로 변경하세요. 사용 시 경고를 출력합니다
+         */
+        outlineWidth?: number;
+        /**
+         * (deprecated) `lineOpacity`로 변경하세요. 사용 시 경고를 출력합니다
+         */
+        outlineOpacity?: number;
+        /**
+         * `outline`의 예전 이름
+         */
+        useline?: boolean;
+        /**
+         * `outline`의 예전 이름
+         */
+        useLine?: boolean;
+        /**
+         * `outline`의 예전 이름
+         */
+        edge?: boolean;
         /**
          * 그림자를 드리우고 받을지 여부
          */
@@ -909,4 +1243,27 @@ declare class U3dGeometry extends UEventDispatcher {
         DISPOSE: string;
     };
 
-export type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryCO_Content, U3dGeometryEMI, U3dGeometryStyleParam, U3dOutlineAliasCO };
+type U3dOutlineAliasCO = U3dOutlineCO;
+
+/**
+     * U3dLine의 엔진 API와 Line2 Mesh 믹스인을 함께 사용하는 내부 외곽선 객체입니다.
+     */
+    type UGeometryOutlineLine = U3dLine & UMesh;
+
+/**
+     * 도형별 전용 띠를 그리는 외곽선 메시입니다. U3dLine의 선 API를 포함하지 않습니다.
+     */
+    type UGeometryOutlineMaterial = three.ShaderMaterial & {
+        color: three.Color;
+        linewidth: number;
+        worldUnits: boolean;
+    };
+
+/**
+     * 도형별 전용 띠를 그리는 외곽선 메시입니다. U3dLine의 선 API를 포함하지 않습니다.
+     */
+    type UGeometryOutlineMesh = three.Mesh<three.BufferGeometry, UGeometryOutlineMaterial> & {
+        customWorldPositionMaterial: UGeometryOutlineMaterial;
+    };
+
+export type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryCO_Content, U3dGeometryEMI, U3dGeometryStyleParam, U3dOutlineAliasCO, U3dOutlineCO, UGeometryOutlineLine, UGeometryOutlineMaterial, UGeometryOutlineMesh };

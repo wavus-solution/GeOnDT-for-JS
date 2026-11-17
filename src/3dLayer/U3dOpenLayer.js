@@ -1,7 +1,7 @@
 import {Box3} from 'three';
 import {defined} from '@util/defined';
 import {defaultValue} from '@util/defaultValue';
-import {deferred} from '@util/deferred';
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import {UDEF} from '@union3d/core/UDEF';
 import {U3dImageLayer} from '@union3d/3dLayer/U3dImageLayer';
 import {UGeoRect} from '@union3d/math/UGeoRect';
@@ -50,7 +50,12 @@ const CANCELLED_IMAGE_DATA_URL = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAA
  * @extends {U3dImageLayer}
  */
 class U3dOpenLayer extends U3dImageLayer {
-    /** 이 레이어가 소유한 모든 UMap의 animation frame 요청을 조정하는 전용 스케줄러입니다. @type {U3dOpenLayerFrameScheduler} */ #renderFrameScheduler;
+    /**
+     * 이 레이어가 소유한 모든 UMap의 animation frame 요청을 조정하는 전용 스케줄러입니다.
+     *
+     * @type {U3dOpenLayerFrameScheduler}
+     */
+    #renderFrameScheduler;
     /**
      * U3dApp의 draw 상태와 분리하여 이 레이어가 직접 관리하는 카메라 이동 상태입니다. <br>
      * 위치/회전 숫자만 한 번 보관하므로 update마다 임시 Vector/Euler 객체를 만들지 않습니다. `movingUntil`은 마지막
@@ -86,25 +91,105 @@ class U3dOpenLayer extends U3dImageLayer {
     /** @type {boolean} */ _oldebug;
     /** @type {object | undefined} */ _parameter;
     /** @type {string | undefined} */ _srs;
-    /** @override @type {undefined | {minx: number, miny: number, maxx: number, maxy: number} & Partial<{minz: number, maxz: number}>} */ _boundingBox;
+    /**
+     * @override
+     *
+     * @type {undefined | {minx: number, miny: number, maxx: number, maxy: number} & Partial<{minz: number, maxz: number}>}
+     */
+    _boundingBox;
     /** @type {undefined | {minx: number, miny: number, maxx: number, maxy: number} & Partial<{minz: number, maxz: number}>} */ _originBox;
     /** @type {Array<number> | undefined} */ _resolutions;
     /** @type {import('three').ColorRepresentation | null} */ _tileBackgroundColor = null;
-    /** 공유 source 하나가 OL 타일 캐시별로 보관할 최대 타일 개수입니다. @type {number} */ #sourceTileCacheLimit = DEFAULT_SOURCE_TILE_CACHE_LIMIT;
-    /** 정상 완료된 UMap/UView bundle을 레이어 내부에 보관할 최대 개수입니다. @type {number} */ #olRendererPoolSize = DEFAULT_OL_RENDERER_POOL_SIZE;
-    /** 동일 URL의 반복 404를 확인한 뒤 후속 네트워크 요청을 생략할지 여부입니다. @type {boolean} */ #useNotFoundPass = false;
-    /** useNotFoundPass가 활성화된 경우에만 만드는 URL별 연속 404 횟수 LRU입니다. @type {import('@util/LRUCache').LRUCache | undefined} */ #notFoundPassCache;
-    /** 진행 중인 타일 URL과 가장 최근 Resource Timing 항목을 연결합니다. 기능 활성 시에만 생성합니다. @type {Map<string, Record<string, any>> | undefined} */ #notFoundPendingResources;
-    /** 전역 Resource Timing 버퍼 확대 없이 새 resource 항목을 받기 위한 선택적 observer입니다. @type {PerformanceObserver | undefined} */ #notFoundResourceObserver;
-    /** refresh 이전 비동기 404 판정이 새 캐시에 섞이지 않게 구분하는 세대 값입니다. @type {number} */ #notFoundPassGeneration = 1;
-    /** 다음 타일 작업에서 재사용할 수 있는 idle renderer bundle 목록입니다. @type {Array<any>} */ #idleRendererBundles = [];
-    /** active, releasing, idle 상태를 포함하여 이 레이어가 소유한 모든 renderer bundle입니다. @type {Set<any>} */ #rendererBundles = new Set();
-    /** 레이어 dispose 이후 bundle이 다시 idle 풀로 반환되는 것을 막는 종료 플래그입니다. @type {boolean} */ #rendererPoolDisposed = false;
-    /** 등록 레이어 전체가 소유한 공유 source를 최종 정리하기 위한 집합입니다. @type {Set<OLSharedSourceState>} */ #sharedSources = new Set();
-    /** 동일 source 객체가 여러 등록 슬롯에서 반환되어도 하나의 수명 상태만 사용하도록 연결합니다. @type {WeakMap<object, OLSharedSourceState>} */ #sharedStateBySource = new WeakMap();
-    /** 타일마다 생성된 OL layer가 어느 공유 source를 사용했는지 추적합니다. @type {WeakMap<object, OLSharedSourceState>} */ #sharedSourceByLayer = new WeakMap();
-    /** 현재 renderer bundle에 연결되어 있는 타일 전용 OL layer 집합입니다. callback이 같은 layer 객체를 다시 반환하는 계약 위반을 감지합니다. @type {WeakSet<object>} */ #activeOLLayers = new WeakSet();
-    /** 계약 위반 로그를 레이어당 한 번만 남기기 위한 플래그입니다. refresh/setParameter 시 초기화합니다. @type {boolean} */ #contractErrorReported = false;
+    /**
+     * 공유 source 하나가 OL 타일 캐시별로 보관할 최대 타일 개수입니다.
+     *
+     * @type {number}
+     */
+    #sourceTileCacheLimit = DEFAULT_SOURCE_TILE_CACHE_LIMIT;
+    /**
+     * 정상 완료된 UMap/UView bundle을 레이어 내부에 보관할 최대 개수입니다.
+     *
+     * @type {number}
+     */
+    #olRendererPoolSize = DEFAULT_OL_RENDERER_POOL_SIZE;
+    /**
+     * 동일 URL의 반복 404를 확인한 뒤 후속 네트워크 요청을 생략할지 여부입니다.
+     *
+     * @type {boolean}
+     */
+    #useNotFoundPass = false;
+    /**
+     * useNotFoundPass가 활성화된 경우에만 만드는 URL별 연속 404 횟수 LRU입니다.
+     *
+     * @type {import('@util/LRUCache').LRUCache | undefined}
+     */
+    #notFoundPassCache;
+    /**
+     * 진행 중인 타일 URL과 가장 최근 Resource Timing 항목을 연결합니다. 기능 활성 시에만 생성합니다.
+     *
+     * @type {Map<string, Record<string, any>> | undefined}
+     */
+    #notFoundPendingResources;
+    /**
+     * 전역 Resource Timing 버퍼 확대 없이 새 resource 항목을 받기 위한 선택적 observer입니다.
+     *
+     * @type {PerformanceObserver | undefined}
+     */
+    #notFoundResourceObserver;
+    /**
+     * refresh 이전 비동기 404 판정이 새 캐시에 섞이지 않게 구분하는 세대 값입니다.
+     *
+     * @type {number}
+     */
+    #notFoundPassGeneration = 1;
+    /**
+     * 다음 타일 작업에서 재사용할 수 있는 idle renderer bundle 목록입니다.
+     *
+     * @type {Array<any>}
+     */
+    #idleRendererBundles = [];
+    /**
+     * active, releasing, idle 상태를 포함하여 이 레이어가 소유한 모든 renderer bundle입니다.
+     *
+     * @type {Set<any>}
+     */
+    #rendererBundles = new Set();
+    /**
+     * 레이어 dispose 이후 bundle이 다시 idle 풀로 반환되는 것을 막는 종료 플래그입니다.
+     *
+     * @type {boolean}
+     */
+    #rendererPoolDisposed = false;
+    /**
+     * 등록 레이어 전체가 소유한 공유 source를 최종 정리하기 위한 집합입니다.
+     *
+     * @type {Set<OLSharedSourceState>}
+     */
+    #sharedSources = new Set();
+    /**
+     * 동일 source 객체가 여러 등록 슬롯에서 반환되어도 하나의 수명 상태만 사용하도록 연결합니다.
+     *
+     * @type {WeakMap<object, OLSharedSourceState>}
+     */
+    #sharedStateBySource = new WeakMap();
+    /**
+     * 타일마다 생성된 OL layer가 어느 공유 source를 사용했는지 추적합니다.
+     *
+     * @type {WeakMap<object, OLSharedSourceState>}
+     */
+    #sharedSourceByLayer = new WeakMap();
+    /**
+     * 현재 renderer bundle에 연결되어 있는 타일 전용 OL layer 집합입니다. callback이 같은 layer 객체를 다시 반환하는 계약 위반을 감지합니다.
+     *
+     * @type {WeakSet<object>}
+     */
+    #activeOLLayers = new WeakSet();
+    /**
+     * 계약 위반 로그를 레이어당 한 번만 남기기 위한 플래그입니다. refresh/setParameter 시 초기화합니다.
+     *
+     * @type {boolean}
+     */
+    #contractErrorReported = false;
     /**
      * releaseTileLayersOL이 layer를 분리할 때 활성 집합에서도 제거하는 콜백입니다. 레이어 수명 동안 재사용합니다.
      * @type {(layer: object) => void}
@@ -116,11 +201,36 @@ class U3dOpenLayer extends U3dImageLayer {
      * @type {(layer: object, source: object) => boolean}
      */
     #releaseSharedSourceCallback = (layer, source) => this.#releaseSharedSourceByLayer(layer, source);
-    /** U3dOpenLayer 전용 측정 구조를 보관하는 JSON 직렬화 가능 객체입니다. @type {Record<string, any> | undefined} */ #debugLogJson;
-    /** JSON에 포함하지 않을 고해상도 시작 시각을 로그 항목별로 보관합니다. debugLog 활성 시에만 생성합니다. @type {WeakMap<object, Record<string, number>> | undefined} */ #debugTimingState;
-    /** source 객체별 이벤트 구독과 측정 세대를 보관합니다. debugLog 활성 시에만 생성합니다. @type {WeakMap<object, DebugSourceState> | undefined} */ #debugSourceStates;
-    /** WeakMap을 순회할 수 없으므로 로그 초기화와 dispose 시 이벤트를 해제하기 위한 상태 집합입니다. @type {Set<DebugSourceState> | undefined} */ #debugTrackedSources;
-    /** tileloadstart와 tileloadend/error 사이의 고해상도 시각을 tile 객체별로 연결합니다. debugLog 활성 시에만 생성합니다. @type {WeakMap<object, Record<string, any>> | undefined} */ #debugTileLoadStates;
+    /**
+     * U3dOpenLayer 전용 측정 구조를 보관하는 JSON 직렬화 가능 객체입니다.
+     *
+     * @type {Record<string, any> | undefined}
+     */
+    #debugLogJson;
+    /**
+     * JSON에 포함하지 않을 고해상도 시작 시각을 로그 항목별로 보관합니다. debugLog 활성 시에만 생성합니다.
+     *
+     * @type {WeakMap<object, Record<string, number>> | undefined}
+     */
+    #debugTimingState;
+    /**
+     * source 객체별 이벤트 구독과 측정 세대를 보관합니다. debugLog 활성 시에만 생성합니다.
+     *
+     * @type {WeakMap<object, DebugSourceState> | undefined}
+     */
+    #debugSourceStates;
+    /**
+     * WeakMap을 순회할 수 없으므로 로그 초기화와 dispose 시 이벤트를 해제하기 위한 상태 집합입니다.
+     *
+     * @type {Set<DebugSourceState> | undefined}
+     */
+    #debugTrackedSources;
+    /**
+     * tileloadstart와 tileloadend/error 사이의 고해상도 시각을 tile 객체별로 연결합니다. debugLog 활성 시에만 생성합니다.
+     *
+     * @type {WeakMap<object, Record<string, any>> | undefined}
+     */
+    #debugTileLoadStates;
 
     /**
      * @param {U3dOpenLayerCO} [opt={}]
@@ -1248,11 +1358,9 @@ class U3dOpenLayer extends U3dImageLayer {
         self.setStateTile(tile, UDEF.TILE_STATE._loading);
 
         // renderer·취소 helper에 넘기는 내부 완료 객체는 그대로 두고, 호출자에게 돌려주는 완료 객체만 기반 계약대로 타일로 완료합니다.
-        /** @type {DeferredObject<unknown>} */
-        const promise = deferred();
-        /** @type {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} */
-        const tilePromise = deferred();
-        promise.then(() => tilePromise.resolve(tile));
+        /** @type {DeferredPromise<unknown>} */
+        const promise = deferredPromise();
+        const tilePromise = promise.then(() => tile);
         const key = self.createKeyByTile(tile);
 
         const dataCache = self.getDataCache();
@@ -2413,14 +2521,14 @@ class U3dOpenLayer extends U3dImageLayer {
      * 기반 `setCancelByTile`은 renderer bundle과 대여 세대를 공급할 수 없으므로 재정의하지 않고 이 레이어 전용 helper로 둡니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 대상 타일
-     * @param {DeferredObject<unknown>} promise 타일 작업 완료 객체
+     * @param {DeferredPromise<unknown>} promise 타일 작업 완료 객체
      * @param {any} rendererBundle 현재 타일 작업이 대여한 UMap/UView bundle
      * @param {number} rendererGeneration 현재 bundle 대여 세대
      * @param {Record<string, any>} [debugEntry] 성능 측정 로그 항목
      */
     #registerRendererCancel(tile, promise, rendererBundle, rendererGeneration, debugEntry) {
         const self = this;
-        self.setCancelByTile(tile, /** @type {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} */(/** @type {unknown} */(promise)));
+        self.setCancelByTile(tile, /** @type {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} */(/** @type {unknown} */(promise)));
         const key = self.createKeyByTile(tile);
         const cancelValue = self._cancelTiles[key];
         if(!defined(cancelValue)) return;
@@ -2491,7 +2599,7 @@ class U3dOpenLayer extends U3dImageLayer {
      *
      * @param {any} rendererBundle 현재 타일 작업이 대여한 UMap/UView bundle
      * @param {number} rendererGeneration 현재 bundle 대여 세대
-     * @param {DeferredObject<boolean>} promise 완료할 타일 작업 promise
+     * @param {DeferredPromise<boolean>} promise 완료할 타일 작업 promise
      * @param {Record<string, any> | undefined} debugEntry 성능 측정 로그 항목
      * @param {'failed' | 'cancelled'} status 완료 상태
      * @param {string} reason 종료 사유
@@ -2522,7 +2630,7 @@ class U3dOpenLayer extends U3dImageLayer {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile
      * @param {any} rendererBundle 현재 타일 작업이 대여한 UMap/UView bundle
      * @param {number} rendererGeneration 현재 bundle 대여 세대
-     * @param {DeferredObject<boolean>} promise
+     * @param {DeferredPromise<boolean>} promise
      * @param {Record<string, any>} [debugEntry] 성능 측정 로그 항목
      * @param {any} [event] OL 이벤트
      *

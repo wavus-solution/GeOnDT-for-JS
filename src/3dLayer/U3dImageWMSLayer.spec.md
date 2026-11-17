@@ -133,7 +133,7 @@ U3dImageWMSLayer extends U3dImageLayer 클래스 정의
             baseUrl이 null·undefined이면 안내를 출력하고 WMS 설정 초기화를 끝낸다. 기반 생성자는 이미 실행되었다. [확인 Q-004]
             _classtype을 'U3dImageWMSLayer'로, _baseUrl과 _layername을 전달된 값으로 저장한다.
             타입 노드의 옵션과 기본값으로 _ext, _reverseX·_reverseY, _crs, _version, _width·_height, _minlevel·_maxlevel을 저장한다. defaultValue는 null을 기본값으로 바꾸지 않는다.
-            인증 키·스타일·필터·추가 쿼리는 생략 시 빈 문자열로, 프록시 사용은 false로, 접두어는 './proxy.jsp?url='로 저장한다.
+            인증 키·스타일·필터·추가 쿼리를 각각 _key·_styles·_cqlFilter·_appendQuery에 저장하며 생략하면 빈 문자열을 사용한다. _useproxy는 생략 시 false, _proxyurl은 생략 시 './proxy.jsp?url='로 저장한다.
             블렌딩 기본값은 normal이다. blendingType 옵션이 truthy이면 매핑 값을 조회하고, 조회 결과가 null·undefined가 아니면서 숫자일 때만 _blendingType을 바꾼다. NoBlending의 0도 적용하며, 미등록 키나 숫자가 아닌 결과는 기본값을 유지한다.
 
     createUrl(tile: U3dQuadTile) -> string | undefined
@@ -167,21 +167,22 @@ U3dImageWMSLayer extends U3dImageLayer 클래스 정의
             cqlFilter, styles, transparent, key, useproxy, proxyurl, appendQuery 각각이 null·undefined도 빈 문자열도 아닐 때 대응 상태를 갱신한다. boolean false는 반영하며 빈 문자열로 기존 문자열 값을 지우지는 못한다.
 
     override createTexture(tile: U3dQuadTile) -> Promise<U3dQuadTile> | undefined
-        인터페이스: tile은 이미지를 적용할 타일이다. 반환된 Promise는 기반 이미지 처리의 완료를 전달하며, 요청을 시작하지 않으면 undefined다.
+        인터페이스: tile은 이미지를 적용할 타일이다. 반환된 Promise는 기반 이미지 처리와 후속 블렌딩 확인을 마친 타일을 전달하며, 요청을 시작하지 않으면 undefined다.
         의존:
             U3dImageLayer — 공통 생성 허용 판정과 이미지 처리; 함수: {createTexture(), processTexture()}
-            U3dLayer — 타일 종료 상태와 cache 메시 조회; 함수: {setStateTile(), getCache()}
+            U3dLayer — 타일 종료 상태와 cache 메시 조회 및 레이어 수명 확인; 함수: {setStateTile(), getCache()}; 속성 읽기: {_disposed}
             UDEF — 타일 종료 상태; 상수: {TILE_STATE._end}
-            U3dQuadTile(tile) — 당시 그리기 상태; 속성 읽기: {_drawArg}
+            U3dQuadTile(tile) — 당시 그리기 상태와 타일 수명; 속성 읽기: {_drawArg, _disposed}
             defined — URL 존재 여부 판정; 함수: {defined()}
-            deferred — 기반 처리에 전달할 완료 객체 생성; 함수: {deferred()}
+            deferredPromise — 기반 처리에 전달할 완료 객체 생성; 함수: {deferredPromise()}
         동작:
             _crs가 'EPSG:3857'이 아니면 타일을 _end 상태로 바꾸고 undefined를 반환한다.
             기반 createTexture의 결과가 falsy이면 후속 요청을 하지 않고 undefined를 반환한다.
             tile의 drawArg를 보관하고 요청 URL을 만든다. URL이 없으면 타일을 _end 상태로 바꾸고 undefined를 반환한다.
             deferred를 만들고 타일·drawArg·URL과 함께 기반 processTexture에 전달한다. 별도 처리 옵션은 전달하지 않는다.
-            기반 처리를 호출한 뒤 deferred의 성공 callback을 등록한다. 완료 타일의 cache 메시가 있으면 메시와 현재 레이어를 전달하여 재질에 블렌딩을 반영한다. 이미 완료된 deferred는 callback을 등록하는 시점에 실행할 수 있다.
-            성공 callback에서 파생된 Promise가 아니라 원래 deferred를 반환한다. 블렌딩 callback의 오류를 반환 Promise에 다시 연결하거나 별도 오류 callback을 등록하지 않는다.
+            기반 처리를 호출한 뒤 표준 Promise의 성공 callback을 등록하며 callback은 마이크로태스크에서 실행된다. 레이어 또는 완료 타일이 해제되었으면 블렌딩을 건너뛰고 그 타일을 반환한다.
+            살아 있는 완료 타일의 cache 메시가 있으면 메시와 현재 레이어를 전달하여 재질에 블렌딩을 반영하고, 메시 유무와 관계없이 타일을 반환한다.
+            성공 callback에서 파생된 Promise를 반환한다. 기반 처리 실패와 블렌딩 callback의 예외는 이 반환 Promise의 실패로 전달한다.
 
 ```
 

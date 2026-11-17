@@ -2,221 +2,1136 @@
 
 > 상태: 구현 관찰 초안
 
-## 목적과 책임
+## 1. 개요
 
-Terrain decal 타일의 Build·Presentation 작업을 한 곳에서 예약하고 세대·리비전·자원 준비 상태에 맞춰 진행을 복구한다.
+### 1.1 목적과 의미
 
-Source별 저장 기준은 sourceStates 하나다. 요청·데이터 승인·합성 참여·해제의 상태 변경은 TileStateManager에 맡기고 후속 예약과 표시 전환을 조율한다. 요청 revision, 승인 dataRevision과 실제 적용 appliedRevision을 따로 보존하며 조회를 위해 병렬 저장소를 합치지 않는다.
+2D 벡터·측정 입력을 지형 재질에 표시하기 위해 원본 변경, 타일별 자료 준비, Worker·GPU 합성, 실제 재질 적용을 조율하는 앱 단위 관리자다.
 
-모든 표시 source가 피처·표시 피처·표시 차단 대기 없이 confirmed-empty 또는 허용된 실패 대체 표시이면 일반·원자 표시 clear 모두 지형 handoff 보호로 보류하지 않는다. 판정은 TileState의 isTerrainTileClearForSettledEmptySources를 공유한다. 벡터 uniform과 buffer만 비우며 지형·영상 mesh의 표시나 handoff lease와 요청 실패 상태는 변경하지 않는다. 미확정 source나 남은 피처는 기존 보호 조건을 유지한다.
+### 1.2 책임 범위
+
+타일·Source·피처 역인덱스, 원본 등록과 변경 구독·병합, 빌드 예약과 결과 수락, 원자 표시 그룹, 준비 대기와 폐기 복구를 소유한다. 레이어 어댑터는 실제 원격 요청·원본 형상 변환과 소유 도형 정리를 수행하고 TileState는 Source·buffer·binding의 상태 전이를 제공한다.
+
+### 1.3 주요 동작 방식
+
+Source는 타일에 입력을 제공하는 한 레이어의 자료 구분이다. 요청 revision, 승인 dataRevision, 실제 적용 appliedRevision을 분리한다. 같은 세대·revision의 진행 작업을 중복 발행하지 않고, 결과가 늦게 도착하면 현재 entry와 수명을 다시 확인한다.
+
+표시 교체는 먼저 결과를 inactiveBuffer에 준비하고 render-before에서 apply·clear한다. 여러 타일과 owner가 공유한 원자 그룹은 전체 계획의 준비·현재성을 확인한 뒤 같은 프레임에 교체하며, 실패한 적용은 이전 화면으로 되돌린다. handoff는 부모·자식이 표시 범위를 넘겨주는 과정이며 기존 화면의 제거 조건과 새 데이터의 준비 조건을 분리한다.
+
+관찰된 실행 특성: 동적 반경은 등록된 레이어를 250ms 간격으로 검사하며, 피처 편집은 microtask로 병합하고 Worker 결과·합성·표시는 각 예약기의 시간/개수 예산에서 처리한다.
+
+### 1.4 주요 사용처와 연계 대상
+
+`U2dVectorShaderLayer`·`U3dShaderMeasureLayer`의 Source 입력, `U3dImageLayer`·지형 mesh의 material 등록과 교대, 앱의 render-before, Worker·합성·프로그램 사전 준비 예약기와 연결된다.
+
+## 3. 정규 자연어 수도코드
 
 ```spec
-UShaderTerrainDecalManager
-    setTerrainTileSourcePending(tileKey, pending, opt):
-        요청 상태와 표시 전환의 차단 여부를 분리한다. allowFailureFallback은 기본적으로 허용하지 않으며 지정된 source만 대체 표시를 사용할 수 있다.
-        첫 요청은 sourceStates의 pending 상태로 보관하며 표시 전환을 차단한다. 허용된 source가 실패하면 failed·사유를 보관하고 재요청 중에도 그 사유를 유지한다.
-        대체 표시가 가능한 재요청은 status가 pending이어도 표시 전환을 차단하지 않는다. 정상 응답은 실패 사유를 지운다.
-        사유 없는 실패는 source-request-failed로 기록한다. 이전 요청 token의 늦은 종료는 거부한다.
-        전체 취소와 tile 작업 취소는 표시 차단 여부와 관계없이 모든 pending 요청 상태를 수집해 종료한다.
-    isTerrainTileSourcePending(tileKey): 대체 표시를 허용한 재요청을 제외하고 표시 전환을 차단하는 대기가 있으면 true를 반환한다.
-    _registerTerrainFeatureOwner(owner, callbacks, sources?)
-        초기화 전 원본 등록부는 복사 없이 인수하며 같은 소유자의 재등록은 현재 편집과 원본 목록을 보존하고 어댑터만 갱신한다.
-        원본 등록부와 변경 대기·진행 Promise의 수명은 관리자가 소유하고 레이어는 입력 동기화·최종 배치 적용과 관측 사실만 제공한다.
-    _getTerrainSourceEntries(owner) -> Map<string, U2dVectorSourceEntry> | undefined
-        등록한 원본 수명 목록을 반환하며 같은 원본을 두 레이어에 등록해도 목록과 편집 상태는 공유하지 않는다.
-    _getTerrainSourceContext(owner, context) -> TerrainFeatureSourceContext
-        출처 문맥에 소유자 단위의 setStyle·loadSourceGeometry 어댑터 참조를 연결하고 같은 문맥을 반환한다.
-    _observeTerrainSource(owner, entry, source, listener)
-        기존 구독을 먼저 해제하고 원본 change를 하나만 구독한다. 해제 함수는 기존 entry.changeListener에 저장하며 원본 교체 뒤에도 구독한 실제 객체를 해제한다.
-    _unobserveTerrainSource(owner, entry)
-        entry의 해제 함수를 먼저 분리한 뒤 실행해 재진입과 중복 해제를 막는다.
-    _queueTerrainFeatureUpdate(owner, key, update)
-        병합 함수가 undefined를 반환하면 대기 항목 교체·재시도 횟수 초기화·새 예약을 수행하지 않는다. 병합 함수가 기존 대기 객체에 반영한 수정은 유지한다.
-        같은 원본의 마지막 편집 또는 병합 함수 결과만 보관하고 한 실행 구간의 변경을 자동 적용 묶음으로 모은다.
-    _queueTerrainSourceUpdate(owner, source)
-        원본 동기화가 필요한 대표를 등록한다. 표시 편집보다 먼저 실행하며 그 과정에 추가한 표시 편집을 같은 묶음에 포함한다.
-    _hasTerrainSourceUpdate(owner, source) -> boolean
-        해당 원본의 동기화 대기 여부를 반환한다.
-    _deleteTerrainFeatureUpdate(owner, key, source?)
-        제거한 표시 편집과 지정한 원본의 동기화 대기를 함께 취소한다.
-    _hasTerrainFeatureUpdateInFlight(owner) -> boolean
-        현재 수명의 배치 적용 Promise가 있는지 반환한다.
-    _commitTerrainFeatureUpdates(owner) -> Promise<Array<boolean>>
-        호출 시 진행 묶음과 그때 대기하던 한 묶음까지만 기다린다. 여러 호출자는 그 다음 묶음의 완료를 공유하며 호출 후에 처음 추가된 변경까지 기다리지는 않는다. 이후의 연속 편집 전체를 재귀적으로 기다리지 않는다.
-        적용할 원본 목록을 먼저 분리하고 동기화 후 표시 편집 목록을 분리해 콜백 안에서 생긴 변경을 잃지 않는다.
-        성공·실패 뒤 후속 변경은 다시 예약한다. 실패 입력은 새 편집을 덮지 않고 보존하며 명시한 한도만 자동 재시도한다. 원본 동기화 전부터 대기하던 표시 편집과 실패한 동기화 callback이 추가한 표시 편집은 같은 실패 묶음으로 보존하고 재시도 한도에 포함한다. 실패 뒤 도착한 외부 편집은 보존하고 다시 예약한다. 한도 뒤에는 다음 편집·수동 적용을 기다린다.
-        취소·최종 해제 후 이전 Promise는 빈 결과로 끝나고 이전 오류로 새 수명을 실패시키지 않는다.
-    _cancelTerrainFeatureUpdates(owner)
-        원본 목록과 구독을 보존한 새 수명 기록으로 교체해 이전 예약·진행 결과를 무효화한다. 일반 적용에서는 수명을 교체하지 않는다.
-    _releaseTerrainFeatureOwner(owner)
-        재진입을 차단한 뒤 모든 원본 구독과 disposeSource 어댑터를 실행하고 등록을 종료한다. 빌린 도형은 원본별 소유권 계약을 따른다.
-        한 원본 정리의 오류가 나머지 정리를 중단하지 않으며 모두 시도한 뒤 원래 오류 또는 errors를 가진 오류를 전달한다.
-    _collectTerrainFeatureTiles(owner, opt) -> Set<string>
-        현재 연결에 캐시 후보를 합치며 숨은 자식도 준비한다. 해제·잘못된 경계·최소 레벨 밖 타일은 제외하고 자식 준비 중인 대체 부모는 허용한다.
-        형상·외곽선의 교차 여부만 입력 어댑터가 제공하며 후보 순회·연결 병합·entry 확정은 관리자가 수행한다. 식별자 0도 유효하다.
-    _getTerrainLayerTilePresentation(tile, opt, query = 'all') -> TerrainLayerTilePresentationState
-        레이어의 원본 종류·로컬 연결·표시 의도·직접 보유 mesh와 관리자의 Source·material 상태로 참여·준비·현재 표시·기존 부착·직전 적용본 유지·부모 제거 보류를 판정한다.
-        Vector의 첫 적용본 재사용과 Measure의 최신 버전 조건을 보존하며 처음 측정 결과를 기다리는 기존 영상의 부착은 준비 완료와 구분한다.
-        정상 빈 결과·LOD로 그릴 내용 없는 결과·숨김·허용한 실패 대체 표시는 원래 계약대로 처리하고 다른 Source의 적용본만으로 현재 Source의 성공을 인정하지 않는다.
-        query가 all이면 일반 표시 판정을 계산한다. ready·visible·attached·retainedSafe·confirmedEmpty·sourceKeys·sceneProvider·participates·deferredRemoval는 요청 필드까지만 계산하며 호출자는 그 필드만 사용한다. visibilityCommit·runtimeParticipation은 별도 의도 적용·입력 참여 판정이다.
-        participates는 숨김 중립값을 반영한 참여 판정 직후 반환한다. deferredRemoval는 자식 표시 등 로컬 관측값으로 제거 보류를 판정하고 Source 표시 DTO와 binding 목록 조회 전에 반환한다.
-        ready는 영상 소유자 콜백을 호출하지 않으며 attached·retainedSafe는 준비 판정을 중복 실행하지 않는다. 소스 전용 visible·all은 필요한 영상 소유자 콜백 뒤에 표시 준비를 다시 확인한다. 조회 결과를 영구 저장하지 않는다.
-        Measure의 available·그릴 개수 0·이전 적용 이력은 기존 빈 표시의 부착 중립에 사용할 수 있지만 새 결과의 준비 완료를 대신하지 않는다. ready와 all.ready는 빈 결과여도 최신 isTerrainTileSwapReady를 확인한다.
-        Vector의 직접 소유 binding은 외부 host의 부착 여부로 거부하지 않는다. 최초·미추적 Source의 중립 attached는 host 조회 전에 반환하고 실제 외부 host가 필요한 경로에서만 콜백을 호출한다.
-        visibilityCommit은 ownerLayer가 같은 binding만 직접 소유로 인정하며 binding이 있지만 직접 소유하지 않으면 sourceOnly다. 숨김은 Source·준비·host를 조회하지 않고 허용한다. 표시 시 최신 swap 준비를 먼저 계산하고 그 결과와 관계없이 기존 Source 적용본과 실제 host 부착을 별도로 검사해 어느 쪽이든 허용한다. Source 숨김·실패 차단·적용 이력의 기존 순서와 expectsPayload 대체 조회를 보존한다. bindingVisible은 이 조회에서 선택한 binding·entry 참조를 유지하는 일시 접근자로 물리 갱신 뒤 읽으며 새 영구 상태를 만들지 않는다. 기대 Source 선택은 원래 로컬 캐시 타일 기준을 보존한다. 캐시 타일이 없으면 등록 타일 또는 키만 있는 입력으로 레벨을 판단하고, 캐시 타일이 해제됐으면 빈 Source 목록을 사용한다. 실제 표시 타일의 레벨·해제 상태를 여기에 섞지 않는다.
-        visibilityCommit은 기존 동작대로 host 콜백 뒤 준비를 재검사하지 않는다. 콜백이 Source를 실패로 변경해도 앞서 계산한 준비가 참이면 의도 복구는 허용할 수 있고 후속 visible 조회는 이를 거부한다. 이 관측된 경계를 일반 visible의 사후 재검사와 혼동하지 않는다.
-        runtimeParticipation은 레이어 숨김·mesh·입력 tile의 disposed 조건과 별도로 등록 entry.tile의 직계 자식만 포함한다. 각 타일의 runtime Source 피처, 표시를 차단하는 실제 요청 대기, 레이어가 제공한 로컬 연결 사실 중 하나가 있으면 참여한다. 빈 Source 레코드·숨긴 요청·실패 대체를 허용한 재요청만으로 참여시키지 않는다.
-    _getTerrainOwnerTilePresentation(owner, tile, sourceKeys) -> TerrainLayerTilePresentationState
-        등록 소유자의 getTileFacts에서 관측값만 받아 같은 표시 판정을 실행한다. 레이어의 준비 정책과 표시 집합을 직접 역호출·해석하지 않는다.
-        등록하지 않은 기존 이미지 소유자는 관리자의 실제 binding과 Source 적용 상태를 확인한다.
-    _isTerrainTileSourceInputCurrent(tileKey, opt) -> boolean
-        승인 버전·권위 입력·원점·LOD·개수·목표 순서와 요청 토큰이 같고 Source 데이터가 준비됐는지 판정한다. GPU 최신 적용 완료와 구분한다.
-        승인 snapshot이 없거나 버전·기준점이 바뀌거나 현재 GPU 실패이면 같은 입력으로 승인하지 않는다.
-    _resolveTerrainSourceRevision(tileKey, sourceKey, signature, commit = false) -> number
-        조회는 Source를 만들지 않고 다음 버전 후보만 반환한다. 확정하면 같은 Source 기록에 입력 비교값·버전을 보관한다.
-        버전만 발급한 새 Source는 unknown이며 요청 중으로 만들지 않는다. 이후 입력 승인과 실제 GPU 적용 버전은 별도로 확정한다.
-    _updateTerrainTileSource(tileKey, updateSource, opt):
-        Source revision·identity와 표시 대상을 함께 검사해 정착한 입력은 갱신 함수를 실행하지 않는다. 현재 요청 token이 아니면 입력과 재적용을 모두 거부한다.
-        같은 승인 입력이며 표시 재적용이 필요하면 기존 버퍼의 재적용을 요청한다. 승인 비교가 다른 입력은 기존 표시가 정착했더라도 먼저 변환한다. 새 입력은 갱신 함수를 먼저 실행해 이전 payload가 재적용되지 않게 한다.
-        입력이 변경되면 원래 동기화의 빌드 예약을 유지한다. 일반 실행에서는 입력 비교가 다른 Source의 갱신 전 표시 조회를 생략하며, 변경이 없는 결과의 완료 판정에만 조회한다. 진단이 켜져 있으면 갱신 전 상태 전이의 관측 시점은 유지한다. 내용이 같지만 정착하지 않았으면 같은 Source·표시 대상·원점을 보존해 강제 재적용을 요청한다.
-        Vector와 Measure는 입력 변환과 Source 요청 종료만 담당하며 이 결정 경계를 공유한다. 공개 syncTerrainTileFeatures의 변경 여부 반환 계약은 유지한다.
-    _areTerrainTileSourcesReady(tileKey, sourceKeys):
-        기대 source 각각의 데이터 준비 여부는 TileState의 isTerrainTileSourceDataReady에 위임한다. 레이어와 scoped swap-ready는 같은 판정을 사용하며 GPU 준비 전의 source 데이터 완료와 표시 완료를 혼동하지 않는다.
-    isTerrainTileSwapReady(tileKey, opt):
-        sourceKeys가 지정되면 기대 source의 데이터 준비와 해당 source의 적용 이력·목표 material 준비를 검사한다. sourceKeys 없는 기존 전체 타일 판정은 유지한다.
-        acceptInFlightRevision은 각 표시 source의 첫 성공 적용본이 있고 부모·자식 동적 피처 버전이 같으면 최신 입력 revision의 합성을 기다리지 않는다. 다른 source의 적용본만 있는 신규 source는 준비로 오인하지 않는다.
-        confirmed-empty는 source별 최신 clear 적용을 요구한다. 숨긴 source의 대기·미적용 revision·목표 material은 차단하지 않는다. 승인 데이터·그릴 피처가 없는 첫 원격 실패의 빈 대체 표시는 요청 실패 상태를 보존하며 기존 대체 표시 계약을 따른다.
-    ensureTileProgress(tileKey, opt):
-        현재 세대와 리비전의 작업 소유자가 사라진 dirty 타일만 기존 flush 경로로 복구한다.
-        준비된 buffer가 있어도 표시 resource가 준비되지 않았으면 attach를 반복 예약하지 않는다.
-        적용된 buffer의 tile 기준점이 지금 계산한 mesh 기준점과 다르면 재부착하지 않고 dirty로 올려 재빌드를 예약한다.
-    requestTileRebuild(tileKey, opt):
-        즉시 실행 경로는 동기 builder를 사용하고 Admission 지연 경로에서만 비동기 builder를 사용한다.
-        deferWorkerSchedule이 true이고 작업권이 아직 없으면 구간·전체 입력 준비 전에 기존 Admission으로 넘겨 같은 타일의 대기 입력을 최신 revision으로 병합한다.
-        작업권을 받은 뒤 세대·revision을 다시 확인한다. 연속 구간 입력은 즉시 packed 빌드로 보내지 않고 필요한 구간만 Worker에서 처리한다.
-    createTerrainWorkerTaskPayload(tileKey, opt):
-        Worker가 재사용할 Feature Base와 타일별 Feature 참조를 함께 전달한다.
-        Worker cache miss는 전체 Feature Base를 한 번 재전송해 복구한다.
-    getTerrainStabilityStats(): Coverage 공백과 handoff 복구 관련 누적 계수를 반환한다.
+UShaderTerrainDecalManager 클래스 정의
+    상태 책임 그룹
+        className: string = 'UShaderTerrainDecalManager'
+            생성자에서 설정하는 공개 클래스 식별 이름이다.
+        TERRAIN_CONFIG: TerrainDecalConfig
+            생성 시 확정한 설정이다. 프레임 예산·한도·캐시 크기의 기준이며 공개 필드에 대한 외부 쓰기를 차단하지 않는다.
+        tiles: TerrainManagerTileState
+            registry·feature/source 역인덱스·순서·안정성·가시성·동적 반경·원점 대기와 진행 후보를 소유한다.
+        flush: TerrainManagerFlushState
+            타일별 최신 flush 옵션과 payload builder를 소유한다.
+        worker: TerrainManagerWorkerState
+            task processor·실행/결과 예약기·결과 cache·세대별 pending 작업을 소유한다.
+        present: TerrainManagerPresentState
+            apply·clear·원자 그룹·준비 waiter·GPU cache·표시 예산을 소유한다.
+        diagnostics: TerrainManagerDiagnosticsState
+            안정성·payload·표시 통계와 revision별 복구 계수를 보유한다.
+        composeScheduler: object
+            합성기·pending/inflight 작업·프레임 예산을 가진 상태 그룹이다.
+        shaderPrewarm: UTerrainShaderPrewarm
+            실제 material 변형의 renderer별 준비와 template 수명을 관리한다.
+        _app: U3dApp | undefined
+            화면 갱신과 render-before 등록의 앱 참조다.
+        #featureOwners: Map<object, TerrainFeatureOwnerRecord>
+            owner별 원본 등록 Map·편집 대기·구독·분리된 물리 회수 작업을 보유한다.
+
+    상태 호환 접근자 책임 그룹
+        get TERRAIN_TILE_REGISTRY() -> Map<string, TerrainTileEntry>
+            동작: 현재 tiles.registry 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_TILE_REGISTRY(value: Map<string, TerrainTileEntry>) -> void
+            동작: 전달받은 value를 tiles.registry에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_TILE_GENERATION_SEQUENCE() -> number
+            동작: 현재 tiles.generationSequence 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_TILE_GENERATION_SEQUENCE(value: number) -> void
+            동작: 전달받은 value를 tiles.generationSequence에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_FEATURE_REGISTRY() -> Map<string, TerrainFeature>
+            동작: 현재 tiles.featureRegistry 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_FEATURE_REGISTRY(value: Map<string, TerrainFeature>) -> void
+            동작: 전달받은 value를 tiles.featureRegistry에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_FEATURE_BASE_REGISTRY() -> Map<string, TerrainFeature>
+            동작: 현재 tiles.featureBaseRegistry 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_FEATURE_BASE_REGISTRY(value: Map<string, TerrainFeature>) -> void
+            동작: 전달받은 value를 tiles.featureBaseRegistry에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_TILE_FEATURE_MAP() -> Map<string, Map<string, Map<string, TerrainFeature>>>
+            동작: 현재 tiles.tileFeatureMap 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_TILE_FEATURE_MAP(value: Map<string, Map<string, Map<string, TerrainFeature>>>) -> void
+            동작: 전달받은 value를 tiles.tileFeatureMap에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_FEATURE_TILE_MAP() -> Map<string, Set<string>>
+            동작: 현재 tiles.featureTileMap 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_FEATURE_TILE_MAP(value: Map<string, Set<string>>) -> void
+            동작: 전달받은 value를 tiles.featureTileMap에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_COMPOSITION_ORDER_REGISTRY() -> UTerrainDecalCompositionOrderRegistry
+            동작: 현재 tiles.compositionOrderRegistry 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_COMPOSITION_ORDER_REGISTRY(value: UTerrainDecalCompositionOrderRegistry) -> void
+            동작: 전달받은 value를 tiles.compositionOrderRegistry에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_SOURCE_STABILITY() -> Map<string, TerrainDecalCompositionStability>
+            동작: 현재 tiles.sourceStability 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_SOURCE_STABILITY(value: Map<string, TerrainDecalCompositionStability>) -> void
+            동작: 전달받은 value를 tiles.sourceStability에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_MESH_ORIGIN_WAITING_TILES() -> Set<string>
+            동작: 현재 tiles.meshOriginWaitingTiles 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_MESH_ORIGIN_WAITING_TILES(value: Set<string>) -> void
+            동작: 전달받은 value를 tiles.meshOriginWaitingTiles에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_PROGRESS_TILE_KEYS() -> Set<string> | undefined
+            동작: 현재 tiles.progressTileKeys 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_PROGRESS_TILE_KEYS(value: Set<string> | undefined) -> void
+            동작: 전달받은 value를 tiles.progressTileKeys에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_TILE_FLUSH_QUEUE() -> Map<string, TerrainManagerOption>
+            동작: 현재 flush.queue 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_TILE_FLUSH_QUEUE(value: Map<string, TerrainManagerOption>) -> void
+            동작: 전달받은 value를 flush.queue에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_TILE_FLUSH_SCHEDULED() -> boolean
+            동작: 현재 flush.scheduled 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_TILE_FLUSH_SCHEDULED(value: boolean) -> void
+            동작: 전달받은 value를 flush.scheduled에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_PAYLOAD_BUILDER() -> UTerrainPayloadBuilder
+            동작: 현재 flush.payloadBuilder 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_PAYLOAD_BUILDER(value: UTerrainPayloadBuilder) -> void
+            동작: 전달받은 value를 flush.payloadBuilder에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_DECAL_TASK_PROCESSOR() -> UTaskProcessor | undefined
+            동작: 현재 worker.taskProcessor 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_DECAL_TASK_PROCESSOR(value: UTaskProcessor | undefined) -> void
+            동작: 전달받은 value를 worker.taskProcessor에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_WORKER_SCHEDULER() -> UTerrainWorkerScheduler | undefined
+            동작: 현재 worker.scheduler 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_WORKER_SCHEDULER(value: UTerrainWorkerScheduler | undefined) -> void
+            동작: 전달받은 value를 worker.scheduler에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_WORKER_RESULT_SCHEDULER() -> UTerrainFrameScheduler
+            동작: 현재 worker.resultScheduler 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_WORKER_RESULT_SCHEDULER(value: UTerrainFrameScheduler) -> void
+            동작: 전달받은 value를 worker.resultScheduler에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_WORKER_RESULT_CACHE() -> LRUCache
+            동작: 현재 worker.resultCache 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_WORKER_RESULT_CACHE(value: LRUCache) -> void
+            동작: 전달받은 value를 worker.resultCache에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_PENDING_WORKER_JOBS() -> Map<string, TerrainPendingWorkerJob>
+            동작: 현재 worker.pendingJobs 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_PENDING_WORKER_JOBS(value: Map<string, TerrainPendingWorkerJob>) -> void
+            동작: 전달받은 value를 worker.pendingJobs에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_COMPOSITE_COMPOSER() -> TerrainDecalComposer | undefined
+            동작: 현재 composeScheduler.composer 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_COMPOSITE_COMPOSER(value: TerrainDecalComposer | undefined) -> void
+            동작: 전달받은 value를 composeScheduler.composer에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_PENDING_COMPOSITE_JOBS() -> Map<string, TerrainCompositeJob>
+            동작: 현재 composeScheduler.pendingJobs 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_PENDING_COMPOSITE_JOBS(value: Map<string, TerrainCompositeJob>) -> void
+            동작: 전달받은 value를 composeScheduler.pendingJobs에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_COMPOSITE_INFLIGHT_JOBS() -> Set<TerrainCompositeJob>
+            동작: 현재 composeScheduler.inflightJobs 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_COMPOSITE_INFLIGHT_JOBS(value: Set<TerrainCompositeJob>) -> void
+            동작: 전달받은 value를 composeScheduler.inflightJobs에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_COMPOSITE_JOB_TOKEN_SEQUENCE() -> number
+            동작: 현재 composeScheduler.jobTokenSequence 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_COMPOSITE_JOB_TOKEN_SEQUENCE(value: number) -> void
+            동작: 전달받은 value를 composeScheduler.jobTokenSequence에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_COMPOSITE_DISPOSE_PENDING() -> boolean
+            동작: 현재 composeScheduler.disposePending 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_COMPOSITE_DISPOSE_PENDING(value: boolean) -> void
+            동작: 전달받은 value를 composeScheduler.disposePending에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_COMPOSITE_MAX_DRAW_CALLS_PER_FRAME() -> number
+            동작: 현재 composeScheduler.maxDrawCallsPerFrame 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_COMPOSITE_MAX_DRAW_CALLS_PER_FRAME(value: number) -> void
+            동작: 전달받은 value를 composeScheduler.maxDrawCallsPerFrame에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_COMPOSITE_FRAME_BUDGET_MS() -> number
+            동작: 현재 composeScheduler.frameBudgetMs 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_COMPOSITE_FRAME_BUDGET_MS(value: number) -> void
+            동작: 전달받은 value를 composeScheduler.frameBudgetMs에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_COMPOSITE_MAX_WEIGHTED_PIXELS_PER_FRAME() -> number
+            동작: 현재 composeScheduler.maxWeightedPixelsPerFrame 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_COMPOSITE_MAX_WEIGHTED_PIXELS_PER_FRAME(value: number) -> void
+            동작: 전달받은 value를 composeScheduler.maxWeightedPixelsPerFrame에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_PRESENT_QUEUE() -> Map<string, TerrainPresentEntry>
+            동작: 현재 present.queue 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_PRESENT_QUEUE(value: Map<string, TerrainPresentEntry>) -> void
+            동작: 전달받은 value를 present.queue에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_PRESENT_CLEAR_QUEUE() -> Map<string, TerrainPresentEntry>
+            동작: 현재 present.clearQueue 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_PRESENT_CLEAR_QUEUE(value: Map<string, TerrainPresentEntry>) -> void
+            동작: 전달받은 value를 present.clearQueue에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_ATOMIC_PRESENTATION_GROUPS() -> Map<string, TerrainAtomicPresentationGroup>
+            동작: 현재 present.atomicGroups 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_ATOMIC_PRESENTATION_GROUPS(value: Map<string, TerrainAtomicPresentationGroup>) -> void
+            동작: 전달받은 value를 present.atomicGroups에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_SWAP_READY_PROMISES() -> Map<string, Set<TerrainSwapWaiter>>
+            동작: 현재 present.swapReadyPromises 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_SWAP_READY_PROMISES(value: Map<string, Set<TerrainSwapWaiter>>) -> void
+            동작: 전달받은 value를 present.swapReadyPromises에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_GPU_STATE_CACHE() -> LRUCache
+            동작: 현재 present.gpuStateCache 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_GPU_STATE_CACHE(value: LRUCache) -> void
+            동작: 전달받은 value를 present.gpuStateCache에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_PRESENT_FRAME_BUDGET_MS() -> number
+            동작: 현재 present.frameBudgetMs 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_PRESENT_FRAME_BUDGET_MS(value: number) -> void
+            동작: 전달받은 value를 present.frameBudgetMs에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_SHADER_TEMPLATE_CACHE() -> Map<string, UTerrainMaterial>
+            동작: 현재 shaderPrewarm.templateCache 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_SHADER_TEMPLATE_CACHE(value: Map<string, UTerrainMaterial>) -> void
+            동작: 전달받은 value를 shaderPrewarm.templateCache에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_SHADER_WARMUP_PENDING_COUNT() -> number
+            동작: 현재 shaderPrewarm.warmupPendingCount 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_SHADER_WARMUP_PENDING_COUNT(value: number) -> void
+            동작: 전달받은 value를 shaderPrewarm.warmupPendingCount에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_STABILITY_COUNTERS() -> Record<string, number>
+            동작: 현재 diagnostics.stabilityCounters 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_STABILITY_COUNTERS(value: Record<string, number>) -> void
+            동작: 전달받은 value를 diagnostics.stabilityCounters에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+        get TERRAIN_PRESENTATION_STATISTICS() -> Record<string, number>
+            동작: 현재 diagnostics.presentationStatistics 참조 또는 값을 그대로 반환한다.
+        set TERRAIN_PRESENTATION_STATISTICS(value: Record<string, number>) -> void
+            동작: 전달받은 value를 diagnostics.presentationStatistics에 그대로 대입한다. 별도 검증·복사·무효화는 수행하지 않는다.
+
+    생성·등록·표시·입력·수명 책임 그룹
+        constructor(opt: TerrainManagerOption = {})
+            의존:
+                createTerrainDecalConfig — 생성 옵션의 기본값·유효 범위 확정; 함수: {createTerrainDecalConfig()}
+                UTerrainDecalCompositionOrderRegistry — 그룹·피처의 총순서 등록; 생성자: {new UTerrainDecalCompositionOrderRegistry()}
+                UTerrainPayloadBuilder — Worker 입력의 캐시·직렬화; 생성자: {new UTerrainPayloadBuilder()}
+                UTerrainFrameScheduler — 결과 작업의 예약·취소; 생성자: {new UTerrainFrameScheduler()}
+                LRUCache — 크기 제한 캐시; 생성자: {new LRUCache()}
+                createTerrainComposeSchedulerState — 합성 작업·예산 상태 생성; 함수: {createTerrainComposeSchedulerState()}
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {disposeTerrainBufferState()}
+                UTerrainShaderPrewarm — 실제 material 프로그램 준비·해제; 생성자: {new UTerrainShaderPrewarm()}
+            동작:
+                설정 override를 createTerrainDecalConfig로 확정한 뒤 tiles·flush·worker·present·diagnostics 상태를 Object.seal로 생성한다.
+                타일·원본·역인덱스·Source 안정성·가시성·동적 반경 등록부와 합성 순서 등록부를 생성한다. config의 캐시 상한으로 payload builder와 결과 예약기를 만든다.
+                합성 예약기와 shaderPrewarm을 생성하고 안정성·payload·표시 계수를 초기화한다.
+                앱이 있으면 render-before callback을 등록한다.
+
+        getTerrainCompositeRenderer() -> WebGLRenderer | undefined
+            의존:
+                U3dApp — 앱의 render-before·화면 갱신; 함수: {getRenderer()}
+            동작:
+                앱의 getRenderer 결과에 render·setRenderTarget 함수가 모두 있으면 같은 renderer를 반환하고 그 밖에는 undefined다.
+        registerTerrainCompositionGroup(compositionGroupKey: string | number, ownerLayer: object, compositionRenderOrder: number = undefined) -> number | undefined
+            의존:
+                UTerrainDecalCompositionOrderRegistry — 그룹·피처의 총순서 등록; 함수: {registerGroup()}
+            동작:
+                group key가 undefined·null·빈 문자열이면 undefined다. 합성 순서 등록부의 registerGroup에 key·owner·합성 순서를 전달하고 부여된 순번을 반환한다.
+        unregisterTerrainCompositionGroup(compositionGroupKey: string | number, ownerLayer: object) -> boolean
+            의존:
+                UTerrainDecalCompositionOrderRegistry — 그룹·피처의 총순서 등록; 함수: {releaseGroup()}
+            동작:
+                group key가 undefined·null·빈 문자열이면 false다. 합성 순서 등록부의 releaseGroup에 key와 owner를 전달하여 해제 여부를 반환한다.
+        ensureTerrainCompositionFeatureOrdinal(compositionGroupKey: string | number, compositionFeatureIdentity: string | number, registrationOrder: number = undefined) -> number | undefined
+            의존:
+                UTerrainDecalCompositionOrderRegistry — 그룹·피처의 총순서 등록; 함수: {ensureFeatureOrdinal()}
+            동작:
+                group key와 feature identity 중 undefined·null·빈 문자열이 있으면 undefined다. 합성 순서 등록부에 최초 등록 순번 힌트를 전달하여 안정적인 feature ordinal을 반환한다.
+        resolveTerrainCompositeHostVariants(tileKey: string, tileEntry: TerrainTileEntry = undefined) -> Array<TerrainCompositeVariant>
+            의존:
+                resolveTerrainCompositeVariants — 현재 image host 구간 결정; 함수: {resolveTerrainCompositeVariants()}
+            동작:
+                tileEntry가 없으면 registry에서 찾아 현재 image host 구간을 resolveTerrainCompositeHostVariants의 결과로 반환한다.
+        prewarmTerrainCompositePrograms(tileKey: string, tileEntry: TerrainTileEntry, state: TerrainBufferState) -> void
+            의존:
+                resolveTerrainTileMesh — 대표 지형 mesh 선택; 함수: {resolveTerrainTileMesh()}
+                UTerrainShaderPrewarm — 실제 material 프로그램 준비·해제; 함수: {prewarmPrograms()}
+            동작:
+                현재 타일의 mesh와 대표 material이 모두 있으면 결과 state의 defines로 shaderPrewarm.prewarmPrograms를 호출한다.
+        failTerrainCompositePipeline(tileKey: string, tileEntry: TerrainTileEntry, generation: number, revision: number, error: unknown) -> boolean
+            동작:
+                같은 entry·generation·revision의 빌드 실패 처리 결과를 반환한다.
+
+        #bindApp(app: U3dApp | undefined) -> boolean
+            동작:
+                앱의 render-before 등록 API가 없거나 같은 키가 이미 있으면 false다. #flushTerrainRenderBefore를 호출하는 callback을 등록하고 true를 반환한다.
+
+        #flushTerrainRenderBefore() -> boolean
+            의존:
+                stepTerrainCompositeJobs — 프레임 예산 내 합성 진행; 함수: {stepTerrainCompositeJobs()}
+            동작:
+                합성 작업을 한 단계 진행한 뒤 apply·clear를 반영하고 등록된 동적 반경을 갱신한다.
+                progressTileKeys에서 config의 개수·시간 예산 범위만 순환 검사한다. mesh 원점 대기는 유지하고 최신 dirty·pending·inactive 상태에는 ensureTileProgress를 호출한다.
+                아직 일이 남은 키만 재등록하며 빈 Set은 undefined로 돌린다. 네 단계 중 하나라도 실제 진행했으면 true다.
+
+        #hasPendingHandoffTerrainApply(tileKey: string) -> boolean
+            동작:
+                key·entry가 없으면 false다. 직접 부모 또는 childTileKeys의 어느 키라도 apply 큐에 있으면 true이며 그 밖에는 false다. 이 함수 자체는 피처 공유·대기 항목의 세대/revision을 추가 판정하지 않는다.
+        #hasTerrainActivePresentation(tileKey: string) -> boolean
+            동작:
+                현재 타일에 activeBuffer 또는 실제 활성 material이 있는지 판정한다. 적용해 둔 화면이 없는 타일의 clear는 이 보호 대상으로 삼지 않는다.
+        #hasPendingHandoffTerrainPresentInGroup(tileKey: string, group: TerrainAtomicPresentationGroup) -> boolean
+            동작:
+                직접 부모·자식의 같은 그룹 대기 결과를 찾는다. 현재 generation·revision이며 build·Source 대기가 없는 빈 clear도 같은 프레임의 대체 결과로 인정한다.
+        #isCurrentAtomicPresentationEntry(presentEntry: TerrainPresentEntry | undefined) -> boolean
+            동작:
+                표시 명령에 truthy presentationOwnerKey·presentationGroupId가 있고 해당 owner의 현재 그룹 ID가 일치하면 true다. tile generation·revision의 현재성은 호출자가 별도로 확인한다.
+        #releaseAtomicPresentationGroup(group: TerrainAtomicPresentationGroup, presented: boolean = true) -> boolean
+            동작:
+                같은 tileKeys Set을 공유하는 연결 그룹을 제거하고 일치하는 타일 membership을 비운다. 표시 완료 여부와 outcome을 종결하여 각 그룹의 표시 대기를 해소한다.
+        #abortAtomicPresentationGroup(group: TerrainAtomicPresentationGroup, plans: Array<TerrainAtomicPresentCommitPlan> = [], opt: Partial<{failureReason: string, preservePreparedBuffers: boolean}> = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {disposeTerrainBufferState()}
+            동작:
+                현재 그룹의 적용·clear 명령과 준비 상태를 정리하고 실패 또는 교체 outcome으로 그룹을 종료한다. 이전 active 화면은 보존한다.
+                rollback 실패 등 preservePreparedBuffers가 지정된 경로는 준비 buffer를 임의로 해제하지 않는다.
+
+        #recordAtomicPresentationBlock(group: TerrainAtomicPresentationGroup, reason: string, tileKey: string) -> void
+            동작:
+                막힌 사유·타일·revision 정보를 lastBlock에 기록한다. 동일 사유가 반복되면 횟수를 누적하여 같은 그룹의 대기를 관찰한다.
+        #hasTerrainScreenPresentation(tileKey: string, tileEntry: TerrainTileEntry | undefined) -> boolean
+            동작:
+                전달받은 entry에 activeBuffer·activeMaterial·비어 있지 않은 activeMaterials 중 하나라도 있으면 true다. tileKey와 실제 mesh.visible은 이 함수에서 사용하지 않는다.
+        #detachInvisibleAtomicMembers(group: TerrainAtomicPresentationGroup, entries: Array<[string, TerrainPresentEntry]>, plans: Array<TerrainAtomicPresentCommitPlan | undefined>) -> boolean
+            동작:
+                계획을 만들지 못한 멤버 중 entry가 있고 visible·desiredVisible이 모두 true가 아니며 활성 적용본이 없는 타일을 그룹에서 분리한다. 이 분리 경계는 membership.explicit을 따로 판정하지 않는다.
+                분리한 명령의 그룹 표식을 지워 일반 표시 큐가 나중에 이어받게 하며 하나라도 분리하면 true다.
+
+        #flushReadyAtomicPresentationGroup() -> number
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {isTerrainTileClearForRemovedFeatures(), isTerrainTileClearForSettledEmptySources(), prepareTerrainTileApplyPresentCommit(), prepareTerrainTileClearPresentCommit()}
+            동작:
+                ready이며 커밋 중이 아닌 그룹에서 같은 tileKeys를 공유하는 모든 그룹이 준비됐는지 확인한다. 한 그룹의 준비·handoff 차단은 다른 독립 그룹의 탐색을 막지 않는다.
+                멤버의 세대·revision·실패·이미 적용된 결과·빈 결과를 확인한다. 진행 중인 최신 revision은 복구를 요청하고 그룹을 기다리며, 실패·세대 교체는 해당 outcome으로 종료한다.
+                각 apply·clear의 계획을 생성한다. 실제 기존 화면이 있고 같은 그룹의 대체 결과도 없으면 handoff clear를 보류하지만, 제거된 피처나 확정 빈 Source의 clear는 기존 보호 판정을 우회할 수 있다.
+                모든 계획이 유효한지 검사한 뒤 apply를 차례로 실행하고 매 단계 뒤 현재 그룹·명령·revision을 재확인한다. 실패·재진입 교체 시 실행 journal의 역순으로 rollback한다.
+                전체 적용이 성공하면 계획을 finalize하고 동일 큐 항목만 제거한 뒤 그룹을 종결하고 complete를 호출한다. 한 묶음의 적용 명령 수를 반환하며 진행하지 못하면 0이다.
+
+        flushTerrainPresentationResults() -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {canFlushTerrainTileApplyPresent(), isTerrainTileClearForHiddenSourcesOnly(), isTerrainTileClearForRemovedFeatures(), isTerrainTileClearForSettledEmptySources()}
+                U3dApp — 앱의 render-before·화면 갱신; 함수: {drawWork()}
+            동작:
+                apply·clear·원자 그룹이 모두 비면 false다. flushDepth를 늘려 원자 그룹을 먼저 처리하고 일반 큐는 현재 원자 그룹 멤버를 제외한 snapshot으로 순회한다.
+                apply와 clear가 함께 있으면 clear 예약 개수와 apply의 절반 시간 예산을 사용한다. 원자 그룹만 예산을 사용했어도 일반 apply 한 건, 없으면 일반 clear 한 건은 진행한 뒤부터 한도를 적용한다.
+                아직 준비되지 않은 현재 apply는 큐에 남기며 적용 예외는 현재 revision 실패로 기록한다. apply callback 뒤 clear snapshot을 다시 읽는다.
+                숨긴 Source·제거한 피처·확정 빈 Source의 clear가 아니고 지킬 활성 화면과 handoff 대기가 있으면 clear를 보류한다. 실행한 명령만 제거·반영하며 남은 큐가 있으면 화면 갱신을 요청한다.
+                명령 하나라도 처리했으면 true를 반환하며 finally에서 flushDepth를 복원한다.
+
+        flushDynamicRadiusUpdates() -> boolean
+            동작:
+                동적 반경 등록이 없으면 false다. 레이어·앱·카메라가 있는 항목만 Date.now 기준 250ms 간격으로 확인한다.
+                검사 시각을 저장한 뒤 등록 radius와 deferFlush=false로 refreshTerrainDynamicCircleRadius를 호출한다. 하나라도 변경되었으면 true다.
+        getTerrainFeatureTileKeys(scopedFeatureKey: string) -> Array<string>
+            동작:
+                scoped feature의 역인덱스 Set을 새 배열로 반환하고 등록이 없으면 빈 배열을 반환한다.
+        registerDynamicRadiusLayer(layer: U2dVectorShaderLayer, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                레이어가 없으면 false다. radius는 Number(opt.radius ?? 8)로 저장하며 기존 마지막 검사 시각을 보존한 등록 레코드로 교체하고 true를 반환한다.
+        unregisterDynamicRadiusLayer(layer: U2dVectorShaderLayer) -> boolean
+            동작:
+                동적 반경 등록 Map에서 해당 레이어를 제거한 결과를 반환한다.
+        registerTerrainMaterial(tileKey: string, material: TerrainMaterial, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {registerTerrainMaterialBinding(), queueTerrainTilePresent()}
+                UTerrainShaderPrewarm — 실제 material 프로그램 준비·해제; 함수: {prewarmPrograms()}
+            동작:
+                tile key나 material이 없으면 false다. entry에 binding을 등록하고 Source 순서·표시 의도·부모 관계·폐기 요청을 조정하며 material.userData의 tileKey를 반영한다.
+                features 배열이 주어지면 Source 전체를 동기화한다. 기존 피처가 있으면 최신 inactive·적용 buffer는 apply로 재사용하고 준비 결과가 없으면 강제 재빌드를 요청한다.
+                피처 없이 이전 상태가 남으면 clear를 예약하고 아무 상태도 없으면 material의 decal 상태를 비운다. texture-ready binding만 실제 mesh·material의 프로그램을 준비한다.
+                host 구간 변경을 무효화하고 true를 반환한다.
+
+        _refreshTerrainMaterialPresentation(tileKey: string, material: TerrainMaterial, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {resolveTerrainTileTextureReady(), syncTerrainMaterialBindingState(), queueTerrainTilePresent(), resolveTerrainApplyTargetBindings()}
+                UTerrainShaderPrewarm — 실제 material 프로그램 준비·해제; 함수: {prewarmPrograms()}
+                U3dApp — 앱의 render-before·화면 갱신; 함수: {drawWork()}
+            동작:
+                같은 material에 등록된 같은 mesh가 아니거나 타일이 취소됐으면 false다. binding의 visible·유한 renderOrder·textureReady만 갱신하고 원본 소유자·dispose 요청은 유지한다.
+                Source 순서와 합성 host 변경이 없으면 최신 apply·clear 예약을 유지하고 현재 inactive 또는 최신 active 결과를 재사용한다. 결과가 없는 dirty 타일은 기존 flush를 예약한다.
+                피처 전체 수집이나 즉시 빌드를 수행하지 않고 준비 대기를 통지하며 화면 갱신 후 true를 반환한다.
+
+        #invalidateTerrainCompositeHostVariants(tileKey: string) -> boolean
+            의존:
+                invalidateTerrainCompositeHostVariants — host 변경 시 합성 재사용 무효화; 함수: {invalidateTerrainCompositeHostVariants()}
+            동작:
+                합성 예약기의 host 구간 무효화 함수에 타일과 지연 flush callback을 전달하고 변경 여부를 반환한다.
+        registerTerrainMesh(tileKey: string, mesh: UTerrainMesh, material: TerrainMaterial = mesh?.material, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                tile key나 mesh가 없으면 false다. 전달받은 mesh를 opt에 합쳐 registerTerrainMaterial의 결과를 반환한다.
+
+        unregisterTerrainMaterial(tileKey: string, material: TerrainMaterial, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {unregisterTerrainMaterialBinding(), syncTerrainMaterialBindingState(), queueTerrainTilePresent()}
+            동작:
+                타일과 대상 binding이 없으면 false다. 대상 material의 binding·handoff·해당 범위의 대기를 해제하고 활성 material 집합과 decal 상태를 정리한다.
+                남은 binding이 있으면 Source 순서·대표 상태를 다시 선택하고 필요한 apply·host 무효화를 예약한다. 남은 binding이 없으면 preserveEntry일 때 entry를 보존하고 그 밖에는 entry를 정리한다.
+
+        unregisterTerrainMesh(tileKey: string, mesh: UTerrainMesh, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                tile key가 없으면 false다. 그 밖에는 mesh의 material로 unregisterTerrainMaterial을 호출한 결과를 반환한다. mesh가 없으면 material을 undefined로 전달한다.
+
+        requestTerrainMeshDispose(tileKey: string, mesh: UTerrainMesh | undefined, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                현재 타일의 같은 mesh binding에 disposeRequested를 기록한다. 강제 즉시 해제 또는 활성 material이 아닌 경우 false다. 활성 화면이면 scene 제거 보류 판정을 반환한다.
+
+        tryFinalizeTerrainMeshDispose(tileKey: string) -> boolean
+            동작:
+                disposeRequested binding의 snapshot을 순회한다. 아직 제거를 보류할 mesh는 남기고 나머지는 completeTerrainDeferredDispose를 호출한다. 하나라도 완료되면 true다.
+
+        getTerrainMaterial(tileKey: string) -> Material|undefined
+            동작:
+                tile key가 없거나 등록되지 않았으면 undefined이며 현재 entry의 대표 material을 반환한다.
+        resolveTerrainEffectiveTargetRenderOrder(tileKey: string, requestedRenderOrder: number, opt: Partial<{ownerLayer: U3dLayer, mesh: UMesh}> = {}) -> number
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {resolveTerrainEffectiveTargetRenderOrder()}
+            동작:
+                현재 타일 entry와 요청 render order·opt를 TileState의 동일 함수에 전달하여 실제 host에 맞는 순서를 반환한다.
+        getTerrainTilePresentationState(tileKey: string, opt: TerrainPresentationOption = {}) -> TerrainPresentationState | undefined
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {getTerrainTilePresentationState()}
+            동작:
+                TileState.getTerrainTilePresentationState에 manager·tile key·opt를 전달하여 현재 표시 진단 또는 undefined를 반환한다. includeComposition=false는 합성 계획 진단 생성을 생략하며 기본 공개 조회는 이를 포함한다.
+        getTerrainTileReadinessSnapshot(tileKey: string, selector: TerrainTileReadinessSelector = {}) -> Readonly<TerrainTileReadinessSnapshot>
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {createTerrainTileReadinessSnapshot()}
+            동작:
+                tileKey가 빈 문자열이거나 문자열이 아니면 TypeError다. selector가 null 또는 객체가 아니어도 TypeError다.
+                TileState.createTerrainTileReadinessSnapshot의 독립 동결 DTO를 반환한다. 미등록 타일도 missing 상태를 가진 DTO이며 registry의 Map·Set·객체를 직접 노출하지 않는다.
+        getTerrainTileKeys() -> ReadonlyArray<string>
+            동작:
+                현재 registry 삽입 순서의 키를 registry와 분리된 새 동결 배열로 반환한다.
+        unregisterTerrainMaterialsByOwner(ownerLayer: object) -> number
+            동작:
+                ownerLayer가 null 또는 객체가 아니면 TypeError다. 타일·binding snapshot에서 같은 owner만 unregisterTerrainMaterial로 해제하고 성공한 개수를 반환한다.
+
+        getTerrainSourceTileKeys(sourceKeys: string|Array<string>) -> Array<string>
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {getTerrainSourceTileKeys()}
+            동작:
+                TileState.getTerrainSourceTileKeys가 찾은 Source 피처 보유 타일 배열을 반환한다.
+        getTerrainSourceLifecycleTileKeys(sourceKeys: string|Array<string>) -> Array<string>
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey()}
+            동작:
+                입력 Source key를 truthy 값으로 한정해 정규화한다. 피처 보유 타일에 같은 Source 상태가 남은 타일을 합쳐 중복 없는 배열로 반환한다. 빈 결과·pending 수명도 포함한다.
+
+        getTerrainSourceFeatures(tileKey: string, sourceKey: string) -> Array<TerrainFeature>
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {getTerrainSourceFeatures()}
+            동작:
+                지정한 타일·Source의 정규화 피처 목록을 TileState.getTerrainSourceFeatures 결과로 반환한다.
+        setTerrainTileVisibility(tileKey: string, visible: boolean, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {syncTerrainMaterialBindingState(), queueTerrainTilePresent()}
+            동작:
+                tile key가 없으면 false이며 미등록 타일을 숨기는 요청은 새 entry 없이 true다. material·owner·mesh 조건에 일치하는 binding에 엄격한 visible===true와 의도 확정값을 반영한다.
+                표시·부모·취소 상태가 바뀌지 않고 강제 clear도 없으면 true로 끝낸다. 표시할 때 최신 active buffer는 apply로 재사용하고 나머지 피처는 dirty·flush로 준비한다.
+                숨김의 강제 clear는 scene 제거 보호가 없을 때만 예약한다. texture-ready 결과의 apply와 부모 handoff·폐기 재평가, host 무효화·준비 통지·진행 복구를 요청하고 true를 반환한다. 숨김 상태가 확정되면 정적 합성 GPU 캐시의 반환 검사를 예약하며 실제 반환 조건은 실행 시 다시 확인한다. 자식의 표시가 확정되면 기존 부모 handoff·폐기 재평가 뒤 부모의 반환 검사도 다시 예약한다.
+
+        setTerrainTileTextureReady(tileKey: string, ready: boolean, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                UTerrainShaderPrewarm — 실제 material 프로그램 준비·해제; 함수: {prewarmPrograms()}
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {syncTerrainMaterialBindingState(), queueTerrainTilePresent()}
+            동작:
+                tile key가 없으면 false다. material·owner 조건에 일치하는 binding의 textureReady를 엄격한 boolean으로 바꾸고 이번에 준비된 mesh만 현재 defines로 예열한다.
+                binding이 없으면 entry의 준비값을 바꾸며 부모 관계를 갱신한다. 사용 가능한 buffer가 있으면 apply를 예약하고 부모·자기 폐기·host 변경·준비 대기를 재평가한 뒤 true다.
+
+        setTerrainTileSourcePending(tileKey: string, pending: boolean, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey(), normalizeTerrainTileSourceState(), transitionTerrainTileSourceRequest(), isTerrainSourcePending()}
+            동작:
+                tile key가 없으면 false이며 미등록 타일의 종료 통지는 새 entry 없이 true다. Source key를 정규화하여 TileState.transitionTerrainTileSourceRequest에 pending·token·대체 표시 정책을 전달하고 거부되면 false다.
+                실제 요청 pending과 표시 차단을 구분하여 Source 상태·revision·token을 갱신한다. 자동 진단 signature와 기록은 만들지 않는다.
+                pending 종료에서는 부모·자기 handoff와 폐기를 재평가하고 준비 대기를 통지한다. 표시를 차단하는 요청이 없어지면 기존 flush를 다시 깨우며 deferProgressEnsure가 아니면 진행 복구를 요청한다. 성공한 통지는 true다.
+
+        setTerrainSourceVisibility(sourceKeys: string | Array<string> | Set<string>, visible: boolean) -> number
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey(), normalizeTerrainTileSourceState(), setTerrainTileSourceVisibility(), clearTerrainPreparedTileBuildData()}
+                U3dApp — 앱의 render-before·화면 갱신; 함수: {drawWork(), setUpdateDate()}
+            동작:
+                Source key들을 정규화하여 빈 집합이면 0이다. strict visible===true를 sourceVisibility 원본 Map에 먼저 기록해 이후 최초 타일의 상태에도 상속할 수 있게 한다.
+                현재 Source가 있는 타일의 visible을 바꾸고 그릴 피처가 있으면 준비 입력을 무효화하여 새 dirty revision과 flush를 예약한다. 빈 Source는 준비 대기만 통지한다.
+                하나라도 재빌드가 필요하면 화면 갱신을 요청하며 바뀐 Source 수를 반환한다.
+
+        setTerrainSourceRenderOrder(sourceKeys: string | Array<string> | Set<string>, targetRenderOrder: number) -> number
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey(), resolveTerrainEffectiveTargetRenderOrder(), updateTerrainTileSourceRenderOrderState(), clearTerrainPreparedTileBuildData()}
+                U3dApp — 앱의 render-before·화면 갱신; 함수: {drawWork(), setUpdateDate()}
+            동작:
+                targetRenderOrder가 유한하지 않거나 Source 집합이 비면 0이다. 기존 Source의 요청 순서·합성 순서를 기록하고 실제 host에 맞는 목표 순서를 계산한다.
+                그릴 내용에 영향이 있는 타일만 준비 데이터를 비워 property revision과 flush를 예약하며 바뀐 Source 수를 반환한다.
+
+        setTerrainTileSourceRenderOrder(tileKey: string, sourceKey: string, targetRenderOrder: number) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {updateTerrainTileSourceRenderOrderState(), clearTerrainPreparedTileBuildData()}
+                U3dApp — 앱의 render-before·화면 갱신; 함수: {drawWork(), setUpdateDate()}
+            동작:
+                tile key·Source key가 없거나 목표 순서가 유한하지 않으면 false다. TileState의 Source 순서 갱신 결과가 없으면 false다.
+                그릴 피처가 있으면 타일의 준비 데이터를 비우고 property 재빌드를 예약한다. 없으면 타일·부모 준비 대기만 통지한 뒤 true다.
+
+        isTerrainTileSourceRequestCurrent(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey()}
+            동작:
+                tile key와 truthy sourceRequestToken이 모두 있어야 하며 정규화한 Source의 현재 requestToken과 같은지 반환한다.
+        requestTerrainTileVisibilityHandoff(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey()}
+            동작:
+                tile key가 없으면 false다. ownerKey·layerName·owner 이름·default 순서로 소유자 key를 정하고 정규화된 Source key 목록의 handoff를 등록한다.
+                타일·부모 관계와 pendingVisibilityHandoff를 반영하고 즉시 완료할 수 있는 handoff를 재평가한 뒤 true다.
+        releaseTerrainTileVisibilityHandoff(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                tile key나 entry가 없으면 false다. 같은 우선순위로 정한 소유자의 handoff만 제거하고 남은 handoff 여부를 갱신한다.
+                handoff·소유자별 폐기 대기가 없어졌고 disposeRequested면 무소유 타일의 최종 폐기를 시도한다. 제거 또는 폐기 성공 여부를 반환한다.
+
+        acquireTerrainTileHandoffLease(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                entry 또는 opt.tile이 없거나 명시 세대가 현재와 다르면 false다. 기존 lease는 같은 tile 객체·generation일 때만 인정하고 전달된 방향을 갱신한다.
+                lease가 없으면 현재 tile·generation·direction을 저장하고 true다.
+        releaseTerrainTileHandoffLease(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                같은 tile 객체와 현재 generation의 lease이며 명시 generation도 일치할 때만 lease를 비우고 true다. 그 밖에는 false다.
+        _registerTerrainFeatureOwner(owner: object, callbacks: TerrainFeatureOwnerCallbacks, sources: Map<string, U2dVectorSourceEntry>) -> void
+            동작:
+                살아 있는 같은 owner의 등록은 sources·대기·Promise를 유지하고 callbacks만 교체한다. 그 밖에는 전달받은 sources Map을 복사 없이 인수하거나 새 Map을 만들고 편집·구독·회수 수명 레코드를 등록한다.
+        _getTerrainSourceEntries(owner: object) -> Map<string, U2dVectorSourceEntry> | undefined
+            동작:
+                현재 owner가 보유한 원본 등록 Map을 그대로 반환하며 없으면 undefined다.
+        _getTerrainSourceContext(owner: object, context: TerrainFeatureSourceContext) -> TerrainFeatureSourceContext
+            동작:
+                현재 owner callback의 setStyle·loadSourceGeometry 참조를 context에 연결하고 같은 context를 반환한다.
+        _hasTerrainFeatureUpdateInFlight(owner: object) -> boolean
+            동작:
+                owner 레코드의 진행 Promise가 존재하는지 boolean으로 반환한다.
+        _observeTerrainSource(owner: object, entry: Pick<U2dVectorSourceEntry, 'changeListener'>, source: OLFeature, listener: function():void) -> void
+            동작:
+                entry의 기존 구독을 먼저 해제한다. 살아 있는 owner만 source.on(change,listener)을 등록하고 해당 실제 source에서 un을 실행할 함수를 entry.changeListener에 저장한다.
+
+        _unobserveTerrainSource(owner: object, entry: Pick<U2dVectorSourceEntry, 'changeListener'>) -> void
+            동작:
+                entry.changeListener를 먼저 undefined로 분리한 뒤 원래 해제 함수를 호출한다. 재진입이나 반복 호출이 같은 구독을 다시 해제하지 않게 한다.
+        _deferTerrainSourceCleanup(owner: object, key: string, cleanup: function():void) -> void
+            의존:
+                resolveTerrainTaskPriority — 실제 표시 의도에 따른 작업 우선순위; 함수: {resolveTerrainTaskPriority()}
+            동작:
+                owner가 없거나 종료 중이거나 결과 예약기가 없으면 cleanup을 동기 실행한다. 그 밖에는 owner의 cleanups Set에 넣고 첫 항목에만 visibleDirty 우선순위의 drain을 예약한다.
+                drain은 작업을 Set에서 먼저 제거하고 실행하며 오류가 있어도 다음 회수를 예약한다. 예약 거절이면 남은 회수를 동기 완료하고 여러 오류는 errors 배열로 함께 전달한다.
+
+        _flushTerrainSourceCleanups(owner: object) -> void
+            동작:
+                대기 Set의 각 cleanup을 먼저 제거한 뒤 전부 실행한다. 한 오류는 그대로, 여러 오류는 errors를 포함한 Error로 전달한다.
+        _queueTerrainFeatureUpdate(owner: object, key: string | object, update: object | function(object=):(undefined | object)) -> void
+            동작:
+                살아 있는 owner만 update 값 또는 기존 대기를 인자로 한 병합 함수 결과를 사용한다. undefined 결과는 대기 교체·재시도 초기화·새 예약 없이 끝난다.
+                진행 Promise가 없으면 재시도 횟수를 초기화하고 key의 최종 변경을 저장한 뒤 자동 적용을 예약한다.
+
+        _queueTerrainSourceUpdate(owner: object, source: object) -> void
+            동작:
+                살아 있는 owner에 동기화할 원본을 Set으로 추가하고 진행 Promise가 없으면 retryCount를 초기화한다. 자동 적용을 예약한다.
+
+        _hasTerrainSourceUpdate(owner: object, source: object) -> boolean
+            동작:
+                owner의 원본 동기화 대기 Set에 source가 있는지 반환한다.
+        _deleteTerrainFeatureUpdate(owner: object, key: string | object, source: object) -> void
+            동작:
+                owner가 있으면 key의 표시 변경과 지정한 source의 원본 변경 대기를 제거한다.
+        _commitTerrainFeatureUpdates(owner: object) -> Promise<Array<boolean>>
+            동작:
+                owner가 없거나 종료 중이면 빈 배열로 완료한다. 진행 중이 아니면 현재 묶음을 적용한다.
+                진행 중이면 호출 시점에 후속 대기가 있었는지 기록하고 그 Promise 뒤 해당 한 묶음만 이어 처리한다. 수명이 교체됐으면 빈 배열이며 같은 수명의 실패는 호출자에게 전파한다.
+
+        #flushTerrainFeatureUpdates(owner: object, record: TerrainFeatureOwnerRecord) -> Promise<Array<boolean>>
+            동작:
+                진행 Promise가 있으면 같은 완료 결과를 기다리고 수명이 교체되면 빈 배열이다. 대기가 없으면 빈 배열로 완료한다.
+                진행 Promise를 먼저 설치하고 sourceUpdates snapshot을 분리해 syncSource callback을 실행한다. 여기서 생성된 표시 편집까지 모은 뒤 updates를 비우고 commitUpdates의 반환값·Promise로 완료한다.
+                실패 시 새 편집을 덮지 않고 이전 표시 변경·원본 변경을 복원한다. retryLimit을 넘었고 새 외부 편집도 없으면 자동 재예약을 멈추며 이후 편집·명시 적용으로 재개할 수 있다.
+                취소·owner 교체 뒤 이전 성공·실패는 빈 배열로 종결한다. 같은 수명의 오류는 onError에 알리고 호출 Promise에도 전달하며 남은 변경은 다음 자동 묶음에 예약한다.
+
+        _cancelTerrainFeatureUpdates(owner: object) -> void
+            동작:
+                살아 있는 레코드를 새 수명 레코드로 교체하여 이전 예약과 완료를 무효화한다. 원본 sources·callbacks·cleanups는 보존하고 편집 대기·Promise·예약·재시도 횟수만 초기화한다.
+        _releaseTerrainFeatureOwner(owner: object) -> void
+            동작:
+                레코드가 없거나 이미 종료 중이면 끝낸다. 종료 표식을 먼저 세우고 편집 대기를 비운 뒤 분리 자원 회수·모든 원본 구독 해제·disposeSource를 각각 시도한다.
+                sources를 비우고 같은 레코드만 owner Map에서 제거한다. 한 정리의 오류가 다음 정리를 막지 않으며 마지막에 원래 오류 또는 errors Error를 전달한다.
+
+        #scheduleTerrainFeatureUpdates(owner: object, record: TerrainFeatureOwnerRecord) -> void
+            동작:
+                종료·진행 Promise·기존 예약 중이면 끝낸다. microtask 하나를 등록해 같은 수명인지 확인한 뒤 wake를 실행하고 현재 편집 묶음을 적용한다. 자동 경로의 catch는 중복 미처리 거절을 막으며 실제 실패 통지는 적용 경로가 담당한다.
+
+        _collectTerrainFeatureTiles(owner: object, opt: TerrainFeatureTileSelectionOption) -> Set<string>
+            동작:
+                피처 ID가 undefined·null·빈 문자열이면 새 빈 Set이다. 수치 0은 허용한다. entry의 기존 tileKeys를 사용하며 후보는 단일 candidateTile·candidateTiles·owner callback 순서로 구한다.
+                폐기·키 없음·유한하지 않은 범위·정확한 교차 실패를 제외한다. 최소 레벨 아래는 실제 표시 중인 대체 부모만 허용한다.
+                선택한 타일에 bindTile을 호출하고 같은 Set에 key를 합친다. entry가 있으면 그 Set을 반영하며 후보가 없으면 기존 Set을 그대로 반환한다.
+        _getTerrainLayerTilePresentation(tile: TerrainRuntimeTile, opt: TerrainLayerTilePresentationOption, query: TerrainLayerTilePresentationQuery = 'all') -> TerrainLayerTilePresentationState
+            동작:
+        _getTerrainOwnerTilePresentation(owner: object | undefined, tile: TerrainRuntimeTile, sourceKeys: Array<string>) -> TerrainLayerTilePresentationState
+            동작:
+                등록된 owner의 getTileFacts 결과가 있으면 공통 레이어 표시 판정에 전달한다.
+                그 밖에는 같은 owner binding과 실제 타일 표시를 읽어 scoped swap 준비·물리 부착을 계산한다. ready와 attached가 모두 참일 때 visible·retainedSafe인 새 DTO를 반환한다.
+
+        _isTerrainTileSourceInputCurrent(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey(), hasTerrainTileFailedCurrentRevision(), isTerrainTileSourceDataReady()}
+                isSameTerrainOrigin — 타일 기준점 동등성; 함수: {isSameTerrainOrigin()}
+                normalizeTerrainSourceIdentity — 권위 Source 식별정보 정규화; 함수: {normalizeTerrainSourceIdentity()}
+                isSameTerrainSourceIdentitySnapshot — Source 식별정보 동등성; 함수: {isSameTerrainSourceIdentitySnapshot()}
+            동작:
+                entry·Source가 없거나 취소·현재 GPU 실패·요청 token 불일치·유한하지 않은 sourceRevision·승인 revision 불일치이면 false다.
+                승인 snapshot이 없으면 identity·origin·LOD·개수 입력이 추가된 요청을 거부하고 Source 준비·revision·live mesh·목표 순서·payload 존재가 같은 경우만 인정한다.
+                snapshot이 있으면 현재 origin·LOD ID/버전·정규화 identity·명시된 개수와 목표 순서를 대조한다. 일치 후 Source 데이터 준비 여부를 반환하며 GPU 적용 완료와 같게 취급하지 않는다.
+
+        _resolveTerrainSourceRevision(tileKey: string, sourceKey: string, signature: string | number, commit: boolean = false) -> number
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey()}
+            동작:
+                정규화 Source의 inputRevision 서명이 같으면 같은 revision, 다르면 이전 값에 1을 더한 후보를 반환한다.
+                commit=true일 때만 entry와 unknown Source가 필요하면 생성하여 signature·revision을 저장한다. 조회만으로 요청 pending이나 승인 dataRevision을 만들지 않는다.
+        _areTerrainTileSourcesReady(tileKey: string, sourceKeys: Array<string>) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {isTerrainTileSourceDataReady()}
+            동작:
+                요청한 각 Source의 isTerrainTileSourceDataReady가 모두 참인지 반환한다.
+        isTerrainTileSwapReady(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey(), isTerrainSourcePending(), hasTerrainTileFailedCurrentRevision(), isTerrainTileFeaturePresentationCompatible(), canUseTerrainSourcePendingPresentation(), canUseTerrainSourceFailureFallback(), getTerrainTilePresentationState(), resolveTerrainTargetMaterialBindings()}
+                UTerrainShaderPrewarm — 실제 material 프로그램 준비·해제; 함수: {isProgramReady()}
+                resolveTerrainTileMesh — 대표 지형 mesh 선택; 함수: {resolveTerrainTileMesh()}
+            동작:
+                key·entry가 없으면 false다. scoped Source가 있으면 각 Source 데이터 준비를 먼저 확인한다. 현재 GPU 실패 또는 동적 feature 표시 revision 불일치는 acceptInFlightRevision으로 우회하지 않는다.
+                Source별 숨김·허용된 빈 대기/실패 대체·최초 적용·진행 중 이전 적용을 구분하여 revision 준비를 계산한다. 그릴 Source는 실제 목표 material 적용도 필요하다. 새 부모 상속본에는 진행 중 이전 적용본의 revision 완화를 적용하지 않으며, 자체 입력의 동적 편집은 기존 재사용을 유지한다. 피처 개수 집계와 목표 적용 판정의 각 콜백은 해당 Source 상태를 한 번 조회하며, 다른 순회나 외부 콜백을 넘어 참조를 재사용하지 않는다.
+                material·mesh·owner 범위가 지정되면 같은 binding을 찾아야 한다. 실제 표시 변형의 프로그램 예열이 알려진 대기 상태이면 false다. 합성 대상이 아닌 미적용 scoped binding은 textureReady로 중립 준비를 판단한다.
+                acceptAppliedPresentation과 동적 반경의 기존 buffer 보존 경로는 texture·Source·scoped material 적용 조건으로 판정한다. 빈 결과는 texture·대표 material·요청/build·revision을, 양성 결과는 buffer 또는 최신 build와 실제 적용·요청/build·revision을 확인한다.
+
+        isTerrainTileSourcePending(tileKey: string) -> boolean
+            동작:
+                타일에 표시를 차단하는 Source 요청이 있으면 true다. 허용된 원격 pending·실패 대체 요청은 실제 요청 수명과 별개로 차단에서 제외한다.
+        waitTerrainTileSwapReady(tileKey: string, opt: TerrainManagerOption = {}) -> Promise<boolean>
+            동작:
+                key가 없으면 false, 이미 준비됐으면 true, 이미 취소된 signal이면 false로 완료한다.
+                타일별 waiter Set에 opt·resolve·abort handler와 timeout을 등록한다. timeout은 유한 입력이면 0 이상으로 보정하고 아니면 config 기본값이다.
+                준비 통지·abort·timeout의 첫 종결에서 timer·listener·Set 참조를 정리한다. 등록 직후 준비를 다시 검사하여 등록 사이의 완료를 놓치지 않는다.
+
+        upsertFeature(feature: TerrainFeature, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                한 피처를 배열로 감싸 upsertFeatures의 변경 여부를 반환한다.
+
+        upsertFeatures(features: Array<TerrainFeature> = [], opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey(), registerTerrainSourceStability(), updateTerrainFeatureBaseRegistry(), bindTerrainFeatureToTile(), acceptTerrainTileSourceData(), invalidateTerrainSourceSyncSnapshot()}
+                normalizeTerrainSourceIdentity — 권위 Source 식별정보 정규화; 함수: {normalizeTerrainSourceIdentity()}
+                isSameTerrainSourceIdentitySnapshot — Source 식별정보 동등성; 함수: {isSameTerrainSourceIdentitySnapshot()}
+                normalizeTerrainFeatureBatch — 원본 입력의 피처 일괄 정규화; 함수: {normalizeTerrainFeatureBatch()}
+                buildTerrainSourceIdentityCacheKey — Source 식별정보의 cache key 생성; 함수: {buildTerrainSourceIdentityCacheKey()}
+                isSameTerrainNormalizedFeature — 정규화 피처의 형상·속성 동등성; 함수: {isSameTerrainNormalizedFeature()}
+            동작:
+                Source 안정성을 등록하고 opt.tileKeys 배열의 중복을 제거한다. 대상 타일이나 정규화 피처가 없으면 false다.
+                명시 Source identity 또는 모든 대상 타일에서 일치한 identity로 피처를 한 번 정규화한다. 타일별 같은 정규화 입력은 생략하고 변경·추가 피처의 기본 자료와 역인덱스를 갱신한다.
+                Source 개수·승인 자료를 반영하고 변경 타일의 snapshot을 무효화하여 dirty로 만든다. 실제 변경이 없으면 false이며, deferFlush는 예약 없이 true, immediateFlush는 한 묶음 flush, 그 밖에는 지연 flush를 예약한 뒤 true다.
+
+        removeFeature(featureId: string, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                한 ID를 배열로 감싸 removeFeatures의 결과를 반환한다.
+
+        removeFeatures(featureIds: Array<string> = [], opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey(), cleanupEmptyTerrainTileSourceMap(), acceptTerrainTileSourceData(), unbindTerrainFeatureFromTile(), invalidateTerrainSourceSyncSnapshot()}
+                buildTerrainScopedFeatureKey — Source와 원본 ID의 범위 key 생성; 함수: {buildTerrainScopedFeatureKey()}
+            동작:
+                입력 배열의 truthy ID만 중복 없이 선택하며 비면 false다. 이 선별에서는 수치 0도 제외된다. [확인 Q-001]
+                지정 타일 또는 scoped ID 역인덱스에서 해당 Source 피처를 제거하고 원본/표시 개수·역인덱스·snapshot·dirty를 갱신한다.
+                실제 제거가 없으면 false다. deferFlush는 예약 없이 true이며 immediateFlush는 묶음 flush, 그 밖에는 변경 타일별 지연 flush를 예약한다.
+
+        _updateTerrainTileSource(tileKey: string, updateSource: function(): boolean, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                key가 없거나 명시 요청 token이 최신이 아니면 false다. 진단 전용 선행 조회 없이 실제 재사용·재적용·완료 분기에 필요한 표시 상태만 읽는다.
+                이미 승인한 같은 입력이면 updateSource를 실행하지 않는다. 표시 복원이 필요하고 파이프라인이 쉬고 있으면 강제 재적용을 요청해 true, 아니면 false다.
+                새 입력은 updateSource를 먼저 실행한다. 반환이 falsy이고 표시도 정착하지 않았으면 강제 재적용을 요청하여 true이며 그 밖에는 callback의 변경 결과를 반환한다.
+
+        syncTerrainTileFeatures(tileKey: string, features: Array<TerrainFeature> = [], opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey(), registerTerrainSourceStability(), normalizeTerrainTileSourceState(), resolveTerrainSourceFullReason(), acceptTerrainTileSourceData(), reconcileTerrainSourceSyncState(), cleanupEmptyTerrainTileSourceMap(), unbindTerrainFeatureFromTile(), updateTerrainFeatureBaseRegistry(), bindTerrainFeatureToTile()}
+                normalizeTerrainSourceIdentity — 권위 Source 식별정보 정규화; 함수: {normalizeTerrainSourceIdentity()}
+                normalizeTerrainFeatureBatch — 원본 입력의 피처 일괄 정규화; 함수: {normalizeTerrainFeatureBatch()}
+                buildTerrainSourceIdentityCacheKey — Source 식별정보의 cache key 생성; 함수: {buildTerrainSourceIdentityCacheKey()}
+                isSameTerrainNormalizedFeature — 정규화 피처의 형상·속성 동등성; 함수: {isSameTerrainNormalizedFeature()}
+                buildTerrainScopedFeatureKey — Source와 원본 ID의 범위 key 생성; 함수: {buildTerrainScopedFeatureKey()}
+            동작:
+                key가 없으면 false다. 안정성·Source key를 정규화하고 현재 pending token과 다른 응답을 거부한다. 빈 입력은 확정된 빈 응답·LOD로 확정된 빈 표시·allowUnconfirmedEmpty 중 허용된 경우에만 처리한다.
+                권위 identity·source revision·origin·LOD·개수·목표 순서의 snapshot을 대조한다. 같으면 피처 순회를 생략하되 Source 승인·mesh·요청 종료·진행 복구를 반영하고 false다.
+                그 밖에는 피처를 정규화하여 ID Map을 만든다. 같은 승인 revision과 동등한 내용이면 요청 상태만 조정하고 false다. 빠진 피처 연결을 제거하고 바뀐 피처·기본 자료·역인덱스를 갱신한다.
+                Source identity·개수·승인 snapshot을 반영한다. 내용·revision·목표 순서·full 사유가 바뀌면 dirty revision을 새로 만들거나 reuseDirtyRevision으로 기존 dirty를 사용한다. deferFlush이면 여기서 완료한다. 명시적 Worker·material 강제 갱신이 없고 계속 빈 Source의 확정이며 다른 표시 피처가 같은 준비 원점을 사용하고 현재 GPU 실패가 없으면 내부 raster 합성의 진행 위치를 새 revision으로 이어받는다. 이어받을 수 없거나 실제 피처 제거·원점 변경·전체 빈 입력이면 기존 immediateFlush·지연 flush를 유지한다. 변경 여부를 반환한다.
+
+        markTileDirty(tileKey: string, opt: TerrainManagerOption = {}) -> number
+            동작:
+                key가 없으면 0이다. revision을 1 올려 dirty·진행 후보로 만들고 취소·실패·복구 기록을 초기화한다.
+                clear·remove·dispose·binding-disposed 외의 변경이 같은 세대의 현재 원자 그룹 멤버에서 발생하면 membership revision을 함께 전진시킨다. 최신 revision을 반환한다.
+        ensureTileProgress(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                UTerrainFrameScheduler — 결과 작업의 예약·취소; 속성 읽기: {queue}
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {hasTerrainTileFailedCurrentRevision(), getTerrainTilePresentationState(), isTerrainCompositeVariantCurrent(), queueTerrainTilePresent()}
+                resolveTerrainTileOrigin — mesh와 입력의 타일 기준점 계산; 함수: {resolveTerrainTileOrigin()}
+                resolveTerrainTileMesh — 대표 지형 mesh 선택; 함수: {resolveTerrainTileMesh()}
+            동작:
+                key·entry가 없거나 취소·세대 불일치·현재 GPU 실패이면 false다. 현재 합성 작업이 있으면 중복 복구하지 않는다.
+                이미 적용된 buffer의 물리 material 상태만 없으면 현재 mesh 원점으로 cache 복원을 시도한다. 원점 불일치·미확인은 새 dirty revision과 flush로 복구한다.
+                적용된 대체 화면이 숨겨졌으면 owner별 가시성을 복원한다. 최신 inactive가 있으나 표시 예약이 없으면 texture/host를 확인하여 apply 또는 host 재빌드를 예약한다.
+                기존 flush·원점 대기·현재 Worker·결과·표시 owner가 있으면 false다. owner 없는 pendingBuild를 해제하고 미적용 dirty revision만 복구한다. 원점이 없으면 원점 대기 Set에, 그 밖에는 기존 flush에 넣고 안정성 계수를 revision별로 기록한다.
+
+        updateTerrainMaterialPayload(tileKey: string, payload: object = {}, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                convertLegacyTerrainPayloadToFeatures — 구형 payload의 피처 배열 변환; 함수: {convertLegacyTerrainPayloadToFeatures()}
+            동작:
+                legacy payload를 convertLegacyTerrainPayloadToFeatures로 변환하고 현재 tile·opt의 Source 동기화 결과를 반환한다.
+
+        clearTerrainMaterialPayload(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                tile key나 기존 entry가 없으면 false다. requireConfirmedEmpty=true이면 allowUnconfirmedEmpty를 false로, 그 밖에는 opt.allowUnconfirmedEmpty 또는 기본 true로 정하여 빈 피처 배열의 syncTerrainTileFeatures 결과를 반환한다.
+
+        rebuildTileBuffer(tileKey: string, opt: TerrainManagerOption = {}) -> Promise<boolean>|Promise<false>
+            동작:
+                tile key와 opt를 requestTileRebuild에 전달하고 같은 Promise를 반환한다.
+
+        #failTerrainTileBuild(tileKey: string, tileEntry: TerrainTileEntry, generation: number, revision: number, error: unknown) -> boolean
+            동작:
+                현재 registry의 같은 entry·generation·revision이 아니면 false다. pendingBuild를 끝내고 failedRevision·오류 사유를 기록하여 취소·비dirty 상태로 만든다.
+                기존 activeBuffer 유무로 decalReady를 보존하고 해당 타일의 준비 대기를 false로 끝낸 뒤 true다.
+        #prepareTerrainTileResultPresentation(tileKey: string, expectedEntry: TerrainTileEntry, workerResult: TerrainWorkerResult, opt: TerrainManagerOption, generation: number, revision: number, cachedResult: Omit<TerrainWorkerResult, 'revision'> | undefined = undefined) -> boolean
+            의존:
+                UTerrainFrameScheduler — 결과 작업의 예약·취소; 속성 읽기: {queue}
+                createTerrainMaterialStateFromWorkerResult — Worker 결과의 uniform·GPU 상태 구성; 함수: {createTerrainMaterialStateFromWorkerResult()}
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {isTerrainCompositeVariantCurrent(), disposeTerrainBufferState(), reuseTerrainStaticCompositeResult(), getCachedTerrainWorkerResult(), cacheTerrainWorkerResult(), queueTerrainTilePresent()}
+                scheduleTerrainCompositeJob — 최신 타일의 GPU 합성 예약; 함수: {scheduleTerrainCompositeJob()}
+                resolveTerrainTileMesh — 대표 지형 mesh 선택; 함수: {resolveTerrainTileMesh()}
+                UTerrainShaderPrewarm — 실제 material 프로그램 준비·해제; 함수: {prewarmPrograms()}
+            동작:
+                결과의 entry·generation·revision이 최신인지 확인한다. 오래된 같은 세대 결과는 필요한 pendingBuild를 정리하고 최신 진행을 복구한 뒤 false다.
+                구간 결과 또는 일반 Worker 결과에서 표시 state를 만든다. 구간 hybrid의 host가 달라졌으면 자원을 반환하고 실패로 종료한다. 현재 정적 RTT를 물려받을 수 있는 hybrid 결과는 추가 합성 없이 사용한다.
+                그 밖의 precomposed·hybrid는 합성 작업을 예약한다. 합성기를 쓸 수 없으면 state를 해제하고 현재 revision을 실패시키며 direct로 순서를 바꾸지 않는다.
+                준비된 결과는 이전 inactive 자원을 정리한 뒤 새 inactiveBuffer·builtRevision·decalReady에 반영한다. 프로그램 준비와 generation/revision apply를 예약하고 Worker 결과 cache·준비 통지를 갱신한다. 예외는 현재 빌드 실패로 처리해 false다.
+                합성 예약과 직접 표시 준비 모두 내부 cachedResult가 현재 cache 항목과 같은 참조이면 복제·재저장을 생략한다. 퇴출·교체됐거나 공개 교환으로 들어온 결과는 기존대로 저장한다. 재생본에는 이번 preparedBuild를 사용하며 원본 cache의 준비 메타데이터는 바꾸지 않는다.
+
+        swapTileBuffer(tileKey: string, workerResult: TerrainWorkerResult, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                기존 세 인자를 비공개 교환 함수로 전달하고 같은 예약 수락 여부를 반환한다. 내부 캐시 snapshot을 받거나 전달하는 공개 인자는 추가하지 않는다.
+
+        #swapTileBuffer(tileKey: string, workerResult: TerrainWorkerResult, opt: TerrainManagerOption, cachedResult: Omit<TerrainWorkerResult, 'revision'> | undefined = undefined) -> boolean
+            의존:
+                resolveTerrainTileOrigin — mesh와 입력의 타일 기준점 계산; 함수: {resolveTerrainTileOrigin()}
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {captureTerrainSourceRevisions()}
+                UTerrainFrameScheduler — 결과 작업의 예약·취소; 함수: {enqueue()}
+            동작:
+                entry가 없거나 취소·Worker revision·명시 세대가 다르면 false다. Worker 결과에 요청 당시 preparedBuild와 tileOrigin을 연결한다.
+                tile:generation:revision 결과 key와 tile:generation slot key로 최신 결과 처리를 예약한다. callback이 내부 cachedResult도 inactive 준비까지 전달하며 반환값은 enqueue 수락 여부이지 화면 출력 완료가 아니다. 기존 우선순위와 결과 큐 정책을 유지한다.
+
+        #getTerrainRebuildEarlyResult(tileKey: string, tileEntry: TerrainTileEntry, revision: number, pendingJob: TerrainPendingWorkerJob|undefined, opt: TerrainManagerOption = {}) -> Promise<boolean>|Promise<false>|undefined
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {hasTerrainTileFailedCurrentRevision()}
+                isSameTerrainOrigin — 타일 기준점 동등성; 함수: {isSameTerrainOrigin()}
+                UTerrainFrameScheduler — 결과 작업의 예약·취소; 속성 읽기: {queue}
+            동작:
+                취소 상태는 pendingBuild를 끝내고 false Promise다. 같은 세대이며 요청 이상 revision의 pending Promise가 있으면 그 객체를 그대로 반환한다.
+                changeType이 presentation-replay이고 명시 origin이 없거나 기존 prepared origin과 같으며 현재 GPU 실패가 없을 때만 같은 generation·revision의 결과 큐·합성·apply·clear를 재사용해 true Promise다. 준비 완료 필드는 바꾸지 않는다.
+                그 밖에 dirty·pendingBuild가 아니고 activeRevision이 같으며 forceMaterialUpdate도 아니면 false Promise다. 계속 준비해야 하면 undefined다.
+        #finishEmptyTerrainTileRebuild(tileKey: string, tileEntry: TerrainTileEntry) -> Promise<false>
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {disposeTerrainCompositionRuns(), clearTerrainPreparedTileBuildData(), clearTerrainTileDecalState()}
+            동작:
+                연속 구간과 원점 대기를 정리하고 최신 빈 빌드 상태를 반영하여 기존 apply·clear 수명에 편입한다. 이전 buffer는 clear 적용 전까지 유지하며 종료용 false Promise를 반환한다.
+        #replayCachedTerrainTileResult(tileKey: string, tileEntry: TerrainTileEntry, featureSignature: string | undefined, revision: number, opt: TerrainManagerOption, prepareImmediately: boolean) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {replayCachedTerrainWorkerResult()}
+            동작:
+                같은 서명·현재 origin·합성 조건을 만족하는 Worker cache를 최신 revision에 재생한다. 즉시 준비 대상이면 결과 scheduler를 거치지 않고 inactive 표시 준비를 실행하며 재생 여부를 반환한다.
+                내부 callback의 네 번째 인자로 받은 원본 cache 참조는 즉시·비동기 준비에만 전달한다. 결과 예약 분기에서 공개 swap 함수가 모듈 초기화 때 보관한 원래 함수와 같으면 비공개 교환을 사용하고, 인스턴스·prototype 재정의이면 기존 공개 함수를 세 인자로 호출한다.
+
+        #prepareTerrainTileRebuild(tileKey: string, tileEntry: TerrainTileEntry, featureMap: Array<TerrainFeature>, revision: number, opt: TerrainManagerOption = {}) -> Partial<{preparedBuild: TerrainPreparedBuild, earlyResult: Promise<boolean>}>
+            의존:
+                resolveTerrainTileMesh — 대표 지형 mesh 선택; 함수: {resolveTerrainTileMesh()}
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {clearTerrainPreparedTileBuildData(), captureTerrainSourceRevisions(), captureTerrainFeatureRevisions()}
+                buildTerrainDecalRenderEquivalenceSignature — 지형 표시 동등성 서명 생성; 함수: {buildTerrainDecalRenderEquivalenceSignature()}
+                shouldUseImmediateTerrainBuild — 작은 입력의 즉시 빌드 적합성; 함수: {shouldUseImmediateTerrainBuild()}
+            동작:
+                현재 mesh를 결정한다. 명시 origin도 mesh.position도 없으면 준비 데이터를 지우고 원점 대기를 등록하여 false Promise의 earlyResult를 반환한다.
+                정적·동적 연속 구간 준비를 우선 시도하고 지원하지 않는 경우 일반 prepared 입력을 만든다. Source·feature revision과 표시 동등성 서명을 기록한다.
+                GPU cache와 Worker 결과 cache를 현재 prepared 원점으로 복원한다. 재사용 성공은 earlyResult로 끝내며, 원점 사유로 거부된 경우는 이미 적용된 revision이어도 새 빌드를 진행한다.
+                취소 또는 재빌드가 불필요한 현재 revision은 earlyResult이며 나머지는 preparedBuild를 반환한다.
+
+        #tryImmediateTerrainTileBuild(tileKey: string, tileEntry: TerrainTileEntry, revision: number, preparedBuild: TerrainPreparedBuild, opt: TerrainManagerOption = {}) -> Promise<boolean>|undefined
+            의존:
+                reuseTerrainPathStyleResult — 형상이 같은 선의 packed 자료 재사용; 함수: {reuseTerrainPathStyleResult()}
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {getCachedTerrainWorkerResult()}
+                shouldUseImmediateTerrainBuild — 작은 입력의 즉시 빌드 적합성; 함수: {shouldUseImmediateTerrainBuild()}
+                buildImmediateTerrainWorkerResult — 작은 입력의 동기 packed 결과 생성; 함수: {buildImmediateTerrainWorkerResult()}
+            동작:
+                연속 구간 입력은 undefined로 Worker 경로에 남긴다. forceWorkerBuild가 아니면 같은 타일의 활성 서명 또는 최신 동적 결과에서 형상·폭·origin·순서가 동등한 선의 색상 자료 재사용을 시도한다.
+                재사용하지 못하면 작은 입력의 동기 빌드 조건을 검사하고 조건 밖이면 undefined다. refs의 clip·간소화·순서·batch를 feature base에 결합해 즉시 packed 결과를 만든다.
+                요청 preparedBuild와 generation을 붙여 pendingBuild·decalReady를 반영한다. 현재 표시 flush 안이면 결과 큐로, 그 밖에는 직접 inactive 준비로 전달하고 그 결과 Promise를 반환한다.
+
+        #scheduleTerrainTileWorkerAdmission(tileKey: string, tileEntry: TerrainTileEntry, revision: number, opt: TerrainManagerOption = {}) -> Promise<boolean>
+            의존:
+                UTerrainWorkerScheduler — Worker admission·dispatch와 통계; 생성자: {new UTerrainWorkerScheduler()}
+            동작:
+                Worker scheduler·타일 고정 Worker index를 준비하고 무거운 피처 입력 없이 key·세대·revision·우선순위만 enqueue한다.
+                실행 차례에 같은 entry·세대·revision인지 재확인한다. 이전 작업이면 false이며 현재 pending 등록을 먼저 분리한 뒤 workerAdmissionGranted로 requestTileRebuild를 다시 호출한다.
+                pending Promise는 strict true 여부로 완료한다. finally에서는 자기 pending만 제거하고 최신 진행을 복구한다.
+
+        #scheduleTerrainTileWorkerBuild(tileKey: string, tileEntry: TerrainTileEntry, revision: number, preparedBuild: TerrainPreparedBuild, opt: TerrainManagerOption = {}) -> Promise<boolean>|Promise<false>
+            의존:
+                UTerrainWorkerScheduler — Worker admission·dispatch와 통계; 생성자: {new UTerrainWorkerScheduler()}
+                UTerrainPayloadBuilder — Worker 입력의 캐시·직렬화; 함수: {buildAsync(), build()}
+                cloneTerrainOrigin — 타일 기준점 값 복사; 함수: {cloneTerrainOrigin()}
+            동작:
+                타일 고정 Worker index와 현재 entry·generation·revision 검사 함수를 준비한다. admission 지연 경로의 입력은 buildAsync, 즉시 경로는 동기 payload builder를 사용한다.
+                payload 생성 전후와 dispatch 직전에 현재 수명을 확인한다. 전달 후 stage하고 결과가 취소·상태 불일치·거절이면 reject, 정상 응답이면 accept로 Worker 입력 이력을 확정한다.
+                Worker 상태 miss는 현재 수명이 유지되는 경우 full 입력으로 한 번 복구한다. 연속 구간은 정적 GPU·기존 Worker 결과를 재사용하고 미준비 구간만 실행하며 요청 당시의 구간 원점을 결과에 남긴다.
+                전체 재동기화 뒤에도 miss이면 실패다. 최종 결과는 stale·취소를 거부하고 swapTileBuffer에 전달한다. 현재 작업의 오류만 빌드 실패로 처리하며 finally에서 자기 pending만 제거하고 진행을 복구한다.
+
+        requestTileRebuild(tileKey: string, opt: TerrainManagerOption = {}) -> Promise<boolean>|Promise<false>
+            의존:
+                resolveTerrainTaskPriority — 실제 표시 의도에 따른 작업 우선순위; 함수: {resolveTerrainTaskPriority()}
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey()}
+            동작:
+                빈 key·명시 generation 불일치는 false Promise다. 명시 유한 우선순위 또는 실제 표시 누락·부모 대체·LOD 목표·가시 dirty 상태에서 계산한 우선순위를 준비한다.
+                취소·동일 pending·진행 중 표시 복원·현재 revision의 조기 종료를 피처 수집보다 먼저 적용한다.
+                deferWorkerSchedule이며 admission 전이면 Source별 표시 개수만 읽는다. 빈 결과는 즉시 비우고 양성 입력은 admission을 먼저 요청한다.
+                실제 실행에서는 피처를 한 번 수집하고 빈 결과를 종료한다. prepared 입력·cache 재생을 시도한 뒤 작은 입력의 즉시 빌드, 그 밖의 Worker 빌드를 선택한다. 동기 준비 예외는 현재 세대·revision 실패로 기록하고 false Promise다.
+
+        flushTileUpdates(tileKeys: Array<string>|Set<string>, opt: TerrainManagerOption = {}) -> Promise<Array<boolean>>
+            의존:
+                U3dApp — 앱의 render-before·화면 갱신; 함수: {drawWork(), setUpdateDate()}
+            동작:
+                비어 있지 않은 배열·Set이면 그 키를 사용하고 그 밖에는 registry 전체 키를 snapshot으로 선택한다.
+                presentationBatch.ownerKey가 있으면 이전 그룹을 superseded로 종결하고 같은 tileKeys Set을 이어받은 최신 그룹을 만든다. 공유 타일이 있는 다른 owner 그룹과 전이적으로 전체 범위를 합친다.
+                표시 대상으로 명시한 타일만 explicit 멤버로 붙이되 데이터 갱신 대상은 모두 requestTileRebuild한다. 이전 그룹의 준비와 이번 표시 대상 build가 끝나면 최신 그룹만 ready로 만들고 화면 갱신을 요청한다.
+                반환 Promise는 이번 전체 대상 build와 그룹 준비를 함께 기다려 boolean 배열을 반환한다. 실제 material 교체는 별도 표시 대기에서 확인한다.
+
+        waitForAtomicPresentation(ownerKey: string) -> Promise<boolean>
+            동작:
+                waitForAtomicPresentationOutcome이 presented이면 true이고 그 밖이면 false로 변환한 Promise를 반환한다.
+
+        waitForAtomicPresentationOutcome(ownerKey: string) -> Promise<TerrainAtomicPresentationOutcome>
+            의존:
+                U3dApp — 앱의 render-before·화면 갱신; 함수: {hasRenderBefore()}
+            동작:
+                owner 그룹이 없으면 presented로 완료한다. 앱 render-before가 없는 환경에서는 build 완료를 기다려 pending outcome을 presented로 해석한다.
+                실제 앱에서는 presentationCompletion을 기다려 성공은 presented, 실패 시 이미 정한 outcome 또는 failed를 반환한다.
+        _scheduleTerrainGpuCacheRelease(tileKey: string) -> boolean
+            의존:
+                TerrainTileState — 숨은 정적 합성 상태의 소유권 반환; 함수: {stashHiddenTerrainGpuState()}
+                UTerrainFrameScheduler — 기존 결과 처리 큐; 함수: {enqueue()}
+            동작:
+                활성 합성 target이 없는 타일, visible·desiredVisible 타일과 최초 LOD 표시 대기 타일은 예약하지 않는다. 타일 키와 generation만 기존 결과 큐에 보관하고 실행 시 현재 entry의 세대·가시성·대체 표면을 다시 검증한다.
+                검사 실행 전후의 activeBuffer 참조가 실제로 달라진 경우에만 현재 부모의 반환 검사를 예약한다. LRU 용량 초과로 put이 false여도 소유권이 반환됐으면 전파하며, 상태를 보존한 거부는 상위 예약을 만들지 않는다. 부모마다 같은 진입 조건과 coverage 보호를 다시 적용하므로 숨은 조부모까지 필요한 반환만 이어진다.
+                기본 2ms·회차당 8작업인 기존 결과 처리 예산과 동일 우선순위 FIFO를 사용한다. 별도 자원 큐나 공통 타일 작업 정책을 추가하지 않으며 enqueue의 예약 여부를 반환한다.
+        _restoreTerrainTileGpuState(tileKey: string, origin: TerrainPoint | undefined = undefined) -> boolean
+            의존:
+                TerrainTileState — 정적 Source·실패 상태 판정; 함수: {resolveTerrainSourceStability(), isTerrainSourcePending(), hasTerrainTileFailedCurrentRevision()}
+            동작:
+                이전 적용 서명이 남고 GPU 버퍼가 없는 정착 타일만 복원한다. 취소·실패·dirty·현재 빌드·합성·표시 대기와 Source 대기가 있거나, tile: 이외 Source 또는 정적 분류가 아닌 Source가 있으면 false다.
+                현재 원점과 forceMaterialUpdate·presentation-replay를 기존 재빌드 경로에 전달한다. 기존 admission·중복 예약 방지를 사용하여 GPU 캐시·Worker 결과 캐시·최신 입력 재빌드 순으로 복원하며 Source 입력과 완료 이력을 보존한다.
+                공통 swap-ready 대기를 연결하여 상위 부모의 복원 완료도 정지한 카메라의 LOD 재평가로 이어지게 한다. 복원을 시작했으면 true다. 공통 타일 완료·Source API·큐 순서 정책은 변경하지 않는다.
+
+        requestTerrainTileDispose(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {addTerrainHandoffResidue()}
+            동작:
+                key가 없으면 false다. entry에 현재 material을 향한 dispose 요청과 owner 대기를 기록하고 scene 제거 보류 여부를 반환한다.
+                보류 중이며 owner·residue가 있으면 그 owner의 옛 표면을 handoff residue로 보존한다.
+
+        getTerrainHandoffResidues(tileKey: string, ownerLayer: U3dImageLayer) -> Array<Object3D>
+            동작:
+                entry의 residue Map이 없으면 빈 배열이다. ownerLayer가 truthy이면 그 owner의 저장 배열 또는 빈 배열을 그대로 반환하고, 그 밖에는 모든 owner 배열을 새 평탄 배열로 합쳐 반환한다.
+        releaseTerrainHandoffResidues(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {disposeTerrainHandoffResidues()}
+            동작:
+                key·entry가 없으면 false다. 지정한 owner의 잔여 표면을 TileState.disposeTerrainHandoffResidues로 해제한다.
+                해제에 성공했고 남은 residue가 없으며 disposeRequestedMaterial과 현재 material이 다르면 옛 등록의 dispose 요청과 owner 대기를 비운다. 해제 여부를 반환한다.
+        releaseTerrainTileSources(tileKey: string, sourceKeys: Array<string>, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainSourceKey(), releaseTerrainTileSourceState()}
+            동작:
+                key·비어 있지 않은 Source 배열·기존 entry가 없으면 false다. 정규화한 Source마다 빈 payload와 수명 상태를 해제하고, 각 수명 해제 helper가 남은 요청으로 집계한 pendingSourceData를 사용한다.
+                owner 또는 ownerKey가 지정되면 그 owner의 handoff를 해제한다. 다른 Source·material의 소유권은 남기며 해제 여부를 반환한다.
+
+        tryFinalizeUnownedTerrainTileDispose(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                key·entry가 없으면 false다. owner의 material binding이 없으면 그 owner의 폐기 대기만 제거한다.
+                material·pending 요청·disposed가 아닌 Source 상태·양성 피처·다른 owner 폐기 대기가 하나라도 남으면 폐기하지 않는다. 필요한 dirty 타일은 deferFlush가 아닐 때만 재빌드한다.
+                아무 소유자도 없을 때 handoff·scene 제거 보호를 확인한다. 보호가 없으면 skipLayerDispose·forceImmediateDispose로 최종 폐기를 실행한다.
+
+        finalizeTerrainTileDispose(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            동작:
+                타일의 GPU·준비 자료·부모 자식 연결을 정리하는 모듈 finalizeTerrainTileDispose의 결과를 반환한다.
+
+        cancelTerrainTile(tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+            의존:
+                UTerrainPayloadBuilder — Worker 입력의 캐시·직렬화; 함수: {deleteTile()}
+                cancelTerrainCompositeJob — 타일 합성 작업 취소; 함수: {cancelTerrainCompositeJob()}
+                TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {disposeTerrainCompositionRuns(), disposeTerrainBufferState(), cancelTerrainSourceRequests()}
+            동작:
+                빈 key는 false다. flush·진행·원점 대기와 자기 pending Worker 등록, apply·clear·합성 예약을 취소한다.
+                연속 구간과 active와 다른 inactive만 반환한다. Source 요청은 cancelled로 끝내고 removeTransitionTargets일 때만 handoff 대상을 지운다.
+                activeBuffer는 유지하며 dirty·pendingBuild를 내리고 원자 그룹 멤버와 준비 대기를 종료한 뒤 true다.
+
+        isTerrainTileSettled(tileKey: string) -> boolean
+            동작:
+                key·entry가 없으면 false다. 표시 차단 Source 요청과 pendingBuild가 없고, 최신 builtRevision 또는 activeBuffer가 있으며 textureReady이고 appliedRevision이 현재 revision 이상일 때 true다.
+        shouldDeferTerrainSceneRemoval(tileKey: string) -> boolean
+            동작:
+                key·entry가 없으면 false다. 현재 generation의 handoff lease 또는 pendingVisibilityHandoff이면 true다. 그 밖에는 피처를 공유하는 상위·하위 타일에 대기 중인 화면이 있는지 반환한다.
+
+        recordTerrainStabilityCounter(name: string, count: number = 1) -> boolean
+            동작:
+                stabilityCounters의 자체 속성이 아닌 이름은 false다. 알려진 이름이면 Math.max(0, Number(count) || 0)를 더하고 true다.
+        getTerrainPerformanceStatistics() -> Record<string, unknown>
+            의존:
+                UTerrainPayloadBuilder — Worker 입력의 캐시·직렬화; 함수: {getStatistics()}
+                UTerrainWorkerScheduler — Worker admission·dispatch와 통계; 함수: {getStatistics()}
+                estimateTerrainBufferStateByteLength — buffer의 논리 메모리 크기 추정; 함수: {estimateTerrainBufferStateByteLength()}
+                UTerrainFrameScheduler — 결과 작업의 예약·취소; 함수: {getStatistics()}
+            동작:
+                payload·Worker·scheduler·cache·표시·안정성 통계를 집계한 사본을 반환한다. hiddenSourceResidueCount는 자동 수집하지 않으며 표준 안정성 키 목록에 새 0값을 추가하지 않는다. 외부에서 보관하던 값은 기존 Record 형태로 조회되지만 잔존 검사 통과의 증거가 아니다.
+                표시 대기 buffer의 양의 유한 byteLength는 RTT·mipmap을 포함해 사용하고 없으면 uniform 배열 크기를 추정한다. 공유 target의 논리 크기가 중복될 수 있어 물리 VRAM이나 고유 GPU 총량을 뜻하지 않는다.
+        resetTerrainPerformanceStatistics() -> void
+            의존:
+                UTerrainWorkerScheduler — Worker admission·dispatch와 통계; 함수: {resetStatistics()}
+                UTerrainPayloadBuilder — Worker 입력의 캐시·직렬화; 함수: {resetStatistics()}
+            동작:
+                결과/Worker 예약기와 payload builder의 통계를 초기화하고 안정성·payload·표시 계수를 새 초기 객체로 바꾼다. 타일 입력·표시 소유권은 폐기하지 않는다.
+        dispose() -> void
+            의존:
+                U3dApp — 앱의 render-before·화면 갱신; 함수: {removeRenderBefore()}
+                disposeTerrainCompositeJobs — 남은 합성과 합성기 자원 회수; 함수: {disposeTerrainCompositeJobs()}
+                UTerrainFrameScheduler — 결과 작업의 예약·취소; 함수: {dispose()}
+                UTerrainWorkerScheduler — Worker admission·dispatch와 통계; 함수: {dispose()}
+                UTerrainShaderPrewarm — 실제 material 프로그램 준비·해제; 함수: {disposeTemplates()}
+                UTerrainPayloadBuilder — Worker 입력의 캐시·직렬화; 함수: {clear()}
+            동작:
+                모든 owner의 대기 자원 회수와 원본 등록 해제를 먼저 끝까지 시도하고 오류를 모은다. 앱 render-before를 해제한다.
+                원자 그룹 outcome을 disposed로 고정하고 swap waiter를 false로 종료한다. Worker를 취소하고 타일 entry와 합성 작업을 정리한다. 비동기 합성이 남았으면 합성기 최종 해제는 그 수명에 따른다.
+                결과·Worker 예약기·task processor·shader template·GPU/Worker cache를 해제하고 모든 타일·피처·Source 안정성/가시성·대기·payload 자료를 비운다. 앱 참조를 해제한 뒤 원본 정리 오류가 있으면 원래 오류 또는 errors Error를 전달한다.
+
+    기존 변경 목표
     ** 모든 안정성 계수를 실제 LOD 상태 전이와 복구 경로에 연결한다.
     ** 최신 전환만 감시하는 1초 watchdog과 방향 전환 뒤 75ms debounce를 적용한다.
     ** Payload snapshot이 같으면 Feature 수집 전 단계에서 Worker Build를 생략한다.
     ** 장시간 작업은 100개 이하 chunk와 250개 처리 단위 브라우저 양보로 분할한다.
+
+모듈 보조 흐름 책임 그룹
+    createTerrainSourceSyncSnapshot(sourceIdentity: TerrainSourceIdentity | undefined, sourceRevision: number | undefined, featureCount: number, opt: TerrainManagerOption = {}) -> TerrainSourceSyncSnapshot | undefined
+        동작:
+            권위 identity와 유한 sourceRevision의 collection revision이 같을 때만 snapshot을 만든다. 입력 origin을 값으로 보관하고 LOD·원본/표시 개수·요청/목표 순서를 함께 기록한다. 조건이 맞지 않으면 undefined다.
+    getTerrainPayloadFastSkipRejectReason(previous: TerrainSourceSyncSnapshot | undefined, current: TerrainSourceSyncSnapshot | undefined, existingFeatureCount: number) -> string | undefined
+        의존:
+            isSameTerrainOrigin — 타일 기준점 동등성; 함수: {isSameTerrainOrigin()}
+        동작:
+            권위 identity 부재·이전 snapshot 부재를 먼저 거부한다. Source·레이어·namespace·속성/형상 버전·epoch·collection/source revision을 순서대로 대조한다.
+            origin·LOD ID/버전·원본/표시 개수·실제 저장 피처 개수·목표 순서 중 달라진 첫 사유를 반환한다. 모두 같으면 undefined다.
+    reconcileTileSourceRenderOrders(manager: UShaderTerrainDecalManager, tileKey: string) -> {changedSourceCount: number, hasRenderFeatureChange: boolean}
+        의존:
+            TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {normalizeTerrainTileSourceState(), resolveTerrainEffectiveTargetRenderOrder(), updateTerrainTileSourceRenderOrderState(), clearTerrainPreparedTileBuildData()}
+        동작:
+            entry가 없으면 변경 수 0과 false다. 각 Source의 요청 순서와 현재 host로 실제 목표를 계산하여 Source 상태를 갱신한다. 그릴 내용에 영향이 있으면 준비 입력을 비우고 property dirty·flush를 예약한다. 변경 Source 수와 표시 내용 변경 여부를 반환한다.
+
+    resolveTerrainDecalWorkerIndex(tileKey: string) -> number
+        의존:
+            hashTerrainSignatureValue — Worker 고정 배치를 위한 안정 해시; 함수: {hashTerrainSignatureValue()}
+        동작:
+            타일 key의 안정 해시를 Worker pool 크기로 나눈 index를 반환하여 같은 타일의 Worker cache 위치를 유지한다.
+    resolveTerrainTileSourceRevision(tileEntry: TerrainTileEntry) -> number
+        의존:
+            hashTerrainSignatureValue — Worker 고정 배치를 위한 안정 해시; 함수: {hashTerrainSignatureValue()}
+        동작:
+            Source key 순서로 정렬한 dataRevision을 안정적인 snapshot revision으로 결합하여 반환한다.
+    isTerrainPayloadStateMissResult(result: unknown) -> boolean
+        동작:
+            응답의 recoverableErrorCode가 Terrain payload 상태 재동기화를 요구하는 값인지 반환한다.
+    flushTerrainTileApplyPresent(manager: UShaderTerrainDecalManager, tileKey: string, presentEntry: TerrainPresentEntry) -> void
+        의존:
+            TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {flushTerrainTileApplyPresent()}
+        동작:
+            부모 key를 보존하고 TileState에 현재 apply와 폐기·handoff callback을 전달한다. 성공하면 부모·자기 deferred mesh 폐기를 시도하며 실패하면 최신 진행을 복구한다. 적용 여부를 반환한다.
+
+    flushTerrainTileClearPresent(manager: UShaderTerrainDecalManager, tileKey: string, presentEntry: TerrainPresentEntry = {}) -> boolean
+        의존:
+            TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {flushTerrainTileClearPresent(), stashDetachedTerrainGpuState(), clearTerrainPreparedTileBuildData()}
+        동작:
+            TileState에 clear와 GPU 보관·준비 입력 정리·폐기·handoff callback을 전달한다. 성공하면 부모·자기 deferred mesh를 정리하며 실패하면 최신 진행 복구를 요청한다. 적용 여부를 반환한다.
+
+    hasPendingVisibleAncestor(manager: UShaderTerrainDecalManager, sourceTileKey: string, tileKey: string | undefined, visited: Set<string> = new Set()) -> boolean
+        의존:
+            TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {hasPendingVisibleAncestor(), hasSharedTerrainFeatureKeys()}
+        동작:
+            TileState의 상위 타일 탐색에 피처 공유 판정 callback과 visited Set을 전달하고 현재 source와 같은 피처를 가진 대기 조상의 존재 여부를 반환한다.
+    hasPendingVisibleDescendant(manager: UShaderTerrainDecalManager, sourceTileKey: string, tileKey: string | undefined, visited: Set<string> = new Set()) -> boolean
+        의존:
+            TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {hasPendingVisibleDescendant(), hasSharedTerrainFeatureKeys()}
+        동작:
+            TileState의 하위 타일 탐색에 피처 공유 판정 callback과 visited Set을 전달하고 현재 source와 같은 피처를 가진 대기 자손의 존재 여부를 반환한다.
+    tryFinalizeTerrainTileDispose(manager: UShaderTerrainDecalManager, tileKey: string | undefined, opt: TerrainManagerOption = {}) -> boolean
+        의존:
+            TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {tryFinalizeTerrainTileDispose()}
+        동작:
+            key가 없으면 false다. disposeRequested이며 owner별 대기가 없으면 manager의 무소유 최종 정리를 우선한다. 그 밖에는 TileState가 handoff 종료 후 최종 정리 callback을 호출한 결과를 반환한다.
+
+    finalizeTerrainTileDispose(manager: UShaderTerrainDecalManager, tileKey: string, opt: TerrainManagerOption = {}) -> boolean
+        의존:
+            TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {finalizeTerrainTileDispose(), stashDetachedTerrainGpuState(), clearTerrainPreparedTileBuildData()}
+            cancelTerrainCompositeJob — 타일 합성 작업 취소; 함수: {cancelTerrainCompositeJob()}
+        동작:
+            현재 원자 그룹 membership을 보존하고 TileState에 GPU 보관·준비 정리·합성 취소 callback을 전달한다. 실제 entry가 제거되면 원자 그룹에서도 제거하고 정리 여부를 반환한다.
+
+    disposeTerrainTileEntry(manager: UShaderTerrainDecalManager, tileKey: string, opt: TerrainManagerOption = {}) -> boolean | undefined
+        의존:
+            TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {disposeTerrainTileEntry(), stashDetachedTerrainGpuState(), clearTerrainPreparedTileBuildData()}
+            cancelTerrainCompositeJob — 타일 합성 작업 취소; 함수: {cancelTerrainCompositeJob()}
+        동작:
+            TileState의 entry 정리에 GPU 보관·준비 자료 정리·타일 합성 취소를 위임한다. entry가 실제로 제거됐을 때만 원자 그룹 membership을 정리하고 결과를 반환한다.
+
+    removeTerrainTileFromAtomicPresentationGroup(manager: UShaderTerrainDecalManager, tileKey: string, membership: TerrainPresentationGroupMembership) -> boolean
+        동작:
+            owner가 없거나 현재 그룹 ID가 membership과 다르면 false다. tile key를 공유 Set에서 지우고 마지막 멤버이면 모든 연결 owner를 제거하여 pending outcome을 target-disposed로 종료한다.
+            같은 membership만 entry에서 비우고 true다.
+    restoreCachedTerrainGpuState(manager: UShaderTerrainDecalManager, tileKey: string, tileEntry: TerrainTileEntry, featureSignature: string | undefined, opt: Partial<{preparedBuild: TerrainPreparedBuild, currentTileOrigin: TerrainPoint, diagnostics: Partial<{rejectReason: TerrainGpuRestoreRejectReason}>}> = {}) -> boolean
+        의존:
+            TerrainTileState — 타일·Source·buffer 상태 전이; 함수: {restoreCachedTerrainGpuState(), queueTerrainTilePresent()}
+        동작:
+            현재 서명·origin·preparedBuild 조건과 apply/clear 예약 callback을 TileState.restoreCachedTerrainGpuState에 전달하고 복원 여부를 반환한다.
+    isTerrainOriginRejectReason(reason: TerrainGpuRestoreRejectReason | undefined) -> boolean
+        동작:
+            tile-origin-mismatch 또는 tile-origin-unverified이면 true, 그 밖에는 false다.
+명명 타입 책임 그룹
+    TerrainPayloadStateMiss 타입 정의
+        {recoverableErrorCode: string}
+    TerrainManagerTileState 타입 정의
+        registry: Map<string, TerrainTileEntry>
+        generationSequence: number
+        featureRegistry: Map<string, TerrainFeature>
+        featureBaseRegistry: Map<string, TerrainFeature>
+        tileFeatureMap: Map<string, Map<string, Map<string, TerrainFeature>>>
+        featureTileMap: Map<string, Set<string>>
+        compositionOrderRegistry: UTerrainDecalCompositionOrderRegistry
+        sourceStability: Map<string, TerrainDecalCompositionStability>
+        sourceVisibility: Map<string, boolean>
+        dynamicRadiusLayers: Map<U2dVectorShaderLayer, TerrainDynamicRadiusEntry>
+        meshOriginWaitingTiles: Set<string>
+        progressTileKeys: Set<string> | undefined
+    TerrainManagerFlushState 타입 정의
+        queue: Map<string, TerrainManagerOption>
+        scheduled: boolean
+        payloadBuilder: UTerrainPayloadBuilder
+    TerrainManagerWorkerState 타입 정의
+        taskProcessor: UTaskProcessor | undefined
+        scheduler: UTerrainWorkerScheduler | undefined
+        resultScheduler: UTerrainFrameScheduler
+        resultCache: LRUCache
+        pendingJobs: Map<string, TerrainPendingWorkerJob>
+    TerrainManagerPresentState 타입 정의
+        queue: Map<string, TerrainPresentEntry>
+        clearQueue: Map<string, TerrainPresentEntry>
+        atomicGroups: Map<string, TerrainAtomicPresentationGroup>
+        flushDepth: number
+        swapReadyPromises: Map<string, Set<TerrainSwapWaiter>>
+        gpuStateCache: LRUCache
+        frameBudgetMs: number
+    TerrainManagerDiagnosticsState 타입 정의
+        stabilityCounters: Record<string, number>
+        payloadSyncStatistics: {snapshotFastSkipCount:number,fastSkipRejectCounts:Record<string,number>}
+        presentationStatistics: Record<string, number>
+        falseCompleteRecoveredRevisions: WeakMap<TerrainTileEntry, number>
+    TerrainCompositionRun 타입 정의
+        key: string
+        workerKey: string
+        stability: 'static'|'dynamic'
+        prepared: TerrainPreparedBuild
+        composer: TerrainDecalComposer
+        _disposed: boolean
+        gpuState: TerrainBufferState | undefined
+        workerResult: TerrainWorkerResult | undefined
+    TerrainLayerTilePresentationOption 타입 정의
+        ownerLayer?: U3dLayer
+        sourceKeys: Array<string>
+        mode: 'vector'|'measure'
+        childrenVisible?: Array<boolean>
+        hasBindings?: boolean
+        hasBindingsForTile?: function(string):boolean
+        desiredVisible?: boolean
+        sourceSelectionTile?: TerrainRuntimeTile
+        visible?: boolean
+        presentationTracked?: boolean
+        minLevel?: number
+        baseImageReady?: boolean
+        expectsRemoteSource?: boolean
+        mesh?: Mesh & Partial<{_disposed:boolean,_classtype:string}>
+    TerrainLayerTilePresentationQuery 타입 정의
+        'all'|'ready'|'visible'|'attached'|'retainedSafe'|'confirmedEmpty'|'sourceKeys'|'sceneProvider'|'participates'|'deferredRemoval'|'visibilityCommit'|'runtimeParticipation'
+    TerrainLayerTilePresentationState 타입 정의
+        participates: boolean
+        sceneProvider: boolean
+        confirmedEmpty: boolean
+        ready: boolean
+        visible: boolean
+        attached: boolean
+        deferredRemoval: boolean
+        retainedSafe: boolean
+        sourceKeys: Array<string>
+        sourceOnly: boolean
+        commitAllowed: boolean
+        bindingVisible?: boolean
+        runtimeParticipation: boolean
+    TerrainFeatureOwnerCallbacks 타입 정의
+        commitUpdates: function(Array<object>):Array<boolean>|Promise<Array<boolean>>
+        syncSource?: function(object):void
+        wake?: function():void
+        onError?: function(unknown):void
+        getCandidateTiles?: function():Array<U3dQuadTile>
+        bindTile?: function(string|number,U3dQuadTile):void
+        disposeSource?: function(UMeasureFeature):void
+        getTileFacts?: function(TerrainRuntimeTile):TerrainLayerTilePresentationOption
+        retryLimit?: number
+        setStyle?: function(UMeasureFeature,object):void
+        loadSourceGeometry?: TerrainSourceGeometryLoader
+    TerrainFeatureOwnerRecord 타입 정의
+        sources: Map<string,U2dVectorSourceEntry>
+        callbacks: TerrainFeatureOwnerCallbacks
+        updates: Map<string|object,object>
+        sourceUpdates: Set<object>
+        cleanups: Set<function():void>
+        promise: Promise<Array<boolean>>|undefined
+        scheduled: boolean
+        _disposed: boolean
+        retryCount: number
+    TerrainFeatureSourceContext 타입 정의
+        sourceLayer: string
+        origin: string
+        setStyle?: function(UMeasureFeature,object):void
+        loadSourceGeometry?: TerrainSourceGeometryLoader
+    TerrainFeatureTileSelectionOption 타입 정의
+        feature: UMeasureFeature
+        entry?: {tileKeys:Set<string>}
+        candidateTile?: U3dQuadTile
+        candidateTiles?: Array<U3dQuadTile>
+        minLevel: number
+        isFallbackTile: function(U3dQuadTile):boolean
+        containsTile: function(U3dQuadTile):boolean
+    TerrainSourceGeometryLoader 함수 타입 정의
+        (feature: UMeasureFeature) -> Promise<undefined | U2dGeometry>
+        원본 대표 매개체의 전체 도형을 비동기로 조회하며 없거나 취소되면 undefined로 완료한다.
 ```
 
-## 설정
-
-프레임 예산과 한도는 `UShaderTerrainDecalConfig`의 `TERRAIN_DECAL_DEFAULT_CONFIG` 한 곳에서 정의한다.
-`new UShaderTerrainDecalManager({config})`로 생성 시점에만 override하며, 확정된 값은 `manager.TERRAIN_CONFIG`가 소유한다.
-
-- 조정 가능한 값은 설정에 둔다. progress 복구 검사 한도, presentation·composite·flush 프레임 예산, swap timeout, 캐시 크기, 디버그 로그 한도가 여기에 속한다.
-- 조정 대상이 아닌 값은 각 모듈 상수로 남긴다. worker pool 크기(`TERRAIN_DECAL_WORKER_TASK_NUM`)는 자료구조 길이를 결정하는 구조 상수이고, source key 접미사와 render order 상한은 프로토콜 상수다.
-- `UShaderTerrainDecalTileStateManager`는 manager 인스턴스를 인자로만 받으므로 `getTerrainDecalConfig(manager)`로 읽는다. manager가 없거나 설정이 없어도 기본값을 반환한다.
-- 유효하지 않은 override는 무시하고 기본값을 유지한다. 설정 하나 때문에 파이프라인 전체가 멈추지 않게 한다.
-
-## 상태 구조
-
-manager 인스턴스는 관심사별 그룹과 `TERRAIN_CONFIG`를 소유한다. `#featureOwners`는 원본 등록·구독·변경 묶음을 레이어 수명 단위로 보관하며 원본 형상·스타일의 복제본은 만들지 않는다. shader prewarm 상태와 합성 작업 상태는 그 상태를 다루는 코드가 있는 쪽이 소유하고, manager는 참조만 보관한다. 각 그룹은 `Object.seal`로 고정해 필드 추가와 오타를 즉시 드러낸다.
-
-- `tiles`: tile·feature registry, tile↔feature 인덱스, composition order registry, 반경 갱신 Layer, mesh origin 대기, progress 복구 대상.
-- `flush`: 지연 flush queue(대기 tile → 그 tile의 flush 옵션), 예약 여부, payload builder.
-- `worker`: task processor, admission scheduler, 결과 반영 scheduler, 결과 cache, 대기 작업.
-- `composeScheduler`: 그룹이 아니라 `UTerrainDecalComposeScheduler`가 정의·생성한 상태다. composer, 대기·진행 중 합성 작업, token 순번, dispose 보류 여부, 프레임당 draw call 상한·시간 예산을 담고, 이 상태를 읽고 바꾸는 코드는 전부 그 모듈에 있다. manager는 `ensureTileProgress`의 대기 작업 조회와 presentation 예약 판정에서만 직접 읽는다.
-- `present`: apply·clear queue, 원자 표시 그룹, flush 재진입 깊이, swap-ready 대기자, GPU buffer 상태·cache, 프레임 시간 예산.
-- `shaderPrewarm`: 그룹이 아니라 `UTerrainShaderPrewarm` 인스턴스다. prewarm template cache, 계측 완료 key, mesh별 계측 callback, 대기 prewarm 수를 그 객체가 소유하며 shader 변형 준비와 렌더 계측도 그쪽에서 수행한다. manager는 확정된 material·texture·표시 정의로 prewarm을 요청하고 해당 변형의 준비 여부로 apply 시점을 결정한다.
-- `diagnostics`: 안정성 계수, payload 동기화 통계, Worker 실행 표본 계수, presentation 통계, 벤치마크 실행 유형.
-
-그룹은 생성자에서 `TERRAIN_CONFIG`를 확정한 뒤 만든다. 클래스 필드 initializer는 생성자 본문보다 먼저 실행되므로 그 자리에서 만들면 `{config}` override가 반영되지 않는다. worker 결과 scheduler의 프레임 예산과 slice 한도, worker 결과 cache와 GPU 상태 cache 크기, presentation·composite 프레임 예산과 draw call 상한이 여기에 해당한다.
-
-프레임 예산 3개(`present.frameBudgetMs`, `composeScheduler.frameBudgetMs`, `composeScheduler.maxDrawCallsPerFrame`)는 확정된 설정을 시작값으로 삼되 인스턴스별로 조정할 수 있게 값으로 보관한다. 설정 객체 자체는 동결되어 있어 직접 바꿀 수 없다.
-
-flush 대기 집합과 옵션 cache는 key 집합이 항상 같아(`add`/`set`, `delete`/`delete`, `clear`/`clear`가 언제나 쌍) `flush.queue` 하나로 합쳤다. Set과 Map을 나란히 두면 한쪽만 갱신하는 실수가 가능하지만 Map 하나면 그 상태 자체가 표현되지 않는다. 이에 따라 `TERRAIN_TILE_FLUSH_OPTIONS`는 없어지고 `TERRAIN_TILE_FLUSH_QUEUE`는 Set이 아니라 Map을 돌려준다.
-
-Worker별 feature base 등록 이력은 manager가 보관하지 않는다. 이 상태(`TERRAIN_REGISTERED_WORKER_FEATURE_KEYS`·`TERRAIN_REGISTERED_WORKER_FEATURE_BYTES`)와 그 소비 모듈 `UTerrainWorkerFeatureCache`는 main thread에서 Worker 요청에 동봉할 feature base를 중복 제거하려는 구현이었지만, 어떤 실행 경로도 그 모듈을 호출하지 않고 짝이 되는 `allowFeatureBaseCacheMissRecovery`를 보내는 곳도 없었다. 즉 어느 시점에도 동작한 적이 없는 상태였으므로 상태·접근자·모듈·전용 테스트를 함께 제거했다.
-
-일반 타일 요청과 새로 계산할 구간 요청은 각각의 입력 feature base 전체를 보낸다. 재사용 가능한 구간의 Worker 결과나 정적 RTT가 있으면 해당 요청을 생략한다. Worker측 `FeatureBaseCache`는 그대로 유지되며, 그 한도는 Worker 안에서 축출 순서만 결정한다. 전송 입력 안의 feature base 중복 제거는 별도 성능 검증 대상이다.
-
-기존 `TERRAIN_*` 이름은 프로토타입 호환 접근자로 유지한다. 외부 모듈과 테스트는 그대로 동작하고, 접근자는 그룹 필드 또는 `shaderPrewarm` 필드로 읽기·쓰기를 위임만 하며 인스턴스 속성 목록에는 나타나지 않는다. manager 내부 코드는 그룹 필드를 직접 사용한다. 외부 참조가 없는 내부 전용 상태(`dynamicRadiusLayers`, `tiles.sourceVisibility`, `present.flushDepth`, `diagnostics.payloadSyncStatistics`, `diagnostics.benchmarkRunType`)는 접근자를 두지 않고, render-before 등록 key는 모듈 상수 `TERRAIN_PRESENT_RENDER_BEFORE_KEY`로 둔다.
-
-합성 작업 상태는 `UTerrainDecalComposeScheduler`가 소유한다. 판단 근거는 shader와 같지만 방향이 반대다 — 이 상태를 읽고 바꾸는 코드 34곳이 이미 그 모듈 하나에 있었고 manager는 접근자 14줄과 읽기 2곳으로 보관만 하고 있었다. 그래서 코드를 옮기는 대신 **상태 정의와 생성을 그 모듈로 옮겼다**. 모듈의 함수 시그니처는 그대로여서 외부 API는 바뀌지 않고, 모듈 안의 접근자 왕복 34번이 직접 필드 접근으로 바뀐다. 호환 접근자 7개는 이름을 유지한 채 `composeScheduler` 필드로 위임한다.
-
-이 변경의 spec 범위는 상태 소유와 생성으로 한정한다. `UTerrainDecalComposeScheduler`(521줄)에는 대표 spec이 없고 SpecManageRule.md §97은 기존 소스 변경 전 Bootstrap 명세화를 요구하지만, 작업 요청자가 상태 범위만 기록하고 전체 Bootstrap은 별도로 두기로 승인했다(WorkRule.md §3.3 승인된 예외). 모듈의 나머지 계약은 아직 명세되지 않았다.
-
-shader prewarm 상태는 별도 명세 단위 `UTerrainShaderPrewarm`으로 옮겼다. 이 상태를 다루는 코드가 manager 안에서 private 메서드 6개(약 440줄)로 닫혀 있었고 manager 상태 중 `_app`과 tile registry만 참고했기 때문에, 상태와 그 상태를 다루는 코드를 함께 옮길 수 있었다. 옮긴 뒤에도 `TERRAIN_SHADER_TEMPLATE_CACHE`, `TERRAIN_SHADER_PROGRAM_DIAGNOSTIC_BINDINGS`, `TERRAIN_SHADER_WARMUP_PENDING_COUNT` 세 접근자는 그대로 남아 헬퍼의 같은 상태를 가리키므로 외부 참조는 바뀌지 않는다. 헬퍼는 클래스이므로 `Object.seal` 대신 필드 선언과 `@ts-check`로 오타를 막는다. 자세한 계약은 [UTerrainShaderPrewarm.spec.md](./UTerrainShaderPrewarm.spec.md)에 있다.
-
-## 정적·동적 연속 구간
-
-동적 원형 반경의 `flushDynamicRadiusUpdates()`는 등록된 활성 레이어를 250ms 간격으로 재평가한다. 카메라가 고정되어 있어도 지형의 지연 로드나 높이 배율 변경을 반영해야 하므로 카메라 상태로 확인을 생략하지 않는다. 실제 반경 변화가 없을 때의 합성 생략은 레이어의 `refreshTerrainDynamicCircleRadius()`가 담당한다. 갱신 상태는 레이어·화면 반경·마지막 확인 시각만 보관한다.
-
-일반 소스는 `INTERNAL` 객체의 `prepareTerrainCompositionRuns`·`createTerrainCompositionRunState`에 위임하고 타일 상태 관리 함수 묶음을 인수로 전달한다. 구간 정리는 TileStateManager의 `disposeTerrainCompositionRuns`가 소유하며 비공개 구현도 전달받은 함수로 정리한다. TileStateManager는 Manager 비공개 구현을 import하지 않는다.
+## 4. 공통 처리 기준과 제약
 
 ```spec
-TerrainCompositionRun 타입 정의
-    key: string
-        세대·기준점·LOD profile·renderer 상한·피처 구성과 순서를 포함한 재사용 식별자
-    workerKey: string
-        실제 tile key·세대·composition 구분·안정성·처음과 마지막 피처를 담은 구간 전용 Worker key
-    stability: 'static' | 'dynamic'
-        source 등록 경계에서 받은 갱신 분류
-    prepared: TerrainPreparedBuild
-        해당 구간의 준비 입력과 precomposed 계획
-    composer: TerrainDecalComposer
-        구간을 준비한 합성기이며 다른 합성기에서는 재사용하지 않는다.
-    _disposed: boolean
-        캐시 소유권 종료 여부
-    gpuState: TerrainBufferState | undefined
-        정적 구간 캐시가 소유한 RTT 결과
-    workerResult: TerrainWorkerResult | undefined
-        같은 구간의 재빌드에 사용할 Worker 결과
-
+Source 요청 상태·승인 자료·GPU 적용 revision은 서로 다른 완료 경계다. 빈 결과·실패·대기 대체 표시가 데이터 준비를 허용해도 현재 GPU 실패·실제 material 적용·mesh 부착을 대신하지 않는다.
+실제 피처 순서와 레이어 순서를 보존한다. 합성기가 없거나 재사용 조건이 맞지 않을 때 순서가 다른 direct 표시로 임의 대체하지 않는다.
+static 구간의 RTT를 공유할 때 cache·임시 wrapper·최종 buffer의 참조 수명을 분리한다. 임시 wrapper의 소유권 이전은 cache가 가진 원래 RTT의 해제를 뜻하지 않는다.
+타일의 generation이 달라지면 같은 key의 이전 Worker·표시·원자 그룹 결과를 새 수명에 적용하지 않는다.
+원본 등록 해제와 실제 물리 회수는 분리할 수 있지만 manager 종료는 owner별 회수를 결과 큐 해제 전에 완료한다.
+소유자가 남은 타일은 빈 Source·실패 상태여도 명시적인 해제 전까지 무소유 타일로 판정하지 않는다.
+TERRAIN_ 호환 접근자는 상태 그룹의 같은 값을 읽고 쓴다. 그룹의 Object.seal은 필드 추가를 막을 뿐 기존 필드·Map·Set·접근자의 외부 변경을 차단하는 읽기 전용 보장이 아니다.
 ```
-
-빈 타일 rebuild·작업 취소·최종 tile dispose와 일반 준비 경로 복귀는 entry.compositionRuns를 먼저 비운 뒤 분리한 목록을 TileStateManager의 `disposeTerrainCompositionRuns`로 정리한다. 제외되거나 준비 중 오류가 난 구간도 같은 함수를 사용한다. 구간의 Worker snapshot과 GPU 소유권 반환 순서는 TileStateManager가 관리한다.
-
-Worker 실행은 구간별 캐시가 없는 입력만 기존 전송·재시도 경로로 계산한다. Worker 상태 누락은 해당 구간의 전체 입력으로 한 번 복구하며, 오래된 세대·revision이나 해제된 구간의 응답은 적용하지 않는다. 변하지 않은 정적 구간은 Worker 결과를 재사용하고, 정적 RTT가 완성된 뒤에는 Worker·raster 재실행을 생략한다. 동적 구간은 정적 RTT 캐시에 넣지 않는다. 구간 결과는 평탄한 Worker 결과 캐시에 넣지 않고 실제 타일의 구간 목록이 소유한다. 성능 통계의 memory.compositionCacheBytes는 각 구간 캐시의 gpuState.byteLength를 합산한다.
-
-## 공개 계약과 제약
-
-- ADR 0006: 입력 확정 시의 TerrainPreparedBuild를 결과에 연결하고 이후 비동기 결과에서 타일의 최신 준비 값을 재조립하지 않는다. Source snapshot은 결과 버퍼까지 같은 작업 이력으로 전달하며 cache 재생은 이번에 동등성이 승인된 입력을 사용한다. 활성 GPU 자원은 tileEntry.activeBuffer가 소유하고 별도 gpuBufferState 레지스트리는 제거한다.
-
-- Payload Build 준비와 Scene Presentation 연결은 분리한다.
-- 연속 구간 결과도 실제 타일 하나의 revision·generation·원자 표시 묶음을 사용한다. 정적 구간의 계산을 재사용해도 완성된 전체 결과가 준비되기 전에는 활성 표시를 교체하지 않는다.
-- 오래된 세대 또는 리비전의 작업은 최신 타일 진행 상태를 소유할 수 없다.
-- 각 성능 구간과 Queue 대기 시간을 분리해 기록하는 브라우저 추적 검증은 아직 필요하다.
-- 설정은 생성 시점에 확정하고 이후 교체하지 않는다. 한 flush 사이클 안에서 예산이 바뀌면 진행 판정이 흔들린다.
-- 서로 다른 owner의 원자 표시 그룹이 tile을 공유하면 기존 `tileKeys` 집합을 공유해 연결된 전체 범위를 하나의 표시 전환으로 취급한다. 세 owner 이상의 연쇄 중첩도 같은 범위로 합치며, 모든 연결 그룹의 표시 멤버 build가 준비되기 전에는 어느 멤버의 apply·clear도 반영하지 않는다. 준비되면 전체 apply 후 전체 clear를 같은 render-before에서 처리하고, 재질 적용 실패 시 전체 계획을 되돌려 기존 활성 화면을 보존하며 모든 owner 대기를 함께 종료한다. 같은 owner의 최신 그룹은 이전 대기를 `superseded`로 종료하면서 연결 범위와 기존 build 완료 대기를 이어받는다. 연결되지 않은 그룹은 독립적으로 진행한다. 연결 관계는 `tileKeys`의 내용뿐 아니라 동일한 `Set` 인스턴스를 공유하는 불변조건으로 표현한다. 같은 owner의 그룹을 교체할 때도 이 인스턴스를 유지하며, 연결 범위의 마지막 tile이 폐기되면 모든 owner 대기를 `target-disposed`로 종료한다.
-- 원자 표시 그룹의 멤버는 데이터 갱신 대상과 분리한다. `presentationBatch.tileKeys`가 주어지면 그 tile만 한 프레임 교체 대상이 되고 나머지 flush 대상은 rebuild만 수행하며 표시 그룹의 준비를 막지 않는다. 단, 다른 owner와 연결된 기존 `tileKeys` 범위에 이미 포함된 대상은 이번 요청의 명시적 표시 목록에서 빠져 있어도 표시 준비 대기에 포함한다. `atomicGroup.completion`은 현재 연결 범위의 멤버 build와 같은 owner의 이전 그룹 준비만 기다리고, `flushTileUpdates` 반환 Promise는 표시 그룹의 준비와 이번 요청 대상 전체의 build가 모두 끝난 뒤 입력 순서의 결과를 반환한다. 이전 그룹에서 넘어온(`presentationGroup.explicit !== true`) 멤버 중 한 번 등록됐다가(`registered`) 화면에서 빠지고 부모 fallback으로 scene에 붙잡히지도 않은 멤버(`visible`·`desiredVisible`·`pendingVisibilityHandoff`가 모두 아니고 `shouldDeferTerrainSceneRemoval`이 false)는 build가 끝나지 않아도 그룹 교체를 막지 않는다. mesh가 아직 등록되지 않은 늦은 tile과 scene에 남겨 둔 부모 tile은 기존처럼 기다린다. commit 계획을 만들 수 없는 멤버가 화면에 아무것도 올리지 않은 숨은 tile(`visible`·`desiredVisible` 아님, 활성 buffer·material 없음)이면 그룹에서 분리하고 present 항목의 그룹 표식을 지워 일반 경로가 이어받는다(부모 apply와 자식 apply가 같은 그룹에서 서로 기다리는 교착 방지). 준비된 그룹이 커밋되지 못한 마지막 사유는 `group.lastBlock`에 남긴다.
-- 같은 원자 표시 그룹의 부모·자식 대체 결과는 apply뿐 아니라 자료 생성이 끝난 빈 현재 revision의 clear도 인정한다. 요청 세대·버전이 현재 tile과 같고 build·source 대기가 없는 clear만 해당한다. 부모와 자식이 함께 비는 축소 전환에서 부모 clear를 기다리는 교대 보호가 자식 clear와 새 측정 미리보기를 막지 않아야 한다. 모든 계획의 준비·대상 검증과 원자 커밋·되돌리기는 유지하고 Quadtree 소유의 교대 보호는 임의로 해제하지 않는다. 같은 그룹에 대체 결과가 없는 경우의 기존 표시 보호는 유지한다.
-- 명시적 feature 삭제의 빈 표시 정리: clear 예약의 `changeType`이 `remove` 또는 `clear`이고 현재 세대·리비전과 같으며 source 대기와 렌더 feature가 없으면 일반·원자 clear에서 교대 보호로 삭제된 도형을 남기지 않는다. 판정은 `isTerrainTileClearForRemovedFeatures`가 공유하며 지면 메시의 handoff lease 자체를 해제하지 않는다. 이동·영역 교체의 `replace`와 오래된 clear에는 이 예외를 적용하지 않고 기존 표시 보호와 현재성 검사를 유지한다.
-- present flush 의 일반 경로 최소 진행(2026-09-21): `flushTerrainPresentationResults`는 원자 표시 그룹 커밋을 먼저 처리하고 남은 명령·시간 예산으로 일반 apply·clear 를 처리한다. 그룹은 한 표시 전환 단위라 프레임 한도로 나누지 않으므로, 40Hz 애니메이션처럼 **매 프레임 그룹이 커밋되는 owner 가 있으면 그룹 처리만으로 예산이 소진**되어 그룹 밖 항목(그룹에서 분리된 tile, 숨은 LOD tile, 다른 레이어가 같은 tile 에 남긴 apply, 이전 위치 clear)이 프레임을 거듭해도 한 건도 처리되지 않는다 — vectorLayer2D 에서 움직이는 원이 걸친 tile 의 폴리곤이 이전 정점 상태로 굳어 타일 모양으로 물려 보이던 실측 원인이다. 그래서 명령 상한·시간 예산 검사에서 **원자 그룹이 처리한 명령은 "이번 프레임에 이미 일한 것"으로 세지 않는다**: apply 루프는 일반 apply 를 하나 이상 처리한 뒤부터, clear 루프는 일반 apply 또는 clear 를 하나 이상 처리한 뒤부터 한도를 적용한다. 따라서 그룹이 예산을 전부 써도 일반 apply 1건(없으면 clear 1건)은 프레임마다 진행하고, 일반 항목을 하나라도 처리한 뒤에는 두 queue 가 전체 시간 예산을 공유하는 기존 규칙(`혼합 표시 큐도 전체 시간 예산을 공유한다`)이 그대로 적용된다. 원자 그룹 처리 순서와 mixed queue 의 clear 예약은 바뀌지 않는다.
-- inactive buffer 의 host 구간이 낡았으면 재합성(2026-09-22): `ensureTileProgress` 의 "현재 revision inactive buffer 가 있는데 present 가 없다" 복구 분기는 apply 를 다시 예약하기 전에 `isTerrainCompositeVariantCurrent` 로 buffer 의 `compositeVariants` 가 현재 host 구간(`resolveTerrainCompositeVariants`)과 같은지 확인한다. 다르면 `#invalidateTerrainCompositeHostVariants` 로 재합성을 예약하고 apply 는 예약하지 않는다. 이미지 레이어를 숨기면 그 binding 이 host 후보에서 빠져(`isTerrainMaterialBindingCandidate` 는 owner 의 `getVisible()` 을 본다) 구간 집합이 바뀌는데, 그 전에 합성된 buffer 의 apply 는 `composite-host-variant-mismatch` 로 거부되고 복구 분기가 같은 apply 를 매 프레임 재예약해(`attachOnlyRecoveryCount` 증가) swap-ready timeout 30초까지 자식 tile 4개가 부모 뒤에 숨은 채 굳는 것을 실측했다(imagePbfLayers 예제, 이미지 PBF 표시→숨김 직후 줌인).
-- clear 보류는 적용본이 있는 tile 에만(2026-09-22): 일반 clear 루프는 직접 handoff 관계의 apply 가 대기 중이거나 `shouldDeferTerrainSceneRemoval` 이 true 여도, 그 tile 에 **화면에서 사라질 적용본**(`activeBuffer`·`activeMaterial(s)`)이 없으면 보류하지 않고 바로 clear 를 적용한다. feature 0개로 등록된 빈 revision 의 clear 는 지울 화면이 없는데도 자기 handoff lease 때문에 보류되면, revision 이 적용되지 않아 `isTerrainTileSwapReady` 가 false → Quadtree 가 LOD 전환을 커밋하지 못해 lease 를 놓지 않음 → clear 가 계속 보류되는 순환 대기로 코스 tile 이 영구히 멈추는 것을 실측했다(imagePbfLayers 예제, 벡터 PBF 표시·숨김 뒤 레벨 11·12 tile 13~18개가 40초 이상 `_lodPresentPending`).
-- 숨긴 source 의 clear 는 보류하지 않음(2026-09-23): 일반 clear 루프는 `isTerrainTileClearForHiddenSourcesOnly`(TileStateManager)가 true 인 tile 의 clear 를 handoff 보호(`#hasPendingHandoffTerrainApply`·`shouldDeferTerrainSceneRemoval`)로 미루지 않는다. 판정은 합성 제외 규칙(`getTerrainTileFeatureCollection` 의 `sourceStates[...].visible === false`)과 같은 기준을 쓴다. feature 를 가진 source 가 하나 이상 있고 그 source 가 모두 명시적으로 `visible === false` 이며, 표시 중인 source 의 대기(`status === 'pending'` 이고 `visible !== false`)가 없을 때만 true 이다. `visible` 미정의·상태 누락·feature 없는 tile 은 숨김으로 보지 않는다. 사용자가 숨긴 decal 을 지키려고 clear 를 미루면 표시 의도와 맞지 않고, 적용본이 있는 tile 이 lease 를 쥐고 있으면 위 항목과 같은 순환 대기가 생긴다. clear 적용은 기존 `flushTerrainTileClearPresent` 경로를 그대로 쓰므로 generation·revision·`targetActiveBuffer`·`targetAppliedSignature` 검사로 오래된 clear 는 계속 거부된다(숨김 직후 다시 표시하면 revision 이 올라 남은 clear 가 새 표시를 지우지 못함). 표시 source 와 숨김 source 가 섞인 tile 은 feature 가 남아 apply 경로로 가므로 이 예외와 무관하다. 원자 표시 그룹의 clear 보류(`clear-handoff-deferred`)에는 적용하지 않았다.
-- swap-ready 완화 옵션 `acceptAppliedPresentation`(2026-09-21): `isTerrainTileSwapReady`·`waitTerrainTileSwapReady` 의 기본 판정은 "최신 revision 적용 완료"(`appliedRevision >= revision`, 빌드 없음)를 요구한다. 움직이는 feature 가 tile 을 매 프레임 갱신하면 revision 이 항상 적용본보다 앞서 이 조건이 닫히지 않고, image host(`U3dImageLayer`)가 texture 적용 뒤 이 대기에 걸려 **원이 지나는 tile 의 로드가 원이 떠날 때까지 멈추는** 실측 원인이었다. 그래서 호출자가 `opt.acceptAppliedPresentation === true` 를 주면, 대상 binding 의 texture 가 준비되고 그 material 에 presentation 이 적용돼 있으며(`activeMaterials` 포함) pending source 가 없고 활성 buffer 가 있으면 최신 revision 이 아니어도 `true` 를 돌려준다. 한 번도 적용되지 않은 tile 은 기존처럼 기다린다. 옵션이 없는 호출(LOD 전환·handoff 게이트)은 판정이 바뀌지 않는다. 같은 이유로 `notifyTerrainTileSwapReady`(TileStateManager)의 **LOD 재평가 요청**(`_app.changeUpdate`, 숨은 자식 + 보이는 부모 + revision 당 한 번)은 기본 swap-ready 뿐 아니라 이 완화 판정으로도 낸다 — 재평가 계기가 최신 판정에만 묶이면 quadtree 가 retained 경로(`allowRetainedPresentation`)로 넘어갈 수 있는 자식을 다시 평가하지 않아 원이 떠날 때까지 부모 LOD 가 남았다(휠 줌 실측 4.8~13.7초). 반환값(기본 swap-ready)은 바뀌지 않는다.
-- 표시 적용은 대상 binding의 program 예열만 기다린다. 원자 그룹은 하나라도 대상 program이 대기 중이면 이전 화면 전체를 보존한다. 일반 적용은 현재 큐 항목을 남겨 다음 frame에 재시도하되 이전 generation·실패·폐기 항목은 기존 정리 경로로 회수한다. 준비 빌드에서 캡처한 동적 피처 편집 snapshot을 Worker·구간 합성·GPU cache·최종 적용본까지 유지하며 cache 재사용 시 승인된 입력 snapshot으로 갱신한다.
-- swap-ready 완화 옵션 `acceptInFlightRevision`: 연속 편집에서는 최신 요청과의 일치 대신 현재 표시본 사이의 일치를 확인한다. `isTerrainTileFeaturePresentationCompatible`으로 부모 적용본과 교체할 자식 적용본 집합의 동적 피처 식별자·편집 버전이 같아야 한다. 축소에서는 현재 보이는 자식 집합과 부모를 비교한다. 서로 다른 버전의 동일 피처가 섞이거나 이전 빈 결과가 현재 도형을 누락하면 전환을 보류한다. 타일별 Source 번호는 부모·자식 간 비교에 사용하지 않는다. 이 조건을 통과한 적용 이력이 있고 현재 revision이 실패하지 않은 타일은 전역·범위 Source revision 지연과 pendingBuild를 허용한다. 최초 미적용·현재 실패 타일과 옵션 없는 호출의 조건은 유지한다.
-- Readiness 조회 facade(ADR 0007). 아래 세 공개 심벌은 §3 정규 수도코드 없이 이 절에만 기록한다. 이 spec은 `## 1. 개요`·`## 3. 정규 자연어 수도코드`가 없는 구조라 새 노드를 둘 자리가 없고, 작업 요청자가 2026-09-08 terrain 성능·readiness 작업에 한해 전체 정규화 없이 본 절 항목 추가로 동기화하기로 승인했다(WorkRule.md §3.3 승인된 예외). 전체 정규화는 후속 작업이다.
-  - `getTerrainTileReadinessSnapshot(tileKey: string, selector?: TerrainTileReadinessSelector) -> Readonly<TerrainTileReadinessSnapshot>`: registry Map/Set을 변경하지 않는 순수 조회다. 미등록 tile도 `state: 'missing'`·빈 `sources`·`hosts`를 가진 완전한 DTO를 돌려준다. 결과는 deep-frozen 순수 record라 tile entry·registry·Map·Set·material·mesh·함수를 노출하지 않으며, 캐시하지 않으므로 반복 호출은 값이 같은 새 객체다. source는 alias를 canonical key로 병합한 읽기 전용 view(`collectTerrainCanonicalSourceView`)에서 만들고 `selector.sourceKey`가 있으면 그 canonical source만 남긴다. `hasActivePresentation`은 `activeBuffer`와 `activeMaterials`로만 판정하고 대표 `activeMaterial`을 요구하지 않는다. 현재 revision이 실패했으면(`hasTerrainTileFailedCurrentRevision`) 이전 presentation이 살아 있어도 `presentationReady`는 false이고 `blockedReason`은 `'revision-failed'`다. `handoffLeaseActive`는 진단 축이며 `presentationReady` 계산에 참여하지 않는다. `tileKey`가 비어 있지 않은 문자열이 아니거나 `selector`가 객체가 아니면 `TypeError`다.
-  - `getTerrainTileKeys() -> ReadonlyArray<string>`: registry 삽입 순서의 tile key를 registry와 분리된 동결 배열로 돌려준다.
-  - `unregisterTerrainMaterialsByOwner(ownerLayer: object) -> number`: 모든 tile에서 `binding.ownerLayer === ownerLayer`인 binding만 `unregisterTerrainMaterial`에 위임해 해제하고 해제 수를 돌려준다. 다른 owner의 binding은 유지하며, 마지막 binding이 사라진 tile은 기존 규칙대로 entry를 정리한다. `ownerLayer`가 객체가 아니면 `TypeError`다.
-- Worker 실행 시간 진단(2026-09-19, diagnostic-only): Worker 응답이 실어 오는 `_performance.elapsed`(`UTerrainDecalPrepareTask`의 `prepareTileBuffers` 실행 경과 시간)를 실제 응답 1건당 한 번 `TerrainWorkerExecution` 이름으로 profiler에 남긴다. detail은 `tileKey`·`generation`·`revision`·`workerIndex`·`retryAfterStateMiss`·`featureCount`다. 기록은 결과 stale 판정 **전에** 하므로 폐기되는 응답의 실행 비용도 표본에 남고, 결과 검사와 적용 순서는 바뀌지 않는다. dispatch 전에 취소된 요청(`false`)은 Worker 실행이 없어 세지 않고, `_performance`가 없거나 유한하지 않은 응답(state miss 조기 반환)은 0ms 표본 대신 `diagnostics.workerExecutionStatistics.unmeasuredCount`로만 센다. Worker 시계와 메인 스레드 시계를 섞지 않도록 Performance Timeline 위치는 만들지 않고 duration 통계로만 기록한다(`UTerrainPerformanceProfiler.recordExternalDuration`). profiler가 `off`면 detail 객체도 만들지 않는다. 표본 계수는 `getTerrainPerformanceStatistics().workerExecution`으로 사본이 나가고 `resetTerrainPerformanceStatistics`가 초기화한다. Worker 결과 cache는 필드를 명시 나열해 복사하므로 `_performance`가 남지 않아 재사용 경로는 중복 집계되지 않는다.
-- Worker dispatch 왕복 진단(2026-09-19, diagnostic-only): 같은 지점에서 `TerrainWorkerRoundTrip`도 남긴다. 구간은 scheduler가 postMessage 직후 `phaseTiming.dispatchCompletedAt`에 적어 둔 시각부터 메인 스레드가 결과를 받은 시각까지이며, 두 시각 모두 메인 스레드 `performance.now()`라 **실제 구간이므로 Performance Timeline에도 시작 시각과 함께 올린다**(worker 내부 시간인 `TerrainWorkerExecution`과 다른 점이다). 왕복 안에는 worker 대기·실행·결과 전송·메인 스레드 event loop 대기가 함께 들어 있어 더 분해되지 않는다. detail에 같은 응답의 `workerExecutionMs`를 실어 분석이 tile 단위로 짝지을 수 있게 하되, **왕복에서 실행을 빼는 계산은 제품 코드에서 하지 않는다**(경계가 검증된 구간이 아니다). `phaseTiming`은 `deferWorkerSchedule` 경로에서만 만들어지므로 그 밖의 요청은 `roundTripUnmeasuredCount`로만 센다.
-- source별 전환 준비는 `isTerrainTileSwapReady`가 소유하며, 실패 revision 규칙은 `hasTerrainTileFailedCurrentRevision`(TileStateManager)을 공유한다. Vector가 별도 source retained 수식을 유지하지 않도록 최초 성공 snapshot·빈 결과 clear·숨긴 source 제외를 이 경계에서 판정한다. 기존 `activeRevision`·`decalReady`·`pendingSourceData` 저장 필드와 runtime gate는 유지한다.
-- `setTerrainTileSourcePending`의 `TerrainSourceSettleCheck` debug 기록은 (blockedReason, sourceStatus, sourceRevision, sourceRequestToken) signature가 바뀔 때만 남기고 `sourceRevision`을 포함한다. 같은 상태의 반복 통지는 전이가 아니므로 기록하지 않는다(`shouldEmitTerrainTransition`).
-- payload cache 상한은 설정(`UShaderTerrainDecalConfig`)의 `payloadCacheMaxEntries`·`payloadFeatureCacheMaxEntries`·`payloadFeatureCacheMaxBytes`·`payloadSnapshotCacheMaxBytes`로 확정해 `UTerrainPayloadBuilder` 생성 시 넘긴다. 기본값(512 / 65,536 / 128MiB / 64MiB)은 2026-09-08 측정(라이브 tile ~190개에 snapshot 128개 → payload 80% full, feature cache 8,192개 → 20초당 eviction 17만 회)에 근거해 모듈 상수에서 상향했다.
-- tile entry를 지우는 dispose(`disposeTerrainTileEntry`·`finalizeTerrainTileDispose` wrapper)는 `cancelTerrainCompositeJob`을 callback으로 넘겨 그 tile의 대기 합성 job을 `'composite-tile-disposed'`로 함께 취소한다. 이전에는 고아 job이 다음 step까지 packed 입력을 붙잡고 `composite-stale-revision`으로 뒤늦게 정리됐다.
-- `falseCompleteRecoveredCount`는 false-complete로 감지한 revision(`falseCompleteRevision`)의 owner 재설치, 즉 `ensureTileProgress`의 복구 flush 예약 시점에 같은 revision에서 한 번만 증가한다. 계측한 revision은 `diagnostics.falseCompleteRecoveredRevisions`(tile entry별 WeakMap)에 보관해 entry와 함께 사라진다.
-- Source 안정성 등록(2026-09-09): 공개 등록 경계 `upsertFeatures`와 `syncTerrainTileFeatures`는 옵션의 `compositionStability`를 `registerTerrainSourceStability`(UShaderTerrainDecalTileStateManager)로 넘겨 `tiles.sourceStability`에 sourceKey별로 기록한다. `sourceKey` 문자열을 해석해 추론하지 않고 등록 경계가 넘긴 값만 쓰며, `static`·`dynamic`이 아닌 값과 값이 없는 호출은 기록하지 않아 미분류로 남는다. 미분류 Source가 섞이면 합성 계획이 보수적으로 전체 precomposed로 되돌린다. 이 등록은 검증용 opt-in(`hybridCompositionEnabled`)이 꺼져 있어도 수행한다. 일반 평탄 입력의 hybrid 계획은 기존 opt-in을 따르고, 기본 합성기의 static·dynamic 연속 구간 캐시는 이 등록값으로 별도 분리한다. 기본 합성기 타입이 아닌 커스텀 합성기나 미분류 source가 있으면 기존 일반 준비 경로를 사용한다.
-- Hybrid 결과 편입(2026-09-09): worker 결과 반영은 `compositionMode`가 `precomposed`이거나 `hybrid`이면 합성 예약으로 보낸다. hybrid는 정적 대상만 offscreen 합성하고 동적 대상은 같은 결과 상태의 packed direct 경로로 함께 표시하므로, direct 분기로 보내면 정적 대상의 순서 계약을 재현하지 못한다. 합성기를 쓸 수 없으면 두 mode 모두 기존처럼 이번 revision을 실패로 끝내고 이전 화면을 유지한다.
-- 정적 합성 재사용 경로(2026-09-09): worker 결과 반영은 hybrid 계획일 때 먼저 `reuseTerrainStaticCompositeResult`로 표시 중인 정적 합성 결과를 물려받을 수 있는지 본다. 물려받으면 합성을 예약하지 않고 그 결과 상태를 그대로 inactive buffer 로 편입해 표시를 예약한다. 물려받을 수 없으면 기존처럼 합성을 예약하며, 이때 준비 단계의 정적 cache key 를 함께 넘겨 완료 결과가 다음 revision 의 재사용 근거를 남기게 한다. 재사용 결과도 packed 입력을 안고 표시되므로 prewarm 과 buffer 교체는 그 상태를 기준으로 한다.
-- Source 안정성 registry 수명(2026-09-09): `dispose`는 `tiles.sourceStability`를 tile → source feature map 과 함께 비운다. 소유자가 모두 사라진 뒤 분류를 남기면 같은 sourceKey 를 분류 없이 다시 등록할 때 이전 분류가 되살아난다.
-- Source 가시성 원본과 첫 등록 상속(2026-09-21): `setTerrainSourceVisibility(sourceKeys, visible)`는 tile 순회 전에 sourceKey별 값을 `tiles.sourceVisibility`에 기록한다. 순회는 **그 시점에 source를 가진 tile만** 갱신하므로, 그 뒤 처음 등록되는 tile은 `sourceStates[...].visible`을 이어 갈 값이 없어 미정의로 남고 소비자(`visible !== false`)는 이를 표시로 읽는다 — 레이어를 숨긴 뒤 늦게 빌드를 끝낸 tile에서 꺼 둔 decal이 남는 실측 원인이다. 그래서 source 상태를 만드는 경로(`reconcileTerrainSourceSyncState`·`invalidateTerrainSourceSyncSnapshot`·`updateTerrainTileSourceRenderOrderState`·`setTerrainTileSourcePending`의 pending/종료 분기)는 `resolveTerrainSourceInitialVisibility`로 **현재 상태에 `visible`이 없을 때만** 이 원본을 초기값으로 넣는다. 이미 `visible`이 정해진 상태와 원본 기록이 없는 source는 건드리지 않아 기존 동작을 유지하며, 기존 pending 항목을 취소·정리만 하는 분기(`clearAllSourcePending`·tile 취소)는 상태를 새로 만들지 않으므로 대상이 아니다. `dispose`는 `tiles.sourceStability`와 함께 비운다.
-- 재사용 판정의 tile 기준점(2026-09-14): 준비 빌드 경로는 방금 계산한 `preparedBuild.tileOrigin`을 `restoreCachedTerrainGpuState`와 `replayCachedTerrainWorkerResult`에 현재 기준점으로 넘기고, 합성 계획(precomposed·hybrid) 여부를 `compositeBuild`로 함께 넘긴다. 두 재사용이 기준점 사유로 거부되면 `dirty`가 아니고 `activeRevision`이 같아도 조기 종료하지 않고 새 좌표계로 빌드를 진행한다(host 불일치 등 다른 사유는 기존 조기 종료를 유지). `ensureTileProgress`의 재부착 복구(`hasMissingMaterialPresentation`)는 `preparedBuild.tileOrigin`이 아니라 그 시점에 `resolveTerrainTileOrigin`으로 다시 계산한 mesh 기준점을 넘기며, 기준점 사유로 거부된 tile 은 dirty 가 아니고 revision 도 이미 적용된 값이라 orphan 복구 조건에 걸리지 않으므로 `markTileDirty`와 `scheduleTerrainTileFlush`로 새 revision 의 재빌드를 예약하고 `applied-buffer-origin-mismatch`를 남긴다. 거부 사유가 기준점이 아니면 기존 fallback 그대로다. Worker 결과는 versioned payload 에서 좌표가 이미 tile-local 이라 Worker 가 실제 기준점을 모르므로, 결과를 받는 쪽에서 그 요청의 payload 를 만들 때 쓴 기준점(요청 시점 값)을 결과에 값으로 남긴다. 최신 `preparedBuild.tileOrigin`을 읽지 않는 이유는 그 사이 prepare 가 다시 돌았을 수 있어서다. immediate 결과는 builder 가, 재생 결과는 clone 이 기준점을 싣는다. `registerTerrainMaterial`이 이미 적용된 buffer 에 대해 apply 만 다시 예약하는 경로는 이 판정을 거치지 않는다(남은 경계).
-
-- 표시 대기 메모리 집계(2026-10-22): `presentationPendingBytes`는 각 `inactiveBuffer.byteLength`가 양의 유한값이면 이를 사용해 합성 RTT·mipmap을 포함한다. 값이 없거나 유효하지 않은 기존 버퍼는 uniform 배열 추정으로 돌아간다. 상태별 논리 크기이므로 공유 target이 중복될 수 있으며 물리 VRAM이나 고유 GPU 객체 총량을 뜻하지 않는다.
-
-- 표시 재질 준비 시점(2026-10-22): 생성자나 textureReady=false인 mesh 등록에서 map·그림자 조합을 추정해 만들지 않는다. registerTerrainMaterial은 등록 binding이 texture-ready이면 현재 material을 준비하고, setTerrainTileTextureReady는 이번에 준비된 matching binding만 준비한다. worker·합성 결과는 확정된 목표 정의를 기존 seam으로 준비한다. 앱 공유 shaderPrewarm이 renderer별 program 참조를 소유하며, 준비 실패와 지원 범위 밖은 기존 최초 렌더로 폴백한다.
-
-- 연속 구간 계획의 불변성(2026-10-22): prepareTerrainCompositionRuns는 각 구간 계획과 최종 표시 계획의 precomposed override를 만들 때 새 wrapper와 새 precomposedBatchIndices 배열을 함께 동결한다. 나머지 중첩 구조는 표준 불변 계획을 공유하며 생성 이후 수정하지 않는다. 따라서 실제 static·dynamic 혼합 타일도 같은 계획의 표시 조회에서 projection을 재사용할 수 있다. 외부에서 전달된 mutable 계획을 강제로 동결하지 않는다.
 
 > 공개 참조용 발췌본입니다. 비공개 구현 설명과 내부 관리 정보는 생략했습니다.

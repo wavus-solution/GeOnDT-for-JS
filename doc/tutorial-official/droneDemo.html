@@ -515,7 +515,7 @@
             // 모델이 제대로 불러와졌는지 검사
             const loadedModelInfo = animationLayer.getModelInfo(MODEL_INFO.name , MODEL_INFO.baseurl)
             if( loadedModelInfo ){
-                loadedModelInfo.then(()=>{
+                loadedModelInfo.ready.then(()=>{
                     const keys = Object.keys(movePosition);
                     for (let i = 0; i < keys.length; i++) {
                         const key = keys[i];
@@ -525,7 +525,7 @@
 
                         createComponentThread(key, x, y, height, i * intervalCreatePlane);
                     }
-                });
+                }).catch(error => { console.error('모델 준비 실패', error); });
             }else {
                 animationLayer.loadModel(MODEL_INFO).then(()=>{
                     const keys = Object.keys(movePosition);

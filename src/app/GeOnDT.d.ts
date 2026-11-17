@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -17,7 +17,6 @@ import type { U3dImageWMTSLayer } from "../3dLayer/U3dImageWMTSLayer.js";
 import type { U3dImageXYZLayer } from "../3dLayer/U3dImageXYZLayer.js";
 import type { U3dLodComponentLayer } from "../3dLayer/U3dLodComponentLayer.js";
 import type { U3dMaskLayer } from "../3dLayer/U3dMaskLayer.js";
-import type { U3dModelA3FLayer } from "../3dLayer/U3dModelA3FLayer.js";
 import type { U3dModelBIMObjLayer } from "../3dLayer/U3dModelBIMObjLayer.js";
 import type { U3dModelBasicLayer } from "../3dLayer/U3dModelBasicLayer.js";
 import type { U3dModelDxfLayer } from "../3dLayer/U3dModelDxfLayer.js";
@@ -77,6 +76,7 @@ import type { UDRACOLoader } from "../core/loader/UDRACOLoader.js";
 import type { UFBXLoader } from "../core/loader/UFBXLoader.js";
 import type { UFileLoader } from "../core/loader/UFileLoader.js";
 import type { UGLTFLoader } from "../core/loader/UGLTFLoader.js";
+import type { UTDSLoader } from "../core/loader/UTDSLoader.js";
 import type { UInstancedMesh } from "../core/mesh/UInstancedMesh.js";
 import type { UMesh } from "../core/mesh/UMesh.js";
 import type { USkinnedMesh } from "../core/mesh/USkinnedMesh.js";
@@ -148,6 +148,7 @@ import type { USpotLight } from "../view/USpotLight.js";
 
 /**
  * GeOnDT for JS API 네임스페이스 명세
+ *
  * @namespace GeOnDT
  */
 declare class GeOnDT {
@@ -286,6 +287,7 @@ declare class GeOnDT {
         UDRACOLoader: typeof UDRACOLoader;
         UFileLoader: typeof UFileLoader;
         UFBXLoader: typeof UFBXLoader;
+        UTDSLoader: typeof UTDSLoader;
     };
     /**
      * 3D지도 지면에 렌더링되는 `2D이미지` 레이어 관련 네임스페이스.
@@ -322,7 +324,6 @@ declare class GeOnDT {
         U3dVectorTileLayer: typeof U3dVectorTileLayer;
         U3dModelStaticLayer: typeof U3dModelStaticLayer;
         U3dModelI3FLayer: typeof U3dModelI3FLayer;
-        U3dModelA3FLayer: typeof U3dModelA3FLayer;
         U3dGridTileLayer: typeof U3dGridTileLayer;
         U3dLodComponentLayer: typeof U3dLodComponentLayer;
         U3dMaskLayer: typeof U3dMaskLayer;
@@ -601,7 +602,12 @@ declare class GeOnDT {
     static getTransCoderPath(): string;
     static loadResource(): Promise<any>;
     static checkWorker(val?: number): Promise<any>;
-    static setPath(rootPath: any): boolean;
+    /**
+     * 제품 루트를 외부 Worker 유틸과 내부 WASM의 실행 경로에 반영합니다.
+     * @param {string} rootPath 제품 루트 경로입니다.
+     * @returns {boolean} 경로를 반영했으면 true입니다.
+     */
+    static setPath(rootPath: string): boolean;
     static addon(extension: any): void;
     static getNeedModule(names: any): {};
     static initWASMModule(): Promise<any>;

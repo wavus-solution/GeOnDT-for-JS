@@ -8,7 +8,7 @@ import {UImageUtils} from '@union3d/core/UImageUtils';
 import {defaultValue} from '@util/defaultValue';
 import {UTextureLoader} from '@union3d/core/loader/UTextureLoader';
 import {U3dEvent} from '@union3d/event/U3dEvent';
-import {deferred} from "@util/deferred";
+import {deferredPromise} from "@union3d/util/deferredPromise";
 import {LRUCache} from "@util/LRUCache";
 import {UTerrainMesh} from "@union3d/core/mesh/UTerrainMesh";
 import {__GInfo__, __GSError__, __GError__} from "@U3dMessage";
@@ -33,7 +33,6 @@ import {INTERNAL} from '@union3d/3dLayer/U3dImageLayer.internal';
  * 영상 데이터를 가시화 시키는 이미지 레이어 클래스
  *
  * @group 3dLayer
- *
  * @extends {U3dLayer}
  */
 class U3dImageLayer extends U3dLayer {
@@ -53,8 +52,18 @@ class U3dImageLayer extends U3dLayer {
     /** @type {number} */ #dataCacheSize = 400;
     /** @type {import('@util/LRUCache').LRUCache | undefined} */ #dataCache;
     /** @type {import('@UTextureLoader').UTextureLoader} */ #loader;
-    /** 이미지 레이어 전용 JSON 직렬화 가능 성능 관측 저장소입니다. debugLog가 활성화된 경우에만 생성합니다. @type {Record<string, any> | undefined} */ #debugLogJson;
-    /** JSON에 포함하지 않을 고해상도 측정 시작 시각을 로그 항목별로 보관합니다. @type {WeakMap<object, Record<string, number>> | undefined} */ #debugTimingState;
+    /**
+     * 이미지 레이어 전용 JSON 직렬화 가능 성능 관측 저장소입니다. debugLog가 활성화된 경우에만 생성합니다.
+     *
+     * @type {Record<string, any> | undefined}
+     */
+    #debugLogJson;
+    /**
+     * JSON에 포함하지 않을 고해상도 측정 시작 시각을 로그 항목별로 보관합니다.
+     *
+     * @type {WeakMap<object, Record<string, number>> | undefined}
+     */
+    #debugTimingState;
 
     /**
      * 타일 키별로 현재 유효한 이미지 요청 하나만 보관합니다. <br>
@@ -763,6 +772,7 @@ class U3dImageLayer extends U3dLayer {
 
     /**
      * 이미지 레이어의 가시화(show/hide) 여부를 설정합니다.
+     * 소유 레이어의 표시 변경은 숨은 캐시 타일의 합성 대상에도 반영합니다.
      *
      * @override
      *
@@ -782,16 +792,18 @@ class U3dImageLayer extends U3dLayer {
         const meshes = /** @type {import('@union3d/core/UCache').UCache | undefined} */(this._cache)?.items?.() ?? [];
         for (let i = 0; i < meshes.length; i++) {
             if (meshes[i] instanceof UTerrainMesh) {
+                // 이미 숨은 자식도 소유 레이어가 바뀌면 합성 대상을 다시 확인해야 합니다.
+                if (changed && meshes[i].visible === false && meshes[i]._disposed !== true) {
+                    meshes[i].refreshTerrainPresentation('image-layer-visibility-changed');
+                }
                 meshes[i].setTerrainVisible?.(false);
             }
         }
     }
 
     /**
-     * 숨김 상태에서 group 만 비워 둔 cache 작업물을, 아직 화면에 있는 tile 에 대해 다시 group 에 붙입니다.
-     * 재가시화 직후 한 번만 호출합니다. 부착 자체는 addTileFromScene 이 하므로 여기서는 대상 tile 만 고릅니다.
-     *
-     * @returns {void}
+     * 화면에 있는 캐시 타일은 다시 부착하고, 숨은 타일은 합성 대상만 재평가합니다.
+     * 재가시화 직후 한 번만 호출하며, 숨은 타일의 실제 부착은 LOD 전환 경로에 맡깁니다.
      */
     #reattachCachedTiles() {
         const cacheStore = /** @type {import('@union3d/core/UCache').UCache | undefined} */(this._cache);
@@ -799,7 +811,14 @@ class U3dImageLayer extends U3dLayer {
         if (!cacheStore || !tiles) return;
         for (const key of cacheStore.keys()) {
             const tile = tiles.get(key);
-            if (tile && tile._disposed !== true && tile.visible === true) this.addTileFromScene(tile);
+            if (!tile || tile._disposed === true) continue;
+            if (tile.visible === true) this.addTileFromScene(tile);
+            else {
+                const mesh = cacheStore.get(key);
+                if (mesh instanceof UTerrainMesh && mesh._disposed !== true) {
+                    mesh.refreshTerrainPresentation('image-layer-visibility-changed');
+                }
+            }
         }
     }
 
@@ -887,7 +906,7 @@ class U3dImageLayer extends U3dLayer {
         this.#forceDisposeTerrainMeshes();
         super.dispose();
 
-        /** @type {import('@util/LRUCache').LRUCache} */(this.#dataCache).clear();
+        /** @type {import('@util/LRUCache').LRUCache} */(this.#dataCache)?.clear();
         this.#dataCache = undefined;
 
         this._disposed = true;
@@ -930,11 +949,11 @@ class U3dImageLayer extends U3dLayer {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 텍스처를 적용할 타일
      * @param {import('@UDrawArg').UDrawArg} drawArg DrawArg
      * @param {string} url 텍스처 URL
-     * @param {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} [promise=deferred()] 작업 진행 상황을 전달할 deferred. 생략 시 내부에서 생성합니다.
+     * @param {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} [promise=deferredPromise()] 작업 진행 상황을 전달할 deferred. 생략 시 내부에서 생성합니다.
      * @param {ImageTextureProcessOptions} [options] 하위 이미지 레이어가 선택하는 요청 처리 옵션
      * @returns {Promise<import('@U3dQuadTile').U3dQuadTile>} 작업 완료 시 resolve 되는 deferred 객체
      */
-    processTexture(tile, drawArg, url, promise = deferred(), options) {
+    processTexture(tile, drawArg, url, promise = deferredPromise(), options) {
         // 이미지 타일은 카메라 이동, 레이어 refresh, 타일 폐기로 화면에서 제외되면 늦게 도착한 응답을
         // 렌더링에 사용할 수 없습니다. 따라서 옵션을 생략한 WMS/XYZ 레이어도 요청별 취소와 구세대
         // callback 차단 경로를 기본으로 사용합니다.
@@ -965,7 +984,7 @@ class U3dImageLayer extends U3dLayer {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 텍스처를 적용할 타일
      * @param {import('@UDrawArg').UDrawArg} drawArg DrawArg
      * @param {string} url 텍스처 URL
-     * @param {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} promise 작업 deferred
+     * @param {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} promise 작업 deferred
      * @returns {Promise<import('@U3dQuadTile').U3dQuadTile>} 작업 deferred
      *
      * @ignore
@@ -1142,7 +1161,7 @@ class U3dImageLayer extends U3dLayer {
                 }
 
                 const manager = self._terrainDecalManager ?? self._app?.getTerrainDecalManager?.();
-                const presentationState = manager?.getTerrainTilePresentationState?.(tile._key);
+                const presentationState = manager?.getTerrainTilePresentationState?.(tile._key, {includeComposition: false});
                 const isUniformReevaluation = !!manager
                     && (manager.isTerrainTileSwapReady?.(tile._key) !== true
                         || presentationState?.hasDecalState === true);
@@ -1551,7 +1570,7 @@ class U3dImageLayer extends U3dLayer {
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 텍스처를 적용할 타일
      * @param {import('@UDrawArg').UDrawArg} drawArg DrawArg
      * @param {string} url 텍스처 URL
-     * @param {DeferredObject<import('@U3dQuadTile').U3dQuadTile>} promise 작업 deferred
+     * @param {DeferredPromise<import('@U3dQuadTile').U3dQuadTile>} promise 작업 deferred
      * @return {Promise<import('@U3dQuadTile').U3dQuadTile>} 작업 deferred
      *
      * @ignore
@@ -1562,6 +1581,15 @@ class U3dImageLayer extends U3dLayer {
             return promise;
         }
         const self = this;
+        // 캐시 적중은 다운로드 슬롯을 사용하지 않습니다. 취소·오류·늦은 콜백이 겹쳐도 한 번만 반납합니다.
+        let loading = false;
+        let cancelled = false;
+        const key = /** @type {string} */(self.createKeyFromTile(tile));
+        const cancelCallbacks = [() => { cancelled = true; releaseLoading(); promise.reject(tile); }];
+        const releaseLoading = () => {
+            if (loading) { loading = false; self.minusLoadingTile(); }
+            if (self._cancelTiles[key] === cancelCallbacks) delete self._cancelTiles[key];
+        };
         const cacheStore = /** @type {import('@union3d/core/UCache').UCache} */(self._cache);
         /**
          * texture 업로드 후 terrain decal uniform까지 준비될 때까지 tile 표시 가능 상태를 묶어 둡니다.
@@ -1594,12 +1622,11 @@ class U3dImageLayer extends U3dLayer {
                     return;
                 }
                 promise.resolve(tile);
-            });
+            }).catch(() => { promise.reject(tile); });
         }
 
 
         try {
-            const key = /** @type {string} */(self.createKeyFromTile(tile));
 
             if(self.getCache(tile) && self.isTexture(tile)){
                 // 준비 중이거나 이미 지형 효과가 적용된 캐시 타일은 정상적인 유니폼 재평가 경로입니다.
@@ -1615,7 +1642,7 @@ class U3dImageLayer extends U3dLayer {
             }
 
             self.setStateTile(tile, UDEF.TILE_STATE._loading);
-            self.plusLoadingTile();
+
 
             const dataCache = self.#dataCache;
             if (dataCache && dataCache.has(key)) {
@@ -1636,45 +1663,51 @@ class U3dImageLayer extends U3dLayer {
                 }
             }
 
-            self._cancelTiles[key] = [promise.reject];
+            self.plusLoadingTile();
+            loading = true;
+            self._cancelTiles[key] = cancelCallbacks;
             self.#loader.load(url,
                 function (texture) {
-                    texture.name = texture.name + ':' + tile._key;
-                    self.minusLoadingTile();
-                    self.removeCancelByTile(tile); //+ cancel삭제
-
-                    if (tile._disposed) {
-                        //   console.info('dispose tiled: ' + self._name);
-                        self.resetStateTile(tile);
-                        texture.dispose();
-                        resolveWhenSwapReady();
-                        return;
+                    if (cancelled || self._disposed || tile._disposed) {
+                        texture.dispose(); releaseLoading(); promise.reject(tile); return;
                     }
+                    try {
+                        texture.name = texture.name + ':' + tile._key;
+                        releaseLoading();
 
-                    const image = /** @type {HTMLImageElement} */(/** @type {unknown} */(texture.image));
-                    if (UDEF.imageDebug) {
-                        let text = 'x:' + tile._x + ' y:' + tile._y + '\n' + ' level:' + tile._rlevel;
-                        text += '\n' + tile._quadname;
-                        image.src = UImageUtils.drawText(image, text, true);
-                    } else if (dataCache) {
-                        dataCache.put(key, {
-                            texture: texture,
-                            byteLength: image.width * image.height
-                        });
-                    }
+                        if (tile._disposed) {
+                            //   console.info('dispose tiled: ' + self._name);
+                            self.resetStateTile(tile);
+                            texture.dispose();
+                            resolveWhenSwapReady();
+                            return;
+                        }
 
-                    if (!defined(tile._mesh) || !defined(tile._drawArg)) {
+                        const image = /** @type {HTMLImageElement} */(/** @type {unknown} */(texture.image));
+                        if (UDEF.imageDebug) {
+                            let text = 'x:' + tile._x + ' y:' + tile._y + '\n' + ' level:' + tile._rlevel;
+                            text += '\n' + tile._quadname;
+                            image.src = UImageUtils.drawText(image, text, true);
+                        } else if (dataCache) {
+                            dataCache.put(key, {
+                                texture: texture,
+                                byteLength: image.width * image.height
+                            });
+                        }
+
+                        if (!defined(tile._mesh) || !defined(tile._drawArg)) {
+                            self.setStateTile(tile, UDEF.TILE_STATE._end);
+                            texture.dispose();
+                            resolveWhenSwapReady();
+                            return;
+                        }
+
+                        self.updateTileTexture(tile, texture);
+                        self.#dispatchImageLoaded(self.getCache(tile), tile);
+
                         self.setStateTile(tile, UDEF.TILE_STATE._end);
-                        texture.dispose();
                         resolveWhenSwapReady();
-                        return;
-                    }
-
-                    self.updateTileTexture(tile, texture);
-                    self.#dispatchImageLoaded(self.getCache(tile), tile);
-
-                    self.setStateTile(tile, UDEF.TILE_STATE._end);
-                    resolveWhenSwapReady();
+                    } catch (error) { releaseLoading(); promise.reject(tile); }
                 }
                 // //+ progress
                 ,
@@ -1684,20 +1717,18 @@ class U3dImageLayer extends U3dLayer {
                 // 기존 호환 경로는 오류 원인 자체를 사용하지 않고 타일 상태 복구와 부모 텍스처 fallback만
                 // 수행합니다. 사용하지 않는 error 매개변수를 선언하지 않아 callback 계약을 실제 처리와 맞춥니다.
                 function () {
-                    self.removeCancelByTile(tile);
+                    releaseLoading();
+                    if (cancelled || self._disposed || tile._disposed) { promise.reject(tile); return; }
                     self.resetStateTile(tile);
 
                     if (!tile._parent) {
-                        self.minusLoadingTile();
                         promise.reject(tile);
                         return;
                     }
                     const createParentTexture = function () {
                         if (self.createParentTexture(tile)) {
-                            self.minusLoadingTile();
                             resolveWhenSwapReady();
                         } else {
-                            self.minusLoadingTile();
                             promise.reject(tile);
                         }
                     }
@@ -1706,8 +1737,7 @@ class U3dImageLayer extends U3dLayer {
                         return;
                     }
 
-                    // 기존 호환 경로도 부모 이벤트를 기다리지 않아 공유 처리 슬롯을 즉시 반환합니다.
-                    self.minusLoadingTile();
+                    // 부모가 아직 준비되지 않았으면 기다리지 않고 실패를 전달합니다.
                     promise.reject(tile);
                 }
                 // //+ abort
@@ -1715,21 +1745,20 @@ class U3dImageLayer extends U3dLayer {
                 // 기존 호환 경로의 abort callback도 원본 취소 사유를 소비하지 않습니다. 상태, 로딩 카운터,
                 // deferred만 정리하므로 불필요한 매개변수를 인터페이스에 노출하지 않습니다.
                 function () {
-                    self.removeCancelByTile(tile);
+                    releaseLoading();
+                    if (cancelled || self._disposed || tile._disposed) { promise.reject(tile); return; }
                     // if (!tile._disposed)
                     //     self.resetStateTile(tile);
                     // self.setStateTile(tile, UDEF.TILE_STATE._end);
 
                     self.resetStateTile(tile);
                     //  self.setStateTile(tile, UDEF.TILE_STATE._end);
-                    self.minusLoadingTile();
                     promise.reject(tile);
                 }
                 , self._parseFunction !== null ? self._parseFunction.bind(this, tile) : null
             );
         } catch (e) {
-            const key = /** @type {string} */(self.createKeyFromTile(tile));
-            delete self._cancelTiles[key];
+            releaseLoading();
             self.setStateTile(tile, UDEF.TILE_STATE._end);
             promise.reject(tile);
         }
@@ -1952,7 +1981,7 @@ class U3dImageLayer extends U3dLayer {
      * @override
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 타일
-     * @return {boolean} 작업 성공 여부. 성공하면 true, 실패면 false.
+     * @returns {boolean} 준비된 타일을 부착하면 true, 준비 대기 또는 부착 불가이면 false입니다.
      *
      * @ignore
      */
@@ -1964,6 +1993,8 @@ class U3dImageLayer extends U3dLayer {
                 const object = this.getCache(tile);
                 if (defined(object) && defined(this._group)) {
                     if (object instanceof UTerrainMesh) {
+                        // 캐시 직접 재표시도 준비 전 새 표면을 노출하거나 기존 잔여물을 해제하지 않습니다.
+                        if (!object.isTerrainRenderableReady()) return false;
                         object.setTerrainVisible?.(true);
                     } else {
                         object.visible = true;
@@ -2159,8 +2190,8 @@ class U3dImageLayer extends U3dLayer {
      * 자식 타일의 텍스처 로드에 실패했거나, burnLevels 에 지정된 레벨일 때 사용됩니다.
      *
      * @param {import('@U3dQuadTile').U3dQuadTile} tile 텍스처를 생성할 자식 타일
-     * @returns {boolean | DeferredObject<import('@U3dQuadTile').U3dQuadTile> | undefined} 생성 성공 시 `true`, 실패 시 `undefined` 를 반환합니다. <br>
-     * 하위 레이어는 성공을 그 타일로 이행되는 Promise 호환 객체(`DeferredObject`)로 알릴 수 있으며, 호출부는 반환값을 참·거짓으로만 판정합니다.
+     * @returns {boolean | Promise<import('@U3dQuadTile').U3dQuadTile> | undefined} 생성 성공 시 `true`, 실패 시 `undefined` 를 반환합니다. <br>
+     * 하위 레이어는 성공을 그 타일로 이행되는 Promise 호환 객체(`DeferredPromise`)로 알릴 수 있으며, 호출부는 반환값을 참·거짓으로만 판정합니다.
      */
     createParentTexture(tile) {
         const cacheStore = /** @type {import('@union3d/core/UCache').UCache} */(this._cache);

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -119,9 +119,10 @@ declare class U3dLayerList {
     /**
      * 등록된 레이어를 목록에서 먼저 제거한 뒤 자원을 해제합니다. <br>
      * 해제 수신자가 같은 레이어를 다시 제거해도 이웃 레이어는 유지됩니다.
+     * 비동기 해제는 기다리지 않으며 나중에 발생한 실패는 엔진 오류로 보고합니다.
      *
      * @param {string | import('@U3dLayer').U3dLayer} name 레이어 이름 또는 레이어 객체
-     * @returns {boolean} 정상 종료하면 true이며, 해제 중 예외는 호출자에게 전달
+     * @returns {boolean} 정상 종료하면 true이며, 해제 호출의 동기 예외는 호출자에게 전달
      */
     removeLayer(name: string | U3dLayer): boolean;
     /**
@@ -318,8 +319,8 @@ declare class U3dLayerList {
     /**
      * 등록된 모든 레이어를 처분(dispose)하며 비동기 완료는 기다리지 않습니다.
      * 동기 해제 오류가 발생해도 남은 레이어와 목록을 정리한 뒤 오류를 전달합니다.
+     * 비동기 해제 오류는 해당 레이어의 엔진 오류로 보고합니다.
      *
-     * @returns {void}
      * @throws {Error} 단일 실패는 원래 오류를, 복수 실패는 호출 순서대로 모은 errors 배열을 가진 오류를 전달합니다.
      */
     disposeAll(): void;

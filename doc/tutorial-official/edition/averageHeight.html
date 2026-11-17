@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="../">
+    <script>
+// 공통 예제의 실제 기준 URL로 배포 모듈 주소를 해석하고 모듈을 읽기 전에 Import Map을 등록합니다.
+function installExampleImportMap() {
+    const entries = {"/extension/GESpreadObject/GESpreadObject.js":"../dist/extension/GESpreadObject/GESpreadObject.min.js","/extension/sequence/sequence.js":"../dist/extension/sequence/sequence.min.js","/extension/a3fTimeSeries/a3fTimeSeries.js":"../dist/extension/a3fTimeSeries/a3fTimeSeries.min.js","./edition/examples/averageHeight/averageHeight.main.js":"./edition/examples/averageHeight/averageHeight.main.js?v=bb29848d6ec9","./edition/examples/averageHeight/averageHeight.ui.js":"./edition/examples/averageHeight/averageHeight.ui.js?v=0f5efc4bfc49"}, imports = {};
+    for (const [specifier, target] of Object.entries(entries)) imports[new URL(specifier, document.baseURI).href] = new URL(target, document.baseURI).href;
+    const map = document.createElement('script'); map.type = 'importmap'; map.textContent = JSON.stringify({imports});
+    document.currentScript.after(map);
+}
+installExampleImportMap();
+</script>
+    <title>평균 높이 분석</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <link rel="stylesheet" href="css/pastel-glass-map-theme.css" type="text/css">
+    <link rel="stylesheet" href="css/example-editor.css" type="text/css">
+    <link rel="stylesheet" href="edition/assets/monaco/monaco-editor.css?v=ebbbdcf5172a" type="text/css">
+    <style id="example-viewer-style">
+
+    </style>
+</head>
+<body>
+<!-- 자동 생성 파일입니다. 원본 tutorial-official/examples\averageHeight\averageHeight.md을(를) 수정하세요. -->
+<main id="example-viewer" class="example-app">
+    <div id="map-wrapper"><div id="map"></div></div>
+
+    <!-- 지도 화면에서 예제 목록으로 돌아가는 유일한 통로입니다.
+         브라우저 뒤로가기만 두면 새 탭이나 공유받은 주소로 들어온 사람은 목록을 찾을 수 없습니다. -->
+    <a class="example-brand" href="edition/index.html" title="예제 목록" aria-label="예제 목록으로 이동"><img src="image/geondt-loading-color-logo.png" alt=""></a>
+    <h1 class="example-title">평균 높이 분석</h1>
+
+    <nav class="example-rail" aria-label="예제 도구">
+        <button class="rail-button" type="button" data-panel-target="example-explanation" aria-expanded="false">
+            <span class="rail-icon">?</span><span>도움말</span>
+        </button>
+        <div data-common-ui-rail></div>
+        <div id="viewer-example-rail" class="viewer-example-rail">
+
+        </div>
+    </nav>
+
+    <button class="editor-mode-toggle" type="button" data-open-editor aria-pressed="false">
+        <span class="code-toggle-icon">&lt;/&gt;</span><span data-editor-toggle-label>코드 편집</span>
+    </button>
+
+    <aside class="glass-panel explanation-panel" id="example-explanation" aria-hidden="true">
+        <header class="panel-header">
+            <div><span class="eyebrow">EXAMPLE GUIDE</span><h2>평균 높이 분석</h2></div>
+            <button class="panel-close" type="button" data-panel-close="example-explanation" aria-label="도움말 닫기">×</button>
+        </header>
+        <div class="panel-content markdown-document">
+<h1>평균 높이 분석</h1>
+<p>지도에서 선택한 건물 모델의 평균 높이를 계산합니다. 선택 객체의 식별값과 높이를 함께 확인하며 클릭 선택과 다각형 선택을 전환할 수 있습니다.</p>
+<h2>다루는 기능</h2>
+<ul>
+<li>공통 런타임으로 배경지도·지형·서울 U3F 모델을 준비합니다.</li>
+<li><code>UAnalyAverageHeight</code>의 <code>single</code>·<code>polygon</code> 모드로 모델을 선택합니다. U3F 병합 모델은 건물에 해당하는 재질 구간을 부분 선택합니다.</li>
+<li>선택 완료 이벤트에서 객체 목록을 읽고 중복 식별값을 제외합니다.</li>
+<li><code>getAverageHeight()</code>로 평균을 계산하고 선택 변경 시 이전 값을 지웁니다.</li>
+<li>분석 종료 시 선택기를 정리하고 일반 지도 조작으로 돌아갑니다.</li>
+</ul>
+<h2>사전 조건</h2>
+<p>GeOnDT 라이선스와 WebGL 지원 브라우저가 필요합니다. 건물 모델은 외부 데이터 서버를 사용하므로 접근이 제한되면 선택할 건물이 나타나지 않을 수 있습니다. 지도에 건물이 로드된 뒤 선택하세요.</p>
+<p>이 예제의 높이는 **월드 좌표(EPSG:3857)의 축 정렬 경계 상자에서 구한 Z축 길이(m)**입니다. 실제 지상 건물 높이로 환산하지 않으므로 위도·모델 변환에 따라 지상 높이와 차이가 날 수 있습니다. 병합 모델은 API가 제공하는 내부 객체별 높이를 사용합니다.</p>
+<h2>조작 및 예상 결과</h2>
+<table>
+<thead>
+<tr>
+<th>조작</th>
+<th>예상 결과</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>지도에서 건물을 클릭합니다.</td>
+<td>선택 객체와 높이가 패널에 표시됩니다. Shift를 누르고 클릭하면 선택을 추가합니다.</td>
+</tr>
+<tr>
+<td>‘다각형 선택’을 고르고 세 지점 이상을 클릭한 뒤 더블클릭합니다.</td>
+<td>영역에 포함된 모델의 선택이 완료되면 목록이 갱신됩니다.</td>
+</tr>
+<tr>
+<td>‘평균 높이 계산’을 누릅니다.</td>
+<td>현재 선택의 평균 높이가 소수점 세 자리로 표시됩니다.</td>
+</tr>
+<tr>
+<td>선택을 변경하거나 선택 방식을 바꿉니다.</td>
+<td>이전 평균값을 지우며 새 선택에서 다시 계산할 수 있습니다.</td>
+</tr>
+<tr>
+<td>‘선택 초기화’를 누릅니다.</td>
+<td>선택 강조·목록·평균값을 지우고 현재 선택 방식을 유지합니다.</td>
+</tr>
+<tr>
+<td>‘평균 높이 분석 실행’을 끕니다.</td>
+<td>선택기와 결과를 정리하고 일반 지도 조작을 사용할 수 있습니다. 다시 켜면 새 선택을 시작합니다.</td>
+</tr>
+</tbody></table>
+<p>고도 타일은 클릭·다각형 선택 목록과 평균 계산에서 제외합니다. 건물 등의 3D Tiles 모델은 계산 대상입니다.</p>
+<p>선택하지 않았을 때는 평균을 0으로 표시하지 않고 ‘—’로 표시하며 계산 버튼을 비활성화합니다. 같은 객체는 한 번만 집계합니다. 목록에는 현재 선택 순서의 객체 번호를 표시합니다. 객체 번호를 펼치면 모델이 제공하는 전체 식별값을 확인할 수 있습니다. 전체 식별값은 내부 조회용 값이며 영구 식별자를 보장하지 않습니다.</p>
+<h2>관련 API</h2>
+<p>앱의 클릭 이벤트보다 분석의 <code>select</code> 이벤트를 사용해 비동기 선택과 다각형 선택이 확정된 뒤 목록을 읽습니다. 분석 재활성화가 이전 이벤트를 정리할 수 있어 활성화 후 리스너를 등록합니다.</p>
+<pre><code class="language-javascript" data-example-code-token="averageHeight.selection" data-example-code-source="main"></code></pre><p><code>getSelectedModelHeight()</code>로 객체별 높이를 표시하고 <code>getAverageHeight()</code>로 전체 평균을 계산합니다. 유효한 선택과 유한한 계산값을 확인한 뒤 결과를 반영합니다. 선택과 계산 사이에 대상이 바뀌어도 현재 선택을 다시 읽습니다.</p>
+<pre><code class="language-javascript" data-example-code-token="averageHeight.calculate" data-example-code-source="main"></code></pre><p>예제 종료 시 자신이 등록한 리스너를 해제하고 분석 선택기를 종료합니다. 공통 앱·배경지도·지형·모델 레이어의 정리는 공통 런타임이 담당합니다.</p>
+        </div>
+    </aside>
+
+
+
+    <div data-common-ui-panels></div>
+    <div data-common-ui-tools></div>
+    <div data-common-ui-status></div>
+
+    <div id="load" class="loading-indicator" hidden><img src="image/loading.svg" alt="불러오는 중"></div>
+
+    <aside id="example-api-help" class="example-api-help" role="tooltip" hidden>
+        <header class="example-api-help-header">
+            <strong data-api-help-title></strong>
+            <button type="button" data-api-help-close aria-label="API 도움말 닫기">×</button>
+        </header>
+        <p data-api-help-description></p>
+        <section data-api-help-dynamic-section>
+            <b>현재 설정</b>
+            <pre><code data-api-help-code></code></pre>
+        </section>
+        <section data-api-help-source-section hidden>
+            <b>실제 구현</b>
+            <small data-api-help-source-location></small>
+            <pre><code data-api-help-source-code></code></pre>
+            <button type="button" data-api-help-open-source>코드에서 보기</button>
+        </section>
+        <p data-api-help-source-error hidden></p>
+    </aside>
+</main>
+
+<section id="example-editor" class="editor-workspace" hidden aria-label="예제 코드 편집기">
+    <header class="editor-toolbar">
+        <strong class="editor-title">평균 높이 분석</strong>
+        <div class="editor-toolbar-actions">
+            <button class="editor-search-toggle" type="button" data-editor-action="search" aria-expanded="false" aria-controls="editor-search" title="모든 탭에서 검색 (Ctrl+Shift+F)" aria-label="모든 탭에서 검색">
+                <img src="image/search_white_24dp.svg" alt=""><span>검색</span>
+            </button>
+            <button type="button" data-editor-action="reset">초기화</button>
+            <button type="button" data-editor-action="console" aria-expanded="false">Console</button>
+            <button class="editor-close-button" type="button" data-editor-action="viewer" title="코드 편집 닫기" aria-label="코드 편집 닫기">
+                <span class="editor-close-icon" aria-hidden="true">×</span><span>닫기</span>
+            </button>
+        </div>
+    </header>
+    <div class="editor-layout" id="editor-layout">
+        <section class="editor-pane" id="editor-pane" aria-label="코드 편집">
+            <div class="editor-tabs" role="tablist" aria-label="코드 종류">
+                <button type="button" role="tab" data-code-tab="javascript" aria-selected="true">JavaScript</button>
+                <button type="button" role="tab" data-code-tab="html" aria-selected="false">HTML</button>
+                <button type="button" role="tab" data-code-tab="css" aria-selected="false">CSS</button>
+                <button class="editor-run-button" type="button" data-editor-action="run"><span>▶</span> 실행</button>
+            </div>
+            <div id="monaco-editor" class="monaco-host"></div>
+            <div class="editor-search" id="editor-search" hidden>
+                <div class="editor-search-bar">
+                    <img class="editor-search-bar-icon" src="image/search_white_24dp.svg" alt="">
+                    <input class="editor-search-input" id="editor-search-input" type="search" placeholder="모든 탭에서 검색" autocomplete="off" spellcheck="false" aria-label="모든 탭에서 검색">
+                    <button class="editor-search-option" type="button" data-search-option="matchCase" aria-pressed="false" title="대소문자 구분">Aa</button>
+                    <button class="editor-search-option" type="button" data-search-option="regex" aria-pressed="false" title="정규식 사용">.*</button>
+                    <button class="editor-search-close" type="button" data-search-close aria-label="검색 닫기">×</button>
+                </div>
+                <p class="editor-search-summary" id="editor-search-summary" aria-live="polite">검색어를 입력하세요.</p>
+                <div class="editor-search-results" id="editor-search-results" role="listbox" aria-label="검색 결과"></div>
+            </div>
+            <!--+ 실행 콘솔은 편집 패널 안에 둔다. 미리보기 안에 두면 실행 뒤 `position: fixed`인 미리보기가
+                 쌓임 맥락을 만들어 편집 패널에 가려지고, 실행 전과 위치도 달라진다. -->
+            <section id="preview-console" class="preview-console" aria-label="실행 콘솔" aria-hidden="true">
+                <header><strong>Console</strong><span class="console-count" id="preview-console-count">0</span><button class="console-clear" type="button" data-console-clear>Clear</button><button type="button" data-console-close aria-label="콘솔 닫기">×</button></header>
+                <div id="preview-console-output" class="preview-console-output" aria-live="polite"><p class="console-empty">실행 로그가 여기에 표시됩니다.</p></div>
+            </section>
+        </section>
+        <div class="editor-splitter" id="editor-splitter" role="separator" aria-label="편집기와 미리보기 너비 조절" aria-orientation="vertical" tabindex="0"></div>
+        <section class="preview-pane" aria-label="실행 미리보기">
+            <div id="preview-frame-container" class="preview-frame-container"></div>
+        </section>
+    </div>
+    <div class="editor-mobile-notice" id="editor-mobile-notice" hidden>
+        <strong>코드 편집은 데스크톱 환경에서 지원합니다.</strong>
+        <p>더 넓은 화면에서 Editor를 열거나 지도 Viewer로 돌아가세요.</p>
+        <button type="button" data-editor-action="viewer">지도로 보기</button>
+    </div>
+    <div class="editor-hint-stack">
+        <div class="editor-hint" id="editor-hint" role="status" hidden>
+            <p>실행 전에는 <b>× 닫기</b>와 가장자리 <b>◀</b> 버튼으로 지도로 돌아갑니다.<br>실행한 뒤에는 같은 버튼이 편집 패널만 접고, 실행한 화면은 그대로 남습니다. 접으면 왼쪽 가장자리 <b>▶</b>로 다시 펼칩니다.</p>
+        </div>
+        <div class="editor-hint editor-shortcut-hint" id="editor-shortcut-hint" role="status" hidden>
+            <dl>
+                <dt><kbd>Ctrl</kbd><kbd>F</kbd></dt>
+                <dd>현재 파일에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd></dt>
+                <dd>열린 파일 전체에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Space</kbd></dt>
+                <dd>자동완성 보기</dd>
+                <dt><kbd>Esc</kbd></dt>
+                <dd>찾기 닫기</dd>
+            </dl>
+            <p class="editor-shortcut-note">macOS에서는 <kbd>Ctrl</kbd> 대신 <kbd>Cmd</kbd>를 사용합니다.</p>
+        </div>
+    </div>
+    <div class="editor-panel-resizer" id="editor-panel-resizer" role="separator" aria-label="코드 편집 패널 너비 조절" aria-orientation="vertical" tabindex="0" title="드래그하거나 방향키로 너비 조절"></div>
+</section>
+
+<button class="editor-edge-toggle" type="button" data-editor-edge-toggle aria-pressed="false" title="코드 편집 열기" aria-label="코드 편집 열기">
+    <span class="editor-edge-icon" data-editor-edge-icon aria-hidden="true">▶</span>
+</button>
+
+<script id="example-source" type="application/json">{"format":"manifest","helpHtml":"\u003ch1\u003e평균 높이 분석\u003c/h1\u003e\n\u003cp\u003e지도에서 선택한 건물 모델의 평균 높이를 계산합니다. 선택 객체의 식별값과 높이를 함께 확인하며 클릭 선택과 다각형 선택을 전환할 수 있습니다.\u003c/p\u003e\n\u003ch2\u003e다루는 기능\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e공통 런타임으로 배경지도·지형·서울 U3F 모델을 준비합니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003eUAnalyAverageHeight\u003c/code\u003e의 \u003ccode\u003esingle\u003c/code\u003e·\u003ccode\u003epolygon\u003c/code\u003e 모드로 모델을 선택합니다. U3F 병합 모델은 건물에 해당하는 재질 구간을 부분 선택합니다.\u003c/li\u003e\n\u003cli\u003e선택 완료 이벤트에서 객체 목록을 읽고 중복 식별값을 제외합니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003egetAverageHeight()\u003c/code\u003e로 평균을 계산하고 선택 변경 시 이전 값을 지웁니다.\u003c/li\u003e\n\u003cli\u003e분석 종료 시 선택기를 정리하고 일반 지도 조작으로 돌아갑니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e사전 조건\u003c/h2\u003e\n\u003cp\u003eGeOnDT 라이선스와 WebGL 지원 브라우저가 필요합니다. 건물 모델은 외부 데이터 서버를 사용하므로 접근이 제한되면 선택할 건물이 나타나지 않을 수 있습니다. 지도에 건물이 로드된 뒤 선택하세요.\u003c/p\u003e\n\u003cp\u003e이 예제의 높이는 **월드 좌표(EPSG:3857)의 축 정렬 경계 상자에서 구한 Z축 길이(m)**입니다. 실제 지상 건물 높이로 환산하지 않으므로 위도·모델 변환에 따라 지상 높이와 차이가 날 수 있습니다. 병합 모델은 API가 제공하는 내부 객체별 높이를 사용합니다.\u003c/p\u003e\n\u003ch2\u003e조작 및 예상 결과\u003c/h2\u003e\n\u003ctable\u003e\n\u003cthead\u003e\n\u003ctr\u003e\n\u003cth\u003e조작\u003c/th\u003e\n\u003cth\u003e예상 결과\u003c/th\u003e\n\u003c/tr\u003e\n\u003c/thead\u003e\n\u003ctbody\u003e\u003ctr\u003e\n\u003ctd\u003e지도에서 건물을 클릭합니다.\u003c/td\u003e\n\u003ctd\u003e선택 객체와 높이가 패널에 표시됩니다. Shift를 누르고 클릭하면 선택을 추가합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e‘다각형 선택’을 고르고 세 지점 이상을 클릭한 뒤 더블클릭합니다.\u003c/td\u003e\n\u003ctd\u003e영역에 포함된 모델의 선택이 완료되면 목록이 갱신됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e‘평균 높이 계산’을 누릅니다.\u003c/td\u003e\n\u003ctd\u003e현재 선택의 평균 높이가 소수점 세 자리로 표시됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e선택을 변경하거나 선택 방식을 바꿉니다.\u003c/td\u003e\n\u003ctd\u003e이전 평균값을 지우며 새 선택에서 다시 계산할 수 있습니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e‘선택 초기화’를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e선택 강조·목록·평균값을 지우고 현재 선택 방식을 유지합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e‘평균 높이 분석 실행’을 끕니다.\u003c/td\u003e\n\u003ctd\u003e선택기와 결과를 정리하고 일반 지도 조작을 사용할 수 있습니다. 다시 켜면 새 선택을 시작합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003c/tbody\u003e\u003c/table\u003e\n\u003cp\u003e고도 타일은 클릭·다각형 선택 목록과 평균 계산에서 제외합니다. 건물 등의 3D Tiles 모델은 계산 대상입니다.\u003c/p\u003e\n\u003cp\u003e선택하지 않았을 때는 평균을 0으로 표시하지 않고 ‘—’로 표시하며 계산 버튼을 비활성화합니다. 같은 객체는 한 번만 집계합니다. 목록에는 현재 선택 순서의 객체 번호를 표시합니다. 객체 번호를 펼치면 모델이 제공하는 전체 식별값을 확인할 수 있습니다. 전체 식별값은 내부 조회용 값이며 영구 식별자를 보장하지 않습니다.\u003c/p\u003e\n\u003ch2\u003e관련 API\u003c/h2\u003e\n\u003cp\u003e앱의 클릭 이벤트보다 분석의 \u003ccode\u003eselect\u003c/code\u003e 이벤트를 사용해 비동기 선택과 다각형 선택이 확정된 뒤 목록을 읽습니다. 분석 재활성화가 이전 이벤트를 정리할 수 있어 활성화 후 리스너를 등록합니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\" data-example-code-token=\"averageHeight.selection\" data-example-code-source=\"main\"\u003e\u003c/code\u003e\u003c/pre\u003e\u003cp\u003e\u003ccode\u003egetSelectedModelHeight()\u003c/code\u003e로 객체별 높이를 표시하고 \u003ccode\u003egetAverageHeight()\u003c/code\u003e로 전체 평균을 계산합니다. 유효한 선택과 유한한 계산값을 확인한 뒤 결과를 반영합니다. 선택과 계산 사이에 대상이 바뀌어도 현재 선택을 다시 읽습니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\" data-example-code-token=\"averageHeight.calculate\" data-example-code-source=\"main\"\u003e\u003c/code\u003e\u003c/pre\u003e\u003cp\u003e예제 종료 시 자신이 등록한 리스너를 해제하고 분석 선택기를 종료합니다. 공통 앱·배경지도·지형·모델 레이어의 정리는 공통 런타임이 담당합니다.\u003c/p\u003e","assetBaseUrl":"edition/examples/averageHeight/","runtime":{"home":{"longitude":126.9395,"latitude":37.52,"height":450,"duration":2,"pitch":60},"baseLayers":["satellite"],"terrain":{"enabled":true,"preset":"korea"},"modelLayers":[{"preset":"seoul_u3f","visible":true}],"mapTools":["home","north","zoom-in","zoom-out"],"cameraStatus":true,"help":true,"loading":true},"imports":[],"dependencies":[],"commonUi":{"imageLayerPanel":true,"terrainLayerPanel":true},"sourceTokens":{"averageHeight.selection":{"id":"averageHeight.selection","sourceId":"main","file":"./averageHeight.main.js","label":"main.js","startLine":68,"endLine":72,"code":"analysis.setSelectType(state.mode);\nanalysis.active();\nstate.active = true;\n// 재활성화가 기존 리스너를 정리하므로 active() 이후 등록합니다.\nselectionKey = analysis.on('select', handleSelection);"},"averageHeight.calculate":{"id":"averageHeight.calculate","sourceId":"main","file":"./averageHeight.main.js","label":"main.js","startLine":128,"endLine":130,"code":"const value = analysis.getAverageHeight();\nif (!Number.isFinite(value) || value \u003c 0) throw new Error('유효한 평균 높이를 계산하지 못했습니다.');\nstate.average = value;"}},"sources":[{"id":"main","label":"main.js","path":"./averageHeight.main.js","language":"javascript","editable":true,"url":"edition/examples/averageHeight/averageHeight.main.js?v=bb29848d6ec9","content":"/**\r\n * 모델 선택과 평균 높이 분석을 준비합니다.\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @returns {object} 선택·계산·종료 동작과 상태 구독\r\n * @throws {Error} 평균 높이 분석을 사용할 수 없는 경우\r\n */\r\nexport function initialize(context) {\r\n    const app = context.app;\r\n    const analysis = app.getAnalysis('AverageHeight');\r\n    if (!analysis) throw new Error('평균 높이 분석을 사용할 수 없습니다.');\r\n    const subscribers = new Set();\r\n    const state = {active: false, mode: 'single', items: [], average: null, message: ''};\r\n    let selectionKey;\r\n    let disposed = false;\r\n\r\n    /** 현재 선택과 안내를 화면에 반영합니다. */\r\n    function notify() {app.setUpdateDate(); subscribers.forEach(listener =\u003e listener());}\r\n\r\n    /** @returns {Array\u003c{id: string, height: number}\u003e} 중복을 제외한 선택 모델의 높이 */\r\n    function readSelection() {\r\n        const items = new Map();\r\n        const targets = analysis.getSelected() || {};\r\n        for (const key of analysis.getSelector()?.getSelectedKey() || []) {\r\n            for (const info of analysis.getSelectedModelHeight(key) || []) {\r\n                if (!Number.isFinite(info.height) || info.height \u003c 0) continue;\r\n                const id = info.id ?? targets[key] ?? key;\r\n                if (!items.has(id)) items.set(id, {id: String(info.id ?? key), height: info.height});\r\n            }\r\n        }\r\n        return [...items.values()];\r\n    }\r\n\r\n    /** 선택이 확정된 뒤 목록을 읽고 이전 평균값을 무효화합니다. */\r\n    function handleSelection() {\r\n        if (disposed || !state.active) return;\r\n        state.average = null;\r\n        try {\r\n            state.items = readSelection();\r\n            state.message = state.items.length\r\n                ? state.items.length + '개 객체를 선택했습니다. 평균 높이 계산을 누르세요.'\r\n                : '선택된 모델이 없습니다. 지도에 표시된 건물을 선택하세요.';\r\n        } catch (error) {\r\n            state.items = [];\r\n            state.message = error instanceof Error ? error.message : String(error);\r\n        }\r\n        notify();\r\n    }\r\n\r\n    /** 이 예제가 등록한 선택 완료 이벤트만 해제합니다. */\r\n    function unbindSelection() {\r\n        if (selectionKey !== undefined) analysis.off('select', selectionKey);\r\n        selectionKey = undefined;\r\n    }\r\n\r\n    /**\r\n     * 분석 선택을 시작하거나 종료합니다.\r\n     * @param {boolean} active 분석 실행 여부\r\n     * @throws {Error} 분석 모드 전환에 실패한 경우\r\n     */\r\n    function setActive(active) {\r\n        if (disposed || state.active === active) return;\r\n        unbindSelection();\r\n        state.active = false;\r\n        state.items = [];\r\n        state.average = null;\r\n        if (active) {\r\n            // @example-code:start averageHeight.selection\r\n            analysis.setSelectType(state.mode);\r\n            analysis.active();\r\n            state.active = true;\r\n            // 재활성화가 기존 리스너를 정리하므로 active() 이후 등록합니다.\r\n            selectionKey = analysis.on('select', handleSelection);\r\n            // @example-code:end averageHeight.selection\r\n            state.message = state.mode === 'single'\r\n                ? '건물을 클릭하세요. Shift를 누르면 선택을 추가합니다.'\r\n                : '세 지점 이상을 클릭하고 더블클릭으로 선택 영역을 마치세요.';\r\n        } else {\r\n            analysis.clear();\r\n            analysis.deactive();\r\n            app.setPanMode();\r\n            state.message = '평균 높이 분석을 종료했습니다. 일반 지도 조작을 사용할 수 있습니다.';\r\n        }\r\n        notify();\r\n    }\r\n\r\n    /**\r\n     * 선택 방식을 바꾸며 이전 선택과 계산값을 지웁니다.\r\n     * @param {'single' | 'polygon'} mode 클릭 또는 다각형 선택\r\n     * @throws {Error} 지원하지 않는 선택 방식인 경우\r\n     */\r\n    function setMode(mode) {\r\n        if (mode !== 'single' \u0026\u0026 mode !== 'polygon') throw new Error('지원하지 않는 선택 방식입니다.');\r\n        if (disposed || mode === state.mode) return;\r\n        analysis.clear();\r\n        analysis.setSelectType(mode);\r\n        state.mode = mode;\r\n        state.items = [];\r\n        state.average = null;\r\n        state.message = !state.active ? '분석을 시작하면 선택 방식을 사용할 수 있습니다.'\r\n            : mode === 'single' ? '건물을 클릭하세요. Shift를 누르면 선택을 추가합니다.'\r\n            : '세 지점 이상을 클릭하고 더블클릭으로 선택 영역을 마치세요.';\r\n        notify();\r\n    }\r\n\r\n    /** 선택과 계산 결과를 지우며 현재 선택 방식은 유지합니다. */\r\n    function clear() {\r\n        if (disposed) return;\r\n        analysis.clear();\r\n        state.items = [];\r\n        state.average = null;\r\n        state.message = '선택과 평균 높이를 초기화했습니다.';\r\n        notify();\r\n    }\r\n\r\n    /**\r\n     * 현재 선택된 모델의 월드 Z축 평균 높이를 계산합니다.\r\n     * @returns {number} 공개 API가 반환한 평균 높이(m)\r\n     * @throws {Error} 분석 종료·빈 선택·유효하지 않은 계산 결과인 경우\r\n     */\r\n    function calculate() {\r\n        if (disposed) throw new Error('종료된 예제입니다.');\r\n        state.average = null;\r\n        try {\r\n            if (!state.active) throw new Error('평균 높이 분석을 먼저 시작하세요.');\r\n            state.items = readSelection();\r\n            if (!state.items.length) throw new Error('계산할 모델을 먼저 선택하세요.');\r\n            // @example-code:start averageHeight.calculate\r\n            const value = analysis.getAverageHeight();\r\n            if (!Number.isFinite(value) || value \u003c 0) throw new Error('유효한 평균 높이를 계산하지 못했습니다.');\r\n            state.average = value;\r\n            // @example-code:end averageHeight.calculate\r\n            state.message = state.items.length + '개 객체의 평균 높이를 계산했습니다.';\r\n            return value;\r\n        } catch (error) {\r\n            state.message = error instanceof Error ? error.message : String(error);\r\n            throw error;\r\n        } finally {\r\n            notify();\r\n        }\r\n    }\r\n\r\n    /** 선택기와 예제 리스너를 정리하고 공통 지도는 유지합니다. */\r\n    function cleanup() {\r\n        if (disposed) return;\r\n        disposed = true;\r\n        state.active = false;\r\n        unbindSelection();\r\n        analysis.clear();\r\n        analysis.deactive();\r\n        app.setPanMode();\r\n        subscribers.clear();\r\n    }\r\n\r\n    try {setActive(true);}\r\n    catch (error) {cleanup(); throw error;}\r\n    return {\r\n        setActive, setMode, clear, calculate, cleanup,\r\n        /** @returns {object} 화면에 표시할 독립적인 상태 복사본 */\r\n        readState: () =\u003e ({...state, items: state.items.map(item =\u003e ({...item}))}),\r\n        /**\r\n         * 상태 변경을 구독합니다.\r\n         * @param {function(): void} listener 화면 갱신 함수\r\n         * @returns {function(): void} 구독 해제 함수\r\n         */\r\n        subscribe(listener) {subscribers.add(listener); return () =\u003e subscribers.delete(listener);}\r\n    };\r\n}\r\n\r\n/**\r\n * 공통 런타임이 예제를 종료할 때 선택기와 리스너를 정리합니다.\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @param {{cleanup: function(): void}} example 예제 동작\r\n */\r\nexport function dispose(context, example) {example.cleanup();}\r\n"},{"id":"ui","label":"ui.js","path":"./averageHeight.ui.js","language":"javascript","editable":true,"url":"edition/examples/averageHeight/averageHeight.ui.js?v=0f5efc4bfc49","content":"/**\r\n * 선택 방식·분석 실행·평균 높이와 선택 목록을 연결합니다.\r\n *\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @param {object} example 예제 동작\r\n * @returns {function(): void} UI 정리 함수\r\n */\r\nexport function initializeUI(context, example) {\r\n    const root = context.elements.root;\r\n    const controller = new AbortController();\r\n    const {signal} = controller;\r\n    const active = root.querySelector('[data-average-active]');\r\n    const mode = root.querySelector('[data-average-mode]');\r\n    const calculate = root.querySelector('[data-average-calculate]');\r\n    const average = root.querySelector('[data-average-value]');\r\n    const status = root.querySelector('[data-average-status]');\r\n    const count = root.querySelector('[data-average-count]');\r\n    const results = root.querySelector('[data-average-results]');\r\n    const empty = root.querySelector('[data-average-empty]');\r\n    let frame;\r\n\r\n    /** 객체 번호와 펼칠 수 있는 전체 식별값 및 높이를 표시합니다. */\r\n    function render() {\r\n        const state = example.readState();\r\n        active.checked = state.active;\r\n        mode.value = state.mode;\r\n        mode.disabled = !state.active;\r\n        calculate.disabled = !state.active || !state.items.length;\r\n        average.textContent = state.average === null ? '—' : state.average.toFixed(3) + ' m';\r\n        count.textContent = String(state.items.length);\r\n        status.textContent = state.message;\r\n        status.dataset.active = String(state.active);\r\n        const expanded = new Set([...results.querySelectorAll('details[open]')].map(details =\u003e details.dataset.objectId));\r\n        results.replaceChildren(...state.items.map((item, index) =\u003e {\r\n            const row = document.createElement('tr');\r\n            const object = document.createElement('td');\r\n            const details = document.createElement('details');\r\n            details.className = 'average-object';\r\n            details.dataset.objectId = item.id;\r\n            details.open = expanded.has(item.id);\r\n            const summary = document.createElement('summary');\r\n            summary.textContent = '객체 ' + (index + 1);\r\n            summary.setAttribute('aria-label', '객체 ' + (index + 1) + ' 전체 식별값 보기');\r\n            const id = document.createElement('code');\r\n            id.className = 'average-object-id';\r\n            id.textContent = item.id;\r\n            details.append(summary, id);\r\n            object.append(details);\r\n            const height = document.createElement('td');\r\n            height.textContent = item.height.toFixed(3) + ' m';\r\n            row.append(object, height);\r\n            return row;\r\n        }));\r\n        empty.hidden = state.items.length \u003e 0;\r\n    }\r\n\r\n    /** 연속된 선택 통지의 화면 갱신을 한 프레임으로 모읍니다. */\r\n    function scheduleRender() {\r\n        if (frame !== undefined) return;\r\n        frame = requestAnimationFrame(() =\u003e {frame = undefined; render();});\r\n    }\r\n\r\n    active.addEventListener('change', () =\u003e example.setActive(active.checked), {signal});\r\n    mode.addEventListener('change', () =\u003e example.setMode(mode.value), {signal});\r\n    root.querySelector('[data-average-clear]').addEventListener('click', () =\u003e example.clear(), {signal});\r\n    calculate.addEventListener('click', () =\u003e {\r\n        try {example.calculate();}\r\n        catch (error) {status.textContent = error instanceof Error ? error.message : String(error);}\r\n    }, {signal});\r\n    const unsubscribe = example.subscribe(scheduleRender);\r\n    render();\r\n    return () =\u003e {controller.abort(); unsubscribe(); if (frame !== undefined) cancelAnimationFrame(frame);};\r\n}\r\n"},{"id":"html","label":"HTML","path":"./averageHeight.html","language":"html","editable":true,"url":"edition/examples/averageHeight/averageHeight.html?v=22e1b577fb53","content":"\u003ctemplate data-example-rail\u003e\r\n    \u003cbutton class=\"rail-button\" type=\"button\" data-panel-target=\"average-height-panel\" aria-expanded=\"false\"\u003e\r\n        \u003cspan class=\"rail-icon\" aria-hidden=\"true\"\u003e▥\u003c/span\u003e\u003cspan\u003e평균 높이\u003c/span\u003e\r\n    \u003c/button\u003e\r\n\u003c/template\u003e\r\n\u003caside class=\"glass-panel example-panel example-option-panel\" id=\"average-height-panel\" aria-hidden=\"true\"\u003e\r\n    \u003cheader class=\"panel-header\"\u003e\r\n        \u003ch2\u003e평균 높이 분석\u003c/h2\u003e\r\n        \u003cbutton class=\"panel-close\" type=\"button\" data-panel-close=\"average-height-panel\" aria-label=\"평균 높이 패널 닫기\"\u003e×\u003c/button\u003e\r\n    \u003c/header\u003e\r\n    \u003cdiv class=\"panel-content\"\u003e\r\n        \u003cp class=\"panel-description\"\u003e건물 모델을 선택하고 선택한 객체들의 평균 높이를 계산합니다.\u003c/p\u003e\r\n        \u003csection aria-labelledby=\"average-selection-heading\"\u003e\r\n            \u003ch3 id=\"average-selection-heading\"\u003e모델 선택\u003c/h3\u003e\r\n            \u003clabel class=\"average-toggle\"\u003e\u003cinput type=\"checkbox\" data-average-active checked\u003e 평균 높이 분석 실행\u003c/label\u003e\r\n            \u003clabel class=\"average-field\" for=\"average-selection-mode\"\u003e선택 방식\u003c/label\u003e\r\n            \u003cselect id=\"average-selection-mode\" data-average-mode aria-describedby=\"average-selection-note\"\u003e\r\n                \u003coption value=\"single\"\u003e클릭 선택\u003c/option\u003e\r\n                \u003coption value=\"polygon\"\u003e다각형 선택\u003c/option\u003e\r\n            \u003c/select\u003e\r\n            \u003cp class=\"average-note\" id=\"average-selection-note\"\u003e클릭 선택은 Shift로 추가합니다. 다각형은 세 지점 이상을 클릭하고 더블클릭으로 마칩니다.\u003c/p\u003e\r\n            \u003cp data-average-status role=\"status\" aria-live=\"polite\"\u003e\u003c/p\u003e\r\n        \u003c/section\u003e\r\n        \u003csection class=\"average-result-section\" aria-labelledby=\"average-result-heading\"\u003e\r\n            \u003ch3 id=\"average-result-heading\"\u003e평균 높이 \u003cspan class=\"average-subtitle\"\u003e(월드 Z)\u003c/span\u003e\u003c/h3\u003e\r\n            \u003coutput class=\"average-value\" data-average-value aria-live=\"polite\" aria-label=\"월드 Z축 평균 높이\"\u003e—\u003c/output\u003e\r\n            \u003cdiv class=\"average-actions\"\u003e\r\n                \u003cbutton class=\"average-button average-primary\" type=\"button\" data-average-calculate disabled\u003e평균 높이 계산\u003c/button\u003e\r\n                \u003cbutton class=\"average-button\" type=\"button\" data-average-clear\u003e선택 초기화\u003c/button\u003e\r\n            \u003c/div\u003e\r\n            \u003cp class=\"average-note\"\u003e월드 좌표(EPSG:3857)의 Z축 경계 길이입니다. 실제 지상 높이 환산값이 아닙니다. 선택을 변경하면 다시 계산하세요.\u003c/p\u003e\r\n        \u003c/section\u003e\r\n        \u003csection class=\"average-result-section\" aria-labelledby=\"average-list-heading\"\u003e\r\n            \u003ch3 id=\"average-list-heading\"\u003e선택 객체 \u003cspan class=\"average-subtitle\"\u003e\u003cspan data-average-count\u003e0\u003c/span\u003e개\u003c/span\u003e\u003c/h3\u003e\r\n            \u003cp class=\"average-note\" data-average-empty\u003e선택된 모델이 없습니다.\u003c/p\u003e\r\n            \u003cp class=\"average-note\"\u003e객체 번호를 펼치면 전체 식별값을 확인할 수 있습니다.\u003c/p\u003e\r\n            \u003cdiv class=\"average-table-wrap\"\u003e\r\n                \u003ctable\u003e\r\n                    \u003ccaption\u003e선택한 모델과 월드 Z축 높이\u003c/caption\u003e\r\n                    \u003cthead\u003e\u003ctr\u003e\u003cth scope=\"col\"\u003e선택 객체\u003c/th\u003e\u003cth scope=\"col\"\u003e높이 (월드 Z, m)\u003c/th\u003e\u003c/tr\u003e\u003c/thead\u003e\r\n                    \u003ctbody data-average-results\u003e\u003c/tbody\u003e\r\n                \u003c/table\u003e\r\n            \u003c/div\u003e\r\n            \u003cp class=\"average-note\"\u003e건물이 보이지 않으면 모델 데이터 서버 연결과 확대 수준을 확인하세요. U3F 병합 모델은 개별 건물로 분리해 선택합니다.\u003c/p\u003e\r\n        \u003c/section\u003e\r\n    \u003c/div\u003e\r\n\u003c/aside\u003e\r\n"},{"id":"css","label":"CSS","path":"./averageHeight.css","language":"css","editable":true,"url":"edition/examples/averageHeight/averageHeight.css?v=4cde3ae71fff","content":"#average-height-panel {\r\n    --average-field: #1e4358;\r\n    --average-muted: #d3e5ed;\r\n    --average-rule: #89acbc;\r\n    width: min(440px, calc(100% - 100px));\r\n    color: var(--theme-text);\r\n    color-scheme: dark;\r\n}\r\n#average-height-panel h2 {margin: 0; font-size: 20px; line-height: 1.3;}\r\n#average-height-panel h3 {margin: 0; font-size: 16px; line-height: 1.5;}\r\n#average-height-panel .panel-content {padding: 16px; font-size: 14px; font-weight: 400; line-height: 1.5;}\r\n#average-height-panel .panel-description {margin: 0 0 20px; line-height: 1.6;}\r\n#average-height-panel .average-toggle {display: flex; align-items: center; gap: 8px; margin-top: 12px;}\r\n#average-height-panel input[type=\"checkbox\"] {width: 16px; height: 16px; margin: 0; accent-color: var(--theme-accent);}\r\n#average-height-panel .average-field {display: block; margin: 16px 0 8px; font-weight: 500;}\r\n#average-height-panel select {width: 100%; min-height: 40px; padding: 8px; border: 1px solid var(--average-rule); border-radius: 6px; background: var(--average-field); color: var(--theme-text); font: inherit;}\r\n#average-height-panel option {background: var(--average-field); color: var(--theme-text);}\r\n#average-height-panel .average-actions {display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;}\r\n#average-height-panel .average-button {min-height: 40px; padding: 8px 12px; border: 1px solid var(--average-rule); border-radius: 6px; background: var(--average-field); color: var(--theme-text); font: inherit; font-size: 13px; cursor: pointer;}\r\n#average-height-panel .average-primary {background: var(--theme-accent); border-color: var(--theme-accent); color: #173e52;}\r\n#average-height-panel .average-button:hover:not(:disabled) {background: #254e64; color: var(--theme-text);}\r\n#average-height-panel :disabled {opacity: .6; cursor: not-allowed;}\r\n#average-height-panel :is(input, select, button, summary):focus-visible {outline: 2px solid var(--theme-accent); outline-offset: 2px;}\r\n#average-height-panel .average-note {margin: 8px 0 0; color: var(--average-muted); font-size: 12px; line-height: 1.6;}\r\n#average-height-panel [data-average-status] {min-height: 3em; margin: 16px 0 0;}\r\n#average-height-panel .average-result-section {margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--theme-line);}\r\n#average-height-panel .average-subtitle {color: var(--average-muted); font-size: 12px; font-weight: 400;}\r\n#average-height-panel .average-value {display: block; margin-top: 8px; color: var(--theme-text); font-size: 28px; font-variant-numeric: tabular-nums;}\r\n#average-height-panel .average-table-wrap {max-height: 240px; overflow: auto; margin-top: 12px;}\r\n#average-height-panel table {width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums;}\r\n#average-height-panel th, #average-height-panel td {padding: 8px 4px; border-bottom: 1px solid var(--theme-line); text-align: right; font-weight: 400; vertical-align: top;}\r\n#average-height-panel th {color: var(--average-muted);}\r\n#average-height-panel th:first-child, #average-height-panel td:first-child {text-align: left; overflow-wrap: anywhere;}\r\n#average-height-panel th:last-child, #average-height-panel td:last-child {width: 44%; white-space: nowrap;}\r\n#average-height-panel .average-object summary {display: list-item; list-style: disclosure-closed inside; min-height: 28px; padding: 4px 0; color: var(--theme-text); cursor: pointer;}\r\n#average-height-panel .average-object[open] summary {list-style-type: disclosure-open;}\r\n#average-height-panel .average-object summary::marker {color: var(--theme-accent);}\r\n#average-height-panel .average-object-id {display: block; margin-top: 6px; padding: 8px; border-radius: 4px; background: var(--average-field); color: var(--theme-text); font: 11px/1.6 Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text;}\r\n#average-height-panel caption {position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%);}\r\n@media (max-width: 480px) {\r\n    #average-height-panel {width: calc(100% - 92px);}\r\n    #average-height-panel .panel-content {padding-bottom: 64px;}\r\n}\r\n"}]}</script>
+<script id="example-metadata" type="application/json">{"title":"평균 높이 분석","url":"averageHeight.html","category":"analysis","categoryLabel":"분석","summary":"클릭·다각형으로 건물을 선택하고 모델의 월드 Z축 평균 높이를 계산합니다.","tags":["평균 높이","건물","선택","다각형","AverageHeight"],"apis":["U3dApp.getAnalysis","UAnalyAverageHeight.active","UAnalyAverageHeight.setSelectType","UAnalyAverageHeight.getSelector","UAnalyAverageHeight.getSelectedModelHeight","UAnalyAverageHeight.getAverageHeight","UAnalyAverageHeight.clear","UAnalyAverageHeight.deactive"],"editor":true,"rootAlias":false,"apiHelp":false,"imageLayerPanel":true,"terrainLayerPanel":true,"featured":true,"thumbnail":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/averageHeight.png","thumbnailMotion":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/averageHeight.webm","legacy":false,"manifest":true,"sourceFile":"examples\\averageHeight\\averageHeight.md"}</script>
+<script>
+window.__EXAMPLE_BUILD_CONFIG__ = {
+    targetPrefix: 'edition/',
+    runnerUrl: 'edition/runner.html',
+    monacoModuleUrl: 'edition/assets/monaco/monaco-editor.js?v=ebbbdcf5172a',
+    // GeOnDT 타입 선언 번들입니다. 값이 없으면 코드 편집기는 자동완성 없이 동작합니다.
+    monacoTypesUrl: 'edition/assets/monaco/geondt-types.json?v=c951a9e362f9'
+};
+// 예제는 코드 편집 패널을 연 상태로 시작하며, 닫으면 editor=0이 남아 선택이 유지됩니다.
+// 패널 너비는 지도 Engine 생성 전에 확정되므로 초기 화면이 다시 배치되지 않습니다.
+// 좁은 화면에서는 편집기가 화면 전체를 덮으므로 기본 열기를 적용하지 않습니다.
+(function () {
+    var editorParameter = new URLSearchParams(window.location.search).get('editor');
+    window.__EXAMPLE_EDITOR_MODE__ = editorParameter === '1'
+        || (editorParameter !== '0' && window.innerWidth > 760);
+})();
+</script>
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/filesaver/FileSaver.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../dist/GeOnDT.min.js"></script>
+<script src="js/example-theme.js"></script>
+<script type="module">
+import(/* @vite-ignore */ new URL('js/example-page.js', document.baseURI).href);
+</script>
+</body>
+</html>
+

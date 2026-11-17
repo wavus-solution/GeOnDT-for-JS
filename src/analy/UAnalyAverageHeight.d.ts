@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -46,10 +46,12 @@ type UAnalyAverageHeightCO = Omit<Omit<UAnalyCO, never> & UAnalyAverageHeightCO_
  */
 /**
  * ~extends import('@UAnaly').UAnaly <br>
+ *
  * `평균 높이` 분석 클래스 <br>
- * 사용자가 선택한 모델들의 평균 높이를 계산하는 기능을 제공합니다.
+ * 사용자가 선택한 모델들의 평균 높이를 계산하며 지형 타일은 제외합니다.
+ *
  * @group analysis
- * @extends UAnaly
+ * @extends {UAnaly}
  *
  * @example
  * let analy = app.activeAnalysis('AverageHeight');
@@ -76,9 +78,11 @@ declare class UAnalyAverageHeight extends UAnaly {
      */
     setSelectType(type: string): void;
     /**
-     * 선택된 객체들의 높이 정보를 반환하는 함수
+     * 선택된 모델의 높이 정보를 반환하며 지형 타일은 제외합니다.
+     * 자동 재로딩 데이터는 puid를, 일반 메시는 현재 객체의 UUID를 반환하며 임의의 영속 식별값을 만들지 않습니다.
+     *
      * @param {string} key 선택된 객체들의 key 값
-     * @return {Array<{id: string, height: number}> | undefined}
+     * @returns {Array<{id: string, height: number}> | undefined} 선택 모델의 높이와 현재 조회 식별값
      */
     getSelectedModelHeight(key: string): Array<{
         id: string;
@@ -86,6 +90,7 @@ declare class UAnalyAverageHeight extends UAnaly {
     }> | undefined;
     /**
      * 선택 모델의 높이를 ID 중복 없이 집계한 평균을 반환합니다. <br>
+     * 지형 타일은 내부·외부 선택 목록 모두에서 계산 대상과 개수에서 제외합니다.
      * 내부 선택기가 없으면 외부 선택기를 전달해도 undefined를 반환합니다.
      * 내부 선택기가 있으면 외부 선택 목록을 사용할 수 있으며 빈 목록의 평균은 0입니다.
      * 일반 메시의 높이는 월드 축 정렬 경계의 Z축 길이이며 getModelHeight() 재정의를 호출하지 않습니다.
@@ -105,7 +110,7 @@ declare class UAnalyAverageHeight extends UAnaly {
      */
     getModelHeight(model: UMesh | U3DTilesMesh): number;
     /**
-     * 선택된 메시를 레이어별로 묶어 평균 높이와 함께 반환합니다. <br>
+     * 지형 타일을 제외한 선택 메시를 레이어별로 묶어 평균 높이와 함께 반환합니다. <br>
      * 외부 선택기는 레이어별 메시 목록에만 사용하고 각 평균은 내부 전체 선택으로 다시 계산합니다.
      * 내부 선택기가 없으면 평균은 0이며 반환 목록의 메시들은 원본 참조입니다.
      * 선택 조회·집계 오류는 그대로 전파합니다.
@@ -122,9 +127,11 @@ declare class UAnalyAverageHeight extends UAnaly {
      */
     getCalcResult(u3dSelect?: U3dSelect): Array<LayerHeightInfo>;
     /**
-     * 선택된 모델을 key 기반으로 반환하는 함수
+     * 지형 타일을 제외한 선택 모델을 선택기의 원래 키로 반환합니다.
+     * 외부 선택기를 전달해도 해당 선택기의 선택 상태는 변경하지 않습니다.
+     *
      * @param {import('@union3d/select/U3dSelect').U3dSelect} [u3dSelect] 입력시 해당 객체의 선택 모델들로 반환
-     * @return {Record<string, import('@UMesh').UMesh | import('@U3DTilesMesh').U3DTilesMesh> | undefined}
+     * @returns {Record<string, import('@UMesh').UMesh | import('@U3DTilesMesh').U3DTilesMesh> | undefined} 분석 대상 모델의 키별 목록
      */
     getSelected(u3dSelect?: U3dSelect): Record<string, UMesh | U3DTilesMesh> | undefined;
     /**

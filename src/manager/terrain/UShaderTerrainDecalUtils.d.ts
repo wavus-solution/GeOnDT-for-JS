@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -323,6 +323,10 @@ type TerrainLodQuery = (tileLevel: number, profile: TerrainDecalLodProfile, cont
          * 좌표 목록입니다.
          */
         vectors?: Array<TerrainPoint | Array<number>>;
+        /**
+         * 내부 전송까지 유지하는 불변 월드 좌표이며 X·Y를 번갈아 담습니다.
+         */
+        _flatCoordinates?: Float64Array | Float32Array;
         /**
          * path와 area를 제한할 평면 범위입니다.
          */
@@ -1207,13 +1211,20 @@ type TerrainPathSegment = {
          */
         errorReason?: string;
         /**
-         * 요청 실패 이후 이전 벡터 또는 벡터 없는 지형 표시를 허용합니다. 첫 요청 대기와 GPU 처리 실패는 완화하지 않습니다.
+         * 원격 입력 대기와 요청 실패 중 이전 벡터 또는 벡터 없는 지형 표시를 허용합니다. 실제 요청 상태와 취소 수집은 유지하며 GPU 처리 실패는 완화하지 않습니다.
          */
         allowFailureFallback?: boolean;
         /**
          * 최신 권위 source identity입니다.
          */
         sourceIdentity?: TerrainSourceIdentity;
+        /**
+         * 부모 표시를 상속한 출처와 버전입니다. 자체 입력 동기화 시 해제합니다.
+         */
+        inheritedSource?: Readonly<{
+            tileKey: string;
+            dataRevision: number;
+        }>;
         /**
          * 입력 비교값과 확정한 입력 버전입니다. 데이터 승인·GPU 적용 버전과 분리합니다.
          */
@@ -1521,7 +1532,7 @@ type TerrainPathSegment = {
          */
         presentationSameRevisionApplyCount?: number;
         /**
-         * 숨은 자식의 quadtree 재평가를 요청한 generation/revision key입니다.
+         * quadtree 재평가를 요청한 generation/revision/최신 준비 여부 key입니다.
          */
         lodReevaluationKey?: string;
         /**
@@ -1613,6 +1624,10 @@ type TerrainPathSegment = {
          */
         sourceIdentity?: TerrainSourceIdentity;
         /**
+         * 부모 상속 입력의 출처입니다. 생략한 자체 입력은 기존 상속 이력을 해제합니다.
+         */
+        inheritedSource?: TerrainSourceState["inheritedSource"];
+        /**
          * 정규화 중 Base Cache 범위에 결합할 내부 key입니다.
          */
         sourceIdentityKey?: string;
@@ -1637,7 +1652,7 @@ type TerrainPathSegment = {
          */
         sourceStatus?: TerrainSourceStatus;
         /**
-         * source 요청 실패 이후의 대체 표시 허용 여부입니다.
+         * 원격 source 입력 대기와 요청 실패 중 대체 표시 허용 여부입니다.
          */
         allowFailureFallback?: boolean;
         /**
@@ -2249,6 +2264,10 @@ type TerrainCacheValue = TerrainWorkerResult | TerrainGpuCacheEntry;
          * Feature 총순서와 batch를 담은 합성 계획입니다.
          */
         compositionPlan?: TerrainDecalCompositionPlan;
+        /**
+         * 정적 RTT 준비 여부와 별개로 보존하는 혼합 구간의 전체 순서 계획입니다.
+         */
+        orderedCompositionPlan?: TerrainDecalCompositionPlan;
         /**
          * 정적 합성 결과 재사용 판정에 쓸 cache key입니다. hybrid 계획이 아니면 없습니다.
          */

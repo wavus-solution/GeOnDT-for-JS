@@ -1,0 +1,47 @@
+<template data-example-rail>
+    <button class="rail-button" type="button" data-panel-target="average-height-panel" aria-expanded="false">
+        <span class="rail-icon" aria-hidden="true">▥</span><span>평균 높이</span>
+    </button>
+</template>
+<aside class="glass-panel example-panel example-option-panel" id="average-height-panel" aria-hidden="true">
+    <header class="panel-header">
+        <h2>평균 높이 분석</h2>
+        <button class="panel-close" type="button" data-panel-close="average-height-panel" aria-label="평균 높이 패널 닫기">×</button>
+    </header>
+    <div class="panel-content">
+        <p class="panel-description">건물 모델을 선택하고 선택한 객체들의 평균 높이를 계산합니다.</p>
+        <section aria-labelledby="average-selection-heading">
+            <h3 id="average-selection-heading">모델 선택</h3>
+            <label class="average-toggle"><input type="checkbox" data-average-active checked> 평균 높이 분석 실행</label>
+            <label class="average-field" for="average-selection-mode">선택 방식</label>
+            <select id="average-selection-mode" data-average-mode aria-describedby="average-selection-note">
+                <option value="single">클릭 선택</option>
+                <option value="polygon">다각형 선택</option>
+            </select>
+            <p class="average-note" id="average-selection-note">클릭 선택은 Shift로 추가합니다. 다각형은 세 지점 이상을 클릭하고 더블클릭으로 마칩니다.</p>
+            <p data-average-status role="status" aria-live="polite"></p>
+        </section>
+        <section class="average-result-section" aria-labelledby="average-result-heading">
+            <h3 id="average-result-heading">평균 높이 <span class="average-subtitle">(월드 Z)</span></h3>
+            <output class="average-value" data-average-value aria-live="polite" aria-label="월드 Z축 평균 높이">—</output>
+            <div class="average-actions">
+                <button class="average-button average-primary" type="button" data-average-calculate disabled>평균 높이 계산</button>
+                <button class="average-button" type="button" data-average-clear>선택 초기화</button>
+            </div>
+            <p class="average-note">월드 좌표(EPSG:3857)의 Z축 경계 길이입니다. 실제 지상 높이 환산값이 아닙니다. 선택을 변경하면 다시 계산하세요.</p>
+        </section>
+        <section class="average-result-section" aria-labelledby="average-list-heading">
+            <h3 id="average-list-heading">선택 객체 <span class="average-subtitle"><span data-average-count>0</span>개</span></h3>
+            <p class="average-note" data-average-empty>선택된 모델이 없습니다.</p>
+            <p class="average-note">객체 번호를 펼치면 전체 식별값을 확인할 수 있습니다.</p>
+            <div class="average-table-wrap">
+                <table>
+                    <caption>선택한 모델과 월드 Z축 높이</caption>
+                    <thead><tr><th scope="col">선택 객체</th><th scope="col">높이 (월드 Z, m)</th></tr></thead>
+                    <tbody data-average-results></tbody>
+                </table>
+            </div>
+            <p class="average-note">건물이 보이지 않으면 모델 데이터 서버 연결과 확대 수준을 확인하세요. U3F 병합 모델은 개별 건물로 분리해 선택합니다.</p>
+        </section>
+    </div>
+</aside>

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -34,7 +34,7 @@ import type { U3dQuadSet } from "../quadtree/U3dQuadSet.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { U3dQuadTileWork } from "../quadtree/U3dQuadTileWork.js";
 import type { EventCallBack, GeoPosition, GeoPositionVector3, GooglePositionVector3, KeyValue, ModelMesh, WorldPosition, WorldPositionVector3 } from "../types/global.js";
-import type { DeferredObject } from "../util/deferred.js";
+import type { DeferredPromise } from "../util/deferredPromise.js";
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dLodComponentLayer {
@@ -136,6 +136,7 @@ interface GeOnDTMixedInstance_U3dLodComponentLayer {
 "getIntersect"(event: Event & { normalizedX: number; normalizedY: number; }, raycaster: URaycaster): ComponentObject | undefined;
 "setBbox"(key: string, value: UBox3): void;
 "getBbox"(key: string): UBox3 | undefined;
+"_hasGeoLocation": boolean;
 "_defaultHeight": number;
 "_averagePos": three.Vector3;
 "_setAveragePosition": boolean;
@@ -181,7 +182,7 @@ interface GeOnDTMixedInstance_U3dLodComponentLayer {
 "_drawArg": UDrawArg;
 "_quadtreeSet": U3dQuadSet | undefined;
 "_light": ULight | three.Light | undefined;
-"reLoad"(): Promise<string>;
+"reLoad"(): Promise<void>;
 "initializeU3f"(): Promise<boolean>;
 "parseXML"(xml: XMLHttpRequest): void;
 "_geoLocation": { x: number; y: number; z: number; } | undefined;
@@ -194,8 +195,9 @@ interface GeOnDTMixedInstance_U3dLodComponentLayer {
 "refresh"(): void;
 "checkIsExistModel"(name: string, baseurl?: string | undefined): boolean;
 "getModelInfo"(name: string, baseurl?: string | undefined): ModelInfo | undefined;
+"_isModelLoadReady"(model: ModelInfo): boolean;
 "load"(model: ModelInfo, textureUrl?: string | undefined): Promise<ModelObject3D>;
-"getU3FInfo"(model: string | KeyValue | ModelInfo | undefined, baseurl: string): DeferredObject<any>;
+"getU3FInfo"(model: string | KeyValue | ModelInfo | undefined, baseurl: string): Promise<KeyValue[]>;
 "getTexture"(url: string): Promise<three.Texture<any, three.TextureEventMap>>;
 "getObjectCenter"(): three.Vector3;
 "updateHeightByMetadata"(): void;
@@ -275,21 +277,22 @@ interface GeOnDTMixedInstance_U3dLodComponentLayer {
 "setToonImgUrl"(url: string): void;
 "settingModelLayerMaterial"(material: ModelMaterial): void;
 "setWireframe"(setWireframe: boolean): void;
-"setTileFromEditedModel"(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile>;
+"setTileFromEditedModel"(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile | undefined>;
 "getEditedEventById"(id: string): EditedEvent | undefined;
 "mergedMeshDivision"(object: ModelMesh, afterFunction?: ((mesh: three.Object3D<three.Object3DEventMap>, drawArg: UDrawArg) => void) | undefined): three.Object3D<three.Object3DEventMap>[] | undefined;
+"_getMeshDivisionPromise"(object: three.Object3D<three.Object3DEventMap>): Promise<three.Object3D<three.Object3DEventMap>[]> | undefined;
 "checkDivisionMeshIdle"(): void;
 "setEditEvent"(meshes: three.Object3D<three.Object3DEventMap>[]): void;
 "removeEdit"(modelId: string): void;
 "getMaterialIndexByFace"(object: three.Object3D<three.Object3DEventMap>, faceIndex: number): void | SplitInfo;
 "removeMaterialIndex"(object: ModelMesh, materialIndex: number): boolean;
 "setSplitEvent"(parent: ModelMesh, child: ModelMesh): EditedEvent | undefined;
+"_restoreSplitModels"(original: ModelMesh, meshList: three.Object3D<three.Object3DEventMap>): void;
 "_readyState": "pending" | "fulfilled" | "rejected";
 "_readyResolve"(): void;
 "_readyReject"(reason: Error): void;
 readonly "ready": Promise<U3dMultipleComponentLayer>;
 "_readyPromise": Promise<U3dMultipleComponentLayer>;
-"_resetReady"(): this;
 "isReady"(): boolean;
 "_resolveReady"(): this;
 "_rejectReady"(reason: unknown): this;
@@ -354,8 +357,8 @@ readonly "ready": Promise<U3dMultipleComponentLayer>;
 "intersectFrustum"(frustum: three.Frustum): boolean;
 "getCacheKeys"(): string[];
 "getCacheLength"(): number;
-"setCancelByTile"(tile: U3dQuadTile, value: DeferredObject<U3dQuadTile>): void;
-"getCancelByTile"(tile: U3dQuadTile): DeferredObject<U3dQuadTile> | undefined;
+"setCancelByTile"(tile: U3dQuadTile, value: DeferredPromise<U3dQuadTile>): void;
+"getCancelByTile"(tile: U3dQuadTile): Promise<U3dQuadTile> | undefined;
 "once"(event: string, callback: EventCallBack, name?: string | undefined): string;
 "on"(event: string, callback: EventCallBack, once?: boolean | undefined, name?: string | undefined): string;
 "off"(event?: string | undefined, callback?: string | Function | undefined): void;
@@ -607,19 +610,17 @@ declare class U3dLodComponentLayer extends U3dLodComponentLayer_base {
      */
     override initialize(): object;
     _loadedModel: boolean;
-    _initPromise: DeferredObject<unknown>;
+    _initPromise: DeferredPromise<void>;
     getBoundingBox(): three.Box3;
     getBoundingBoxAt(mesh: any, idx: any): any;
-    createModel(tile: any): false | DeferredObject<unknown>;
+    createModel(tile: any): false | DeferredPromise<void>;
     /**
      * 레이어의 모델, 작업자, 캐시와 예약된 비동기 작업을 해제합니다.
      *
      * @override
-     *
-     * @returns {void} 반환값 없이 레이어가 소유한 리소스를 해제합니다.
      */
     override dispose(): void;
-    getTileInfo(tile: any, indexX: any, indexY: any, level: any, baseUrl: any, drawArg: any, tileGen: any): DeferredObject<unknown>;
+    getTileInfo(tile: any, indexX: any, indexY: any, level: any, baseUrl: any, drawArg: any, tileGen: any): DeferredPromise<void>;
     /**
      * 모델 레이어의 프레임 순환 작업을 처리합니다.
      * pending LOD/index 갱신은 auto-height와 분리해 먼저 선처리하고, 고도 보정은 기존 비동기 순환을 유지합니다.
@@ -680,6 +681,7 @@ declare class U3dLodComponentLayer extends U3dLodComponentLayer_base {
     removeModelByName(name: string): void;
     /**
      * 위치·회전·크기 목록으로 이름이 `name`인 모델의 인스턴스를 일괄 생성합니다.
+     * 생성 대기 중 인스턴스 전체 제거 또는 레이어 해제가 발생하면 결과를 반영하지 않고 값 없이 완료합니다.
      *
      * @param {Array<U3dLodComponentPositionInfo>} positionList 위치, 회전, 크기에 대한 내용이 담긴 목록 정보
      * @param {string} name 해당 정보로 생성하려는 모델의 이름

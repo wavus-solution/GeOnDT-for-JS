@@ -245,16 +245,20 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
                 대상이 둘 이상이면 즉시 반영을 요청하고, 하나면 갱신 대기에 올린다.
 
         resetFeatureStyle(feature: UMeasureFeature) -> boolean
+            의존: U3dLayer — 폐기 상태 확인; 속성 읽기: {_disposed}
             동작: 폐기 상태 또는 미등록 피처이면 false를 반환한다. 현재 레이어 기본 스타일을 계산·적용하고 revision을 올려 갱신 대기에 넣으며 true를 반환한다.
 
         setFeatureSelected(feature: UMeasureFeature, selected: boolean) -> boolean
+            의존: U3dLayer — 폐기 상태 확인; 속성 읽기: {_disposed}
             동작: 폐기·미등록·동일 선택 상태에는 false를 반환한다. WeakSet의 선택 표시만 변경하고 스타일 revision을 올려 갱신 대기에 넣으며 true를 반환한다. 저장 스타일은 변경하지 않는다.
 
         cancelLastPosition() -> UMeasureFeature | undefined
             동작: 편집 피처나 점이 없으면 undefined를 반환한다. 위경도·월드 점의 마지막 항목을 함께 제거하고 점이 남으면 피처를 한 번 갱신한다. 점이 없으면 임시 도형만 제거한다.
 
         getFeatureArea(feature: UMeasureFeature) -> number
-            의존: U3dApp — 월드 좌표의 위경도 변환; 함수: {vector3ToGeoGraphic()}
+            의존:
+                U3dApp — 월드 좌표의 위경도 변환; 함수: {vector3ToGeoGraphic()}
+                U3dLayer — 앱 연결 확인; 속성 읽기: {_app}
             동작: 폴리곤이 아니거나 앱이 없으면 0을 반환한다. 월드 정점을 위경도로 변환하고 현재 면적 라벨과 같은 계산으로 실제 면적(㎡)을 반환한다.
 
         resetStyle() -> void
@@ -288,7 +292,9 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
         commitFeatureUpdate(featureOrFeatures?: U3dShaderMeasureFeatureStyleTarget) -> Promise<boolean>
             역할: 전달한 변경과 대기 변경을 즉시 확정하고 입력 동기화 결과를 알린다.
             처리 기준: 폐기·숨김이면 false다. 진행 중 clear/dispose가 발생한 이전 수명의 완료를 성공으로 반환하지 않는다. GPU 표시 완료를 기다리는 API는 아니다.
-            의존: UShaderTerrainDecalManager — 변경 등록·즉시 확정; 함수: {_queueTerrainFeatureUpdate(), _commitTerrainFeatureUpdates()}
+            의존:
+                UShaderTerrainDecalManager — 변경 등록·즉시 확정; 함수: {_queueTerrainFeatureUpdate(), _commitTerrainFeatureUpdates()}
+                U3dLayer — 폐기 상태 확인; 속성 읽기: {_disposed}
             동작:
                 UMeasureFeature 입력만 등록하며 manager가 있으면 그 큐를 확정하고 모든 결과가 성공인지 확인한다. 거부는 false로 바꾼다.
                 manager가 없으면 초기화 전 집합을 꺼내 비우고 즉시 입력을 반영한 결과를 반환한다.
@@ -304,7 +310,9 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
         #scheduleFeatureUpdate(features: Array<UMeasureFeature> = []) -> void
             역할: 변경 대상을 manager가 병합하도록 전달한다.
             처리 기준: 폐기면 아무것도 하지 않는다. manager 연결 전에도 같은 실행 구간의 실제 변환은 한 묶음이며 초기화 전 실패는 한 번 자동 재시도한다.
-            의존: UShaderTerrainDecalManager — 변경 병합; 함수: {_queueTerrainFeatureUpdate()}
+            의존:
+                UShaderTerrainDecalManager — 변경 병합; 함수: {_queueTerrainFeatureUpdate()}
+                U3dLayer — 폐기 상태 확인; 속성 읽기: {_disposed}
             동작:
                 manager가 있으면 UMeasureFeature 입력을 피처 자체의 키로 등록한다.
                 manager가 없으면 집합에 모으고 microtask를 예약한다. callback은 집합 동일성이 바뀌면 취소하며 폐기·숨김이면 대기를 비운다.
@@ -313,6 +321,9 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
         #applyFeatureUpdates(features: Array<UMeasureFeature>) -> boolean
             역할: manager 또는 초기화 전 예약이 확정한 변경 묶음을 측정 입력으로 변환한다.
             처리 기준: 폐기·숨김은 실패이며 빈 묶음은 성공이다. clear 재진입·폐기·숨김이 발생하면 이후 동기화를 생략하고 실패로 반환한다.
+            의존:
+                U3dLayer — 폐기·표시 상태와 앱 연결 확인; 속성 읽기: {_disposed, _app}; 함수: {getVisible()}
+                U3dApp — 화면 갱신 요청; 함수: {changeUpdate()}
             동작:
                 묶음을 변환하고 동일 수명이 유지되면 현재 보이는 타일을 동기화하고 화면 갱신을 요청한다. 예외는 실패로 반환한다.
 
@@ -331,9 +342,10 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
                 U3dLayer — 앱 갱신 요청과 공유 manager 조회; 속성 읽기: {_app, _drawArg, _cache}
                 defined — defined 사용; 함수: {defined()}
             동작:
-                대상 feature를 정하고 tile binding 표들이 비어 있으면 빈 값으로 만든다.
+                앱 또는 drawArg가 없으면 종료한다. 입력 어댑터를 manager에 연결한 뒤 대상 feature를 정하고, 대상이 없으면 종료한다.
+                `_simpleFeatureKeys`가 falsy이면 빈 Set으로, `_featureTileRangeSignature`·`_featureActiveTileKeys`·`_featureTileBindingRevision`이 falsy이면 각각 빈 객체로 초기화한다. 이미 있는 truthy 참조는 유지한다.
                 현재 렌더링 방식을 확정해 feature 순회 전체에 같은 값을 적용한다.
-                직전 그리기 목록을 사본으로 잡아 두고 이번에 flush·clear할 tile key 집합을 준비한다.
+                직전 그리기 목록의 참조를 보관하고 이번에 flush·clear할 tile key 집합을 준비한다. 이후 그리기 집합을 새 Set으로 교체하므로 이전 집합 자체를 복제하지 않는다.
                 feature마다 OpenLayers feature이면 레이어가 관리하는 측정 feature로 바꾸고, 측정 feature가 아니면 건너뛴다.
                 현재 방식이 아닌 이전 경로의 소유물을 먼저 정리하고 그 과정에서 바뀐 tile을 flush 대상에 모은다.
                 simple 경로로 처리되면 그 feature는 여기서 끝낸다.
@@ -342,7 +354,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
                 signature가 달라졌으면 직전 tile 집합을 보관하고 새 교차 집합을 등록한다. 공통 tile의 bound는 재사용하고 벗어난 tile의 payload와 binding만 같은 갱신 묶음에서 제거한다.
                 새 signature와 revision을 기록한다. 공통 tile의 표시·활성 추적과 다른 feature의 binding은 유지한다.
                 새 binding 기준으로 payload를 추가 또는 교체로 동기화하고 바뀐 tile을 모은다.
-                tile 제거가 있거나 연결 수가 달라졌을 때만 binding 변경으로 판정한다. 제거 없이 연결 수가 같으면 기존 tile key 목록과 그리기 목록을 재사용한다. 이전 그리기 집합은 제자리 변경 없이 교체하므로 참조로 보관한다.
+                tile 제거가 있거나 연결 수가 달라졌을 때만 binding 변경으로 판정한다. binding 변경이 있거나 기존 `_drawList`가 없으면 현재 tile key로 `_drawList`를 새 Set으로 교체한다. 그 외에는 기존 tile key 목록과 그리기 집합 참조를 재사용한다.
                 binding이 바뀌었고 직전 그리기 목록과 캐시가 있으면, 이전 목록에만 있던 tile을 확인한다. manager에 남은 feature가 있으면 건너뛰고, 없으면 clear 대상에 넣고 표시 목록과 캐시에서 지운다.
 
                 binding이나 형상이 바뀌었으면 재질 캐시의 실제 키만 열거하고 현재 tile binding의 유형과 일치하는 재질을 변경 표시한다. 캐시가 없는 내부 tile은 재질 조회를 생략한다.
@@ -363,7 +375,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
             인터페이스: simple 경로에서 처리했으면 true, 아니면 false를 돌려준다.
             동작:
                 feature나 방식이 없으면 false를 돌려준다.
-                방식이 simple이면 mesh를 만들어 scene에 올리고 simple 목록에 UID를 넣은 뒤 true를 돌려준다.
+                방식이 simple이면 mesh 생성을 요청하고 simple 목록에 UID를 넣은 뒤 true를 돌려준다. 생성 함수가 좌표·타입 문제로 객체를 만들지 않아도 이 반환은 true다.
                 그 밖에는 false를 돌려준다.
 
         override update(drawArg?: UDrawArg, curTime?: number) -> void
@@ -395,9 +407,9 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
                 편집 feature를 만들거나 갱신한 결과를 돌려준다.
 
         addMeasurePoint(geo: Vector3Like | GeoPosition, fixGuide: boolean = false) -> (UMeasureFeature & {id: string | number}) | undefined
-            처리 기준: fixGuide=true이고 이전 점이 있으면 마지막 안내 점을 새 위경도·월드 좌표의 복사본으로 교체하고 새 안내 점을 추가한다. 두 목록의 변경을 #updateFeature 한 번으로 반영한다.
             역할: 편집 중 측정에 지점 하나를 덧붙인다.
             인터페이스: geo는 위경도 좌표계(EPSG:4326) 지점이다.
+            처리 기준: fixGuide=true이고 이전 점이 있으면 마지막 안내 점을 새 위경도·월드 좌표의 복사본으로 교체하고 새 안내 점을 추가한다. 두 목록의 변경을 #updateFeature 한 번으로 반영한다.
             의존:
                 three — 입력 좌표 보관용 벡터 생성; 생성자: {new Vector3()}
                 UDrawArg — 위경도를 월드 좌표로 변환; 함수: {getGeographicToWorld()}
@@ -448,6 +460,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
             의존:
                 OpenLayers — 형상 생성과 변환; 생성자: {new ol.geom.LineString(), new ol.geom.Polygon(), new ol.geom.Point()}; 함수: {transform()}
                 UMeasureFeature — 결과 생성; 생성자: {new UMeasureFeature()}
+                U3dLayer — 원본 형상·좌표 경계 변환 문맥 조회; 속성 읽기: {_drawArg}
             동작:
                 월드 좌표 사본과 위경도의 2차원 배열을 만든다.
                 측정 타입에 맞는 원본 geometry를 만들고 EPSG:3857로 변환한다. 지원하지 않는 타입이면 끝낸다.
@@ -465,7 +478,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
             처리 기준: 편집 중 feature가 없으면 아무 일도 하지 않는다.
             의존:
                 defined — defined 사용; 함수: {defined()}
-            동작: 편집 feature를 레이어에서 제거하고 편집 feature와 두 좌표 목록을 비운다.
+            동작: `_measureFeature`가 정의되어 있으면 레이어에서 제거하고 편집 feature와 두 좌표 목록을 비운다.
 
         getMeasureFeature() -> UMeasureFeature | undefined
             인터페이스: 반환은 현재 편집 중인 측정 feature다.
@@ -483,11 +496,14 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
             역할: UID로 찾은 feature의 원본 형상과 표시 좌표를 교체한다.
             처리 기준: feature·원본 geometry·해당 UID의 좌표 스냅샷이 없으면 변경하지 않는다. 표시 갱신은 별도 경로가 담당한다.
             의존:
+                U3dLayer — 지도 좌표 변환 문맥 조회; 속성 읽기: {_drawArg}
                 UDrawArg — 월드 좌표를 지도 좌표로 변환; 함수: {getWorldToGoogle()}
                 OpenLayers Geometry — 좌표 조회·갱신; 함수: {getType(), getCoordinates(), setCoordinates()}
-                UMeasureFeature — 좌표·경계 갱신; 함수: {getGeometry(), setMeasureVectors(), setExtent()}
+                UMeasureFeature — 좌표·revision·경계 조회와 갱신; 함수: {getGeometry(), getRevision(), getMeasureVectors(), setMeasureVectors(), setExtent()}
             동작:
-                UID로 feature를 찾고 입력 월드 좌표를 지도 좌표의 숫자 배열로 변환한다.
+                UID로 feature를 찾고 feature·좌표 스냅샷·원본 geometry 중 하나라도 없으면 끝낸다.
+                geometry에 getType 함수가 없으면 변환하지 않은 월드 좌표를 지원되는 setCoordinates에 전달한다. 표시 좌표 참조가 입력과 다르거나 geometry 갱신으로 revision이 변하지 않았으면 setMeasureVectors로 갱신한다. UID별 스냅샷을 교체하고 경계 재계산 없이 끝낸다.
+                getType 함수가 있는 geometry이면 입력 월드 좌표를 지도 좌표의 숫자 배열로 변환한다.
                 Polygon은 외곽선을 닫아 교체하고 기존 내부 링을 보존한다. Point는 첫 좌표만 중심으로 설정하며 그 밖의 타입은 좌표 배열을 설정한다.
                 표시 좌표와 반경을 포함한 경계를 갱신하고 UID별 좌표 스냅샷을 교체한다.
 
@@ -500,7 +516,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
             동작:
                 `_features`가 없으면 끝낸다.
                 `_features`가 있으면 아래를 수행한다.
-                    배열에 추가 함수를 붙이고, 그 함수는 등록 결과가 없으면 예외를 던진다.
+                    배열에 추가 함수를 붙이고, 그 함수는 반환이 undefined일 때만 예외를 던진다. 지원하지 않는 입력도 그대로 반환될 수 있어 등록 성공을 보장하는 판정은 아니다. [확인 Q-003]
                     배열에 ID 조회 함수를 레이어에 바인딩해 붙인다.
 
         #sourceAddFeature(feature: OLFeature | UMeasureFeature) -> OLFeature | UMeasureFeature | undefined
@@ -511,7 +527,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
                 UID가 이미 목록에 있으면 다시 넣지 않는다.
             의존:
                 OpenLayers — 입력 종류 판별과 geometry 조회; 함수: {ol.Feature, ol.geom.{Polygon, LineString, Point}, getGeometry(), getExtent()}
-                three — 표시 좌표 생성; 생성자: {new Vector3()}
+                THREE — 표시 좌표 생성; 생성자: {new Vector3()}
                 UDrawArg — 지도 좌표를 월드 좌표로 변환; 함수: {getGoogleToWorld()}
                 UMeasureFeature — 측정 feature 생성·갱신; 생성자: {new UMeasureFeature()}; 함수: {applyTypedMeasureData(), applyRuntimeState(), getUid(), getExtent(), getWorldExtent(), getGeometry(), getType(), getMeasureVectors(), getId(), getOLFeature(), getProperties(), getStyle(), getNonChanged(), getExcludeSearch(), getStyleRevision(), getDrawSequence()}
                 UDEF — 측정 종류 상수; 상수: {MEASURE_TYPE.{POLYGON, LINESTRING, POINTBUFFER}}
@@ -526,6 +542,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
                     합성 순서와 draw sequence를 확정하고 좌표 스냅샷을 보관한 뒤, 목록에 없으면 추가하고 원본 feature 표에 등록한다.
                     측정 feature이면 같은 식별자의 기존 feature가 다른 객체일 때만 typed 데이터와 런타임 상태를 그 기존 feature에 옮겨 대상으로 삼고, 아니면 입력을 그대로 대상으로 쓴다.
                     대상의 draw sequence를 확정하고 목록에 없으면 추가한 뒤 좌표 스냅샷을 보관한다.
+                위 두 종류가 아닌 배열 등의 입력은 등록하지 않는다. 분기 처리가 끝나면 등록 결과와 무관하게 입력을 그대로 반환한다. [확인 Q-003]
 
         #applySourceFeatureRuntimeState(feature: UMeasureFeature, sourceFeature: object) -> UMeasureFeature
             역할: 원본 feature가 들고 있던 스타일·표시 관련 런타임 상태를 측정 feature로 옮긴다.
@@ -545,7 +562,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
                 측정 feature이면 그대로, 그 밖에는 undefined를 돌려준다.
 
         addFeature(opt: U3dShaderMeasureLayerAddFeatureCO) -> boolean
-            역할: 전달한 좌표로 만든 다각형과 편집 중 다각형을 레이어에 추가하고 두 영역이 겹치는지 확인한다.
+            역할: 전달한 좌표로 만든 다각형과 편집 중 다각형이 겹치는지 확인한다.
             인터페이스: opt의 좌표는 위경도 좌표계(EPSG:4326)다. 반환은 두 다각형의 교차 여부다.
             처리 기준: 편집 중 좌표가 3개보다 적으면 다각형을 만들 수 없으므로 아무것도 추가하지 않고 false를 돌려준다.
             의존:
@@ -554,7 +571,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
             동작:
                 입력 좌표와 편집 중 좌표를 각각 2차원 배열로 바꿔 다각형을 만들고 위경도에서 월드 좌표로 변환한다.
                 편집 중 좌표가 3개보다 적으면 false를 돌려준다.
-                두 다각형을 모두 레이어에 등록한다.
+                각 벡터 소스에서 받은 feature 배열을 등록 함수에 전달한다. 등록 함수는 단일 feature만 처리하므로 이 두 배열은 실제로 등록되지 않는다. [확인 Q-003]
                 편집 중 다각형을 기준으로 입력 다각형들과 교차를 검사해 하나라도 겹치면 true, 없으면 false를 돌려준다.
 
         removeFeature(feature: UMeasureFeature) -> void
@@ -568,9 +585,9 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
                 U3dLayer — 앱 갱신 요청과 공유 manager 조회; 속성 읽기: {_app}
                 defined — defined 사용; 함수: {defined()}
             동작:
-                초기화 전 대기 집합과 manager 변경 큐에서 이 feature를 뺀다.
-                UID별 tile 범위 signature·활성 tile·binding revision 기록을 지운다.
-                simple 객체를 캐시와 scene에서 지우고 simple 목록에서도 뺀다.
+                선택 표시 WeakSet과 초기화 전 대기 집합, manager 변경 큐에서 이 feature를 뺀다.
+                feature의 UID가 있으면 UID별 tile 범위 signature·활성 tile·binding revision 기록을 지운다.
+                    simple 객체를 캐시와 scene에서 지우고 simple 목록에서도 뺀다.
                 tile binding이 있으면 terrain payload를 제거 사유로 즉시 반영하고 binding을 지운다.
                 feature 목록과 좌표·원본 feature 표에서도 지우고 화면 갱신을 요청한다.
 
@@ -639,7 +656,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
 
     측정값 계산 책임 그룹
         역할: 측정 feature나 편집 중 좌표에서 길이·면적·반경을 계산한다.
-        처리 기준: 이 그룹에는 단위가 다른 두 계열이 있다. `getFeature*` 계열은 월드 좌표(EPSG:3857) 평면 값이고, `getMeasure*` 계열은 지표 거리 기준 미터 값이다.
+        처리 기준: getFeatureLineLength·getFeaturePolygonArea·getFeaturePointBufferRadius는 월드 좌표(EPSG:3857) 평면 값이다. getFeatureArea와 getMeasure 계열은 지표 거리·면적 기준 미터·제곱미터 값이다.
 
         getFeatureMeasureVectors(feature: UMeasureFeature) -> Array<Vector3>
             인터페이스: 반환은 그 feature의 월드 좌표(EPSG:3857) 측정 좌표다. 좌표를 얻을 수 없으면 빈 배열이다.
@@ -784,11 +801,10 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
             처리 기준: geometry나 범위가 없으면 빈 제거 목록을 반환한다. 제품 소유의 단일 Polygon 좌표·판정 함수에만 성공한 이전 상태를 재사용한다.
             의존:
                 UMeasureFeature — geometry·범위 조회; 함수: {getGeometry(), getExtent()}
-                defined — defined 사용; 함수: {defined()}
             동작:
                 이전 증분 상태를 먼저 무효화하고 현재 좌표 스냅샷의 입력을 만든다. 마지막 점 이동·단일 끝점 추가·제거와 중복 가이드 확정이면 변경 삼각형만 기존 교차 함수로 판정한다.
-                변경 목록을 완전히 계산한 뒤 새로 포함된 타일만 등록하고 벗어난 키를 제거한다. 변경 영역 안에서 계속 포함되는 기존 연결은 재등록하지 않는다. 판정 중 예외는 기존 연결 맵을 보존하며 다음 시도는 전체 검사로 복구한다.
-                증분 조건을 만족하지 않으면 새 맵에서 시작 level부터 끝 level까지 전체 검사하고 이전 맵과 제거 차이를 구한다.
+                좌표 스냅샷 callback 안에서 변경 영역을 기존 교차 함수로 판정하고, 변경 목록을 완전히 계산한 뒤 새로 포함된 타일만 등록하고 벗어난 키를 제거한다. 변경 영역 안에서 계속 포함되는 기존 연결은 재등록하지 않는다. 판정 중 예외는 기존 연결 맵을 보존하며 다음 시도는 전체 검사로 복구한다.
+                같은 callback에서 증분 조건을 만족하지 않으면 새 맵에서 시작 level부터 끝 level까지 전체 검사하고 이전 맵과 제거 차이를 구한다.
                 성공한 결과만 피처를 키로 하는 WeakMap에 보관하며 전체 피처 제거·clear·dispose에서 폐기한다.
 
         #setDrawTile(ma: UMercator, i: number, extent: object, drawTile: Map<string, string>, feature: UMeasureFeature, offset: number) -> void
@@ -847,7 +863,9 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
             역할: 부모·자식 tile 교대 중에는 기존 decal 제거를 보류시킨다.
             처리 기준: 단순 숨김 제거와 교대 제거를 구분하기 위한 판정이다. manager가 없으면 보류하지 않는다.
             의존: UShaderTerrainDecalManager — 전환 상태 조회; 함수: {getTerrainTilePresentationState(), shouldDeferTerrainSceneRemoval(), isTerrainTileSwapReady()}
-            동작: 제거 보류 중이거나, 교대 관계가 있으면서 아직 교대 준비가 끝나지 않았으면 true를 돌려준다.
+            동작:
+                tile key 또는 manager가 없으면 false다. 주 측정 source 키와 includeComposition=false를 전달하여 표시 상태만 조회하고 합성 계획 투영은 요청하지 않는다.
+                manager의 제거 보류가 정확히 true이거나, 조회 결과의 hasHandoffRelation이 정확히 true이면서 교대 준비가 정확히 true가 아니면 true를 반환한다. 그 밖에는 false다.
 
     terrain payload 반영 책임 그룹
         역할: 만들어진 payload를 manager의 tile source에 넣고 빼며, 그 결과로 tile 표시 추적을 맞춘다.
@@ -948,7 +966,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
         isTileSceneRemovalDeferred(tile: U3dQuadTile) -> boolean
             역할: 자식 표시가 갖춰질 때까지 부모 제거를 보류할지 manager에 묻는다.
             처리 기준: 자식이 없으면 빈 상태를 전달하며 자식이 하나라도 있으면 앞 네 자리를 고정해 누락 자식은 미표시로 전달한다.
-            동작: 자식의 표시 판정을 구해 부모 입력과 함께 넘기고 deferredRemoval 결과를 반환한다.
+            동작: 자식 목록이 없으면 빈 배열을, 있으면 0부터 3까지 자식의 표시 판정을 map callback에서 구한다. 이를 부모 입력과 함께 넘기고 deferredRemoval 결과를 반환한다.
 
         override addTileFromScene(tile: U3dQuadTile) -> boolean
             역할: measure feature가 실제로 참여하는 tile만 source 동기화 대상으로 등록한다.
@@ -1031,12 +1049,13 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
                 UGroup — scene 그룹 비우기; 함수: {clear()}
                 UShaderMaterialManager — 재질 관리자 해제; 함수: {dispose()}
             동작:
+                먼저 대기 집합을 교체하고 manager 소유자 구독과 예약을 해제해 이전 변경 callback의 재적용을 막는다.
                 binding 표·표시 목록·점유 목록과 manager가 알려 준 생명주기 tile 키를 모두 모은다.
                 tile마다 이 레이어 소유 source를 해제하고 주인이 없어진 tile의 최종 폐기를 시도한다.
                 앱 연결을 undefined로 끊고 부모 정리를 수행하여 반환 Promise를 보관한다.
                 빌린 원본 OpenLayers geometry는 해제하지 않는다.
                 feature 목록·원본 표를 비우고 source 도우미를 다시 붙인 뒤 캐시와 scene 그룹을 비운다.
-                tile·feature 추적 상태를 초기값으로 되돌린다. 정리 시작에 대기 집합을 교체하고 manager 소유자 구독과 예약을 해제한다.
+                tile·feature 추적 상태를 초기값으로 되돌린다.
                 shader material manager를 해제하고 합성 group 등록을 풀고 manager 연결을 끊은 뒤 정리 완료를 표시한다.
                 보관한 부모 Promise를 그대로 돌려준다.
 
@@ -1054,6 +1073,7 @@ U3dShaderMeasureLayer extends U3dLayer 클래스 정의
                 U3dObject — source 해제 요청의 레이어 이름 조회; 속성 읽기: {_name}
                 defined — defined 사용; 함수: {defined()}
             동작:
+                tile이 정의되지 않았으면 끝낸다.
                 `_terrainDecalManager`가 없으면 여기서 끝낸다.
                 `_terrainDecalManager`가 있으면 아래를 수행한다.
                     manager에 이 레이어 소유 source 해제와 최종 폐기를 요청한다.
@@ -1169,17 +1189,17 @@ terrain 상태 판정 책임 그룹
 hasMeasureTerrainTileManagerFeatures(tileKey: string) -> boolean
     역할: 두 source 중 하나라도 그 tile에 feature를 갖고 있는지 확인한다.
     의존: UShaderTerrainDecalManager — source feature 유무 조회; 함수: {getTerrainTilePresentationState()}
-    동작: source 키를 차례로 물어 하나라도 feature가 있으면 true, 끝까지 없으면 false를 돌려준다.
+    동작: 이 레이어의 source 키를 차례로 조회하며 sourceKey와 includeComposition=false를 전달한다. 합성 계획 투영 없이 hasSourceFeatures가 정확히 true인 source가 하나라도 있으면 true를 반환하고, manager 또는 조회 API가 없거나 끝까지 해당 source가 없으면 false다.
 
 getMeasureTerrainTileFacts(tile: TerrainRuntimeTile) -> TerrainLayerTilePresentationOption
     역할: 측정 레이어가 소유한 로컬 binding과 표시 의도를 조회한다.
     동작: 레이어 소유 Source 키, 로컬 binding 유무, 레이어 표시와 tile 표시 추적 여부를 반환한다. manager 상태를 조회하거나 변경하지 않는다.
 
-getMeasureTerrainTilePresentation(tile: U3dQuadTile, childrenVisible?: Array<boolean>) -> TerrainLayerTilePresentationState
+getMeasureTerrainTilePresentation(tile: U3dQuadTile, childrenVisible?: Array<boolean>, query: TerrainLayerTilePresentationQuery = 'all') -> TerrainLayerTilePresentationState
     역할: 측정 입력과 자식 표시 사실을 manager의 공통 표시 판정에 전달한다.
     의존: UShaderTerrainDecalManager — Source·표시·준비·유지 판정; 함수: {_getTerrainLayerTilePresentation()}
     동작:
-        입력 사실과 필요한 자식 표시를 전달해 manager 결과를 반환한다.
+        입력 사실과 필요한 자식 표시 및 query를 전달해 manager 결과를 반환한다. query는 participates·ready·visible·attached·retainedSafe·deferredRemoval 등 호출자가 필요한 판정만 요청하며 생략하면 all이다.
         manager가 없으면 유효 tile 중 숨김·binding 없음은 중립이며 binding이 있으면 참여만 인정하고 표시 준비·부착은 인정하지 않는다.
 
 terrain revision 책임 그룹
@@ -1222,20 +1242,23 @@ syncMeasureTerrainFeaturePayload(feature: UMeasureFeature, opt: MeasureTerrainSy
         UShaderTerrainDecalManager — feature 반영과 일괄 반영; 함수: {upsertFeature(), flushTileUpdates()}
         UDrawArg — tile mesh 원점 조회; 함수: {_cacheTiles.get()}
     동작:
-        source 키와 대상 tile 목록을 정하고 대상이 없으면 끝낸다.
+        feature 또는 manager가 없으면 빈 변경 목록을 반환한다. opt.sourceKey가 null 또는 undefined이면 기본 source 키를 구하고, 아니면 입력 키를 사용한다.
+        opt.tileKeys가 배열이면 그대로, 아니면 feature의 연결 tile 목록을 구한다. 대상이 없으면 끝낸다.
         tile마다 mesh 원점을 확보하고 payload를 만든 뒤 revision을 확정해 manager에 넣는다.
         manager가 변경을 알린 tile만 모아 돌려주고, 필요하면 한 번에 반영한다.
 
 removeMeasureTerrainFeaturePayload(feature: UMeasureFeature, opt: MeasureTerrainSyncOption = {}) -> {changedTileKeys: Array<string>}
     역할: feature 하나를 점유 tile들의 source에서 빼고 필요하면 비어 있음을 확정한다.
     처리 기준:
+        manager에 등록되지 않은 tile은 revision을 계산하기 전에 제외하여 삭제용 상태를 생성하지 않는다.
         변경 종류가 `clear`·`replace`가 아니고 대상이 기본 source일 때만 revision을 새로 매긴다. 그 밖에는 revision과 identity를 넘기지 않는다.
         제거 후 남는 참조가 하나도 없으면 그 source를 비어 있음으로 확정한다.
     의존: UShaderTerrainDecalManager — feature 제거·대기 확정·일괄 반영; 함수: {removeFeature(), setTerrainTileSourcePending(), flushTileUpdates()}
     동작:
         식별자와 대상 tile 목록을 정하고 없으면 끝낸다.
         버전을 매길 기준이 되는 기본 source 키를 확인한다.
-        tile마다 버전을 매길지 판단해, 매긴다면 제거 후 남을 참조로 revision을 확정한다.
+        tile마다 버전을 매길지 판단해, 매긴다면 제거 후 남을 참조로 revision을 확정한다. opt.sourceRevision이 유한수이면 그 값을 우선한다.
+        sourceRevision이 undefined가 아닐 때 opt.sourceIdentity를 우선하고, 그 값이 null 또는 undefined이면 현재 revision의 identity를 만든다. revision이 없으면 identity도 undefined다.
         manager에서 feature를 빼고 변경이 있었던 tile만 모은다. 남은 참조가 없으면 비어 있음으로 확정한다.
         바뀐 tile마다 기록을 남기고 필요하면 한 번에 반영한다.
 
@@ -1249,6 +1272,7 @@ clearMeasureTerrainMaterialPayloadSources(tileKey: string, opt: MeasureTerrainCl
     역할: 이 레이어가 소유한 source에 한해 manager의 payload를 비운다.
     인터페이스: 한 번이라도 비우기를 요청했으면 true를 돌려준다.
     처리 기준:
+        미등록 tile이면 revision을 계산하거나 source를 비우지 않고 false를 반환한다. 전체 초기화의 일괄 flush도 등록된 tile만 대상으로 한다.
         옵션에 source 키 목록이 있으면 그 대상만, 없으면 이 레이어의 두 source를 대상으로 한다.
         기본 source일 때만 revision과 identity를 함께 넘긴다.
         변경 종류가 `visibility`이면 기존 bound 목록으로 revision 후보만 쓰고 상태를 확정하지 않는다.
@@ -1276,7 +1300,10 @@ setMeasureTerrainTileSourcePending(tile: U3dQuadTile, pending: boolean, opt: obj
     역할: tile 객체를 받아 runtime source의 대기 상태를 manager에 전달한다.
     처리 기준: 옵션에 revision이 유한수로 들어오면 그 값을 쓰고, 아니면 현재 bound 목록으로 다시 계산한다. 뒤에 놓인 값이 옵션의 같은 이름 항목을 덮는다.
     의존: UShaderTerrainDecalManager — 대기 상태 반영; 함수: {setTerrainTileSourcePending()}
-    동작: revision과 렌더 순서 옵션을 정하고 부모 tile 키·source 키·identity를 덧붙여 manager에 넘긴다.
+    동작:
+        tile 키 또는 manager의 대기 설정 API가 없으면 false를 반환한다. 유한한 opt.sourceRevision을 우선하고, 없으면 현재 연결로 revision을 구한다.
+        부모 tile 키·기본 source 키·렌더 순서 옵션을 정한다.
+        opt.sourceIdentity가 null 또는 undefined이면 현재 revision으로 identity를 만들고, 아니면 입력을 사용한다. 이 정보와 pending을 manager에 전달해 결과를 반환한다.
 
 스타일 해석 책임 그룹
 역할: 레이어 기준 스타일과 feature 스타일, 호출자 override를 하나의 렌더 스타일로 합성한다.
@@ -1343,6 +1370,17 @@ getSimpleFeatureObjectKey(uid: string) -> string
     역할: simple 객체의 캐시 키와 객체 이름을 만든다.
     동작: 고정 접두사에 UID를 붙인 문자열을 돌려준다.
 
+getMeasureGeometryExtent(geometry: OLGeometry, vectors: Array<Vector3>, drawArg: UDrawArg) -> Box3 | undefined
+    역할: 원본 형상과 표시 반경을 반영한 지도 좌표 경계를 계산한다.
+    의존:
+        OpenLayers Geometry — 원본 경계와 타입; 함수: {getExtent(), getType()}
+        UDrawArg — 표시 좌표 변환; 함수: {getWorldToGoogle()}
+        THREE — 경계 상자; 생성자: {new Box3(), new Vector3()}; 함수: {distanceTo()}
+    동작:
+        원본이 없으면 undefined를 반환한다. 원본 형상의 경계를 읽는다.
+        Point이며 표시 좌표가 두 개 이상이면 첫 점과 끝 점 거리로 반경을 구하고 중심±반경의 월드 좌표를 지도 좌표로 변환해 경계를 대체한다.
+        경계 값 중 유한수가 아닌 값이 있으면 undefined를 반환하고, 아니면 지도 좌표의 Box3를 반환한다.
+
 normalizeMeasureGeometryMode(mode: unknown) -> U3dShaderMeasureGeometryMode
     역할: 임의 입력을 렌더링 방식 문자열로 정규화한다.
     처리 기준: 값이 없거나 `simple`이 아닌 모든 입력은 `basic`이 된다. `auto`도 `basic`으로 바뀐다. 대소문자는 구분하지 않는다.
@@ -1352,6 +1390,8 @@ normalizeMeasureGeometryMode(mode: unknown) -> U3dShaderMeasureGeometryMode
 
 U3dShaderMeasureStyleState 부분 타입 명세
     이 명세에서 사용하는 필드:
+        _selectedMeasureFeatures
+            레이어가 선택한 측정 feature의 WeakSet이다. 선택 상태를 스타일 해석에 반영한다.
         _style
             레이어 기준 렌더 스타일이다. feature 스타일과 override가 비어 있는 항목의 대체값을 제공한다.
         _defaultFillColor
@@ -1372,6 +1412,8 @@ U3dShaderMeasureSourceIdentityState 부분 타입 명세
 
 U3dShaderMeasureSignatureState 부분 타입 명세
     이 명세에서 사용하는 필드:
+        _selectedMeasureFeatures
+            선택 표시를 반영한 렌더 스타일 signature를 계산하는 WeakSet이다.
         _name
             terrain source 키와 identity에 포함할 레이어 이름이다.
         _style
@@ -1390,6 +1432,8 @@ U3dShaderMeasureSignatureState 부분 타입 명세
 
 U3dShaderMeasurePayloadState 부분 타입 명세
     이 명세에서 사용하는 필드:
+        _selectedMeasureFeatures
+            payload의 선택 표시 스타일을 해석하는 WeakSet이다.
         _name
             terrain source 키와 identity에 포함할 레이어 이름이다.
         _style
@@ -1412,6 +1456,8 @@ U3dShaderMeasurePayloadState 부분 타입 명세
 
 U3dShaderMeasureSimpleGeometryState 부분 타입 명세
     이 명세에서 사용하는 필드:
+        _selectedMeasureFeatures
+            simple 객체의 선택 표시 스타일을 해석하는 WeakSet이다.
         _style
             레이어 기준 렌더 스타일이다. feature 스타일과 override가 비어 있는 항목의 대체값을 제공한다.
         _defaultFillColor
@@ -1441,7 +1487,7 @@ U3dShaderMeasureGeometryMode 타입 정의
 MeasureFeatureCollection extends Array<UMeasureFeature> 부분 타입 명세
     이 명세에서 사용하는 필드:
         addFeature?: function(unknown): unknown
-            측정 feature를 레이어에 추가하고 입력을 그대로 돌려준다. 추가에 실패하면 예외를 던진다.
+            단일 feature의 등록을 시도하고 입력을 그대로 돌려준다. 반환이 undefined일 때만 예외를 던지며, 그 밖의 반환이 등록 성공을 보장하지는 않는다. [확인 Q-003]
         getFeatureById?: function(unknown): (undefined | UMeasureFeature)
             ID로 측정 feature를 찾는다.
     두 도우미는 레이어가 source를 초기화한 뒤에만 존재하므로 그 전에는 배열로만 쓸 수 있다.
@@ -1537,12 +1583,12 @@ UFeatureIDExtent 타입 정의
 
 U3dShaderMeasureLayerAddFeatureCO 타입 정의
     geoList: Array<Vector3>
-    `addFeature()`에 넘기는 옵션이며 좌표는 위경도 좌표계(EPSG:4326)다. 이 좌표로 만든 다각형을 레이어에 추가하고 편집 중 다각형과 겹치는지 비교하는 데만 쓴다.
+    `addFeature()`에 넘기는 옵션이며 좌표는 위경도 좌표계(EPSG:4326)다. 이 좌표로 다각형을 만들고 편집 중 다각형과 겹치는지 비교한다. 현재 등록 함수에는 feature 배열이 전달되어 실제 레이어 등록은 되지 않는다. [확인 Q-003]
 
 U3dShaderMeasureOLFeature 부분 타입 명세
     이 명세에서 사용하는 필드:
-        getId?: function(): (string | number)
-        setId?: function(string | number): void
+        getId?: function(): unknown
+        setId?: function(unknown): void
         getGeometry?: function(): object
         setGeometry?: function(object): void
         getGeoVertex?: function(): Array<Vector3Like>
@@ -1594,28 +1640,22 @@ terminalSourceState 부분 타입 명세
         sourceStatus?: string
             `available`, `confirmed-empty`, `failed` 중 하나다.
         sourceErrorReason?: string
+
 ```
 
 ## 4. 공통 처리 기준과 제약
 
 ```spec
 이 레이어의 공개 판정 메서드(`isTile*`)는 어느 것도 레이어 상태를 바꾸지 않는다. 상태를 바꾸는 것은 `addTileFromScene()`, `removeTileFromScene()`, `suspendTilePresentation()`과 payload 반영 경로뿐이다.
-레이어가 숨김이거나 이 tile에 관여하지 않으면 표시 판정은 중립으로 통과시켜 다른 레이어의 LOD 전환을 막지 않는다. 단, `isTileRenderableReady()`와 `isTilePresentationVisible()`은 tile 키가 없거나 폐기된 경우에만 false를 돌려준다.
+레이어가 숨김이거나 이 tile에 관여하지 않으면 표시 판정은 중립으로 통과시켜 다른 레이어의 LOD 전환을 막지 않는다. 유효하지 않은 tile이나 아직 준비되지 않은 참여 source는 통과시키지 않는다. manager가 없는 대체 경로에서는 유효한 비참여 tile만 중립으로 통과한다.
 manager가 없으면 유효 tile의 숨김·로컬 binding 부재는 중립으로 통과시키고, 로컬 binding이 있는 tile의 준비·표시·부착은 보수적으로 false로 판정한다.
 `_measurePoints`는 위경도 좌표계(EPSG:4326), `_measureVectors`는 월드 좌표(EPSG:3857)이며 두 배열은 같은 인덱스로 대응한다. 입력 메서드는 두 배열을 항상 함께 갱신한다.
-좌표를 다루는 메서드는 이름으로 계열을 구분한다. `getFeature*` 계열의 길이·면적·반경은 월드 좌표 평면 값이고, `getMeasure*` 계열은 지표 거리 기준 미터 값이다.
+getFeatureLineLength·getFeaturePolygonArea·getFeaturePointBufferRadius는 월드 좌표 평면 값이다. getFeatureArea는 좌표를 위경도로 변환해 지표 면적을 구하며, getMeasure 계열도 지표 거리·면적을 미터·제곱미터로 구한다.
 terrain payload를 반영하는 함수는 `deferFlush`가 참이면 일괄 반영을 하지 않는다. 호출자가 여러 feature·tile의 변경을 모아 한 번만 반영해야 중간 상태가 화면에 보이지 않는다.
 tile source revision은 내용 해시가 달라질 때만 1씩 오른다. 같은 내용으로 다시 반영해도 revision은 유지된다.
 simple 경로의 전면·가림 객체 쌍은 같은 geometry를 공유할 수 있다. 공개 정리 경로는 각 자식을 따로 해제하며 공유 geometry의 중복 dispose를 방지하지 않는다.
 
-폴리곤 끝점 증분 판정 책임 그룹
-    타입 소유: union3d/3dLayer/U3dShaderMeasureLayer.types.js의 U3dShaderMeasurePolygonTileSelection과 U3dShaderMeasurePolygonTileDelta
-    역할: 연결 갱신과 payload 수명은 레이어에 두고, 이전·현재 좌표로 검사할 타일 변경 목록만 계산한다.
-    입력 계약: 제품이 소유한 동기 좌표 스냅샷의 단일 Polygon, 유한한 좌표와 범위·여유값을 사용한다. 연속 중복 좌표와 닫힘 중복은 판정 입력에서만 제외하며 공개 좌표 배열은 바꾸지 않는다.
-    변경 영역: 마지막 점이 이동하면 이전·현재 끝점과 양쪽 고정 이웃이 만드는 두 삼각형을 검사한다. 끝점 한 개 추가·제거는 닫힘 변의 삼각형을 검사한다. 같은 형상의 중복 가이드 추가는 교차 검사를 반복하지 않는다.
-    경계 계약: 외접 범위 또는 축척에 따른 외곽선 여유가 바뀌면 이전 모든 변의 경계 띠를 함께 검사한다. 레벨별 가로 띠와 변경 삼각형의 교차 구간을 구하고 중복 타일을 제외하여 기존 교차 함수로 현재 전체 형상을 판정한다.
-    전체 검사 조건: 고정 접두부 변경, 두 개 이상 끝점 추가·제거, 스타일·레벨·변환기·좌표 제공 인자 변경, 외부 좌표·교차 함수 재정의 또는 지원하지 않는 형상은 기존 전체 판정으로 돌아간다.
-    보존 계약: 변경 밖의 연결과 변경 영역 안에서 계속 포함되는 연결을 유지하고 신규 연결·제거만 적용한다. 레이어의 최소·최대 레벨 설정이 달라지면 전체 검사로 돌아가 parentKey를 다시 계산한다. 기존 payload 동기화는 같은 타일 안의 형상 변경도 반영하므로 타일 키가 같다는 이유로 생략하지 않는다.
+폴리곤 끝점 증분 판정은 변경 목록 계산만 담당하고 연결 갱신·payload 수명은 레이어가 담당한다. 외부 좌표·교차 함수 재정의 등 지원하지 않는 입력은 전체 판정으로 돌아간다. 레이어 최소·최대 레벨이 바뀌면 parentKey도 다시 계산하며, 타일 키가 같아도 형상 변경의 payload 동기화를 생략하지 않는다.
 ```
 
 > 공개 참조용 발췌본입니다. 비공개 구현 설명과 내부 관리 정보는 생략했습니다.

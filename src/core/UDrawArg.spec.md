@@ -240,17 +240,6 @@ UDrawArg 클래스 정의
         동작:
             `_getMaxLevelTileFromWorldFaster(x, y, level, minLevel, query)`에 위임한다.
 
-_getMaxLevelTileFromWorld(worldInX: number, worldIny: number, level: number, maxLevel: number = 5) -> U3dQuadTile | undefined
-    인터페이스:
-        지정한 level부터 최소 level까지 `getTileFromWorld`로 순차 조회한다.
-
-    동작:
-        level이 maxLevel 이상인 동안 반복한다.
-            `getTileFromWorld(worldInX, worldIny, level)`을 호출한다.
-            tile이 있으면 tile을 반환한다.
-            level을 1 낮춘다.
-        찾지 못하면 `undefined`를 반환한다.
-
 _getMaxLevelTileFromWorldFaster(worldInX: number, worldInY: number, level: number, minLevel: number = 5, query) -> object | undefined
     인터페이스:
         cursor 재사용과 부모 index 산술 탐색으로 world 좌표가 포함된 terrain tile을 찾는다.

@@ -22,7 +22,7 @@ U3dVectorTileLayerCO_Content 부분 타입 명세
         fontSize?: number
             파서 생성 시 사용하는 글자 크기이며 undefined이면 17이다.
         imgUrl?, imgExt?: string
-            이미지 주소와 확장자이며 전달한 값 그대로 저장한다.
+            이미지 파일의 기본 주소와 확장자이며 생성자는 값을 변환하지 않고 파서 옵션으로 전달한다.
         clusterRadius?: number
             위치 키의 평면 좌표를 나누는 크기이며 undefined이면 50을 저장한다. 0·null은 대체하지 않는다.
         cacheSize?: number
@@ -46,7 +46,7 @@ VctrTile_Content 부분 타입 명세
             장면 연결 상태·해제 여부·부모 위치 미준비 상태다.
         boundingVolume?: Partial<{region: object}>
             이 레이어는 region의 존재만 읽는다. 원본 region 배열과 공간 판정용 OBB 객체를 모두 허용한다.
-        promise?: DeferredObject<U3dQuadTile>
+        promise?: DeferredPromise<U3dQuadTile>
             선언상 쿼드 타일 완료 객체지만 실제 부모 setPromise는 U3DTileset을 전달한다. [확인 Q-003]
         complete?: boolean
             선언상 boolean이지만 부모는 TILE_STATE 값을 저장한다. [확인 Q-003]
@@ -104,57 +104,60 @@ U3dVectorTileLayer extends U3dModelTilesLayer 클래스 정의
         동작:
             fontSize 설정을 전달하여 저장 크기와 현재 캐시의 레이블 크기를 바꾼다.
 
-    override addParserQueue(fnc: (item: ModelTileParserQueueItem) -> DeferredObject<U3DTileset>, param: ModelTileParserQueueItem) -> Promise<U3DTileset>
+    override addParserQueue(fnc: (item: ModelTileParserQueueItem) -> Promise<U3DTileset>, param: ModelTileParserQueueItem) -> Promise<U3DTileset>
         의존:
             U3dModelTilesLayer — 파서 예약; 함수: {addParserQueue()}
-            deferred — 즉시 완료 객체; 함수: {deferred()}
+            deferredPromise — 즉시 완료 객체; 함수: {deferredPromise()}
         동작:
             VCTR 타입이면 입력 파서를 전용 함수로 바꾸고 requestState를 포함한 param 참조를 부모 큐에 전달한다.
             다른 타입이면 파싱하지 않고 param.tile로 resolve한 완료 객체를 반환한다.
 
     override update(drawArg: UDrawArg, curTime: number, force: boolean = false) -> undefined
         의존:
-            U3dModelTilesLayer — 갱신·영역·시간·캐시와 세대 상태; 함수: {isStopUpdate(), removeAllTiles(), isStateChange(), updateCancel(), getUpdateId()}; 속성 읽기: {_initializedJson, _box3, _checkTime, _updateCycleTime, _geometricError, _viewSizeOffset, _sphere, _dataCache, _rootTileSet}; 속성 쓰기: {_curPostion}
-            U3dLayer — 초기화와 저장 문맥; 함수: {isInitialized()}; 속성 읽기: {_drawArg}
+            U3dModelTilesLayer — 갱신·영역·시간·캐시와 세대 상태; 함수: {isStopUpdate(), removeAllTiles(), isStateChange(), updateCancel(), getUpdateId()}; 속성 읽기: {_initializedJson, _box3, _checkTime, _updateCycleTime, _geometricError, _viewSizeOffset, _sphere, _dataCache, _rootTileSet, _activeTileContentRequests}; 속성 쓰기: {_curPostion, _prevPostion}
+            U3dLayer — 초기화와 저장 문맥; 함수: {isInitialized()}; 속성 읽기: {_drawArg, _disposed}
             UDrawArg — 카메라·영역 조회; 함수: {getCameraPosition(), intersectsBox()}
             UCheckTime — 갱신 주기; 함수: {isUpdate(), updateTime()}
             LRUCache — 캐시 유무; 함수: {length()}
             defined — 문맥 유무; 함수: {defined()}
         동작:
-            중지·미초기화·JSON 미초기화·저장 drawArg 부재·박스 부재이면 끝낸다.
+            레이어가 해제되었거나 중지·미초기화·JSON 미초기화·저장 drawArg 부재·박스 부재이면 끝낸다.
             갱신 주기가 아니고 force가 false이면 다음 주기 시간을 기록하고 끝낸다.
-            geometricError와 저장 viewSizeOffset을 곱한 거리 한도를 만들며 함수형 offset은 호출하지 않는다. [확인 Q-002]
+            geometricError와 저장 viewSizeOffset에 2를 곱한 거리 한도를 만들며 함수형 offset은 호출하지 않는다. [확인 Q-002]
             입력 drawArg에서 카메라를 읽고 저장 drawArg로 박스 교차를 검사한다.
-            카메라가 없거나 박스 밖이거나 구에서의 거리가 한도를 넘으면 캐시가 비어 있지 않을 때만 removeAllTiles를 호출하고 주기를 기록한다.
+            카메라가 없거나 박스 밖이거나 구에서의 거리가 한도를 넘으면 _prevPostion을 undefined로 정한다. 캐시 또는 _activeTileContentRequests가 비어 있지 않을 때만 removeAllTiles를 호출하고 주기를 기록한다. 비동기 콜백이 먼저 요청을 정리했어도 같은 위치 복귀 때 재탐색하며, 첫 콘텐츠를 캐시하기 전의 요청도 취소한다.
             isStateChange가 false이면 주기만 기록한다.
             이전 세대를 취소하고 새 updateId로 루트 타일의 자식 탐색을 시작한 뒤 주기를 기록한다.
 
     override searchTiles(tile: U3DTileset, parent: U3DTileset | string | number | undefined, updateId?: string | number, isFirst: boolean = true, checkContext?: TileCheckContext) -> undefined
         의존:
             U3dModelTilesLayer — 취소·영역·콘텐츠 요청·해제; 함수: {isCancel(), createViewBox(), checkTile(), setPromise(), disposeTile()}
-            U3dLayer — 박스 생성 인수; 속성 읽기: {_drawArg}
+            U3dLayer — 박스 생성 인수와 레이어 수명 확인; 속성 읽기: {_drawArg, _disposed}
             defined — 박스 유무; 함수: {defined()}
         동작:
             parent가 문자열 또는 숫자이면 기존 두 인수 호출로 해석하여 그 값을 updateId로 사용한다. 그 외에는 세 번째 인수 updateId를 사용한다.
             parent 타일, isFirst와 checkContext는 벡터 탐색에 사용하지 않는다.
-            취소 세대이면 반환하고 자식이 있으면 각 자식의 updateId를 설정한다.
+            취소 세대이거나 레이어·탐색 시작 타일이 해제되었으면 반환하고 자식이 있으면 각 자식의 updateId를 설정한다.
             viewBox가 없으면 저장 drawArg를 추가 인수로 전달하여 부모 createViewBox를 호출한다.
-            checkTile이 true이면 setPromise를 호출하고 해당 자식 promise에 성공 콜백을 등록한다.
-            tileEx.children이 있는 경우 각 성공 콜백에서 workedTile.disposed가 false이면 addGroup 후 완료 타일·현재 tile·updateId 순서로 인수를 전달하여 그 타일의 자식을 즉시 탐색한다.
-            성공 결과가 disposed이면 콜백을 끝낸다.
+            checkTile이 true이면 setPromise를 호출하고 해당 자식 promise 참조를 보관하여 성공 콜백을 등록한다.
+            자식 목록 tileEx.children이 있으면 각 checkTile true인 요청의 성공 콜백에서:
+                자식 promise가 보관한 요청과 같은지, 레이어·시작 타일·완료 타일이 살아 있는지와 갱신 세대를 확인한다.
+                유효한 경우 addGroup을 실행한다.
+                요청과 완료 타일·레이어의 생존을 다시 확인한 뒤 완료 타일·현재 tile·updateId 순서로 인수를 전달하여 그 타일의 자식을 즉시 탐색한다.
+            무효한 결과는 표시하거나 재귀 탐색하지 않는다. 실패는 기반 setPromise의 타일 정리에 맡긴다.
             checkTile이 false인 자식은 disposeTile로 해제한다.
             형제 완료를 기다리지 않고 전체 탐색 완료 Promise도 반환하지 않는다.
 
     override addGroup(tile: U3DTileset, updateId?: string | number) -> undefined
         의존:
             U3dModelTilesLayer — 취소 판정; 함수: {isCancel()}
-            U3dLayer — 저장 문맥과 장면 그룹; 속성 읽기: {_drawArg, _group}
+            U3dLayer — 저장 문맥·장면 그룹과 레이어 수명 확인; 속성 읽기: {_drawArg, _group, _disposed}
             UDrawArg — 카메라 위치; 함수: {getCameraPosition()}
             UGroup — 메시 장면 등록; 함수: {add()}
         동작:
-            취소 세대이면 끝낸다.
+            취소 세대이거나 레이어·타일이 해제되었으면 끝낸다.
             메시 목록이 비어 있지 않으면 카메라 위치를 얻어 각 메시의 직접 자식 POI 가시 상태를 갱신한다.
-            tile.visible이 false인 동안 각 메시를 레이어 그룹에 추가하고 마지막에 tile.visible을 true로 설정한다.
+            tile.visible이 falsy인 동안 각 메시를 레이어 그룹에 추가한다. 메시 목록이 없거나 비어 있어도 마지막에 tile.visible을 true로 설정한다.
 
     override deleteMesh(mesh: Object3D) -> undefined
         의존:
@@ -198,7 +201,7 @@ U3dVectorTileLayer extends U3dModelTilesLayer 클래스 정의
         의존:
             defined — 파서 유무; 함수: {defined()}
             UVctrParser — 파서 높이 상태; 속성 쓰기: {_heightOffset}
-            U3dModelTilesLayer — 레이어 높이 저장; 속성 쓰기: {_heightOffset}
+            U3dModelTilesLayer — 레이어 높이 저장과 현재 파서 조회; 속성 쓰기: {_heightOffset}; 속성 읽기: {_parser}
         동작:
             _heightOffset에 값을 저장하고 파서가 이미 있으면 파서의 같은 이름 속성에도 값을 쓴다.
             부모 높이 이동 메서드를 호출하지 않고 기존 메시 위치를 순회하지 않는다.
@@ -243,30 +246,36 @@ U3dVectorTileLayer extends U3dModelTilesLayer 클래스 정의
             개수가 1보다 많으면 오류 로그와 false를 누적한다.
             0개는 실패로 판정하지 않으며 showLog이면 정상 개수도 기록한다.
 
-_parseVCTR(obj: ModelTileParserQueueItem) -> DeferredObject<U3DTileset>
+_parseVCTR(obj: ModelTileParserQueueItem) -> Promise<U3DTileset>
     인터페이스: 레이어를 this로 받아 콘텐츠 버퍼를 해석하며 resolve·reject 값은 타일이다. 공통 큐의 info.tile은 이 진입점에서 VctrTile이며 파서 결과는 points·batchTable 객체 또는 빈 타일의 undefined다.
     의존:
-        deferred — 완료 객체; 함수: {deferred()}
+        deferredPromise — 완료 객체; 함수: {deferredPromise()}
         defined — 입력 판정; 함수: {defined()}
         UVctrParser — VCTR 파싱; 생성자: {new UVctrParser()}; 함수: {parse()}
         U3dMessage — 파싱 실패 정보; 함수: {info()}
+        U3dModelTilesLayer — 세대 취소·영역 확인과 파서 참조; 함수: {isCancel(), checkTile()}; 속성 읽기·쓰기: {_parser}
+        U3dLayer — 파서에 전달할 그리기 인자; 속성 읽기: {_drawArg}
     동작:
         obj의 updateId를 지역 값으로 잡고 취소·drawArg 부재·disposed·영역 이탈이면 타일로 reject한다.
         disposed와 영역 이탈에는 failMsg를 기록한다.
         파서가 없으면 이미지·높이·drawArg와 _font·_fontSize로 생성한다. [확인 Q-001]
         byteOffset 0과 타일·info.tileset을 전달하여 parse를 호출한다.
-        성공 콜백에서 처음 잡은 세대의 취소와 결과 유무·영역을 다시 검사한다.
-        points가 있으면 addVCTR 완료 후 points.userData에 batchTable을 연결한다.
-        result.points가 있는 경우 addVCTR 완료 후 boundingVolume이 없으면 계층에 볼륨을 만들고 _calcPosition을 호출한 뒤 타일로 resolve한다.
+        성공 콜백에서 처음 잡은 세대의 취소와 결과 유무·영역을 다시 검사한다. 취소·결과 undefined/null·영역 이탈은 타일로 reject하며 영역 이탈에는 failMsg도 기록한다.
+        result.points가 있으면 포인트 갱신과 등록 완료를 기다린다.
+            완료 뒤 points.userData를 준비하고 batchTable이 정의된 경우에만 연결한다.
+        result.points가 있는 경우 addVCTR 완료 후 boundingVolume이 없으면 계층에 볼륨을 만든다.
+        result.points가 있는 경우 addVCTR 완료 후 _calcPosition의 동기 좌표 처리를 실행한 뒤 그 반환 Promise를 기다리지 않고 타일로 resolve한다.
         points가 없으면 타일로 즉시 resolve한다.
         addVCTR 실패는 타일로 reject하고 파서 실패는 7144604 정보 로그 후 타일로 reject한다.
         비동기 대기 중 부모 requestState가 승계되어도 지역 updateId는 바뀌지 않는다. [확인 Q-004]
 
-addVCTR(result: object, tile: VctrTile, updateId: number) -> DeferredObject<void>
+addVCTR(result: object, tile: VctrTile, updateId: number) -> Promise<void>
     인터페이스: 레이어를 this로 받아 points 갱신과 타일 등록을 연결한다.
     의존:
-        deferred — 완료 객체; 함수: {deferred()}
+        deferredPromise — 완료 객체; 함수: {deferredPromise()}
         defined — 입력·갱신 결과 유무; 함수: {defined()}
+        Vector3DTilePoints — 표시용 포인트 생성·갱신; 함수: {update()}; 속성 쓰기: {_level, _geometryError, _viewRatio}
+        U3dModelTilesLayer — 완료 시점의 세대 취소 확인; 함수: {isCancel()}; 속성 읽기: {_viewRatio}
     동작:
         result나 tile이 없으면 값 없이 reject한다.
         points가 없으면 값 없이 resolve한다.
@@ -278,13 +287,15 @@ addVCTR(result: object, tile: VctrTile, updateId: number) -> DeferredObject<void
         refine이 없는 경우(null 또는 undefined)에만 refine을 REPLACE로 설정한다.
         update 결과가 없어도 resolve하며 update 실패는 값 없이 reject한다.
 
-_calcPosition(object: Object3D, tile: VctrTile, info: object) -> DeferredObject<void>
+_calcPosition(object: Object3D, tile: VctrTile, info: object) -> Promise<void>
     인터페이스: 레이어를 this로 받아 좌표 참조를 기록하고 조건부 부모 방향 보정을 적용한다.
     의존:
         defined — 입력 판정; 함수: {defined()}
-        deferred — 완료 객체; 함수: {deferred()}
+        deferredPromise — 완료 객체; 함수: {deferredPromise()}
         Coordinates — 좌표 변환; 함수: {transformPoint()}
         THREE.Vector3 — 중심 벡터; 생성자: {new Vector3()}
+        U3dModelTilesLayer — 중심 영역 생성과 보조 박스 표시 설정; 함수: {createWorldBox(), isUseBox()}; 속성 읽기: {_groupComment}
+        UDrawArg — 좌표계 변환; 함수: {getWorldToGeographic(), getGeographicToWorld()}
     동작:
         object.userData.rtcCenter가 있으면 사용하고 없으면 타일과 조상 transform 존재 여부를 검사한다.
         transform이 있으면 누적 행렬의 평행이동을 중심으로 사용한다.

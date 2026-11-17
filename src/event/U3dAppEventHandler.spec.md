@@ -23,7 +23,7 @@
 
 생성자는 유효한 container와 app을 저장하고 마우스 상태를 초기화한 뒤 이벤트 listener를 등록한다. container 입력 callback은 필요한 target·시간·좌표 검증을 거쳐 등록된 app listener가 있을 때만 대응 이벤트를 emit한다. 마우스 down·up·move는 button과 drag 상태를 함께 관리하고 move는 `performance.now()` 기준으로 호출 빈도를 제한한다.
 
-작업 완료 감시는 listener가 등록된 완료 이벤트별로 모듈 공유 상태를 만든다. 선택한 app 작업 수 조회 함수를 200ms 간격으로 호출하고, 작업이 다시 발견되면 안정 대기 횟수를 3으로 되돌린다. 작업 수 0 상태에서 대기 횟수를 모두 소진한 다음 검사에서 완료 이벤트를 emit한다.
+작업 완료 감시는 handler 인스턴스별로 listener가 등록된 완료 이벤트의 상태와 예약 타이머를 관리한다. 전체·이벤트별 세대 검사로 재시작·해제 이전의 콜백을 무효화한다. 선택한 app 작업 수 조회 함수를 200ms 간격으로 호출하고, 작업이 다시 발견되면 안정 대기 횟수를 3으로 되돌린다. 작업 수 0 상태에서 대기 횟수를 모두 소진한 다음 검사에서 완료 이벤트를 emit한다.
 
 native click·dblclick은 mousedown과 각 이벤트의 `timeStamp` 차이가 200ms를 넘지 않고 XY 차이가 각 축 2 pixel 미만일 때 중계한다. 공개 API가 전달한 `U3dMouseEvent`는 원본 target만 검증하고 선행 DOM mousedown에 의존하는 두 검사를 생략하며 입력 wrapper identity를 유지한다.
 
@@ -59,10 +59,19 @@ _WAIT_COUNT: number = 3
 _MAX_CLICK_DURATION: number = 200
     native mousedown부터 click 또는 dblclick 이벤트 생성까지 허용하는 최대 millisecond다.
 
-eventsWorking: Record<string, {countLoading: number}> = 빈 객체
-    완료 이벤트 문자열별 polling 진행 상태이며 모듈을 사용하는 모든 handler 인스턴스가 공유한다. [확인 Q-001]
-
 U3dAppEventHandler 클래스 정의
+    _eventsWorking: Record<string, {countLoading: number}> = 빈 객체
+        이 handler가 소유하는 완료 이벤트별 polling 진행 상태다. 다른 app과 공유하지 않는다.
+
+    _workingTimers: Map<ReturnType<typeof setTimeout>, string> = 빈 Map
+        예약 타이머와 해당 완료 이벤트의 종류를 보관하며 발화·취소 시 제거한다.
+
+    _workingGeneration: number = 0
+        전체 감시를 취소할 때 증가하여 이전 콜백을 무효화한다.
+
+    _workingEventGenerations: Record<string, number> = 빈 객체
+        일부 이벤트만 취소할 때 해당 종류의 이전 콜백을 구분한다.
+
     static EVENT: object
         app이 공개하고 handler가 중계하는 이벤트 이름 모음이다.
         MOUSEWHEEL = "mousewheel"
@@ -172,27 +181,29 @@ U3dAppEventHandler 클래스 정의
             DISTANCE_2KM_LOADED와 DISTANCE_4KM_LOADED는 모두 `getWorkingInDistance`를 선택한다.
             다른 이벤트는 오류로 종료하고 선택한 함수가 존재함을 단언한 뒤 반환한다.
 
-    #processWorkingByEvent(event: string, opt: object = {}) -> void
+    #processWorkingByEvent(event: string, opt: object = {}, generation: number = this._workingGeneration, eventGeneration: number = this._workingEventGenerations[event] ?? 0) -> void
         역할: 선택한 작업 수를 반복 확인하여 완료 이벤트를 안정화한 뒤 발생시킨다.
-        처리 기준: app이 해제되어 조회 함수를 얻지 못하면 후속 상태를 변경하지 않는다.
+        처리 기준: app 부재·해제·트리 교체·영역 적용 중이거나 전체·이벤트별 세대가 다르거나 해당 감시 상태가 없으면 종료한다.
         의존:
             U3dApp(app) — 선택 작업 수 조회와 완료 이벤트 발생; 함수: {emit()}; 콜백: {getWorkingLevel3, getWorkingImage, getWorkingHeight, getWorkingModel, getWorkingInDistance}
             Web API timers — 작업 상태 재검사 예약; 함수: {setTimeout()}
         동작:
             이벤트에 대응하는 app 작업 수 조회 함수를 선택하고, 얻지 못하면 종료한다.
-            조회 함수에 app을 this로, opt를 인수로 전달한다.
+            조회 함수에 app을 this로, opt를 인수로 전달하고 조회 중 app 해제나 전체·이벤트별 세대 변경이 있으면 종료한다.
             작업 수가 0보다 크면 해당 이벤트의 `countLoading`을 3으로 되돌리고, 그렇지 않지만 count가 0이 아니면 1을 뺀다.
-            앞선 두 경우에는 200ms 뒤 같은 이벤트와 옵션을 다시 검사하도록 예약하고 종료한다.
-            작업 수가 0이고 `countLoading`도 0이면 이벤트를 emit하고 해당 공유 진행 상태를 삭제한다.
+            앞선 두 경우에는 200ms 뒤 같은 이벤트·옵션·세대로 다시 검사하도록 예약하고 타이머와 이벤트를 _workingTimers에 등록한다. 발화 시 Map에서 제거한다.
+            작업 수가 0이고 `countLoading`도 0이면 해당 진행 상태를 먼저 삭제한 뒤 이벤트를 emit하여 콜백에서 등록한 새 감시를 보존한다.
 
-    createWorkingEndEvent() -> void
+    createWorkingEndEvent(name?: unknown, modelOnly: boolean = false) -> void
         역할: 등록된 app 작업 완료 이벤트의 polling을 시작하고 작업 시작 이벤트를 알린다.
         의존: U3dApp(app) — app event 카탈로그 조회, listener 확인과 LOAD 발생; 함수: {hasEventType(), emit()}; 속성 읽기: {constructor.EVENT}
         동작:
+            전체 대기 세대와 이벤트별 세대를 보관한다. app이 없거나 해제·트리 교체·영역 적용 중이면 종료한다.
             app constructor의 EVENT 카탈로그를 조회하고 LOAD listener가 있으면 LOAD를 즉시 emit한다.
-            LOADED, IMAGE_LOADED, HEIGHT_LOADED, MODEL_LOADED, DISTANCE_2KM_LOADED와 DISTANCE_4KM_LOADED 각각에 대해 공유 감시 상태 등록을 시도한다.
+            기본 호출에서는 LOADED, IMAGE_LOADED, HEIGHT_LOADED, MODEL_LOADED, DISTANCE_2KM_LOADED와 DISTANCE_4KM_LOADED를 순서대로 검사한다. 내부 modelOnly가 true이면 MODEL_LOADED와 두 거리별 이벤트만 검사한다. 전체 대기 세대가 바뀌거나 app이 해제·트리 교체·영역 적용 중이면 종료한다.
+            이벤트별 세대가 바뀐 종류는 이전 검색의 감시를 다시 등록하지 않고 건너뛰며, 바뀌지 않은 종류는 현재 handler의 감시 상태 등록을 시도한다.
             등록에 성공한 이벤트의 polling을 시작하며 거리 이벤트에는 각각 `{distance: 2000}`과 `{distance: 4000}`을 전달한다.
-            이 메서드는 인수를 선언하지 않아 `U3dApp.createWorkingEndEvent(name)`이 넘긴 name을 사용하지 않는다. [확인 Q-006]
+            name은 기존 전달 순서를 보존하는 호환용 인수이며 감시 범위에는 사용하지 않는다. [확인 Q-006]
 
     isValidEventTarget(event) -> boolean
         역할: 입력 event가 현재 renderer canvas에서 발생한 것인지 판정한다.
@@ -215,6 +226,7 @@ U3dAppEventHandler 클래스 정의
     dispose() -> boolean
         역할: 등록 event와 app·container 참조를 해제하여 handler를 종료한다.
         동작:
+            완료 감시의 타이머와 상태를 먼저 취소하고 이전 콜백을 무효화한다.
             등록한 event listener를 제거한다.
             `_container`, `_app`과 `_initialized`를 undefined로 바꾸고 true를 반환한다.
 
@@ -260,9 +272,12 @@ U3dAppEventHandler 클래스 정의
         의존: U3dApp(app) — END listener 확인과 event 전달; 함수: {hasEventType(), emit()}
         동작: END listener가 있으면 입력 e를 END 이벤트로 emit하고 없으면 종료한다.
 
-    resetWorkingEndEvent() -> void
-        역할: 모듈이 공유하는 작업 완료 감시 상태를 초기화한다.
-        동작: 공유 감시 상태 전체를 빈 객체로 교체한다.
+    resetWorkingEndEvent(events?: string[]) -> void
+        역할: 이 handler의 전체 또는 지정한 종류의 완료 감시를 취소하고 이전 콜백을 무효화한다.
+        동작:
+            events를 생략하면 전체 세대를 증가시키고 모든 예약 타이머를 취소한 뒤 타이머 Map·이벤트 상태·이벤트별 세대를 비운다.
+            events를 지정하면 해당 이벤트의 세대만 증가시키고 상태를 삭제하며 해당 종류의 예약 타이머만 취소한다.
+            지정하지 않은 종류의 상태와 타이머는 유지한다.
 
     click(u3dMouseEvent: U3dMouseEvent) -> void
         역할: 공개 API의 click wrapper를 click 중계 흐름으로 전달한다.
@@ -290,15 +305,11 @@ onResize(e: UIEvent) -> void
         RESIZE listener가 있으면 원본 resize event를 emit하고 없으면 상태 갱신만 마친다.
 
 getWorkingByEvent(event: string) -> boolean
-    역할: app listener와 공유 진행 상태를 기준으로 완료 이벤트 감시를 한 번만 등록한다.
+    역할: app listener와 해당 app handler의 진행 상태를 기준으로 완료 이벤트 감시를 한 번만 등록한다.
     의존: U3dApp(this) — 완료 이벤트 listener 존재 확인; 함수: {hasEventType()}
     동작:
-        같은 이벤트의 공유 감시 상태가 이미 있거나 app에 대응 listener가 없으면 false를 반환한다.
+        해당 app의 _eventHandler._eventsWorking에 같은 이벤트가 있거나 app에 대응 listener가 없으면 false를 반환한다.
         그렇지 않으면 `countLoading = 3`인 상태를 만들고 true를 반환한다.
-
-resetWorkingByEvent() -> void
-    역할: 모든 완료 이벤트의 공유 polling 상태를 제거한다.
-    동작: `eventsWorking`을 새 빈 객체로 교체하며 이미 예약된 polling timer는 취소하거나 무효화하지 않는다. [확인 Q-002]
 
 onMouseWheel(e: WheelEvent) -> void
     역할: 유효한 wheel 입력을 app에 중계하고 진행 중 camera fly를 중단한다.
@@ -470,7 +481,7 @@ DOM 입력 callback은 대응 app listener가 없더라도 해당 callback이 �
 container에 등록하는 모든 event와 document key 및 window resize event는 passive false 옵션을 사용한다.
 native mousedown·mouseup·mousemove는 U3dMouseEvent로 감싸 중계하지만 wheel, mouseout, touch, key와 resize는 원본 event를 중계한다.
 CLICK과 DBLCLICK의 programmatic U3dMouseEvent 경로는 wrapper identity를 보존하고 native raw 경로만 새 wrapper를 생성한다.
-지원 완료 이벤트의 중복 polling 여부와 안정 대기 count는 handler 인스턴스가 아니라 모듈 공유 eventsWorking 상태로 판정한다.
+지원 완료 이벤트의 중복 polling 여부와 안정 대기 count는 handler 인스턴스별 _eventsWorking으로 판정한다. 전체·이벤트별 세대가 바뀐 이전 콜백은 상태와 완료 알림을 반영하지 않는다.
 정상 초기화되지 않았거나 dispose된 handler의 app 의존 메서드는 공통 유효성 guard가 없으며 일부 직접 속성 접근에서 오류가 발생할 수 있다.
 ```
 

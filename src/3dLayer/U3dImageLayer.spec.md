@@ -33,6 +33,9 @@
 - `U3dApp`의 레이어 연결, renderer 품질 설정과 terrain decal manager 공유
 - 사용자 정의 이미지 레이어 예제의 색상·색조·투명도 조절 API
 
+```spec
+```
+
 ## 3. 정규 자연어 수도코드
 
 ```spec
@@ -195,10 +198,21 @@ U3dImageLayer extends U3dLayer 클래스 정의
             Web API — 초기화 완료 callback 지연 예약; 함수: {setTimeout()}
             U3dLayer — XML 대기가 없는 레이어의 초기화 완료 통지; 함수: {_resolveReady()}
         동작:
-            옵션을 정규화하고 기반 레이어를 초기화한 뒤 image layer type, 수명 상태와 최대 level 직접 처리 정책을 설정한다.
-            부모 영상 대체 level, 투명도, texture Y축, parsing 함수, data cache 옵션과 영상 색상값을 저장한다. useDataCache 값은 이후 data cache 사용 여부에 반영되지 않는다. [확인 Q-001]
-            파생 클래스가 XML 대기를 표시하지 않았으면 1ms 뒤 _resolveReady를 호출하여 ready에 현재 레이어를 전달한다.
-            용량 400의 LRU data cache를 만든다. 제거 callback은 scene mesh cache에 같은 key가 없고 handoff 잔여물도 그 texture를 쓰지 않을 때만 texture의 GPU 자원을 해제하고 close 함수가 있으면 CPU source 사용권도 해제한다.
+            옵션을 정규화하고 기반 레이어를 초기화한 뒤 _type을 IMAGE, _classtype을 U3dImageLayer, _disposed와 _useMaxLevel을 false로 설정한다.
+            _burnLevels는 opt.burnLevels 또는 빈 배열, _transparent는 opt.transparent 또는 기반값, _flipY는 opt.flipY 또는 true, _parseFunction은 opt.parseFunction 또는 null, _useDataCache는 opt.useDataCache 또는 true로 저장한다. #loader를 생성하고 _clippingPlanes는 null로 시작한다. useDataCache 값은 이후 data cache 사용 여부에 반영되지 않는다. [확인 Q-001]
+            opt.transparent가 truthy일 때만 _forceTransparent를 true로 설정한다. 다음 선택값은 각 defined 조건으로 판정하므로 0과 false도 보존한다.
+                opt.brightness가 defined이면 _brightness에 저장한다.
+                opt.contrast가 defined이면 _contrast에 저장한다.
+                opt.saturation이 defined이면 _saturation에 저장한다.
+                opt.hueRotation이 defined이면 _hueRotation에 저장한다.
+                opt.lightColorTone이 defined이면 _lightColorTone에 저장한다.
+                opt.darkColorTone이 defined이면 _darkColorTone에 저장한다.
+                opt.lightColorToneEnabled가 defined이면 _lightColorToneEnabled에 저장한다.
+                opt.darkColorToneEnabled가 defined이면 _darkColorToneEnabled에 저장한다.
+                opt.lightColorToneExposure가 defined이면 _lightColorToneExposure에 저장한다.
+                opt.darkColorToneExposure가 defined이면 _darkColorToneExposure에 저장한다.
+            1ms 타이머를 예약하고, 실행 시점에 파생 클래스의 _needXml이 true가 아니면 _resolveReady로 ready에 현재 레이어를 전달한다.
+            #dataCache에 용량 400의 LRU cache를 만든다. 제거 callback은 scene mesh cache에 같은 key가 없고 handoff 잔여물도 그 texture를 쓰지 않을 때만 texture의 GPU 자원을 해제하고 close 함수가 있으면 CPU source 사용권도 해제한다.
 
     debug log 책임 그룹
         역할: 요청·cache·취소·fallback과 단계별 시간을 선택적으로 기록하되 debugLog가 꺼진 일반 실행의 할당과 함수 호출을 줄인다.
@@ -403,21 +417,31 @@ U3dImageLayer extends U3dLayer 클래스 정의
     override show(visible: boolean, refresh?: boolean) -> void
         처리 기준:
             숨길 때 기반 레이어는 group 만 비우고 cache 작업물은 남기므로, 다시 보일 때 그 작업물을 바로 group 에 되돌린다.
-            가시성이 실제로 바뀐 호출에서만 재부착하며, 숨기는 호출은 cache 의 UTerrainMesh 지형 표시만 끈다.
+            가시성이 실제로 바뀐 호출에서만 재부착한다.
+            숨길 때 이미 숨은 캐시 지형 mesh는 소유 레이어 변경에 따른 합성 대상도 재평가하며, 해제된 mesh는 추가로 등록하지 않는다.
         의존:
             U3dLayer — 가시성 변경과 선택적 화면 갱신; 함수: {show()}; 속성 읽기: {_visible, _cache}
-            UTerrainMesh — 지형 표시 전환; 함수: {setTerrainVisible()}
-        동작: 변경 여부를 기억한 뒤 기반 레이어에 전달하고, 보이게 바뀐 경우 cache 작업물을 재부착하며 숨기는 경우 cache 의 지형 mesh 표시를 끈다.
+            UTerrainMesh — 지형 표시 전환과 소유 레이어 변경 전달; 함수: {setTerrainVisible(), refreshTerrainPresentation()}; 속성 읽기: {visible, _disposed}
+        동작:
+            변경 여부를 기억한 뒤 기반 레이어에 전달한다.
+            보이게 바뀐 경우 캐시 작업물을 재부착한다.
+            숨길 때 실제 표시 변경이 있었고 이미 숨은 미해제 mesh이면 합성 대상을 먼저 재평가한 뒤 캐시 지형 mesh의 표시를 끈다.
 
     #reattachCachedTiles() -> void
-        역할: 숨김 중 group 에서 빠진 cache 작업물을 아직 화면에 있는 tile 에 대해 다시 group 에 붙인다.
-        처리 기준: 해제되지 않고 visible 인 tile 만 대상으로 하며 부착 자체는 addTileFromScene 이 맡는다.
+        역할: 재가시화한 캐시 타일의 실제 부착과 숨은 합성 대상 갱신을 구분한다.
+        처리 기준:
+            현재 tile이 없거나 해제됐으면 처리하지 않는다.
+            visible인 tile의 부착은 addTileFromScene에 맡기고, 숨은 tile은 실제 부착 없이 미해제 캐시 지형 mesh의 합성 대상만 재평가한다.
         의존:
             U3dLayer — 기반 레이어 상태 접근; 속성 읽기: {_cache, _drawArg}
             UCache — cache 키 순회와 tile 조회; 함수: {keys(), get()}
             UDrawArg — 현재 tile 목록 조회; 속성 읽기: {_cacheTiles}
             U3dQuadTile — 해제·표시 상태 조회; 속성 읽기: {_disposed, visible}
-        동작: cache 의 모든 키에 대해 drawArg 에서 tile 을 찾고 살아 있으며 visible 이면 addTileFromScene 을 호출한다.
+            UTerrainMesh — 캐시 지형 mesh 판정과 합성 대상 갱신; 생성자: {UTerrainMesh}; 함수: {refreshTerrainPresentation()}; 속성 읽기: {_disposed}
+        동작:
+            캐시 키의 현재 tile을 찾고 없거나 해제됐으면 건너뛴다.
+            visible이면 기존 부착을 수행한다.
+            숨은 tile이면 캐시의 미해제 지형 mesh에 소유 레이어 표시 변경을 전달한다.
 
     setClippingPlanes(...clippingPlanes: Plane[]) -> void
         인터페이스: 유효한 Plane 인수만 사용하며 인자가 없거나 모두 무효이면 clipping을 해제한다.
@@ -439,14 +463,14 @@ U3dImageLayer extends U3dLayer 클래스 정의
 
     override dispose() -> void
         처리 기준:
-            terrain decal manager는 app 소유이므로 참조만 해제한다.
+            terrain decal manager는 app 소유이며 이 메서드에서 manager를 해제하거나 보관 참조를 비우지 않는다.
             레이어 전체 종료이므로 handoff 보류 여부와 무관하게 cache의 모든 지형 mesh를 강제로 해제한 뒤 기반 정리를 시작한다.
         의존:
             U3dLayer — 진행 요청·scene·cache와 기반 상태 정리; 함수: {dispose()}
             LRUCache — data cache 전체 제거; 함수: {clear()}
         동작:
             cache의 지형 mesh를 모두 강제 해제한다.
-            기반 dispose를 호출하지만 그 deferred 완료 객체는 반환하거나 기다리지 않고, data cache를 비운 뒤 cache와 manager 참조를 제거하고 레이어를 disposed로 표시한다. [확인 Q-007]
+            기반 dispose를 호출하지만 그 Promise는 반환하거나 기다리지 않고, data cache를 비운 뒤 data cache 참조만 제거하고 레이어를 disposed로 표시한다. [확인 Q-007]
 
     #forceDisposeTerrainMeshes() -> void
         역할: 레이어 전체 종료·refresh 경로에서 cache가 보유한 모든 지형 mesh의 terrain binding과 자원을 즉시 해제한다.
@@ -458,8 +482,8 @@ U3dImageLayer extends U3dLayer 클래스 정의
         동작: cache 작업물 중 해제되지 않은 UTerrainMesh마다 force 옵션으로 dispose를 호출한다.
 
     override disposeTile(tile: U3dQuadTile, opt: Partial<{deletefunc: Function}> = {}) -> boolean | undefined
-        인터페이스: opt.deletefunc는 기반 구현에 그대로 전달하며, 반환값은 기반 구현의 삭제 완료 여부를 그대로 돌려준다.
-        처리 기준: tile 유무 판정과 key 해제는 모두 기반 구현이 담당하므로 이 메서드는 반환 타입만 좁힌다.
+        인터페이스: opt.deletefunc는 기반 구현에 그대로 전달하며, 반환값은 기반 구현이 현재 레이어의 disposeTileByKey에 위임한 결과이다. tile이 없으면 undefined, 지형 mesh 해제를 보류하면 false, 기반 key 정리까지 마치면 true이다.
+        처리 기준: 기반 disposeTile 안의 this는 현재 이미지 레이어이므로 key 해제는 이 클래스의 override로 다시 연결된다.
         의존:
             U3dLayer — tile 단위 해제; 함수: {disposeTile()}
         동작: 기반 tile 해제를 실행하고 그 결과를 그대로 반환한다.
@@ -470,15 +494,15 @@ U3dImageLayer extends U3dLayer 클래스 정의
         처리 기준: 공통 이미지 레이어는 오류를 임의로 빈 데이터로 해석하지 않으므로 항상 false를 반환하고, protocol 의미를 아는 하위 레이어(예: XYZ의 404)만 override하여 종료 조건을 제공한다.
         동작: false를 반환한다.
 
-    processTexture(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredObject<U3dQuadTile> = deferred(), options?: ImageTextureProcessOptions) -> DeferredObject<U3dQuadTile>
+    processTexture(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredPromise<U3dQuadTile> = deferredPromise(), options?: ImageTextureProcessOptions) -> Promise<U3dQuadTile>
         인터페이스:
             tile과 drawArg는 texture를 적용할 tile과 당시 draw 상태이다.
             url은 protocol별 하위 레이어가 만든 실제 요청 주소이다.
             promise는 작업 성공·실패를 tile로 전달하는 deferred이며 생략하면 새로 만든다.
-        의존: deferred — 기본 작업 완료 객체 생성; 함수: {deferred()}
+        의존: deferredPromise — 기본 작업 완료 객체 생성; 함수: {deferredPromise()}
         동작: abortNetwork가 false가 아니면 tile key별 요청 취소 경로를 사용하고, false이면 legacy 호환 경로를 사용하여 그 deferred를 반환한다.
 
-    _processTextureCancelable(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredObject<U3dQuadTile>) -> DeferredObject<U3dQuadTile>
+    _processTextureCancelable(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredPromise<U3dQuadTile>) -> Promise<U3dQuadTile>
         역할: tile key별 단일 요청 소유권, 실제 raster 네트워크 중단과 stale callback 차단을 적용한다.
         처리 기준:
             tile key에는 현재 요청 상태 하나만 존재하며 `_activeTextureRequests`와 기반 `_cancelTiles`가 같은 객체를 가리킨다.
@@ -496,18 +520,19 @@ U3dImageLayer extends U3dLayer 클래스 정의
             UShaderTerrainDecalManager — texture 이후 uniform 교체 준비 판정과 대기; 함수: {getTerrainTilePresentationState(), isTerrainTileSwapReady(), waitTerrainTileSwapReady()}
             UTexture/UCanvasTexture — cache 재할당과 소유권 없는 자원 반환; 함수: {allocate(), dispose(), close()}
             UImageUtils — image debug mode의 tile 정보 합성; 정적 함수: {drawText()}
-            U3dEvent — 부모 tile load 완료를 한 번 기다림; 상수: {TILE.LOAD}
-            U3dQuadTile — 부모 요청 상태 조회와 LOAD callback 한 번 등록; 함수: {getWorkStep(), once()}
-            UDEF — image debug, tile·process 상태; 상수: {imageDebug, TILE_STATE, PROCESS.WORK_STATE}
+            U3dQuadTile(tile) — 현재 타일 수명·부모·렌더 대상 조회; 속성 읽기: {_disposed, _parent, _mesh, _drawArg, _key, _x, _y, _rlevel, _quadname}
+            UDEF — image debug와 tile 상태; 상수: {imageDebug, TILE_STATE}
             __GInfo__ — 비정상적인 scene cache 중복 호출 안내; 함수: {__GInfo__()}
-            DeferredObject(promise) — tile 작업 성공·실패 완료; 함수: {resolve(), reject()}
+            DeferredPromise(promise) — tile 작업 성공·실패 완료; 함수: {resolve(), reject()}
             parseFunction — 사용자 buffer parsing 위임; 콜백: {parseFunction()}
             Web API image source — cache 용량 계산과 debug image 교체; 속성 읽기: {width, height}; 속성 쓰기: {HTMLImageElement.src}
         동작:
             필수 입력 중 하나라도 없으면 deferred를 reject하고 종료한다.
             tile key와 선택적 debug 항목을 만들고, 자원 해제·현재 요청 분리·loading count 반환·논리 완료·terrain swap 대기를 각각 멱등하게 수행하는 지역 절차를 준비한다.
 
-            scene cache에 완료 texture가 있으면 tile을 완료 상태로 바꾸고, uniform 재평가가 아니면 중복 호출을 알린 뒤 terrain swap 준비를 기다려 cache-hit로 완료한다.
+            scene cache에 완료 texture가 있으면 manager에 includeComposition=false로 표시 상태를 조회한다. 합성 계획 투영 없이, manager가 있으면서 (교대 준비가 정확히 true가 아니거나 hasDecalState가 정확히 true인) 경우를 uniform 재평가로 본다. 그 밖에는 중복 호출을 알린다. tile을 완료 상태로 바꾼 뒤 아래 대기 기준으로 cache-hit를 완료한다.
+            terrain swap 대기는 manager에 ownerLayer=현재 레이어와 acceptAppliedPresentation=true를 전달한다. manager가 이 소유자의 기존 적용본을 유효한 표시로 인정하면 최신 벡터 revision을 계속 기다리지 않고 영상 작업을 완료할 수 있으며, 원격 source 응답이나 최신 합성의 완료를 이 레이어가 직접 확정하지 않는다.
+            tile key·대기 API가 없거나 대기 전 tile·레이어가 해제되었으면 바로 성공한다. 대기 결과가 정확히 true가 아니면서 살아 있는 경우는 실패, 대기 중 해제된 경우는 성공으로 마친다. 대기 Promise 자체가 거부되면 실패로 종결한다.
             tile을 loading 상태로 바꾸고 data cache에 같은 key가 있으면 debug mode에서는 그 항목을 버린다. 일반 모드에서는 texture를 allocate하여 tile에 적용하고 IMAGE.LOADED를 발행한 뒤 terrain swap 준비를 기다려 cache-hit로 완료한다. 이 경로는 네트워크 loading count를 증가시키지 않는다.
             같은 key의 이전 요청이 있으면 새 URL과의 동일 여부를 관찰한 뒤 이전 상태의 cancel을 호출한다.
             새 요청 상태의 cancel은 registry에서 먼저 분리하고 가능한 network handle을 중단한 뒤 loading count를 반환하고 tile 상태와 deferred를 취소 결과로 한 번만 정리한다.
@@ -518,39 +543,41 @@ U3dImageLayer extends U3dLayer 클래스 정의
             일반 성공 texture는 debug 문자열을 그리거나 data cache에 width×height를 byteLength로 저장한다. render target이 없으면 GPU texture만 dispose하고 성공 처리하며, target이 있으면 texture를 적용하고 IMAGE.LOADED를 발행한 뒤 terrain swap 준비를 기다려 성공한다. [확인 Q-009]
             오류 callback이 구세대이면 자기 loading count와 log만 끝낸다. 최신 요청이면 오류가 빈 tile 판정인지 먼저 확인하고 tile을 재시도 상태로 되돌린다.
             부모가 없으면 빈 tile 판정일 때 빈 결과로 정상 완료하고, 아니면 상태·registry·count를 정리하고 실패한다.
-            부모 cache가 준비되었으면 즉시, 부모가 loading 중이면 LOAD event 뒤에 요청 identity를 다시 확인하여 부모 texture를 만든다. 성공하면 terrain swap을 기다려 fallback으로 완료하고, 부모가 준비될 수 없거나 생성에 실패하면 빈 tile 판정일 때는 빈 결과로 정상 완료하고 아니면 reject한다.
+            부모 cache가 있으면 요청 identity를 다시 확인하고 registry와 count를 정리한 뒤 부모 texture를 즉시 만든다. 성공하면 terrain swap을 기다려 fallback으로 완료하고, 생성 실패는 빈 tile 판정이면 빈 결과로 정상 완료하며 그 외에는 reject한다.
+            부모 cache가 없으면 부모 LOAD event를 기다리지 않는다. 빈 tile 판정이면 빈 결과로 정상 완료하고, 그 외에는 registry·count를 정리하여 즉시 reject한다. 부모가 준비된 뒤의 재예약은 quadtree에 맡긴다.
             빈 결과 완료는 registry·loading count를 정리하고, texture 없는 cache mesh가 남아 있으면 삭제 callback으로 제거한 뒤 tile을 완료 상태로 바꾸고 deferred를 resolve한다.
             abort callback은 실제 abort 관찰값을 남긴다. cancel에서 이미 끝났으면 반환하고, 외부 abort이면 registry·count·tile 상태와 deferred를 직접 한 번만 정리한다.
             동기 예외가 발생하면 현재 상태와 loading count를 정리하고 tile을 재시도 가능 상태로 돌린 뒤 deferred와 debug 항목을 error로 끝낸다.
 
-    _processTextureLegacy(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredObject<U3dQuadTile>) -> DeferredObject<U3dQuadTile>
-        역할: 자체 worker 등 별도 수명주기를 가진 하위 레이어를 위해 요청별 네트워크 취소와 stale identity 차단을 사용하지 않는 호환 경로를 제공한다.
-        처리 기준: texture 적용 뒤 terrain uniform 교체가 준비되어야 deferred를 성공시키며, tile이나 layer가 폐기되었으면 swap 결과와 무관하게 완료한다.
+    _processTextureLegacy(tile: U3dQuadTile, drawArg: UDrawArg, url: string, promise: DeferredPromise<U3dQuadTile>) -> Promise<U3dQuadTile>
+        역할: 요청별 네트워크 중단을 사용하지 않는 하위 레이어에 기존 로더 경로를 제공하되 취소·해제 후의 응답 반영과 중복 슬롯 반납을 막는다.
+        처리 기준: 네트워크 응답이 취소·해제 이후 도착하면 실패시키고, 이미 texture를 적용하여 terrain 준비를 기다리는 중의 해제는 성공으로 종결한다. 살아 있는 타일은 terrain uniform 준비가 true여야 성공한다.
         의존:
             defined — 필수 입력과 cache 상태 존재 여부 판정; 함수: {defined()}
-            U3dLayer — key·scene cache·tile 상태·loading count와 legacy 취소 callback 관리; 함수: {createKeyFromTile(), getCache(), setStateTile(), resetStateTile(), plusLoadingTile(), minusLoadingTile(), removeCancelByTile()}; 속성 쓰기·삭제: {_cancelTiles}; 속성 읽기: {_cache}
+            U3dLayer — key·scene cache·tile 상태·loading count와 legacy 취소 callback 관리; 함수: {createKeyFromTile(), getCache(), setStateTile(), resetStateTile(), plusLoadingTile(), minusLoadingTile()}; 속성 읽기·쓰기·삭제: {_cancelTiles}; 속성 읽기: {_cache}
             UCache — 부모 scene mesh cache의 key 직접 조회; 함수: {get()}
             UTextureLoader — image 요청과 callback 실행; 함수: {load()}; 콜백: {성공 callback, 오류 callback, abort callback, parse callback}
             LRUCache — texture data cache 조회·재사용·저장; 함수: {has(), get(), put(), delete()}
-            UShaderTerrainDecalManager — presentation 상태와 terrain swap 준비 대기; 함수: {getTerrainTilePresentationState(), isTerrainTileSwapReady(), waitTerrainTileSwapReady()}
+            UTerrainMesh — 지형 메시 판정, uniform 재평가와 표시 준비 대기; 함수: {isTerrainPresentationReevaluation(), waitTerrainRenderable()}
             UTexture/UCanvasTexture — cache texture 재할당과 GPU 해제; 함수: {allocate(), dispose()}
             UImageUtils — image debug mode의 tile 정보 합성; 정적 함수: {drawText()}
-            U3dEvent — 부모 tile LOAD event 대기; 상수: {TILE.LOAD}
-            U3dQuadTile — 부모 요청 상태 조회와 LOAD callback 한 번 등록; 함수: {getWorkStep(), once()}
-            UDEF — tile·process 상태와 image debug 판정; 상수: {TILE_STATE, PROCESS.WORK_STATE, imageDebug}
+            U3dQuadTile(tile) — 타일 수명과 부모·렌더 대상 확인; 속성 읽기: {_disposed, _parent, _mesh, _drawArg, _key, _x, _y, _rlevel, _quadname}
+            UDEF — tile 상태와 image debug 판정; 상수: {TILE_STATE, imageDebug}
             __GInfo__ — scene cache 중복 호출 안내; 함수: {__GInfo__()}
-            DeferredObject(promise) — tile 작업 성공·실패 완료; 함수: {resolve(), reject()}
+            DeferredPromise(promise) — tile 작업 성공·실패 완료; 함수: {resolve(), reject()}
             parseFunction — 사용자 buffer parsing 위임; 콜백: {parseFunction()}
             Web API image source — cache 용량 계산과 debug image 교체; 속성 읽기: {width, height}; 속성 쓰기: {HTMLImageElement.src}
         동작:
             필수 입력 중 하나라도 없으면 deferred를 reject하고 종료한다.
             scene cache에 완료 texture가 있으면 tile을 완료 상태로 바꾸고 terrain swap 준비 뒤 성공한다. uniform 재평가가 아니면 중복 호출을 알린다.
-            tile을 loading 상태로 바꾸고 loading count를 증가시킨다. data cache hit이면 texture를 allocate하여 적용하고 IMAGE.LOADED를 발행한 뒤 swap을 기다려 성공하지만 증가시킨 loading count를 반환하지 않는다. [확인 Q-004]
-            cache miss이면 deferred reject callback을 기반 취소 registry에 저장하고 loader를 시작한다. parseFunction이 있으면 현재 레이어와 tile을 결합하여 전달한다. [확인 Q-008]
-            성공하면 loading count와 취소 등록을 제거한다. 폐기된 tile 또는 render target이 없는 tile은 GPU texture를 dispose하고 완료하며, 정상 tile은 debug image 또는 data cache를 준비한 뒤 texture를 적용하고 event를 발행하여 swap 준비 뒤 성공한다. [확인 Q-009]
-            오류 시 tile 상태를 되돌리고 부모 cache가 있으면 즉시, 부모가 loading이면 LOAD event 뒤에 부모 texture를 만든다. 부모가 없거나 준비되지 않거나 생성에 실패하면 loading count를 줄이고 reject한다.
-            abort callback은 tile 상태, loading count와 deferred를 실패로 정리한다.
-            terrain swap 대기 Promise가 reject되면 처리하는 catch가 없어 deferred가 완료되지 않을 수 있고, 동기 예외에서도 증가한 loading count를 반환하지 않는다. [확인 Q-004]
+            tile을 loading 상태로 바꾼다. data cache hit이면 loading count를 늘리지 않고 texture를 allocate하여 적용하고 IMAGE.LOADED를 발행한 뒤 swap을 기다려 성공한다.
+            cache miss에서만 loading count를 증가시키고 현재 요청의 취소 callback 배열을 registry에 저장한 뒤 loader를 시작한다. 취소 callback은 취소됨을 표시하고 슬롯을 반납하며 타일로 reject한다. parseFunction이 있으면 현재 레이어와 tile을 결합하여 전달한다. [확인 Q-008]
+            성공 callback 진입 때 취소되었거나 레이어·타일이 해제되었으면 받은 texture를 dispose하고 슬롯을 반납한 뒤 reject한다. 그 외에는 슬롯을 반납하고 debug image 또는 data cache를 준비한다. [확인 Q-009]
+            tile의 mesh나 drawArg가 없으면 상태를 _end로 바꾸고 texture를 dispose한 뒤 표시 준비 완료 처리를 수행한다. 정상 타일은 texture를 적용하고 IMAGE.LOADED를 발행한 뒤 _end로 바꾸어 표시 준비를 기다린다.
+            오류 callback은 먼저 슬롯을 반납한다. 취소·해제 상태이면 reject만 하고, 그 외에는 타일 상태를 초기화한다. 부모 cache가 있으면 부모 texture를 즉시 만들고 표시 준비를 기다린다. 부모가 없거나 준비되지 않았거나 생성에 실패하면 부모 event를 기다리지 않고 reject한다.
+            abort callback은 슬롯을 반납하고, 살아 있는 미취소 타일의 상태만 초기화한 뒤 reject한다. 성공 callback의 예외도 슬롯을 반납하고 reject하며, 요청 시작 중 동기 예외는 추가로 타일을 _end로 바꾼다.
+            슬롯은 loading 플래그로 한 번만 반납하고 취소 registry는 현재 배열 참조와 같은 항목만 제거하여 새 요청을 지우지 않는다.
+            표시 준비는 cache 객체가 UTerrainMesh가 아니거나 이미 타일·레이어가 해제되었으면 즉시 타일로 성공한다. waitTerrainRenderable 결과가 true가 아니면 살아 있는 타일은 실패시키되 대기 중 해제된 타일은 성공시킨다. 대기 Promise 자체의 거부는 타일로 reject한다.
 
     override setOpacity(val: number) -> void
         처리 기준: forceTransparent가 true이면 material의 투명 상태를 계속 true로 유지한다.
@@ -559,9 +586,11 @@ U3dImageLayer extends U3dLayer 클래스 정의
             U3dLayer — opacity 저장, cache key·scene·cache object 조회; 함수: {setOpacity(), getCacheKeys(), getScene(), getCacheByKey()}; 속성 읽기: {_opacity, _cache}
             TerrainMaterial — terrain 투명 상태와 opacity 반영; 함수: {setTerrainBaseTransparent()}; 속성 쓰기: {transparent, needsUpdate, opacity}
             Three.js Object3D — scene·cache object의 material 순회; 함수: {traverse()}
+            UTerrainMesh — opacity 변경 후 합성 표시 재평가; 함수: {refreshTerrainPresentation()}
         동작:
             기반 opacity를 적용하고 forceTransparent이면 레이어 투명 상태를 true로 고정한다.
             cache key가 없으면 scene 전체를, 있으면 각 cache object를 순회하여 단일 material의 투명 상태와 opacity를 갱신한다. material 배열은 건너뛴다. [확인 Q-006]
+            cache의 UTerrainMesh마다 image-opacity-changed 사유로 표시 합성을 재평가한다.
 
     deleteMaterial(mesh: Object3D) -> void
         의존:
@@ -588,7 +617,7 @@ U3dImageLayer extends U3dLayer 클래스 정의
             Mesh가 아닌 대상의 커스텀 dispose 또는 Material.dispose는 호출 후 종료한다.
             그 외 대상은 Object3D.dispose로 해제 이벤트를 전달한다. UMesh의 일괄 정리 대신 레이어가 공유 geometry를 한 번 반납한다.
             그 외 대상의 material과 geometry를 해제한다.
-            mesh.children이 있으면 그 복사본을 재귀 정리한 뒤 child 목록을 비운다.
+            target.children이 있으면 그 복사본을 재귀 정리한 뒤 child 목록을 비운다.
 
     override fncDeleteGroup(object?: Object3D | Material) -> void
         인터페이스: UCache 삭제 callback으로 사용될 때 UCache가 현재 레이어를 this로 고정하고 삭제할 object 하나만 전달한다.
@@ -597,7 +626,11 @@ U3dImageLayer extends U3dLayer 클래스 정의
             defined — object 존재 여부 판정; 함수: {defined()}
             UGroup — group에서 object 제거; 함수: {remove()}
             U3dLayer — 기반 레이어 상태 접근; 속성 읽기: {_group}
-        동작: object를 현재 레이어 group에서 제거하고 deleteMesh로 깊은 정리를 수행한다.
+            UTerrainMesh — 지형 mesh의 강제 정리와 중복 해제 방지; 함수: {dispose()}; 속성 읽기: {_disposed}
+        동작:
+            object가 defined이면 group에서 제거한다.
+                UTerrainMesh이면 아직 해제되지 않았을 때만 force 옵션으로 해제하고 종료한다.
+                그 외에는 material·geometry·child를 정리한다.
 
     override getTileFromScene(tile: U3dQuadTile) -> UMesh | undefined
         의존:
@@ -607,11 +640,13 @@ U3dImageLayer extends U3dLayer 클래스 정의
         동작: tile, scene과 cache object가 있고 group이 해당 object를 포함하면 반환하며 그 외에는 undefined를 반환한다.
 
     override addTileFromScene(tile: U3dQuadTile) -> boolean
+        처리 기준: 캐시의 지형 메시가 아직 표시 준비 전이면 부착·가시성 변경·같은 key 잔여물 해제를 수행하지 않고 false를 반환한다. 기존 표면과 자원은 보존한다.
         의존:
             defined — scene·cache object와 group 존재 여부 판정; 함수: {defined()}
             U3dLayer — 기반 tile scene 상태 처리와 cache 조회; 함수: {addTileFromScene(), getScene(), getCache()}; 속성 읽기: {_group}
             UGroup — 표시 object를 group에 추가; 함수: {add()}
             UMesh — shadow 적용 시작; 함수: {applyShadow()}
+            UTerrainMesh — 현재 메시의 프로그램·texture·표시 준비 판정; 함수: {isTerrainRenderableReady()}
             Web API — shadow 적용 시각 조회; 함수: {performance.now()}
             UShaderTerrainDecalManager — 같은 key의 handoff 잔여물 즉시 정리 요청; 함수: {releaseTerrainHandoffResidues()}
         동작: 기반 처리를 실행한 뒤 tile이 visible이고 scene·cache object·group이 있으면 object를 보이게 추가하고 shadow를 적용한 다음, 같은 key의 옛 표면이 더 필요 없으므로 manager에 이 레이어의 handoff 잔여물 정리를 요청하고 true를 반환하며, 아니면 false를 반환한다.
@@ -690,7 +725,10 @@ U3dImageLayer extends U3dLayer 클래스 정의
             UShaderTerrainDecalManager — tile registry 조회; 속성 읽기: {TERRAIN_TILE_REGISTRY}
             hasTerrainTileFailedCurrentRevision — UShaderTerrainDecalTileStateManager 모듈의 실패 revision 판정 함수; 함수: {hasTerrainTileFailedCurrentRevision()}
             U3dApp — manager 조회; 함수: {getTerrainDecalManager()}
-        동작: 참여·표시 여부를 확인하고 cache object 가 없으면 false 를, UTerrainMesh 가 아니면 true 를, UTerrainMesh이면 registry entry와 material binding을 조회해 실패 revision이 아니고 binding이 현재 mesh와 준비된 texture를 가리키면 true를 반환한다.
+        동작:
+            참여하지 않는 tile은 true, 참여하지만 표시되지 않는 tile이나 cache object가 없는 tile은 false를 반환한다.
+            UTerrainMesh가 아니면 true를 반환한다. 지형 mesh이면 manager registry entry와 단일 material이 있어야 하며 현재 revision의 실패가 있으면 false를 반환한다.
+            material binding이 현재 mesh를 가리키고 textureReady와 visible이 모두 true이며, 그 material이 activeMaterials에 있거나 activeMaterial과 같을 때만 true를 반환한다.
 
     disposeTerrainHandoffResidue(key: string, mesh: Object3D) -> void
         역할: handoff가 끝난 잔여물 mesh를 group에서 제거하고 texture 소유권을 가려 자원을 해제한다.
@@ -709,7 +747,7 @@ U3dImageLayer extends U3dLayer 클래스 정의
         동작:
             같은 key의 살아 있는 작업물 material에서 map·_oriMap을 모으고 data cache의 texture를 순서 변경 없이 조회한다.
             잔여물 material의 map·_oriMap마다 살아 있는 texture와 같으면 참조를 끊고, data cache texture가 아니면 닫을 목록에 넣는다.
-            mesh를 group에서 제거하고 material·geometry·child를 정리한 뒤 닫을 목록의 texture를 close한다.
+            mesh가 defined이고 현재 cache 작업물과 다른 객체일 때만 group에서 제거하고 material·geometry·child를 정리한 뒤 닫을 목록의 texture를 close한다.
 
     #isTextureHeldByResidue(key: string, texture: Texture) -> boolean
         인터페이스: texture가 key의 handoff 잔여물 material에서 map 또는 _oriMap으로 쓰이고 있으면 true를 반환한다.
@@ -732,10 +770,10 @@ U3dImageLayer extends U3dLayer 클래스 정의
             U3dLayer — 매 frame 공통 레이어 갱신; 함수: {update()}
         동작: drawArg가 있으면 기반 update에 전달한다.
 
-    createParentTexture(tile: U3dQuadTile) -> boolean | DeferredObject<U3dQuadTile> | undefined
+    createParentTexture(tile: U3dQuadTile) -> boolean | Promise<U3dQuadTile> | undefined
         역할: 부모 tile의 texture source와 누적 UV 변환을 사용하여 자식 tile 영역의 임시 texture를 만든다.
         처리 기준:
-            하위 레이어는 성공을 해당 tile로 이행되는 DeferredObject로 반환할 수 있으며, 호출부는 반환값을 참·거짓으로만 판정한다.
+            하위 레이어는 성공을 해당 tile로 이행되는 DeferredPromise로 반환할 수 있으며, 호출부는 반환값을 참·거짓으로만 판정한다.
             tile·부모·부모 mesh·부모 texture와 자식 mesh 조건을 충족하지 못하면 tile을 재시도 상태로 돌리거나 undefined를 반환한다.
             부모 fallback texture는 data cache가 아니라 자식 material이 소유하며 GPU dispose event에서 CPU source 사용권을 한 번 반환한다.
         의존:
@@ -747,16 +785,17 @@ U3dImageLayer extends U3dLayer 클래스 정의
             UTexture/UCanvasTexture — dispose event와 CPU source 사용권 해제; 함수: {addEventListener(), removeEventListener(), close()}
             UDEF — image debug, texture 개선과 tile 상태; 함수: {setTextureImprovement(), noResizeTexture()}; 상수: {imageDebug, IMPROVE_TEXTURE_LEVEL, TILE_STATE}
             U3dApp — texture 품질값과 renderer 제공; 함수: {getImproveValue()}; 속성 읽기: {_renderer}
-            UShaderTerrainDecalManager — 부모 key를 포함한 자식 texture 준비 통지; 함수: {setTerrainTileTextureReady()}
+            UTerrainMesh — 부모 대체 texture 준비를 mesh 소유 상태에 통지; 함수: {markTerrainTextureReady()}
         동작:
             사용할 수 없는 tile, 폐기된 tile 또는 숨은 레이어이면 종료한다. 부모가 없거나 부모 cache mesh가 없으면 tile을 재시도 상태로 바꾸고 종료한다.
             tile이 이미 loading 이상이면 종료하고, 아니면 loading으로 바꾼다. 자식 원본 mesh가 없으면 재시도 상태로 되돌린다.
-            자식 cache mesh에 이미 texture가 있으면 tile을 완료하고 true를 반환한다. cache mesh가 없으면 새 지형 mesh를 만든다.
+            자식 cache mesh에 이미 texture가 있으면 tile을 완료하고 true를 반환한다.
+            tile이 defined이면 위의 수명·표시·loading 조건을 모두 통과한 자식에 한해 cache mesh 부재 시 새 지형 mesh를 만든다.
             부모 material의 texture가 없으면 재시도 상태로 되돌린다.
             일반 모드에서는 부모 source를 공유하고 자식 quad 영역에 맞는 UV matrix를 누적하며, image debug mode에서는 독립 canvas에 tile 정보를 그린다.
             새 fallback texture의 dispose event에는 listener 자체를 제거하고 CPU source를 close하는 callback을 등록한다.
-            app 품질 설정에 따라 texture 개선 또는 resize 방지를 적용하고 자식 material에 연결한 뒤 manager에 texture 준비를 통지한다.
-            IMAGE.LOADED를 발행하고 tile을 완료 상태로 바꾼 뒤 true를 반환한다.
+            app 품질 설정에 따라 texture 개선 또는 resize 방지를 적용하고 자식 material이 있으면 texture를 연결한다. 자식이 UTerrainMesh이면 parent-texture-created 사유로 준비를 알리며 scene 부착은 수행하지 않는다.
+            tile이 defined이면 위 준비를 마친 성공 경로에서 IMAGE.LOADED를 발행하고 tile을 완료 상태로 바꾼 뒤 true를 반환한다.
 
     override createTexture(tile: U3dQuadTile, opt: Partial<{noParentTexture: boolean}> = {}) -> boolean | null | undefined
         역할: 공통 조건과 부모 영상 대체 정책을 검사하여 하위 레이어가 실제 texture 작업을 시작해도 되는지 결정한다.
@@ -766,7 +805,7 @@ U3dImageLayer extends U3dLayer 클래스 정의
             opt.noParentTexture는 boolean 값이 아니라 정의 여부로 max-level 부모 fallback을 비활성화한다. 사전 생성 타일셋을 그대로 요청하는 하위 레이어(WMTS)는 이 키를 정의하여 부모 fallback을 끄는 것이 결정된 정책이다.
         의존:
             defined — tile·mesh·상태·parent 존재 여부 판정; 함수: {defined()}
-            U3dLayer — tile 상태·표시 영역·재시도 상태 관리; 함수: {getStateTile(), setStateTile(), resetStateTile(), intersects()}; 속성 읽기: {_visible, _minlevel, _maxlevel}
+            U3dLayer — tile 상태·표시 영역·재시도 상태 관리; 함수: {getStateTile(), setStateTile(), resetStateTile(), intersects()}; 속성 읽기: {_visible, _minlevel, _maxlevel, _drawArg}
             U3dQuadTile — 전체 허용 최대 level 조회; 정적 함수: {getMaxLevel()}
             UDrawArg — 현재 pass level 조회; 함수: {getPassLevel()}
             UDEF — tile 상태 범위; 상수: {TILE_STATE}
@@ -787,23 +826,23 @@ U3dImageLayer extends U3dLayer 클래스 정의
         동작: mesh, material, map과 object인 image가 있고 image가 complete 속성이 없거나 false가 아닌 complete 값을 가지면 true를 반환하며, 그 외에는 false를 반환한다.
 
     createMeshFromTile(tile: U3dQuadTile) -> UTerrainMesh
-        역할: image texture와 terrain decal uniform을 받을 지형 mesh를 만들고 cache·manager에 등록한다.
+        역할: image texture와 terrain uniform을 받을 지형 mesh를 만들고 cache에 등록한다. terrain binding 설정은 UTerrainMesh에 맡긴다.
         처리 기준: 기반 cache가 실제 UCache가 아니거나 tile의 원본 mesh가 없으면 정상 생성할 수 없다. [확인 Q-002]
         의존:
             defined — 타일의 원본 mesh 존재 여부 판정; 함수: {defined()}
             UDEF — image terrain material 생성, normal texture와 개선 level; 함수: {createOrSetImageLayerMaterial(), setTerrainNormalTexture()}; 상수: {IMPROVE_TEXTURE_LEVEL}
             U3dApp — 현재 texture 개선 수준 조회; 함수: {getImproveValue()}
-            UTerrainMesh — tile geometry와 image material을 연결하고 layer·animation·색상 상태 반영; 생성자: {new UTerrainMesh()}; 함수: {setLayerName(), animationOpacity()}; 속성 쓰기: {brightness, contrast, saturation, hueRotation, lightColorTone, darkColorTone, lightColorToneEnabled, darkColorToneEnabled, lightColorToneExposure, darkColorToneExposure, renderOrder}
+            UTerrainMesh — tile·material·소유 레이어·초기 색상값을 받는 지형 mesh 생성과 선택적 애니메이션; 생성자: {new UTerrainMesh()}; 함수: {animationOpacity()}
             TerrainMaterial — terrain base 표시 상태 설정; 함수: {setTerrainBaseTransparent()}; 속성 쓰기: {transparent, opacity}
-            UShaderTerrainDecalManager — tile·mesh·material과 초기 texture 상태 등록; 함수: {registerTerrainMesh()}
-            U3dLayer — tile render order 조회; 함수: {getRenderOrderAtTile()}; 속성 읽기: {_cache, _app, _opacity, _name, _animation}
+            U3dLayer — 생성에 사용할 cache·app·불투명도·애니메이션 상태; 속성 읽기: {_cache, _app, _opacity, _animation}
             UCache — tile key 생성과 생성 mesh 등록; 함수: {createKeyByTile(), add()}
         동작:
-            image terrain material을 만들고 개선 수준이 medium보다 높으면 tile level의 normal texture를 설정한다.
+            image terrain material을 만든다.
+            개선 수준이 medium보다 높으면 재질과 tile의 실제 레벨을 전달하여 공유 normal texture와 레벨별 강도를 설정한다.
             terrain 전용 함수가 있으면 그 함수로, 아니면 material 속성으로 투명 상태를 설정하고 opacity를 적용한다.
             cache key를 만들고 tile 원본 mesh가 없으면 예외를 던진다.
-            UTerrainMesh를 만들고 현재 밝기·대비·채도·색조·색상톤 값과 layer 이름, render order와 tile key를 반영한다.
-            manager에 parent key, visibility, texture 미준비와 owner 정보를 등록한다. animation이 켜져 있으면 초기 opacity animation을 적용하고 mesh를 cache에 넣어 반환한다.
+            tile과 material을 전달하여 UTerrainMesh를 만든다. ownerLayer로 현재 레이어를, initialColorAdjustment로 현재 밝기·대비·채도·색조·색상톤 값을 전달한다.
+            animation이 true이면 mesh에 현재 레이어와 0.3을 전달해 opacity animation을 시작하고, mesh를 cache에 넣어 반환한다.
 
     setDepthWrite(tile: U3dQuadTile, val: boolean) -> void
         의존:
@@ -821,7 +860,7 @@ U3dImageLayer extends U3dLayer 클래스 정의
             UTexture/UCanvasTexture — 사용할 수 없는 새 texture와 기존 GPU map 해제 및 Y축 상태 반영; 함수: {dispose()}; 속성 읽기·쓰기: {flipY}
             U3dApp — texture 개선 수준과 renderer 제공; 함수: {getImproveValue()}; 속성 읽기: {_renderer}
             UDEF — texture 개선 또는 resize 방지 설정; 함수: {setTextureImprovement(), noResizeTexture()}; 상수: {IMPROVE_TEXTURE_LEVEL}
-            UShaderTerrainDecalManager — 실제 child texture 준비 통지; 함수: {setTerrainTileTextureReady()}
+            UTerrainMesh — 실제 child texture 준비를 mesh 소유 상태에 통지; 함수: {markTerrainTextureReady()}
             TerrainMaterial — 표시 texture 교체; 속성 읽기·쓰기: {map}
             __GInfo__ — 작업 배정 시점의 cache 잔존 진단 안내; 함수: {__GInfo__()}
         동작:
@@ -829,13 +868,13 @@ U3dImageLayer extends U3dLayer 클래스 정의
             cache mesh가 이미 있으면 작업 배정 시점에는 cache가 비어 있어야 한다는 불변식이 깨진 것이므로 진단 안내만 남기고 그 mesh를 그대로 쓰며, 없으면 생성하고 다시 조회한다. 그래도 mesh 또는 material이 없으면 새 texture를 dispose하고 종료한다.
             기존 map이 새 texture와 다르면 기존 map을 dispose한다.
             app 품질에 따라 새 texture 개선 또는 resize 방지를 적용하고 flipY를 layer 값과 맞춘 뒤 material map에 연결한다.
-            manager에 parent key와 함께 child texture 준비를 통지한다.
+            UTerrainMesh이면 image-texture-updated 사유로 texture 준비를 알린다. scene 부착은 tile의 표시 전환 경로에 맡긴다.
 
     override refresh() -> void
         역할: 요청·표시 상태와 texture data cache를 초기화하고 현재 quadtree cache의 tile texture를 다시 준비한다.
         의존:
-            U3dLayer — 진행 요청과 scene·tile cache의 공통 refresh; 함수: {refresh()}; 속성 읽기: {_drawArg, _disposed}
-            U3dQuadTile — 타일 해제 판정; 속성 읽기: {_disposed}
+            U3dLayer — 진행 요청과 scene·tile cache의 공통 refresh; 함수: {refresh()}; 속성 읽기: {_drawArg}
+            U3dQuadTile(tile) — 타일 해제 판정; 속성 읽기: {_disposed}
             LRUCache — 보유 texture 목록 조회와 cache 비우기; 함수: {length(), values(), clear()}
             UCache — quadtree tile cache 목록 조회; 함수: {items()}
             UTexture/UCanvasTexture — data cache의 GPU·CPU 자원 해제; 함수: {dispose(), close()}
@@ -843,15 +882,19 @@ U3dImageLayer extends U3dLayer 클래스 정의
         동작:
             cache의 지형 mesh를 모두 강제 해제한 뒤 기반 refresh를 실행하고, data cache의 모든 texture를 dispose·close한 뒤 cache를 비운다.
             현재 _drawArg가 없으면 종료한다.
-            _drawArg가 있으면 quadtree cache의 각 tile에 texture 생성을 요청한다. 결과가 thenable이면 Promise.resolve로 표준 체인에 연결하고 성공 callback에서 레이어·타일이 살아 있을 때 scene에 추가한다. 결과가 true이면 즉시 추가한다.
-            체인의 실패는 해제된 대상 또는 AbortError이면 종료하고, 그 외에는 2258522 로그로 보고한다.
+            _drawArg가 있으면 quadtree cache의 각 tile에 texture 생성을 요청한다.
+                결과가 thenable이면 Promise.resolve로 연결하고 성공 callback에서 레이어·타일이 살아 있을 때 scene에 추가한다.
+                thenable이 아니고 결과가 true이면 즉시 scene에 추가한다.
+                체인의 실패는 해제된 대상 또는 AbortError이면 종료하고, 그 외에는 2258522 로그로 보고한다.
 
     isTileRenderableReady(tile: U3dQuadTile) -> boolean
         인터페이스: tile이 실제 parent·child 교체에 사용할 수 있는지 반환한다.
         의존:
             U3dLayer — tile cache mesh 조회; 함수: {getCache()}
             UTerrainMesh — texture와 terrain uniform swap 준비 판정; 함수: {isTerrainRenderableReady()}
-        동작: 표시 준비에 참여하지 않는 tile은 true, tile key나 cache mesh가 없으면 false를 반환하고, UTerrainMesh가 아니면 true, UTerrainMesh이면 mesh 자신의 준비 판정 결과를 반환한다. [확인 Q-010]
+        동작:
+            표시 준비의 참여 여부를 먼저 판정한다.
+            참여하지 않는 tile은 true, tile._key나 cache mesh가 없으면 false를 반환한다. cache mesh가 UTerrainMesh가 아니면 true, UTerrainMesh이면 mesh 자신의 준비 판정 결과를 반환한다.
 
     #dispatchImageLoaded(object: Object3D | undefined, tile: U3dQuadTile) -> void
         의존:
@@ -886,7 +929,7 @@ tile key별 cancelable 요청은 `_activeTextureRequests`와 기반 `_cancelTile
 scene mesh cache, handoff 잔여물과 LRU data cache가 같은 texture 객체를 공유할 수 있으므로 data cache 제거만으로 scene 작업물이나 잔여물이 쓰는 texture를 dispose·close하지 않는다.
 tile 생애가 끝난 작업물은 즉시 scene mesh cache와 tile 작업 상태에서 제외하며, handoff 동안 화면에 남는 옛 mesh는 작업물이 아닌 잔여물로 manager가 보관하고 이 레이어의 disposeTerrainHandoffResidue()만이 정리한다.
 부모 fallback texture는 자식 material이 직접 소유하고 dispose event에서 CPU source 사용권을 반환한다.
-texture를 material에 적용한 것만으로 tile 처리를 완료하지 않고, terrain decal manager가 있으면 texture와 uniform의 parent·child 교체 준비까지 기다린다.
+texture를 material에 적용한 것만으로 tile 처리를 완료하지 않는다. cancelable 경로는 manager에 현재 영상 소유자와 기존 적용본 허용 옵션을 전달하여 교체 준비를 기다리고, legacy 경로는 UTerrainMesh.waitTerrainRenderable() 결과를 따른다. 영상 작업 완료는 원격 벡터 응답 또는 최신 합성 완료와 같지 않으며, 실제 scene 부착은 메시 자체의 표시 준비 판정을 유지한다.
 debug log 상세 entries는 수를 제한하지만 현재 generation의 summary는 전체 작업을 누적하며, 이전 generation callback은 새 summary를 변경하지 않는다.
 ```
 

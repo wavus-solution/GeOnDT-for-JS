@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="../">
+    <script>
+// 공통 예제의 실제 기준 URL로 배포 모듈 주소를 해석하고 모듈을 읽기 전에 Import Map을 등록합니다.
+function installExampleImportMap() {
+    const entries = {"/extension/GESpreadObject/GESpreadObject.js":"../dist/extension/GESpreadObject/GESpreadObject.min.js","/extension/sequence/sequence.js":"../dist/extension/sequence/sequence.min.js","/extension/a3fTimeSeries/a3fTimeSeries.js":"../dist/extension/a3fTimeSeries/a3fTimeSeries.min.js","./edition/examples/eventLayers/eventLayers.main.js":"./edition/examples/eventLayers/eventLayers.main.js?v=8bc35e909cab","./edition/examples/eventLayers/eventLayers.ui.js":"./edition/examples/eventLayers/eventLayers.ui.js?v=7bff8cee336f"}, imports = {};
+    for (const [specifier, target] of Object.entries(entries)) imports[new URL(specifier, document.baseURI).href] = new URL(target, document.baseURI).href;
+    const map = document.createElement('script'); map.type = 'importmap'; map.textContent = JSON.stringify({imports});
+    document.currentScript.after(map);
+}
+installExampleImportMap();
+</script>
+    <title>이벤트 처리</title>
+    <link rel="stylesheet" href="lib/bootstrap/bootstrap.min.css" type="text/css">
+    <link rel="stylesheet" href="lib/ol/ol.css" type="text/css">
+    <link rel="stylesheet" href="css/pastel-glass-map-theme.css" type="text/css">
+    <link rel="stylesheet" href="css/example-editor.css" type="text/css">
+    <link rel="stylesheet" href="edition/assets/monaco/monaco-editor.css?v=ebbbdcf5172a" type="text/css">
+    <style id="example-viewer-style">
+
+    </style>
+</head>
+<body>
+<!-- 자동 생성 파일입니다. 원본 tutorial-official/examples\eventLayers\eventLayers.md을(를) 수정하세요. -->
+<main id="example-viewer" class="example-app">
+    <div id="map-wrapper"><div id="map"></div></div>
+
+    <!-- 지도 화면에서 예제 목록으로 돌아가는 유일한 통로입니다.
+         브라우저 뒤로가기만 두면 새 탭이나 공유받은 주소로 들어온 사람은 목록을 찾을 수 없습니다. -->
+    <a class="example-brand" href="edition/index.html" title="예제 목록" aria-label="예제 목록으로 이동"><img src="image/geondt-loading-color-logo.png" alt=""></a>
+    <h1 class="example-title">이벤트 처리</h1>
+
+    <nav class="example-rail" aria-label="예제 도구">
+        <button class="rail-button" type="button" data-panel-target="example-explanation" aria-expanded="false">
+            <span class="rail-icon">?</span><span>도움말</span>
+        </button>
+        <div data-common-ui-rail></div>
+        <div id="viewer-example-rail" class="viewer-example-rail">
+
+        </div>
+    </nav>
+
+    <button class="editor-mode-toggle" type="button" data-open-editor aria-pressed="false">
+        <span class="code-toggle-icon">&lt;/&gt;</span><span data-editor-toggle-label>코드 편집</span>
+    </button>
+
+    <aside class="glass-panel explanation-panel" id="example-explanation" aria-hidden="true">
+        <header class="panel-header">
+            <div><span class="eyebrow">EXAMPLE GUIDE</span><h2>이벤트 처리</h2></div>
+            <button class="panel-close" type="button" data-panel-close="example-explanation" aria-label="도움말 닫기">×</button>
+        </header>
+        <div class="panel-content markdown-document">
+<h1>이벤트 처리</h1>
+<p>지도 클릭과 화면 데이터 로딩 이벤트를 등록하고 반복 호출과 일회 호출을 비교합니다. 공통 런타임이 위성영상·한반도 지형·서울 U3F 모델을 준비하며, 예제는 그 앱에 이벤트만 등록합니다.</p>
+<h2>다루는 기능</h2>
+<ul>
+<li><code>app.on()</code>으로 이벤트가 발생할 때마다 로그를 남깁니다.</li>
+<li><code>app.once()</code>로 등록 이후 첫 이벤트만 기록합니다.</li>
+<li>반환된 등록 키로 <code>app.off()</code>를 호출해 이 예제의 이벤트만 해제합니다.</li>
+<li>준비된 모델을 선택해 경계 정보를 확인하고 해당 위치로 이동합니다.</li>
+</ul>
+<h2>사전 조건</h2>
+<p>GeOnDT 라이선스와 WebGL 지원 브라우저가 필요합니다. 외부 모델 데이터 서버에 접근하지 못하면 모델 목록은 비어 있을 수 있습니다. 이 경우에도 지도 클릭 이벤트와 등록·해제를 확인할 수 있습니다.</p>
+<h2>조작 및 예상 결과</h2>
+<table>
+<thead>
+<tr>
+<th>조작</th>
+<th>예상 결과</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>지도를 두 번 클릭합니다.</td>
+<td>첫 클릭에는 on·once, 이후 클릭에는 on 로그만 추가됩니다.</td>
+</tr>
+<tr>
+<td>표시할 이벤트를 선택합니다.</td>
+<td>해당 이벤트의 로그만 표시하며 등록 자체는 유지합니다.</td>
+</tr>
+<tr>
+<td>‘once 다시 등록’을 누릅니다.</td>
+<td>이후 각 이벤트의 첫 호출을 다시 한 번 관찰할 수 있습니다.</td>
+</tr>
+<tr>
+<td>이벤트 등록을 끕니다.</td>
+<td>이후 이벤트는 기록하지 않으며 공통 지도 도구는 계속 동작합니다.</td>
+</tr>
+<tr>
+<td>‘로그 지우기’를 누릅니다.</td>
+<td>보관한 로그를 지웁니다. 이미 호출된 once는 다시 등록하지 않습니다.</td>
+</tr>
+<tr>
+<td>모델을 선택하거나 ‘이동’을 누릅니다.</td>
+<td>모델 경계 위로 이동합니다. ‘정보’는 이름과 경계를 표시합니다.</td>
+</tr>
+</tbody></table>
+<p>최근 100개만 보관하며 최신 로그가 위에 표시됩니다. 로딩 이벤트는 초기화 이후의 실제 화면 갱신 상황에 따라 발생합니다. 이미 끝난 초기 로딩 이벤트를 소급해 만들지 않으며, 데이터가 준비되지 않으면 일부 완료 이벤트가 오지 않을 수 있습니다.</p>
+<h2>관련 API</h2>
+<p><code>on()</code>·<code>once()</code>의 반환 키를 보관하고 종료 시 해당 키만 해제합니다. 키를 생략한 <code>off(type)</code>는 다른 코드의 같은 이벤트까지 해제하므로 사용하지 않습니다.</p>
+<pre><code class="language-javascript" data-example-code-token="events.subscribe" data-example-code-source="main"></code></pre><p><code>U3dGroupLayer.getChildren()</code>으로 공통 모델 그룹의 자식을 읽고, 유효한 <code>getBoundingBox()</code>가 있는 모델만 <code>setCameraWorldPosition()</code>으로 이동합니다.</p>
+        </div>
+    </aside>
+
+
+
+    <div data-common-ui-panels></div>
+    <div data-common-ui-tools></div>
+    <div data-common-ui-status></div>
+
+    <div id="load" class="loading-indicator" hidden><img src="image/loading.svg" alt="불러오는 중"></div>
+
+    <aside id="example-api-help" class="example-api-help" role="tooltip" hidden>
+        <header class="example-api-help-header">
+            <strong data-api-help-title></strong>
+            <button type="button" data-api-help-close aria-label="API 도움말 닫기">×</button>
+        </header>
+        <p data-api-help-description></p>
+        <section data-api-help-dynamic-section>
+            <b>현재 설정</b>
+            <pre><code data-api-help-code></code></pre>
+        </section>
+        <section data-api-help-source-section hidden>
+            <b>실제 구현</b>
+            <small data-api-help-source-location></small>
+            <pre><code data-api-help-source-code></code></pre>
+            <button type="button" data-api-help-open-source>코드에서 보기</button>
+        </section>
+        <p data-api-help-source-error hidden></p>
+    </aside>
+</main>
+
+<section id="example-editor" class="editor-workspace" hidden aria-label="예제 코드 편집기">
+    <header class="editor-toolbar">
+        <strong class="editor-title">이벤트 처리</strong>
+        <div class="editor-toolbar-actions">
+            <button class="editor-search-toggle" type="button" data-editor-action="search" aria-expanded="false" aria-controls="editor-search" title="모든 탭에서 검색 (Ctrl+Shift+F)" aria-label="모든 탭에서 검색">
+                <img src="image/search_white_24dp.svg" alt=""><span>검색</span>
+            </button>
+            <button type="button" data-editor-action="reset">초기화</button>
+            <button type="button" data-editor-action="console" aria-expanded="false">Console</button>
+            <button class="editor-close-button" type="button" data-editor-action="viewer" title="코드 편집 닫기" aria-label="코드 편집 닫기">
+                <span class="editor-close-icon" aria-hidden="true">×</span><span>닫기</span>
+            </button>
+        </div>
+    </header>
+    <div class="editor-layout" id="editor-layout">
+        <section class="editor-pane" id="editor-pane" aria-label="코드 편집">
+            <div class="editor-tabs" role="tablist" aria-label="코드 종류">
+                <button type="button" role="tab" data-code-tab="javascript" aria-selected="true">JavaScript</button>
+                <button type="button" role="tab" data-code-tab="html" aria-selected="false">HTML</button>
+                <button type="button" role="tab" data-code-tab="css" aria-selected="false">CSS</button>
+                <button class="editor-run-button" type="button" data-editor-action="run"><span>▶</span> 실행</button>
+            </div>
+            <div id="monaco-editor" class="monaco-host"></div>
+            <div class="editor-search" id="editor-search" hidden>
+                <div class="editor-search-bar">
+                    <img class="editor-search-bar-icon" src="image/search_white_24dp.svg" alt="">
+                    <input class="editor-search-input" id="editor-search-input" type="search" placeholder="모든 탭에서 검색" autocomplete="off" spellcheck="false" aria-label="모든 탭에서 검색">
+                    <button class="editor-search-option" type="button" data-search-option="matchCase" aria-pressed="false" title="대소문자 구분">Aa</button>
+                    <button class="editor-search-option" type="button" data-search-option="regex" aria-pressed="false" title="정규식 사용">.*</button>
+                    <button class="editor-search-close" type="button" data-search-close aria-label="검색 닫기">×</button>
+                </div>
+                <p class="editor-search-summary" id="editor-search-summary" aria-live="polite">검색어를 입력하세요.</p>
+                <div class="editor-search-results" id="editor-search-results" role="listbox" aria-label="검색 결과"></div>
+            </div>
+            <!--+ 실행 콘솔은 편집 패널 안에 둔다. 미리보기 안에 두면 실행 뒤 `position: fixed`인 미리보기가
+                 쌓임 맥락을 만들어 편집 패널에 가려지고, 실행 전과 위치도 달라진다. -->
+            <section id="preview-console" class="preview-console" aria-label="실행 콘솔" aria-hidden="true">
+                <header><strong>Console</strong><span class="console-count" id="preview-console-count">0</span><button class="console-clear" type="button" data-console-clear>Clear</button><button type="button" data-console-close aria-label="콘솔 닫기">×</button></header>
+                <div id="preview-console-output" class="preview-console-output" aria-live="polite"><p class="console-empty">실행 로그가 여기에 표시됩니다.</p></div>
+            </section>
+        </section>
+        <div class="editor-splitter" id="editor-splitter" role="separator" aria-label="편집기와 미리보기 너비 조절" aria-orientation="vertical" tabindex="0"></div>
+        <section class="preview-pane" aria-label="실행 미리보기">
+            <div id="preview-frame-container" class="preview-frame-container"></div>
+        </section>
+    </div>
+    <div class="editor-mobile-notice" id="editor-mobile-notice" hidden>
+        <strong>코드 편집은 데스크톱 환경에서 지원합니다.</strong>
+        <p>더 넓은 화면에서 Editor를 열거나 지도 Viewer로 돌아가세요.</p>
+        <button type="button" data-editor-action="viewer">지도로 보기</button>
+    </div>
+    <div class="editor-hint-stack">
+        <div class="editor-hint" id="editor-hint" role="status" hidden>
+            <p>실행 전에는 <b>× 닫기</b>와 가장자리 <b>◀</b> 버튼으로 지도로 돌아갑니다.<br>실행한 뒤에는 같은 버튼이 편집 패널만 접고, 실행한 화면은 그대로 남습니다. 접으면 왼쪽 가장자리 <b>▶</b>로 다시 펼칩니다.</p>
+        </div>
+        <div class="editor-hint editor-shortcut-hint" id="editor-shortcut-hint" role="status" hidden>
+            <dl>
+                <dt><kbd>Ctrl</kbd><kbd>F</kbd></dt>
+                <dd>현재 파일에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd></dt>
+                <dd>열린 파일 전체에서 찾기</dd>
+                <dt><kbd>Ctrl</kbd><kbd>Space</kbd></dt>
+                <dd>자동완성 보기</dd>
+                <dt><kbd>Esc</kbd></dt>
+                <dd>찾기 닫기</dd>
+            </dl>
+            <p class="editor-shortcut-note">macOS에서는 <kbd>Ctrl</kbd> 대신 <kbd>Cmd</kbd>를 사용합니다.</p>
+        </div>
+    </div>
+    <div class="editor-panel-resizer" id="editor-panel-resizer" role="separator" aria-label="코드 편집 패널 너비 조절" aria-orientation="vertical" tabindex="0" title="드래그하거나 방향키로 너비 조절"></div>
+</section>
+
+<button class="editor-edge-toggle" type="button" data-editor-edge-toggle aria-pressed="false" title="코드 편집 열기" aria-label="코드 편집 열기">
+    <span class="editor-edge-icon" data-editor-edge-icon aria-hidden="true">▶</span>
+</button>
+
+<script id="example-source" type="application/json">{"format":"manifest","helpHtml":"\u003ch1\u003e이벤트 처리\u003c/h1\u003e\n\u003cp\u003e지도 클릭과 화면 데이터 로딩 이벤트를 등록하고 반복 호출과 일회 호출을 비교합니다. 공통 런타임이 위성영상·한반도 지형·서울 U3F 모델을 준비하며, 예제는 그 앱에 이벤트만 등록합니다.\u003c/p\u003e\n\u003ch2\u003e다루는 기능\u003c/h2\u003e\n\u003cul\u003e\n\u003cli\u003e\u003ccode\u003eapp.on()\u003c/code\u003e으로 이벤트가 발생할 때마다 로그를 남깁니다.\u003c/li\u003e\n\u003cli\u003e\u003ccode\u003eapp.once()\u003c/code\u003e로 등록 이후 첫 이벤트만 기록합니다.\u003c/li\u003e\n\u003cli\u003e반환된 등록 키로 \u003ccode\u003eapp.off()\u003c/code\u003e를 호출해 이 예제의 이벤트만 해제합니다.\u003c/li\u003e\n\u003cli\u003e준비된 모델을 선택해 경계 정보를 확인하고 해당 위치로 이동합니다.\u003c/li\u003e\n\u003c/ul\u003e\n\u003ch2\u003e사전 조건\u003c/h2\u003e\n\u003cp\u003eGeOnDT 라이선스와 WebGL 지원 브라우저가 필요합니다. 외부 모델 데이터 서버에 접근하지 못하면 모델 목록은 비어 있을 수 있습니다. 이 경우에도 지도 클릭 이벤트와 등록·해제를 확인할 수 있습니다.\u003c/p\u003e\n\u003ch2\u003e조작 및 예상 결과\u003c/h2\u003e\n\u003ctable\u003e\n\u003cthead\u003e\n\u003ctr\u003e\n\u003cth\u003e조작\u003c/th\u003e\n\u003cth\u003e예상 결과\u003c/th\u003e\n\u003c/tr\u003e\n\u003c/thead\u003e\n\u003ctbody\u003e\u003ctr\u003e\n\u003ctd\u003e지도를 두 번 클릭합니다.\u003c/td\u003e\n\u003ctd\u003e첫 클릭에는 on·once, 이후 클릭에는 on 로그만 추가됩니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e표시할 이벤트를 선택합니다.\u003c/td\u003e\n\u003ctd\u003e해당 이벤트의 로그만 표시하며 등록 자체는 유지합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e‘once 다시 등록’을 누릅니다.\u003c/td\u003e\n\u003ctd\u003e이후 각 이벤트의 첫 호출을 다시 한 번 관찰할 수 있습니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e이벤트 등록을 끕니다.\u003c/td\u003e\n\u003ctd\u003e이후 이벤트는 기록하지 않으며 공통 지도 도구는 계속 동작합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e‘로그 지우기’를 누릅니다.\u003c/td\u003e\n\u003ctd\u003e보관한 로그를 지웁니다. 이미 호출된 once는 다시 등록하지 않습니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003ctr\u003e\n\u003ctd\u003e모델을 선택하거나 ‘이동’을 누릅니다.\u003c/td\u003e\n\u003ctd\u003e모델 경계 위로 이동합니다. ‘정보’는 이름과 경계를 표시합니다.\u003c/td\u003e\n\u003c/tr\u003e\n\u003c/tbody\u003e\u003c/table\u003e\n\u003cp\u003e최근 100개만 보관하며 최신 로그가 위에 표시됩니다. 로딩 이벤트는 초기화 이후의 실제 화면 갱신 상황에 따라 발생합니다. 이미 끝난 초기 로딩 이벤트를 소급해 만들지 않으며, 데이터가 준비되지 않으면 일부 완료 이벤트가 오지 않을 수 있습니다.\u003c/p\u003e\n\u003ch2\u003e관련 API\u003c/h2\u003e\n\u003cp\u003e\u003ccode\u003eon()\u003c/code\u003e·\u003ccode\u003eonce()\u003c/code\u003e의 반환 키를 보관하고 종료 시 해당 키만 해제합니다. 키를 생략한 \u003ccode\u003eoff(type)\u003c/code\u003e는 다른 코드의 같은 이벤트까지 해제하므로 사용하지 않습니다.\u003c/p\u003e\n\u003cpre\u003e\u003ccode class=\"language-javascript\" data-example-code-token=\"events.subscribe\" data-example-code-source=\"main\"\u003e\u003c/code\u003e\u003c/pre\u003e\u003cp\u003e\u003ccode\u003eU3dGroupLayer.getChildren()\u003c/code\u003e으로 공통 모델 그룹의 자식을 읽고, 유효한 \u003ccode\u003egetBoundingBox()\u003c/code\u003e가 있는 모델만 \u003ccode\u003esetCameraWorldPosition()\u003c/code\u003e으로 이동합니다.\u003c/p\u003e","assetBaseUrl":"edition/examples/eventLayers/","runtime":{"home":{"longitude":126.9395,"latitude":37.52,"height":450,"duration":2,"pitch":60},"baseLayers":["satellite"],"terrain":{"enabled":true,"preset":"korea"},"modelLayers":[{"preset":"seoul_u3f","visible":true}],"mapTools":["home","north","zoom-in","zoom-out"],"cameraStatus":true,"help":true,"loading":true},"imports":[],"dependencies":[],"commonUi":{"imageLayerPanel":true,"terrainLayerPanel":true},"sourceTokens":{"events.subscribe":{"id":"events.subscribe","sourceId":"main","file":"./eventLayers.main.js","label":"main.js","startLine":49,"endLine":53,"code":"for (const type of EVENTS) {\n    const key = app.on(type, () =\u003e writeLog(type, 'on'));\n    const onceKey = app.once(type, () =\u003e writeLog(type, 'once'));\n    registrations.push({type, key}, {type, key: onceKey});\n}"}},"sources":[{"id":"main","label":"main.js","path":"./eventLayers.main.js","language":"javascript","editable":true,"url":"edition/examples/eventLayers/eventLayers.main.js?v=8bc35e909cab","content":"const EVENTS = ['click', 'app-load', 'app-searched', 'app-loaded', 'app-image-loaded', 'app-height-loaded',\r\n    'app-model-loaded', 'app-2km-loaded', 'app-4km-loaded'];\r\nconst LOG_LIMIT = 100;\r\nconst MODEL_CAMERA_HEIGHT_OFFSET = 500;\r\n\r\n/**\r\n * 앱 이벤트의 반복·일회 호출과 모델 레이어 조회·이동을 준비합니다.\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @returns {Promise\u003cobject\u003e} 이벤트와 레이어 조작\r\n */\r\nexport async function initialize(context) {\r\n    const app = context.app;\r\n    const subscribers = new Set();\r\n    const registrations = [];\r\n    const logs = [];\r\n    const models = context.layers.seoul_u3f?.getChildren() || [];\r\n    let sequence = 0;\r\n    let filter = 'all';\r\n    let listening = false;\r\n    let disposed = false;\r\n\r\n    /** 현재 필터와 로그를 화면에 알립니다. */\r\n    function notify() {\r\n        subscribers.forEach(listener =\u003e listener());\r\n    }\r\n\r\n    /**\r\n     * 최근 로그만 보관해 장시간 실행 시 DOM과 메모리 증가를 제한합니다.\r\n     * @param {string} type 이벤트 이름\r\n     * @param {string} mode 호출 방식\r\n     */\r\n    function writeLog(type, mode) {\r\n        if (disposed) return;\r\n        logs.unshift({id: ++sequence, type, mode});\r\n        logs.length = Math.min(logs.length, LOG_LIMIT);\r\n        notify();\r\n    }\r\n\r\n    /** 예제가 등록한 키만 해제해 공통 도구의 이벤트를 보존합니다. */\r\n    function removeListeners() {\r\n        registrations.splice(0).forEach(({type, key}) =\u003e {\r\n            if (key !== null) app.off(type, key);\r\n        });\r\n    }\r\n\r\n    /** 이벤트마다 반복 호출과 다음 한 번 호출을 함께 등록합니다. */\r\n    function registerListeners() {\r\n        // @example-code:start events.subscribe\r\n        for (const type of EVENTS) {\r\n            const key = app.on(type, () =\u003e writeLog(type, 'on'));\r\n            const onceKey = app.once(type, () =\u003e writeLog(type, 'once'));\r\n            registrations.push({type, key}, {type, key: onceKey});\r\n        }\r\n        // @example-code:end events.subscribe\r\n    }\r\n\r\n    /** 종료 후 조작을 차단합니다. */\r\n    function assertActive() {\r\n        if (disposed) throw new Error('종료된 예제입니다.');\r\n    }\r\n\r\n    /**\r\n     * 목록에 있는 모델 레이어만 선택합니다.\r\n     * @param {string} name 레이어 이름\r\n     * @returns {object} 선택한 레이어\r\n     * @throws {Error} 사용할 수 없는 레이어인 경우\r\n     */\r\n    function findModel(name) {\r\n        assertActive();\r\n        const layer = models.find(model =\u003e model.getName() === name);\r\n        if (!layer || layer.isDisposed()) throw new Error('사용할 수 있는 모델 레이어를 선택하세요.');\r\n        return layer;\r\n    }\r\n\r\n    listening = true;\r\n    registerListeners();\r\n    return {\r\n        events: EVENTS,\r\n        models: models.map(layer =\u003e ({name: layer.getName()})),\r\n        /** @returns {object} 현재 필터·등록 상태·최신 로그 */\r\n        readState() {\r\n            return {filter, listening, logs: logs.filter(log =\u003e filter === 'all' || log.type === filter)};\r\n        },\r\n        /**\r\n         * 화면 갱신을 구독합니다.\r\n         * @param {function(): void} listener 갱신 함수\r\n         * @returns {function(): void} 구독 해제 함수\r\n         */\r\n        subscribe(listener) {subscribers.add(listener); return () =\u003e subscribers.delete(listener);},\r\n        /**\r\n         * 표시할 이벤트를 선택합니다. 등록 상태는 바꾸지 않습니다.\r\n         * @param {string} type 이벤트 이름 또는 all\r\n         */\r\n        setFilter(type) {\r\n            assertActive();\r\n            if (type !== 'all' \u0026\u0026 !EVENTS.includes(type)) throw new Error('목록의 이벤트를 선택하세요.');\r\n            filter = type;\r\n            notify();\r\n        },\r\n        /**\r\n         * 이 예제의 이벤트 등록만 켜거나 끕니다.\r\n         * @param {boolean} enabled 등록 여부\r\n         */\r\n        setListening(enabled) {\r\n            assertActive();\r\n            removeListeners();\r\n            listening = Boolean(enabled);\r\n            if (listening) registerListeners();\r\n            notify();\r\n        },\r\n        /** 다음 한 번 호출을 다시 관찰할 수 있도록 등록을 갱신합니다. */\r\n        rearm() {\r\n            assertActive();\r\n            if (!listening) throw new Error('이벤트 등록을 먼저 켜세요.');\r\n            removeListeners();\r\n            registerListeners();\r\n        },\r\n        /** 표시 로그를 지웁니다. 일회 호출 등록은 유지합니다. */\r\n        clearLog() {assertActive(); logs.length = 0; notify();},\r\n        /**\r\n         * 선택한 모델의 이름과 경계 정보를 반환합니다.\r\n         * @param {string} name 레이어 이름\r\n         * @returns {object} 모델 정보\r\n         */\r\n        getModelInfo(name) {\r\n            const layer = findModel(name);\r\n            const box = layer.getBoundingBox();\r\n            return {name: layer.getName(), bounds: box ? {min: box.min, max: box.max} : null};\r\n        },\r\n        /**\r\n         * 유효한 모델 경계 위로 카메라를 이동합니다.\r\n         * @param {string} name 레이어 이름\r\n         * @throws {Error} 경계가 없거나 올바르지 않은 경우\r\n         */\r\n        moveToModel(name) {\r\n            const box = findModel(name).getBoundingBox();\r\n            if (!box || ![box.min.x, box.min.y, box.min.z, box.max.x, box.max.y, box.max.z].every(Number.isFinite)\r\n                || box.min.x \u003e box.max.x || box.min.y \u003e box.max.y || box.min.z \u003e box.max.z) {\r\n                throw new Error('모델 레이어의 유효한 경계 정보가 없습니다.');\r\n            }\r\n            app.setCameraWorldPosition({\r\n                x: (box.min.x + box.max.x) / 2, y: (box.min.y + box.max.y) / 2,\r\n                z: box.max.z + MODEL_CAMERA_HEIGHT_OFFSET, rotateX: 2, rotateY: 30\r\n            });\r\n        },\r\n        /** 이벤트와 화면 구독을 해제합니다. 공통 앱·레이어는 해제하지 않습니다. */\r\n        dispose() {\r\n            if (disposed) return;\r\n            disposed = true;\r\n            removeListeners();\r\n            subscribers.clear();\r\n        }\r\n    };\r\n}\r\n\r\n/**\r\n * 예제 소유의 이벤트를 정리합니다.\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @param {{dispose: function(): void}} example 예제 동작\r\n */\r\nexport function dispose(context, example) {example.dispose();}\r\n"},{"id":"ui","label":"ui.js","path":"./eventLayers.ui.js","language":"javascript","editable":true,"url":"edition/examples/eventLayers/eventLayers.ui.js?v=7bff8cee336f","content":"/**\r\n * 이벤트 필터·등록 상태·로그와 모델 레이어 조작을 화면에 연결합니다.\r\n * @param {GeOnDTExampleContext} context 공통 런타임 컨텍스트\r\n * @param {object} example 예제 동작\r\n * @returns {function(): void} UI 정리 함수\r\n */\r\nexport function initializeUI(context, example) {\r\n    const root = context.elements.root;\r\n    const controller = new AbortController();\r\n    const {signal} = controller;\r\n    const filter = root.querySelector('[data-event-filter]');\r\n    const enabled = root.querySelector('[data-event-enabled]');\r\n    const log = root.querySelector('[data-event-log]');\r\n    const status = root.querySelector('[data-event-status]');\r\n    const rearm = root.querySelector('[data-event-rearm]');\r\n    const models = root.querySelector('[data-event-model]');\r\n    const info = root.querySelector('[data-event-model-info]');\r\n    let frame;\r\n\r\n    filter.replaceChildren(...['all', ...example.events].map(type =\u003e new Option(type === 'all' ? '전체 이벤트' : type, type)));\r\n    models.replaceChildren(...example.models.map(model =\u003e new Option(model.name, model.name)));\r\n    if (!example.models.length) {\r\n        models.append(new Option('사용 가능한 모델이 없습니다.', ''));\r\n        models.disabled = true;\r\n        root.querySelectorAll('[data-event-move], [data-event-info]').forEach(button =\u003e {button.disabled = true;});\r\n        info.textContent = '외부 모델 서버에 접근할 수 있는지 확인하세요. 이벤트 기능은 계속 사용할 수 있습니다.';\r\n    }\r\n\r\n    /** 빈번한 이벤트의 화면 갱신을 한 프레임으로 모읍니다. */\r\n    function scheduleRender() {\r\n        if (frame !== undefined) return;\r\n        frame = requestAnimationFrame(() =\u003e {frame = undefined; render();});\r\n    }\r\n\r\n    /** 현재 필터·등록 상태·최근 로그를 출력합니다. */\r\n    function render() {\r\n        const state = example.readState();\r\n        enabled.checked = state.listening;\r\n        rearm.disabled = !state.listening;\r\n        status.textContent = state.listening ? '이벤트 등록 중' : '이벤트 등록 해제됨';\r\n        log.value = state.logs.map(entry =\u003e 'No.' + entry.id + ' [' + entry.type + '] ' + entry.mode).join('\\n');\r\n    }\r\n\r\n    /** 모델 조작 실패를 화면에 표시합니다. */\r\n    function showModelInfo() {\r\n        try {info.textContent = JSON.stringify(example.getModelInfo(models.value), null, 2);}\r\n        catch (error) {info.textContent = error instanceof Error ? error.message : String(error);}\r\n    }\r\n\r\n    filter.addEventListener('change', () =\u003e example.setFilter(filter.value), {signal});\r\n    enabled.addEventListener('change', () =\u003e example.setListening(enabled.checked), {signal});\r\n    rearm.addEventListener('click', () =\u003e {example.rearm(); status.textContent = '다음 한 번 호출을 다시 등록했습니다.';}, {signal});\r\n    root.querySelector('[data-event-clear]').addEventListener('click', () =\u003e example.clearLog(), {signal});\r\n    root.querySelector('[data-event-info]').addEventListener('click', showModelInfo, {signal});\r\n    root.querySelector('[data-event-move]').addEventListener('click', () =\u003e {\r\n        try {example.moveToModel(models.value); showModelInfo();}\r\n        catch (error) {info.textContent = error instanceof Error ? error.message : String(error);}\r\n    }, {signal});\r\n    models.addEventListener('change', () =\u003e {\r\n        try {example.moveToModel(models.value); showModelInfo();}\r\n        catch (error) {info.textContent = error instanceof Error ? error.message : String(error);}\r\n    }, {signal});\r\n    const unsubscribe = example.subscribe(scheduleRender);\r\n    render();\r\n    return () =\u003e {\r\n        controller.abort();\r\n        unsubscribe();\r\n        if (frame !== undefined) cancelAnimationFrame(frame);\r\n    };\r\n}\r\n"},{"id":"html","label":"HTML","path":"./eventLayers.html","language":"html","editable":true,"url":"edition/examples/eventLayers/eventLayers.html?v=f6876d338409","content":"\u003ctemplate data-example-rail\u003e\r\n    \u003cbutton class=\"rail-button\" type=\"button\" data-panel-target=\"event-layers-panel\" aria-expanded=\"false\"\u003e\r\n        \u003cspan class=\"rail-icon\" aria-hidden=\"true\"\u003e▦\u003c/span\u003e\u003cspan\u003e이벤트\u003c/span\u003e\r\n    \u003c/button\u003e\r\n\u003c/template\u003e\r\n\u003caside class=\"glass-panel example-panel example-option-panel\" id=\"event-layers-panel\" aria-hidden=\"true\"\u003e\r\n    \u003cheader class=\"panel-header\"\u003e\r\n        \u003ch2\u003e이벤트 처리\u003c/h2\u003e\r\n        \u003cbutton class=\"panel-close\" type=\"button\" data-panel-close=\"event-layers-panel\" aria-label=\"이벤트 패널 닫기\"\u003e×\u003c/button\u003e\r\n    \u003c/header\u003e\r\n    \u003cdiv class=\"panel-content\"\u003e\r\n        \u003cp class=\"panel-description\"\u003e지도 클릭과 화면 로딩 이벤트의 on, once 호출을 비교합니다.\u003c/p\u003e\r\n        \u003csection class=\"event-recording\" aria-label=\"이벤트 기록 설정\"\u003e\r\n            \u003cdiv class=\"event-registration-row\"\u003e\r\n                \u003clabel class=\"event-enable\"\u003e\u003cinput type=\"checkbox\" data-event-enabled checked\u003e\u003cspan\u003e이벤트 기록\u003c/span\u003e\u003c/label\u003e\r\n                \u003cspan data-event-status role=\"status\" aria-live=\"polite\"\u003e\u003c/span\u003e\r\n            \u003c/div\u003e\r\n            \u003clabel class=\"event-field\"\u003e표시할 이벤트\u003cselect class=\"form-control\" data-event-filter aria-label=\"표시할 이벤트\"\u003e\u003c/select\u003e\u003c/label\u003e\r\n        \u003c/section\u003e\r\n        \u003csection class=\"event-log-section\" aria-labelledby=\"event-log-heading\"\u003e\r\n            \u003cdiv class=\"event-section-heading\"\u003e\r\n                \u003ch3 id=\"event-log-heading\"\u003e최근 이벤트 로그\u003c/h3\u003e\r\n                \u003cbutton class=\"event-button event-button-quiet\" type=\"button\" data-event-clear\u003e로그 지우기\u003c/button\u003e\r\n            \u003c/div\u003e\r\n            \u003ctextarea class=\"form-control\" data-event-log readonly rows=\"7\" aria-label=\"최근 이벤트 로그\" aria-describedby=\"event-log-note\" placeholder=\"지도에서 이벤트를 발생시키세요.\"\u003e\u003c/textarea\u003e\r\n            \u003cdiv class=\"event-log-footer\"\u003e\r\n                \u003cp id=\"event-log-note\"\u003e최신 100개를 보관합니다.\u003cbr\u003e로그를 지워도 once는 다시 등록되지 않습니다.\u003c/p\u003e\r\n                \u003cbutton class=\"event-button\" type=\"button\" data-event-rearm\u003eonce 다시 등록\u003c/button\u003e\r\n            \u003c/div\u003e\r\n        \u003c/section\u003e\r\n        \u003csection class=\"event-model-section\" aria-labelledby=\"event-model-heading\"\u003e\r\n            \u003ch3 id=\"event-model-heading\"\u003e모델 레이어\u003c/h3\u003e\r\n            \u003clabel class=\"event-field\"\u003e모델 선택\u003cselect class=\"form-control\" data-event-model aria-label=\"모델 레이어 선택\"\u003e\u003c/select\u003e\u003c/label\u003e\r\n            \u003cdiv class=\"event-actions\"\u003e\r\n                \u003cbutton class=\"event-button event-button-primary\" type=\"button\" data-event-move\u003e선택 모델로 이동\u003c/button\u003e\r\n                \u003cbutton class=\"event-button\" type=\"button\" data-event-info\u003e정보 확인\u003c/button\u003e\r\n            \u003c/div\u003e\r\n            \u003cpre data-event-model-info aria-label=\"모델 레이어 정보\"\u003e모델을 선택해 정보를 확인하세요.\u003c/pre\u003e\r\n        \u003c/section\u003e\r\n    \u003c/div\u003e\r\n\u003c/aside\u003e\r\n"},{"id":"css","label":"CSS","path":"./eventLayers.css","language":"css","editable":true,"url":"edition/examples/eventLayers/eventLayers.css?v=318d245ddc1d","content":"/* Hallmark · shape: app screen · genre: modern-minimal · theme: existing · idea: 이벤트 기록과 모델 조작을 분리 · posture: committed · v2.0.0 */\r\n/* Hallmark · pre-emit critique: P4 H4 E4 S4 R5 V3 · weakest: V, 기존 지도 패널의 구성과 테마를 유지 */\r\n/* Hallmark · finish-review: subagent · ship · 데스크톱과 모바일 하단까지 가림과 대비를 확인 */\r\n:root {\r\n    --event-font-body: Pretendard, \"Noto Sans KR\", \"Segoe UI\", sans-serif;\r\n    --event-font-code: Consolas, monospace;\r\n    --event-field: #1e4358;\r\n    --event-field-hover: #254e64;\r\n    --event-ink: var(--theme-text);\r\n    --event-muted: #d3e5ed;\r\n    --event-rule: #89acbc;\r\n    --event-accent: var(--theme-accent);\r\n    --event-accent-ink: #173e52;\r\n    --event-focus: #b9edff;\r\n    --event-disabled: #284b5e;\r\n    --event-space-xs: 4px;\r\n    --event-space-sm: 8px;\r\n    --event-space-md: 12px;\r\n    --event-space-lg: 16px;\r\n    --event-space-xl: 24px;\r\n    --event-mobile-clearance: 64px;\r\n}\r\n\r\nhtml,\r\nbody {overflow-x: clip;}\r\n\r\n#event-layers-panel {\r\n    width: min(440px, calc(100% - 100px));\r\n    color: var(--event-ink);\r\n    font-family: var(--event-font-body);\r\n    color-scheme: dark;\r\n}\r\n#event-layers-panel .panel-header {gap: var(--event-space-md);}\r\n#event-layers-panel h2,\r\n#event-layers-panel h3 {min-width: 0; overflow-wrap: break-word; text-wrap: balance; color: var(--event-ink); font-weight: 700;}\r\n#event-layers-panel h2 {margin: 0; font-size: 20px; line-height: 1.3;}\r\n#event-layers-panel h3 {margin: 0; font-size: 16px; line-height: 1.5;}\r\n#event-layers-panel .panel-content {padding: var(--event-space-lg); font-size: 14px; font-weight: 400; line-height: 1.5;}\r\n#event-layers-panel .panel-description {margin: 0 0 var(--event-space-lg); color: var(--event-muted); font-size: 14px; line-height: 1.5;}\r\n#event-layers-panel .event-registration-row,\r\n#event-layers-panel .event-section-heading {display: flex; align-items: center; justify-content: space-between; gap: var(--event-space-md);}\r\n#event-layers-panel .event-enable {display: inline-flex; align-items: center; gap: var(--event-space-sm); min-height: 40px; margin: 0; cursor: pointer;}\r\n#event-layers-panel input[type=\"checkbox\"] {width: 18px; height: 18px; margin: 0; accent-color: var(--event-accent);}\r\n#event-layers-panel [data-event-status] {color: var(--event-muted); font-size: 12px; text-align: right;}\r\n#event-layers-panel .event-field {display: grid; gap: var(--event-space-sm); margin: var(--event-space-sm) 0 0; font-size: 13px; font-weight: 500;}\r\n#event-layers-panel select,\r\n#event-layers-panel textarea {\r\n    display: block;\r\n    width: 100%;\r\n    min-width: 0;\r\n    border: 1px solid var(--event-rule);\r\n    border-radius: 6px;\r\n    padding: var(--event-space-sm) var(--event-space-md);\r\n    background: var(--event-field);\r\n    color: var(--event-ink);\r\n    font: inherit;\r\n    box-shadow: none;\r\n}\r\n#event-layers-panel select {height: 40px; cursor: pointer;}\r\n#event-layers-panel option {background: var(--event-field); color: var(--event-ink);}\r\n#event-layers-panel textarea {\r\n    height: 180px;\r\n    min-height: 140px;\r\n    max-height: 300px;\r\n    resize: vertical;\r\n    font-family: var(--event-font-code);\r\n    font-size: 13px;\r\n    line-height: 1.65;\r\n}\r\n#event-layers-panel textarea::placeholder {color: var(--event-muted); opacity: 1;}\r\n#event-layers-panel .event-log-section {margin-top: var(--event-space-lg);}\r\n#event-layers-panel .event-section-heading {margin-bottom: var(--event-space-sm);}\r\n#event-layers-panel .event-log-footer {display: flex; flex-direction: column; align-items: flex-start; gap: var(--event-space-sm); margin-top: var(--event-space-sm);}\r\n#event-layers-panel .event-log-footer p {margin: 0; color: var(--event-muted); font-size: 12px; line-height: 1.5;}\r\n#event-layers-panel .event-model-section {margin-top: var(--event-space-xl); padding-top: var(--event-space-lg); border-top: 1px solid var(--theme-line);}\r\n#event-layers-panel .event-actions {display: flex; flex-wrap: wrap; align-items: center; gap: var(--event-space-sm); margin-top: var(--event-space-md);}\r\n#event-layers-panel .event-button {\r\n    min-height: 40px;\r\n    padding: var(--event-space-sm) var(--event-space-md);\r\n    border: 1px solid var(--event-rule);\r\n    border-radius: 6px;\r\n    background: var(--event-field);\r\n    color: var(--event-ink);\r\n    font: inherit;\r\n    font-size: 13px;\r\n    font-weight: 500;\r\n    white-space: nowrap;\r\n    cursor: pointer;\r\n}\r\n#event-layers-panel .event-button-primary {background: var(--event-accent); color: var(--event-accent-ink); border-color: var(--event-accent);}\r\n#event-layers-panel .event-button-quiet {padding-inline: var(--event-space-sm); border-color: transparent; background: transparent; text-decoration: underline; text-underline-offset: 3px;}\r\n#event-layers-panel .event-button:active {background: var(--event-field-hover); color: var(--event-ink);}\r\n#event-layers-panel .event-button-primary:active {background: var(--event-focus); color: var(--event-accent-ink);}\r\n#event-layers-panel :is(button, select, input, textarea):focus-visible {outline: 2px solid var(--event-focus); outline-offset: 2px;}\r\n#event-layers-panel :is(select, textarea):focus-visible {outline-offset: -2px;}\r\n#event-layers-panel :is(button, select):disabled {background: var(--event-disabled); color: var(--event-muted); border-color: var(--event-rule); opacity: .6; cursor: not-allowed;}\r\n#event-layers-panel pre {max-height: 160px; margin: var(--event-space-md) 0 0; padding: var(--event-space-md); overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--event-field); color: var(--event-ink); border: 0; border-radius: 0; font: 13px/1.6 var(--event-font-code);}\r\n#event-layers-panel ::selection {background: var(--event-accent); color: var(--event-accent-ink);}\r\n#event-layers-panel textarea {caret-color: var(--event-focus);}\r\n#event-layers-panel .panel-content {scrollbar-color: var(--theme-scroll-thumb) var(--theme-scroll-track);}\r\n@media (hover: hover) {\r\n    #event-layers-panel .event-button:not(:disabled):hover,\r\n    #event-layers-panel select:not(:disabled):hover {background: var(--event-field-hover);}\r\n    #event-layers-panel .event-button-primary:not(:disabled):hover {background: var(--event-focus); color: var(--event-accent-ink);}\r\n}\r\n@media (max-width: 480px) {\r\n    #event-layers-panel {width: calc(100% - 92px);}\r\n    #event-layers-panel .panel-content {padding-bottom: var(--event-mobile-clearance);}\r\n    #event-layers-panel .event-registration-row {align-items: flex-start; flex-direction: column; gap: 0;}\r\n}\r\n"}]}</script>
+<script id="example-metadata" type="application/json">{"title":"이벤트 처리","url":"eventLayers.html","category":"start","categoryLabel":"시작하기","summary":"앱 이벤트를 등록·해제하고 on과 once의 호출 차이를 로그에서 확인합니다.","tags":["이벤트","on","once","off","모델 레이어"],"apis":["U3dApp.on","U3dApp.once","U3dApp.off","U3dApp.setCameraWorldPosition"],"editor":true,"rootAlias":false,"apiHelp":false,"imageLayerPanel":true,"terrainLayerPanel":true,"featured":true,"thumbnail":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/eventLayers.png","thumbnailMotion":"https://dt-data.mappick.co.kr/ServiceData/thumbnails/edition/eventLayers.webm","legacy":false,"manifest":true,"sourceFile":"examples\\eventLayers\\eventLayers.md"}</script>
+<script>
+window.__EXAMPLE_BUILD_CONFIG__ = {
+    targetPrefix: 'edition/',
+    runnerUrl: 'edition/runner.html',
+    monacoModuleUrl: 'edition/assets/monaco/monaco-editor.js?v=ebbbdcf5172a',
+    // GeOnDT 타입 선언 번들입니다. 값이 없으면 코드 편집기는 자동완성 없이 동작합니다.
+    monacoTypesUrl: 'edition/assets/monaco/geondt-types.json?v=c951a9e362f9'
+};
+// 예제는 코드 편집 패널을 연 상태로 시작하며, 닫으면 editor=0이 남아 선택이 유지됩니다.
+// 패널 너비는 지도 Engine 생성 전에 확정되므로 초기 화면이 다시 배치되지 않습니다.
+// 좁은 화면에서는 편집기가 화면 전체를 덮으므로 기본 열기를 적용하지 않습니다.
+(function () {
+    var editorParameter = new URLSearchParams(window.location.search).get('editor');
+    window.__EXAMPLE_EDITOR_MODE__ = editorParameter === '1'
+        || (editorParameter !== '0' && window.innerWidth > 760);
+})();
+</script>
+<script src="../common/jquery/jquery-3.7.1.min.js"></script>
+<script src="../common/jquery/jquery-ui.min.js"></script>
+<script src="../common/jstree/jstree.min.js"></script>
+<script src="../common/bootstrap/bootstrap.min.js"></script>
+<script src="../common/zlib/zlib.min.js"></script>
+<script src="../common/chart/Chart.min.js"></script>
+<script src="../common/filesaver/FileSaver.min.js"></script>
+<script src="../common/prism/prism.js"></script>
+<script src="../common/dateformat.js"></script>
+<script src="../common/license.js"></script>
+<script src="js/layerInfo.js"></script>
+<script id="GeOnDT" src="../dist/GeOnDT.min.js"></script>
+<script src="js/example-theme.js"></script>
+<script type="module">
+import(/* @vite-ignore */ new URL('js/example-page.js', document.baseURI).href);
+</script>
+</body>
+</html>
+

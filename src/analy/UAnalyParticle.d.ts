@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -189,8 +189,11 @@ declare class UAnalyParticle extends UAnaly {
     removeAllParticle(): void;
     /**
      * 모델 강제 로딩 범위의 마스크를 생성하고 값 생성 완료를 통지합니다. <br>
-     * useForceLoad가 false이면 레이어 준비 후 즉시 완료합니다. <br>
-     * 잘못된 레벨·트리 교체·로딩 실패는 설정과 이벤트를 복원한 뒤 거절합니다. <br>
+     * useForceLoad가 false이면 모델 상한을 변경하지 않고 레이어 준비 후 완료합니다. <br>
+     * 같은 앱의 강제 요청은 값 생성까지 한 번에 하나만 실행합니다. <br>
+     * 대기 중 공개 API로 모델 상한을 설정하면 임시값과 같은 값이어도 해당 설정을 유지합니다. <br>
+     * 잘못된 레벨·트리 교체·로딩 실패는 이벤트 정리와 필요한 복원을 시도한 뒤 거절합니다. <br>
+     * 정리 중 일부 단계가 실패해도 나머지 정리를 시도하며, 여러 실패는 errors에 원래 사유를 담아 전달합니다. <br>
      * opt 원본에 기본값을 보완하며 opt 누락은 동기 예외, 앱 미연결은 미완료 반환으로 남습니다.
      *
      * @param {UAnalyParticleMaskOption} opt 마스크 레이어와 모델 로딩 범위 설정

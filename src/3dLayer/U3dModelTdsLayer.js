@@ -6,7 +6,6 @@ import { defaultValue } from '@union3d/util/defaultValue';
 import { U3dModelBasicLayer } from '@union3d/3dLayer/U3dModelBasicLayer';
 import { createUserGroup } from '@union3d/util/createUserGroup';
 import { U3dSelect } from '@union3d/select/U3dSelect';
-import { deferred } from "@util/deferred";
 import { UClock } from "@union3d/core/UClock";
 import { INTERNAL } from '@union3d/3dLayer/U3dModelTdsLayer.internal';
 import { normalizeOptionKeys } from '@union3d/util/normalizeOptionKeys';
@@ -84,7 +83,7 @@ class U3dModelTdsLayer extends U3dModelBasicLayer {
 
     /**
      * XML 또는 모델 목록의 로딩을 시작합니다. <br>
-     * 완료는 레이어의 resolve로 통지하며 이 메서드는 Promise를 반환하지 않습니다.
+     * 완료는 레이어의 ready로 통지하며 이 메서드는 Promise를 반환하지 않습니다.
      *
      * @override
      */
@@ -95,6 +94,7 @@ class U3dModelTdsLayer extends U3dModelBasicLayer {
             const self = this;
             const startModel = () => {
                 try {
+                    if (self._disposed) throw new DOMException('TDS 초기화 중 레이어가 해제되었습니다.', 'AbortError');
                     // 기존 로딩 작업은 그대로 두고, 전달된 실패만 레이어의 실패로 연결합니다.
                     loadModel.call(self).catch((error) => {
                         if (self.isReady()) {
@@ -110,7 +110,7 @@ class U3dModelTdsLayer extends U3dModelBasicLayer {
             };
             if (self._needXml === true) {
                 const promise = initWithXML.call(self);
-                promise.then(startModel, (error) => {
+                promise.then(startModel).catch((error) => {
                     self._rejectReady(error);
                 });
             }
@@ -934,65 +934,63 @@ class U3dModelTdsLayer extends U3dModelBasicLayer {
 }
 /**
  * XML을 요청하여 해석한 뒤 레이어로 완료합니다. <br>
- * 주소 부재·200 이외 응답과 네트워크 실패를 별도로 종결하지 않습니다.
+ * 주소·HTTP·통신·해석 오류와 해제 후 도착한 응답은 실패로 전달합니다.
  *
  * @this {import('@union3d/3dLayer/U3dModelTdsLayer').U3dModelTdsLayer}
  * @returns {Promise<import('@union3d/3dLayer/U3dModelTdsLayer').U3dModelTdsLayer>} XML 해석 성공을 기다리는 완료 객체
  */
 function initWithXML() {
-    const promise = deferred();
     const self = this;
-    const req = new XMLHttpRequest();
-    const xmlUrl = self._xmlUrl;
-    if (defined(xmlUrl)) {
+    return new Promise((resolve, reject) => {
+        if (!defined(self._xmlUrl)) { reject(new Error('모델 정보 XML 주소가 없습니다.')); return; }
+        const req = new XMLHttpRequest();
         req.overrideMimeType('text/xml');
-        req.onload = function () {
-            if (this.status === 200) {
-                self.parseXML(this);
-                promise.resolve(self);
-            }
-            else if (this.status === 404)
-                console.error(xmlUrl + ' 파일이 존재하지 않습니다.');
+        req.onload = () => {
+            try {
+                if (self._disposed) throw new DOMException('XML 로딩 중 레이어가 해제되었습니다.', 'AbortError');
+                if (req.status < 200 || req.status >= 300) throw new Error('모델 정보 XML 응답 오류: ' + req.status);
+                self.parseXML(req);
+                resolve(self);
+            } catch (error) { reject(error); }
         };
-        req.open("GET", xmlUrl, true);
+        req.onerror = () => reject(new Error('모델 정보 XML을 불러오지 못했습니다.'));
+        req.onabort = () => reject(new DOMException('모델 정보 XML 요청이 취소되었습니다.', 'AbortError'));
+        req.ontimeout = () => reject(new Error('모델 정보 XML 요청 시간이 초과되었습니다.'));
+        req.open('GET', self._xmlUrl, true);
         req.send();
-    }
-    return promise;
+    });
 }
 /**
  * U3F 또는 모델 목록의 성공 뒤 로딩 상태와 화면 갱신·레이어 완료를 연결합니다. <br>
- * 비동기 실패를 바깥 완료 객체의 reject로 연결하지 않습니다.
+ * 요청 및 장면 반영의 실패는 바깥 완료 Promise와 ready에 전달합니다.
  *
  * @this {import('@union3d/3dLayer/U3dModelTdsLayer').U3dModelTdsLayer}
  * @returns {Promise<import('@union3d/3dLayer/U3dModelTdsLayer').U3dModelTdsLayer | undefined>} U3F 경로의 레이어 또는 목록 경로의 인수 없는 완료 결과
  */
 function loadModel() {
     const self = this;
-    return UDEF.createPromise(function (resolve, reject) {
-        if (defined(self._useU3f) && self._useU3f) {
-            self.initializeU3f().then(function () {
-                resolve(self);
-            });
-        }
-        else {
-            loadListModel.call(self, resolve);
-        }
-    }).then(function (result) {
+    // 기존 Yield 이후 로딩 시작 시점을 유지하며, 하위 요청의 실패도 같은 완료 경로로 전달합니다.
+    return UDEF.createPromise((resolve, reject) => {
+        const loading = self._useU3f
+            ? self.initializeU3f().then(() => self)
+            : loadListModel.call(self);
+        loading.then(resolve, reject);
+    }).then(result => {
+        if (self._disposed) throw new DOMException('모델 로딩 중 레이어가 해제되었습니다.', 'AbortError');
         self._isLoaded = true;
         self._drawArg.setUpdateDate();
         self._resolveReady();
-        // 표준 체이닝은 콜백 반환값을 다음 결과로 쓰므로 기존 완료값을 명시적으로 유지합니다.
         return result;
     });
 }
 /**
  * XML 첫 파일과 일치하는 인덱스부터 모델 목록을 병렬 로딩합니다. <br>
- * 성공 후 객체 배치를 반영하고 완료 콜백을 호출하며 비동기 실패는 로그로 전달합니다.
+ * 모든 요청의 성공 후 객체 배치를 반영하며 요청·배치 실패는 호출자에게 전달합니다.
  *
  * @this {import('@union3d/3dLayer/U3dModelTdsLayer').U3dModelTdsLayer}
- * @param {function} [resolve] 인수 없이 레이어를 this로 호출할 완료 함수
+ * @returns {Promise<void>} 목록 배치가 완료되면 값 없이 완료되는 Promise
  */
-function loadListModel(resolve) {
+function loadListModel() {
     const self = this;
     const promises = [];
     let p;
@@ -1009,12 +1007,9 @@ function loadListModel(resolve) {
         p = self.load(self._listModel[i]);
         promises.push(p);
     }
-    Promise.all(promises).then((objects) => {
+    return Promise.all(promises).then(objects => {
+        if (self._disposed) throw new DOMException('모델 목록 로딩 중 레이어가 해제되었습니다.', 'AbortError');
         setAfterLoadedObjects.call(self, objects);
-        if (defined(resolve))
-            resolve.call(self);
-    }).catch((e) => {
-        __GError__(self, "load list model is failed : " + e, "5536043");
     });
 }
 /**

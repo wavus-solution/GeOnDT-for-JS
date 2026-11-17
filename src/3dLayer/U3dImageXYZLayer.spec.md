@@ -26,7 +26,7 @@
 
 - `U3dApp`의 XYZ·TMS·배경 영상 레이어 생성 API
 - `GeOnDT.image.U3dImageXYZLayer`로 직접 생성하는 지도 배경·위성 영상 예제
-- `U3dImagePBFLayer`가 상속하여 직접 호출하는 영역 계산 alias와 URL 처리 기반
+- `U3dImagePBFLayer`가 상속하여 재사용하는 초기화·URL 처리 기반
 - `U3dImageLayer`의 texture 요청, parent fallback, terrain mesh와 cache 처리
 
 ## 3. 정규 자연어 수도코드
@@ -69,9 +69,9 @@ U3dImageXYZLayer extends U3dImageLayer 클래스 정의
         XML metadata를 읽을 URL이다.
 
     _computeRectangle: () -> void
-        하위 레이어가 영역 계산을 재사용할 수 있도록 `#computeRectangle`을 연결한 runtime system alias이며 `U3dImagePBFLayer.initialize()`가 직접 호출한다.
+        하위 레이어가 영역 계산을 재사용할 수 있도록 `#computeRectangle`을 연결한 runtime system alias이다.
 
-    _boundingBox?: {minx: number, miny: number, maxx: number, maxy: number}
+    _boundingBox?: {minx: number, miny: number, maxx: number, maxy: number, srs?: string}
         XML에서 읽은 geographic 표시 영역이다.
 
     constructor(opt: U3dImageXYZLayerCO)
@@ -90,21 +90,15 @@ U3dImageXYZLayer extends U3dImageLayer 클래스 정의
             class type, base URL, 이름, reverseX, needXml과 xmlUrl을 저장하고 URL 목록과 순환 index를 초기화한다. reverseY는 저장하지 않는다. [확인 Q-001]
             하위 레이어가 protected 성격으로 재사용할 수 있도록 영역 계산 함수를 `_computeRectangle`에 연결한다.
 
-    override createMeshFromTile(tile: U3dQuadTile) -> UTerrainMesh
-        인터페이스: tile은 기반 terrain mesh를 생성할 지형 tile이며 생성된 mesh를 반환한다.
-        의존: U3dImageLayer — terrain mesh 생성과 cache 등록; 함수: {createMeshFromTile()}
-        동작:
-            기반 레이어에서 terrain mesh를 생성한다.
-            mesh가 있으면 기존 userData를 같은 값의 새 객체로 교체한 뒤 mesh를 반환한다.
-
     override initialize() -> boolean
         처리 기준: needXml이 true여도 XML 읽기 완료를 기다리지 않고 기반 초기화 상태를 반환한다. [확인 Q-002]
         의존:
             U3dImageLayer — scene·group 연결과 공통 초기화 상태 확정; 함수: {initialize()}
             U3dLayer — 현재 초기화 상태 조회와 ready 완료 통지; 함수: {_resolveReady(), _rejectReady()}; 속성 읽기: {_initialized}
+            __GError__ — XML 적용 실패 보고; 함수: {__GError__()}
         동작:
             기반 이미지 레이어를 초기화한다.
-            needXml이 true이면 XML 읽기를 시작하고 성공하면 geographic 영역을 Google 좌표 영역과 Box3로 변환한 뒤 _resolveReady로 초기화 완료를 통지한다. XML 읽기 또는 범위 계산 실패는 _rejectReady로 전달한다. initialize 자체는 이 비동기 작업을 기다리지 않고 기반 초기화 상태를 반환한다. [확인 Q-002]
+            needXml이 true이면 XML 읽기를 시작하고 성공하면 geographic 영역을 Google 좌표 영역과 Box3로 변환한 뒤 _resolveReady로 초기화 완료를 통지한다. XML 읽기 또는 범위 계산 실패는 오류를 보고하고 _rejectReady로 전달한다. initialize 자체는 이 비동기 작업을 기다리지 않고 기반 초기화 상태를 반환한다. [확인 Q-002]
 
             baseUrl의 문자 또는 숫자 범위를 URL template 목록으로 펼치고 초기화 상태를 반환한다.
 
@@ -131,9 +125,9 @@ U3dImageXYZLayer extends U3dImageLayer 클래스 정의
             반환: 선택한 URL template의 좌표 토큰을 치환한 요청 URL
         의존:
             UMathEngine — tile 중심의 Google tile index 계산; 정적 함수: {getGoogleToIndexXY()}
-            U3dQuadTile — engine 시작 level 조회; 정적 함수: {getStartLevel()}
+            U3dQuadTile — 타일 중심과 실제 요청 레벨 조회; 함수: {getRealLevel()}; 속성 읽기: {_centerX, _centerY, _rlevel}
         동작:
-            tile 중심 X·Y와 시작 level을 더한 tile level로 Google tile index를 계산한다.
+            tile 중심 X·Y와 getRealLevel()의 결과를 사용해 Google tile index를 계산한다. getRealLevel이 없거나 결과가 null·undefined이면 _rlevel을 사용한다.
             다음 요청의 URL template를 순환 선택한다.
             reverseX·reverseY 옵션은 읽지 않고 선택한 template와 계산한 index를 비공개 문자열 변환에 전달하여 정방향·반전 X·Y와 Z 토큰이 치환된 URL을 반환한다. [확인 Q-001]
 
@@ -141,6 +135,19 @@ U3dImageXYZLayer extends U3dImageLayer 클래스 정의
         처리 기준: 기반 API의 refresh 인수를 받지 않으므로 호출자가 화면 갱신을 생략하도록 선택할 수 없다. [확인 Q-004]
         의존: U3dImageLayer — 가시성 전환, 숨김 시 tile 상태·요청 정리와 화면 갱신; 함수: {show()}
         동작: 입력 가시성을 기반 이미지 레이어에 전달하며 refresh 기본 동작을 사용한다.
+
+    override _isEmptyTextureError(error: unknown) -> boolean
+        인터페이스: error는 이미지 로더가 전달한 원본 오류이며 true이면 서버가 명시한 빈 타일로 취급한다.
+        동작: error가 Error의 인스턴스이고 status가 숫자 404와 엄격히 같을 때만 true를 반환한다.
+
+    override isTilePresentationParticipant(tile: U3dQuadTile) -> boolean
+        의존:
+            U3dImageLayer — 기반 참여 여부와 유효 텍스처 판정; 함수: {isTilePresentationParticipant(), isTexture()}
+            U3dLayer — 타일 처리 상태 조회; 함수: {getStateTile()}
+            UDEF — 타일 처리 종료 상태; 상수: {TILE_STATE._end}
+        동작:
+            기반 참여 판정이 false이면 false를 반환한다.
+            현재 상태가 _end가 아니거나 유효한 텍스처가 있으면 true를 반환한다. 완료됐으나 영상이 없는 타일은 표시 준비에서 제외하여 다른 이미지 레이어의 LOD 전환을 막지 않는다.
 
     override createTexture(tile: U3dQuadTile) -> Promise<U3dQuadTile> | undefined
         역할: 영역과 기반 조건을 통과한 XYZ tile의 이미지 요청을 시작한다.
@@ -151,11 +158,12 @@ U3dImageXYZLayer extends U3dImageLayer 클래스 정의
         의존:
             defined — 변환 영역과 생성 URL 존재 여부 판정; 함수: {defined()}
             intersectsBoxXY — XML 표시 영역과 tile XY 영역 교차 판정; 함수: {intersectsBoxXY()}
-            U3dImageLayer — tile 사전 판정과 이미지 요청 처리; 함수: {createTexture(), processTexture()}
-            U3dLayer — 요청하지 않는 tile 상태 확정과 현재 영역 조회; 함수: {setStateTile()}; 속성 읽기: {_box3}
+            U3dImageLayer — tile 사전 판정과 이미지 요청 처리 및 텍스처 존재 판정; 함수: {createTexture(), processTexture(), isTexture()}
+            U3dLayer — 요청하지 않는 tile 상태 조회·확정과 현재 영역 조회; 함수: {getStateTile(), setStateTile()}; 속성 읽기: {_box3}
             UDEF.TILE_STATE — 요청하지 않는 tile의 완료 상태; 상수: {_end}
-            deferred — tile 처리 완료 객체 생성; 함수: {deferred()}
+            deferredPromise — tile 처리 완료 객체 생성; 함수: {deferredPromise()}
         동작:
+            타일 상태가 _end이고 유효한 텍스처가 없으면 undefined를 반환하여 refresh나 상태 초기화 전까지 빈 타일을 다시 요청하지 않는다.
             XML에서 계산한 Box3와 tile bounding box가 겹치지 않으면 tile 상태를 완료로 바꾸고 undefined를 반환한다.
             기반 texture 생성 사전 판정이 falsy이면 기반 경로의 null을 포함하여 undefined로 반환한다.
             tile의 drawArg와 XYZ URL을 준비한다. URL 목록이 비어 있으면 createUrl의 template 치환 과정에서 예외가 발생하므로 뒤의 undefined 검사는 이 상태를 처리하지 못한다. [확인 Q-003]
@@ -194,11 +202,11 @@ U3dImageXYZLayer extends U3dImageLayer 클래스 정의
             여러 URL이면 현재 index의 template를 반환하고 index를 증가시키며 끝에 도달하면 0으로 되돌린다.
 
 expandUrl(url?: string) -> Array<string>
-    역할: 서버 범위 표현이 있는 URL을 요청에 사용할 개별 template 목록으로 펼치는 module 함수이며 instance method로 연결되지는 않는다. [확인 Q-007]
+    역할: 서버 범위 표현이 있는 URL을 요청에 사용할 개별 template 목록으로 펼치는 module 함수이며 instance method로 연결되지는 않는다.
     의존: defined — 입력 URL 존재 여부 판정; 함수: {defined()}
     동작:
         URL이 정의되지 않으면 빈 목록을 반환한다.
-        그 외에는 서버 범위를 비공개 문자열 변환에 전달하고 반환된 URL 목록을 그대로 반환한다.
+        url이 정의되어 있으면 서버 범위를 비공개 문자열 변환에 전달하고 반환된 URL 목록을 그대로 반환한다.
 
 ```
 

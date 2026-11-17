@@ -6,6 +6,8 @@
 
 등록된 메시와 인스턴스의 외곽선을 후처리로 표시한다. 선택 대상의 깊이 제외와 마스크 생성, 스타일별 외곽선 검출, 우선순위 합성을 담당한다. `URenderer`가 생성하고 `U3dObjectBarrier`가 대상과 스타일을 등록한다.
 
+마스크 출력 중 임시 재질로 바꾸는 객체와 LOD에는 U3dOutline의 스타일 원본 연결을 보관한다. 도형의 렌더 콜백은 깊이·밝기·대비를 원래 색상 재질에만 갱신하고, 마스크 셰이더에는 보정 uniform을 주입하지 않는다. 성공·실패와 관계없이 기존 재질과 스타일 연결을 함께 복원한다.
+
 ## 2. 요구사항과 품질 기준
 
 ```spec
@@ -14,6 +16,7 @@ farPoint.enabled인 작은 BASIC·BOUNCE·FLOW·BLOOM 대상은 실제 대표 �
 활성 네 모드는 상세·간략 모두 같은 CSS 픽셀 기본 두께를 사용한다. 두께는 farPoint.lineWidthPx → style.lineWidth → style.width → 명시적 setLineWidth 값 순서이며 초기값은 1.5다. 상세 표현은 원본 마스크의 실제 실루엣이다. 기존 edgeGlow·블러는 적용하지 않는다. BOUNCE는 기본 윤곽과 닫힌 파동, BLOOM은 외부 광채, FLOW는 두 색상의 이동을 합성한다. 모드별 속도·강도·밀도·비율·색상·시간 오프셋은 보존한다. 패턴·옵션 비활성 대상은 기존 출력 경로를 사용한다.
 공식 인스턴스 LOD의 마스크 재질 동기화와 독립 출력 중복 제외는 표현 상태·옵션 여부와 관계없이 적용하며 미선택 인덱스의 형상을 남기지 않는다.
 부분 선택·스타일 충돌·미지원 변형·불명확한 묶음처럼 하나의 간략 윤곽으로 선택 의미를 보존할 수 없으면 외곽선을 유지한다.
+Line2 계열은 원본 선 셰이더의 선분·두께 단위·점선·끝점을 보존한 전용 마스크로 선택 윤곽을 출력한다. position의 기본 사각형은 실제 형상이 아니므로 작은 선도 간략 닫힌 윤곽으로 전환하지 않는다. 원본 재질은 수정하지 않으며 선 재질 또는 패스 해제 시 전용 마스크를 정리한다.
 화면 크기와 최소 표시 크기는 CSS 픽셀이다. 작아질수록 허용 오차를 늘려 굴곡을 줄이며 최소 세 정점의 닫힌 선을 보존한다. 원본 모델은 계속 렌더링하고 간략 윤곽은 기존 우선순위별로 묶는다.
 ```
 
@@ -24,6 +27,9 @@ UOutlinePass extends OutlinePass 클래스 정의
     의존:
         OutlinePass — 마스크·깊이 타깃과 화면 사각형 자원; 상속: {OutlinePass}
         getOutlineMaterial — 스타일별 외곽선 셰이더; 함수: {getOutlineMaterial()}
+
+    #lineMasks: LineMasks = INTERNAL.createLineMasks()
+        원본 LineMaterial별 전용 마스크와 해제 구독을 소유한다. 그리기 직전에 원본의 uniform·defines·클리핑과 현재 뷰포트·마스크 깊이 상태를 반영한다. 원본 재질과 uniform은 수정하지 않으며, 카메라의 투영 종류나 원본 셰이더가 바뀌면 마스크 셰이더도 갱신한다.
 
     edgeStrength: number = 2
         최종 밝기 배율이다.
@@ -206,6 +212,7 @@ UOutlinePass extends OutlinePass 클래스 정의
         의존:
             OutlinePass — 기반 렌더링 상태·자원과 복원 경로 재사용; 속성 읽기·쓰기: {renderTargetMaskBuffer, renderTargetDepthBuffer, renderTargetMaskDownSampleBuffer, renderTargetBlurBuffer1, renderTargetBlurBuffer2, renderTargetEdgeBuffer1, renderTargetEdgeBuffer2, depthMaterial, prepareMaskMaterial, separableBlurMaterial1, separableBlurMaterial2, overlayMaterial, materialCopy, _fsQuad}
         동작:
+            #lineMasks.dispose로 선 전용 마스크를 해제하고 원본 선 재질의 dispose 구독을 제거한다.
             간략 윤곽 전용 소유 자원·프레임·등록 루트 참조를 먼저 비운다.
             기반 패스 자원을 해제하고 별도로 복제한 인스턴스 마스크 재질을 해제한다.
             렌더 타깃·재질·화면 사각형의 참조를 undefined로 비운다. 현재 자체 스타일 텍스처를 명시적으로 해제하는 경로는 없다.
@@ -490,9 +497,10 @@ UOutlinePass extends OutlinePass 클래스 정의
     #renderObjectToMask(renderer: import('three').WebGLRenderer, object: import('three').Mesh, styleId: number, originalMaterialOverride: import('three').Material | Array<import('three').Material> | undefined, instancedIndicesOverride: Array<number> | undefined) -> void
         의존:
             OutlinePass — 기반 렌더링 상태·자원과 복원 경로 재사용; 속성 읽기·쓰기: {prepareMaskMaterial, renderCamera}
+            U3dOutline — 임시 재질과 스타일 연결 보관·복원; 함수: {_pushMaterialOverride(), _restoreMaterialOverrides()}
         동작:
-            대상이 없으면 종료한다. 스타일 ID를 설정하고 일반 또는 전용 인스턴스 마스크 재질로 대체한다. 인스턴스·병합 부분 선택·일반 메시를 구분해 렌더링하고 finally에서 원래 재질과 일반 재질의 defines를 복원한다.
-            모든 표현 상태에서 LODinfo.objects의 _parentLOD가 object인 공식 대체 메시의 재질을 lodMaterials에 보관하고 같은 마스크 재질로 임시 대체한다. 현재 LOD에서도 원본의 스타일 ID·선택 인덱스로 마스크를 출력하며 성공·실패 모두 finally에서 각 대체 메시의 원래 material 참조를 복원한다.
+            대상이 없으면 종료한다. 스타일 ID를 설정하고 Line2와 LineMaterial 조합이면 #lineMasks.get으로 실제 선 형상의 마스크를 선택한다. 나머지는 일반 또는 전용 인스턴스 마스크 재질로 대체한다. 인스턴스·병합 부분 선택·일반 메시를 구분해 렌더링하고 finally에서 원래 재질과 일반 재질의 defines를 복원한다.
+            U3dOutline._pushMaterialOverride로 대상과 LODinfo.objects의 _parentLOD가 object인 공식 대체 메시의 재질·이전 스타일 연결을 같은 상태 목록에 보관하고 마스크 재질로 바꾼다. 이미 연결한 색상 원본은 중첩 패스에서도 유지한다. 인스턴스 스타일 텍스처 준비와 LOD 교체도 try 안에서 실행하며, 준비·출력의 성공·실패 모두 finally에서 U3dOutline._restoreMaterialOverrides로 상태를 역순 복원한다.
 
             object가 truthy인 경우 #setCurrentStyleId 단계의 결과를 현재 흐름에 반영한다.
             object가 truthy인 경우 #getMaskMaterialFor 단계의 결과를 현재 흐름에 반영한다.
@@ -591,9 +599,9 @@ UOutlinePass extends OutlinePass 클래스 정의
 
     #renderMask(renderer: unknown, info: unknown, context: unknown) -> void
         의존:
-            OutlinePass — 기반 렌더링 상태·자원과 복원 경로 재사용; 속성 읽기·쓰기: {_changeVisibilityOfNonSelectedObjects, renderScene, prepareMaskMaterial, renderCamera, renderTargetDepthBuffer, textureMatrix, renderTargetMaskBuffer, _visibilityCache}
+            OutlinePass — 기반 렌더링 상태·자원과 복원 경로 재사용; 속성 읽기·쓰기: {renderScene, prepareMaskMaterial, renderCamera, renderTargetDepthBuffer, textureMatrix, renderTargetMaskBuffer, _visibilityCache}; 함수: {_changeVisibilityOfNonSelectedObjects()}
         동작:
-            비선택 객체를 숨기고 두 마스크 재질에 카메라·깊이·투영 uniform을 연결한다. 타깃을 비우고 해당 객체·인덱스를 출력한 뒤 비선택 가시성과 장면 상태를 복원한다.
+            비선택 객체를 숨기고 두 마스크 재질에 카메라·깊이·투영 uniform을 연결한다. 타깃을 비우고 해당 객체·인덱스를 출력한다. 숨김·uniform 설정·타깃 준비·출력의 성공 또는 예외와 관계없이 finally에서 _visibilityCache에 기록된 각 객체의 visible을 원래 값으로 복원하고 캐시를 비운다. 렌더 콜백에서 장면과 분리된 객체도 저장된 참조로 복원하며 원래 숨겨진 객체는 계속 숨겨진다. 장면의 배경과 overrideMaterial은 context의 값으로 복원하고 원래 예외는 호출자에게 전달한다.
 
             #getMaskMaterials 단계의 결과를 현재 흐름에 반영한다.
             #renderObjectToMask 단계의 결과를 현재 흐름에 반영한다.

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -8,13 +8,14 @@ import * as three_examples_jsm_math_ConvexHull_js from "../../dist/types/three/e
 import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/types/three/examples/jsm/lines/LineSegmentsGeometry.js";
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
-import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam } from "./U3dGeometry.js";
+import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, UGeometryOutlineMesh } from "./U3dGeometry.js";
 import type { UMeta } from "../meta/UMeta.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { EventCallBack, GeoPositionVector3, KeyValue, WorldPositionVector3 } from "../types/global.js";
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dCircle {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -22,7 +23,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -52,24 +52,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: any): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -137,7 +153,7 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getOid"(): any;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -191,6 +207,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_disposed": boolean;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
@@ -254,6 +271,8 @@ declare const U3dCircle_base: Omit<typeof U3dGeometry, "prototype"> & {
  * `setVertex`는 바로 반영되고, `setPositions`로 준 위경도는 도형이 속한 레이어가 월드 좌표(EPSG:3857)로 바꿔 넣는 시점에 반영됩니다. <br>
  *
  * 원판은 로컬 XY 평면에 만들어져 +Z 방향을 바라봅니다. <br>
+ * 외곽선은 본체와 별도인 BufferGeometry와 전용 ShaderMaterial을 가진 Mesh로 원판과 같은 평면의 띠를 그립니다. <br>
+ * 전용 셰이더로 두께를 계산하고 안팎 경계에 픽셀 AA를 적용합니다. <br>
  * 지도는 Z가 높이인 좌표계를 쓰므로 따로 회전시키지 않아도 지면에 눕혀진 상태로 놓입니다. <br>
  * 재질에 양면 표시를 켜지 않으므로 원판을 아래에서 올려다보면 보이지 않습니다. <br>
  *
@@ -261,7 +280,7 @@ declare const U3dCircle_base: Omit<typeof U3dGeometry, "prototype"> & {
  * 월드 좌표(EPSG:3857)는 위도가 높을수록 실제 거리보다 늘어나 있어, 이 배율을 곱해야 화면에서 실제 미터 크기로 보입니다. <br>
  *
  * 반지름·조각 수 같은 형상 필드에 직접 대입한 값은 곧바로 화면에 반영되지 않습니다. <br>
- * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용되므로, 값을 바꿀 때는 `setParam`을 사용하십시오. <br>
+ * 다음 `setParam` 호출이나 좌표 갱신으로 형상을 다시 만들 때 사용됩니다. 분할 수는 `setSegments` 또는 `setParam`으로 변경하십시오. <br>
  *
  * @group geometry
  * @extends {__GeOnDTMixinBase_U3dCircle}
@@ -316,6 +335,20 @@ declare class U3dCircle extends U3dCircle_base {
      */
     _updateCircleGeometry(): void;
     /**
+     * 중심과 중복 끝점을 제외한 둘레 정점으로 별도 BufferGeometry를 구성합니다.
+     * 전용 ShaderMaterial을 가진 Mesh로 원판 평면의 띠를 그립니다.
+     *
+     * @override
+     *
+     * @param {import('three').BufferGeometry} geometry 원판 형상
+     * @param {boolean} depthTest 깊이 검사 여부
+     * @returns {UGeometryOutlineMesh} 원판 평면의 외곽선 메시
+     *
+     * @protected
+     * @ignore
+     */
+    protected override _createCircleOutline(geometry: three.BufferGeometry, depthTest: boolean): UGeometryOutlineMesh;
+    /**
      * 꼭짓점 좌표를 위치에 반영 <br>
      *
      * @override
@@ -324,8 +357,16 @@ declare class U3dCircle extends U3dCircle_base {
      */
     override updateVertex(): void;
     /**
+     * 원둘레 분할 수를 변경합니다. 값이 바뀌면 형상과 외곽선을 갱신합니다. <br>
+     * @param {number} segments 3 이상의 유한한 정수 <br>
+     */
+    setSegments(segments: number): void;
+    /** @returns {number} 원둘레 분할 수. 기본값은 32입니다 <br> */
+    getSegments(): number;
+    /**
      * 원(Circle)의 속성(색상·투명도·반지름·조각 수 등)을 한 번에 변경합니다. <br>
-     * 전달한 값만 반영되고 나머지는 기존 값이 유지되며, 호출할 때마다 지오메트리가 다시 만들어집니다. <br>
+     * 전달한 값만 반영되고 나머지는 기존 값이 유지됩니다. 반지름·조각 수가 바뀔 때 형상을 다시 만듭니다. <br>
+     * 스타일만 변경하면 형상과 외곽선을 유지하며, 인자 없는 호출이나 빈 옵션은 형상을 다시 만듭니다. <br>
      *
      * 생성 옵션 중 렌더링 스타일(`style`), 좌표(`vertices`·`coordinates`), 이름(`name`), `showLabel`과 `properties`는 이 함수로 바뀌지 않습니다. <br>
      * 좌표는 `setVertex`나 `setPositions`로 바꾸고, 렌더링 스타일을 바꾸려면 원을 새로 만듭니다. <br>
@@ -349,13 +390,12 @@ declare class U3dCircle extends U3dCircle_base {
     override getParam(): U3dCircleParam;
     /**
      * 이 원(Circle)을 가리키는 고유 식별자(UID)를 반환합니다. <br>
-     * `userData.id`는 원을 만들 때 자동으로 채워지지 않으므로 필요하면 호출자가 직접 넣습니다. <br>
-     * 넣어 두었으면 그 값을, 없으면 three.js가 객체마다 자동으로 매기는 정수 id를 돌려줍니다. <br>
-     * 클릭한 도형을 목록에서 찾거나 여러 도형을 구별할 때 사용합니다. <br>
+     * 이 절차형 도형의 실행 중 인스턴스를 구분하는 three.js 정수 id입니다. <br>
+     * 데이터 모델의 재로딩 식별자인 puid와는 별개이며 userData를 엔진 키로 해석하지 않습니다. <br>
      *
-     * @returns {number | string} `userData.id`에 넣어 둔 식별자 또는 three.js가 매긴 객체 id <br>
+     * @returns {number} three.js가 매긴 실행 중 도형 id <br>
      */
-    getUid(): number | string;
+    getUid(): number;
 }
 
 /**

@@ -140,7 +140,6 @@
         });
 
         const layerMap = new Map();
-        const pendingFitSet = new Set();
         const $kmlList = $('#kml-list');
         const defaultVisibleKeys = new Set(['test1']);
         Object.entries(kmlInfo).forEach(([key, path]) => {
@@ -169,16 +168,6 @@
                 styleFunction: styleFunction
             });
 
-            kmlModelLayer.on('completed', function () {
-                const checkbox = document.getElementById(`chk-${key}`);
-                if (checkbox?.checked) {
-                    app.showLayer(kmlModelLayer.getName(), true);
-                    if (pendingFitSet.has(key)) {
-                        pendingFitSet.delete(key);
-                        app.fitLayerExtent(kmlModelLayer.getName());
-                    }
-                }
-            });
 
             app.addLayer(kmlModelLayer);
             layerMap.set(key, kmlModelLayer);
@@ -265,21 +254,24 @@
 
         async function showLayerByKey(key) {
             app.loadingBar();
-
-            const layer = ensureLayer(key);
-            pendingFitSet.add(key);
-            await layer._loadingPromise;
-            app.endloadingBar();
-
-            app.showLayer(layer.getName(), true);
-            await app.fitLayerExtent(layer.getName(), true);
+            try {
+                const layer = ensureLayer(key);
+                await layer.ready;
+                const checkbox = document.getElementById(`chk-${key}`);
+                if (!checkbox?.checked || layerMap.get(key) !== layer || layer.isDisposed() || app.isDisposed()) return;
+                app.showLayer(layer.getName(), true);
+                await app.fitLayerExtent(layer.getName(), true);
+            } catch (error) {
+                console.error('KML 레이어를 불러오거나 표시하지 못했습니다.', error);
+            } finally {
+                app.endloadingBar();
+            }
         }
 
         function hideLayerByKey(key) {
             const layer = layerMap.get(key);
             if (!layer) return;
 
-            pendingFitSet.delete(key);
             app.showLayer(layer.getName(), false);
         }
 

@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -703,11 +703,11 @@ declare class U3dModelLayer extends U3dLayer {
      * @param {ModelMesh} mesh 모델 Mesh
      * @param {U3dModelLayer} layer 레이어
      * @param {import('@UDrawArg').UDrawArg} drawArg 레이어 drawArg
-     * @return {Promise<import('@U3dQuadTile').U3dQuadTile>} 찾아진 타일 Array
+     * @return {Promise<import('@U3dQuadTile').U3dQuadTile | undefined>} 찾아진 타일. 원본 타일도 없으면 undefined
      *
      * @ignore
      */
-    setTileFromEditedModel(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile>;
+    setTileFromEditedModel(mesh: ModelMesh, layer: U3dModelLayer, drawArg: UDrawArg): Promise<U3dQuadTile | undefined>;
     /**
      * @param {string} id
      * @return {EditedEvent | undefined}
@@ -723,6 +723,15 @@ declare class U3dModelLayer extends U3dLayer {
      * @returns {Array<import('three').Object3D> | undefined} 동기 분리 결과 목록, 분리하지 않으면 undefined
      */
     mergedMeshDivision(object: ModelMesh, afterFunction?: (mesh: three.Object3D, drawArg: UDrawArg) => void): Array<three.Object3D> | undefined;
+    /**
+     * 해당 원본의 분리 처리가 끝나면 결과 모델들을 전달합니다. 텍스처 실패도 완료에 포함합니다.
+     *
+     * @param {import('three').Object3D} object 분리 원본
+     * @returns {Promise<Array<import('three').Object3D>> | undefined} 진행 중인 분리 결과, 대기할 작업이 없으면 undefined
+     *
+     * @ignore
+     */
+    _getMeshDivisionPromise(object: three.Object3D): Promise<Array<three.Object3D>> | undefined;
     /**
      * @return {void}
      */
@@ -755,6 +764,17 @@ declare class U3dModelLayer extends U3dLayer {
      * @return {EditedEvent | undefined}
      */
     setSplitEvent(parent: ModelMesh, child: ModelMesh): EditedEvent | undefined;
+    /**
+     * 재로딩한 U3F의 분리 조각과 피처 합성 모델에 기존 편집 상태를 복원합니다.
+     * 원본의 삭제 목록은 분리 표시를 위한 숨김도 포함하므로, 일반 분리 요청의 삭제 검사와
+     * 구분합니다. 로더가 복원 필요성을 판정한 결과에만 사용하며 새 사용 대상을 만들지 않습니다.
+     *
+     * @param {ModelMesh} original 재로딩한 병합 원본
+     * @param {import('three').Object3D} meshList 로더가 복원한 분리 조각의 그룹
+     *
+     * @ignore
+     */
+    _restoreSplitModels(original: ModelMesh, meshList: three.Object3D): void;
     #private;
 }
 

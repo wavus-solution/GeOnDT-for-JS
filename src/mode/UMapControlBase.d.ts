@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -127,7 +127,11 @@ declare class UMapControlBase extends UEventDispatcher {
      * @param {HTMLElement | Document} [domElement=document] 입력 좌표와 화면 크기의 기준이 될 DOM 대상
      */
     constructor(drawarg: UDrawArg, object: UCamera | UOrthographicCamera, domElement?: HTMLElement | Document);
-    /** 진행 중인 카메라 애니메이션이며 없으면 undefined입니다. @type {UMapTween | undefined} */
+    /**
+     * 진행 중인 카메라 애니메이션이며 없으면 undefined입니다.
+     *
+     * @type {UMapTween | undefined}
+     */
     tween: UMapTween | undefined;
     /**
      * renderer 확인, 앱 mode, terrain 높이 조회와 그리기 요청을 담당하는 앱입니다.<br>
@@ -265,6 +269,43 @@ declare class UMapControlBase extends UEventDispatcher {
         RIGHT: number;
     };
     /**
+     * 현재 키보드 매핑의 독립 복사본을 반환합니다.
+     * 새 API 설정 전에는 기존 keys의 방향키 번호도 반영합니다.
+     *
+     * @returns {UMapKeyBindings} KeyboardEvent.code별 팬 이동·회전 동작
+     */
+    getKeyBindings(): UMapKeyBindings;
+    /**
+     * 누르는 동안 임시 일인칭으로 전환하는 키를 변경합니다.
+     * 이동·회전에 사용 중인 키는 RangeError로 거부하고 기존 설정과 입력 상태를 보존합니다.
+     * 숫자 외 입력은 TypeError, 1~255의 정수가 아닌 값은 RangeError입니다.
+     * 기본 이동 복원과 충돌하는 방향키 코드 37~40은 사용할 수 없습니다.
+     * 키 코드 13은 Enter와 NumpadEnter를 함께 예약합니다.
+     * 실제 변경 시 눌림·드래그·관성을 취소하고 inputbindingschange를 발생시킵니다.
+     *
+     * @param {number} keyCode 1 이상 255 이하의 정수 키 코드이며 16은 Shift
+     * @returns {this} 현재 컨트롤러
+     */
+    setFirstPersonModeKey(keyCode: number): this;
+    /**
+     * 지정한 키의 팬 이동·회전 동작만 변경합니다. 생략한 키는 유지하며 none으로 해제합니다.
+     * 키는 KeyboardEvent.code를 사용합니다. 예: ArrowUp은 위 방향키, KeyW는 W 키입니다.
+     * 잘못된 타입은 TypeError, 잘못된 키·동작과 임시 일인칭 키 충돌은 RangeError이며 이전 입력과 설정을 보존합니다.
+     * 실제 변경 시 눌림 상태·드래그·관성을 취소하고 inputbindingschange를 발생시킵니다.
+     * 새 API 설정 후에는 기존 keys 직접 대입보다 이 매핑을 우선합니다.
+     *
+     * @param {UMapKeyBindings} patch 변경할 키와 동작
+     * @returns {this} 현재 컨트롤러
+     */
+    setKeyBindings(patch: UMapKeyBindings): this;
+    /**
+     * 기본 방향키 팬 이동을 복원하고 눌림 상태·드래그·관성을 취소합니다.
+     * 임시 일인칭 전환 키와 마우스 매핑은 보존합니다.
+     *
+     * @returns {this} 현재 컨트롤러
+     */
+    resetKeyBindings(): this;
+    /**
      * 이동과 일인칭 전환에 사용할 keyboard key code 표입니다.
      *
      * @type {{LEFT: number, UP: number, RIGHT: number, BOTTOM: number, SHIFT: number}}
@@ -277,12 +318,51 @@ declare class UMapControlBase extends UEventDispatcher {
         SHIFT: number;
     };
     /**
+     * 현재 마우스 입력 매핑의 독립적인 복사본을 반환합니다.
+     * 새 API를 사용하기 전에는 기존 mouseButtons의 버튼 번호 설정도 반영합니다.
+     *
+     * @returns {UMapMouseBindings} 물리 버튼과 Ctrl/Cmd 조합의 현재 동작
+     */
+    getMouseBindings(): UMapMouseBindings;
+    /**
+     * 전달한 항목만 검증해 마우스 입력 매핑을 변경합니다.
+     * 잘못된 타입은 TypeError, 알 수 없는 항목이나 동작은 RangeError이며 입력 상태와 설정을 보존합니다.
+     * 실제 값이 바뀌면 드래그와 관성을 취소하고 다음 입력부터 적용하며 inputbindingschange를 발생시킵니다.
+     * 설정 이후에는 이 API가 우선하며 mouseButtons에 직접 대입한 값은 적용하지 않습니다.
+     *
+     * @param {UMapMouseBindingsPatch} patch 변경할 물리 버튼과 Ctrl/Cmd 조합의 동작
+     * @returns {this} 현재 컨트롤러
+     */
+    setMouseBindings(patch: UMapMouseBindingsPatch): this;
+    /**
+     * 마우스 입력을 제품 기본값으로 복원하고 드래그와 관성을 취소합니다.
+     * 복원 후에는 기존 mouseButtons 설정도 다시 적용되며 inputbindingschange를 발생시킵니다.
+     *
+     * @returns {this} 현재 컨트롤러
+     */
+    resetMouseBindings(): this;
+    /**
      * 방향 key를 눌러 이동하는 중인지 나타냅니다.<br>
      * 이 값이 true이면 앵커 고정 처리와 관성(inertia)을 사용하지 않습니다.
      *
      * @type {boolean}
      */
     isKeyMoving: boolean;
+    /**
+     * 일인칭 전환 key를 누르고 있는 동안 true가 됩니다.<br>
+     * 이 값이 true이면 제어 종류와 상관없이 일인칭 경로로 처리합니다.
+     *
+     * @type {boolean}
+     */
+    onShift: boolean;
+    /**
+     * camera가 바뀌는 중인지 외부 기능이 관찰하는 값입니다.<br>
+     * 관성(inertia)이 도는 동안과 zoom 직후 일정 시간에도 true로 유지됩니다.
+     *
+     * @type {boolean}
+     */
+    _isChanging: boolean;
+    isUpdated: boolean;
     /**
      * addEventHandler()가 등록한 listener를 원본 함수 이름별로 보관하는 표이며 removeEventHandler()가 해제할 때 사용합니다.
      *
@@ -301,20 +381,6 @@ declare class UMapControlBase extends UEventDispatcher {
      * @type {boolean}
      */
     enabled: boolean;
-    /**
-     * 일인칭 전환 key를 누르고 있는 동안 true가 됩니다.<br>
-     * 이 값이 true이면 제어 종류와 상관없이 일인칭 경로로 처리합니다.
-     *
-     * @type {boolean}
-     */
-    onShift: boolean;
-    /**
-     * camera가 바뀌는 중인지 외부 기능이 관찰하는 값입니다.<br>
-     * 관성(inertia)이 도는 동안과 zoom 직후 일정 시간에도 true로 유지됩니다.
-     *
-     * @type {boolean}
-     */
-    _isChanging: boolean;
     /**
      * zoom 뒤 변경 중 상태를 해제할 timeout 식별자입니다.
      *
@@ -508,7 +574,7 @@ declare class UMapControlBase extends UEventDispatcher {
     dispose(): void;
     /**
      * 등록한 입력 이벤트와 드래그 추적용 전역 이벤트를 모두 해제합니다.<br>
-     * 해제 전에 진행 중인 pan·회전 관성(inertia)과 속도 표본을 취소합니다.
+     * 해제 전에 드래그·관성과 속도 표본을 취소하며 종료 콜백의 새 드래그 시작을 차단합니다.
      */
     removeEvents(): void;
     /**
@@ -667,12 +733,14 @@ declare class UMapControlBase extends UEventDispatcher {
      * perspective camera를 지정한 위치와 target으로 곡선을 그리며 옮깁니다.<br>
      * 현재 camera가 orthographic이면 같은 인자로 flyToOrtho()에 넘깁니다.<br>
      * 출발점과 도착점 사이에 더 높은 중간 지점을 두어 두 구간으로 나눠 이동하므로 위에서 넘어가듯 움직입니다.<br>
+     * duration이 0이거나 카메라의 3차원 이동 거리가 월드 좌표 기준 1m 이하이면 첫 트윈 갱신에서 최종 위치와 방향을 적용합니다.<br>
+     * options.forceAnimation이 true이면 가까운 거리도 지정한 시간 동안 이동하며, duration이 0이면 즉시 이동합니다.<br>
      * 진행 중인 비행을 먼저 멈추며, target을 넘기지 않으면 위치가 움직인 만큼 target도 같이 옮겨 바라보는 방향을 유지합니다.<br>
      * 이동 중에는 change와 fly 이벤트가, 끝나면 flyend가, 도중에 멈추면 flystop이 발생합니다.
      *
      * @param {import("three").Vector3} position 도착할 camera 위치
      * @param {import("three").Vector3} [target] 도착 시 바라볼 지점이며 넘기지 않으면 현재 방향을 유지
-     * @param {number} [duration=3000] 이동에 사용할 시간이며 ms 단위
+     * @param {number} [duration=3000] 이동에 사용할 시간이며 ms 단위. 0이면 첫 트윈 갱신에서 이동을 마칩니다.
      * @param {Function} [interpolation=TWEEN.Interpolation.CatmullRom] 구간 보간에 사용할 함수
      * @param {object} [callbacks] 이동 중과 종료 시 실행할 사용자 콜백 모음
      * @returns {UMapTween} 시작한 이동 애니메이션
@@ -685,9 +753,10 @@ declare class UMapControlBase extends UEventDispatcher {
     stopFly(): void;
     /**
      * keyboard key를 누를 때 이동 또는 일인칭 전환을 처리합니다.<br>
-     * 방향키 위·아래·왼쪽·오른쪽은 그 방향으로 화면을 옮기고, 일인칭 전환 key는 누르고 있는 동안 일인칭 경로로 바꿉니다.<br>
+     * 키 매핑의 팬 이동 또는 target 중심 회전을 한 단계 적용하고, 임시 일인칭 전환 키는 누르는 동안 유지합니다.<br>
+     * 키 매핑은 KeyboardEvent.code로 구분하며 code가 없거나 비어 있을 때만 keyCode를 사용합니다.<br>
      * 처리하는 key이면 진행 중인 pan·회전 관성(inertia)을 먼저 취소합니다.<br>
-     * 입력 요소나 slider에 초점이 있거나 앱 mode가 7이거나 keyboard·이동이 꺼져 있으면 처리하지 않습니다.
+     * 입력·편집 요소, slider, Ctrl/Alt/Cmd 단축키, mode 7과 비활성 기능은 처리하지 않습니다.
      *
      * @param {KeyboardEvent | import("@U3dMouseEvent").U3dMouseEvent} event 앱이 전달한 key 누름 이벤트
      */
@@ -701,7 +770,8 @@ declare class UMapControlBase extends UEventDispatcher {
     /**
      * mouse 버튼을 누를 때 조작을 시작합니다.<br>
      * 진행 중인 pan·회전 관성(inertia)과 속도 표본을 취소합니다.<br>
-     * 왼쪽 버튼은 Ctrl이나 Cmd를 누르지 않았으면 이동, 눌렀으면 회전을 시작하고 오른쪽 버튼은 회전을 시작하며 가운데 버튼에는 동작이 없습니다.<br>
+     * 입력 매핑에서 선택한 이동 또는 회전을 시작하며, 사용 안 함과 비활성 동작은 시작하지 않습니다.<br>
+     * 기본값은 왼쪽 이동, Ctrl/Cmd+왼쪽과 오른쪽 회전이며 시작한 버튼을 놓을 때까지 동작을 유지합니다.<br>
      * 제어 종류가 FIX_ANCHOR이면 이 시점에 누른 지점의 월드 좌표(EPSG:3857)를 앵커(anchor)로 고릅니다.<br>
      * 조작이 시작되면 창 전체에서 mouse 이동과 뗌을 추적하고 start 이벤트를 발생시킵니다.
      *
@@ -724,7 +794,6 @@ declare class UMapControlBase extends UEventDispatcher {
      * @param {MouseEvent | import("@U3dMouseEvent").U3dMouseEvent} event 앱이 전달한 mouse 뗌 이벤트
      */
     onMouseUp(event: MouseEvent | U3dMouseEvent): void;
-    isUpdated: boolean;
     /**
      * wheel을 굴릴 때 확대·축소를 적용합니다.<br>
      * 진행 중인 pan·회전 관성(inertia)과 속도 표본을 취소합니다.<br>
@@ -735,6 +804,16 @@ declare class UMapControlBase extends UEventDispatcher {
      * @param {WheelEvent | import("@U3dMouseEvent").U3dMouseEvent} event 앱이 전달한 wheel 이벤트
      */
     onMouseWheel(event: WheelEvent | U3dMouseEvent): void;
+    /**
+     * 지형 메시의 표시 높이만 변경된 경우 현재 카메라 위치의 충돌 높이를 다시 적용합니다.<br>
+     * 일반 update()와 달리 대기 중인 이동·회전·확대 입력은 소비하지 않습니다.<br>
+     * 비활성 상태이거나 충돌을 사용하지 않거나 일인칭 모드이면 아무 작업도 하지 않습니다.
+     *
+     * @returns {boolean} 새 표시 고도로 카메라 Z를 올렸으면 true
+     *
+     * @ignore
+     */
+    _refreshCollisionHeight(): boolean;
     /**
      * 지금까지 쌓인 입력량을 camera에 실제로 적용하고 바뀌었으면 change 이벤트를 발생시킵니다.<br>
      * 현재 상태와 제어 종류에 따라 일인칭, 앵커(anchor) 고정, 앵커 없음 중 한 경로를 고릅니다.<br>
@@ -838,6 +917,75 @@ declare class UMapControlBase extends UEventDispatcher {
 }
 
 /**
+     * 키 하나에 지정할 지도 조작입니다. pan은 화면 이동, rotate는 target 중심 회전이며 none은 컨트롤러에서 처리하지 않습니다.
+     */
+    type UMapKeyAction = "panUp" | "panDown" | "panLeft" | "panRight" | "rotateUp" | "rotateDown" | "rotateLeft" | "rotateRight" | "none";
+
+/**
+     * KeyboardEvent.code별 지도 조작입니다. 예: ArrowUp, KeyW, Digit1, Numpad8.
+     * 키를 누를 때 한 번 적용하고 누르고 있으면 운영체제의 키 반복 입력으로 조작합니다.
+     * Ctrl/Alt/Cmd 단축키와 입력 요소에서는 동작하지 않으며 Shift 임시 일인칭 키는 별도 설정을 따릅니다.
+     */
+    type UMapKeyBindings = Record<string, UMapKeyAction>;
+
+/**
+     * 마우스 드래그에 연결할 카메라 동작입니다.
+     */
+    type UMapMouseAction = "pan" | "rotate" | "none";
+
+/**
+     * 물리적인 왼쪽·가운데·오른쪽 버튼의 드래그 동작입니다.
+     */
+    type UMapMouseButtonBindings = {
+        /**
+         * 왼쪽 버튼의 동작
+         */
+        left: UMapMouseAction;
+        /**
+         * 가운데 버튼의 동작
+         */
+        middle: UMapMouseAction;
+        /**
+         * 오른쪽 버튼의 동작
+         */
+        right: UMapMouseAction;
+    };
+
+/**
+     * 지도 컨트롤러의 마우스 입력 매핑입니다. 터치·휠·Shift 전환은 포함하지 않습니다.
+     * 기본값은 왼쪽 pan, 가운데 none, 오른쪽 rotate이며 Ctrl/Cmd+왼쪽은 rotate입니다.
+     * Ctrl 또는 Cmd를 누르면 ctrlOrMeta를 먼저 적용하고 inherit이면 해당 버튼의 기본 동작을 사용합니다.
+     */
+    type UMapMouseBindings = {
+        /**
+         * 물리 버튼별 동작
+         */
+        mouse: UMapMouseButtonBindings;
+        /**
+         * Ctrl/Cmd 조합별 동작
+         */
+        modifiers: {
+            ctrlOrMeta: Record<"left" | "middle" | "right", UMapMouseAction | "inherit">;
+        };
+    };
+
+/**
+     * 변경할 마우스 매핑만 전달하는 옵션입니다. 생략한 항목은 현재 값을 유지합니다.
+     */
+    type UMapMouseBindingsPatch = {
+        /**
+         * 변경할 물리 버튼별 동작
+         */
+        mouse?: Partial<UMapMouseButtonBindings>;
+        /**
+         * 변경할 Ctrl/Cmd 조합별 동작
+         */
+        modifiers?: Partial<{
+            ctrlOrMeta: Partial<Record<"left" | "middle" | "right", UMapMouseAction | "inherit">>;
+        }>;
+    };
+
+/**
      * 지도 입력 감도와 관성 설정이다. getFactor()가 반환한 객체의 속성을 직접 변경한다.
      * 관성 숫자 설정의 누락·비유한 값·음수는 계산 시 해당 기본값으로 대체하며 저장된 원본 값은 유지한다. 각 속성에 명시한 범위를 함께 따른다.
      * 감속·최소 속도·최대 속도·표본 시간의 0도 기본값으로 대체한다. 최대 속도가 최소 속도 이하이면 관성을 시작하지 않는다.
@@ -871,7 +1019,7 @@ declare class UMapControlBase extends UEventDispatcher {
          */
         interZoomSpeed: number;
         /**
-         * 지면 충돌 사용시, 지면 고도와 이값이 더해져, 카메라 고도와 충돌 판정이 이루어 진다, 기본값=6
+         * 지면 충돌 사용시, 지면 고도와 이값이 더해져, 카메라 고도와 충돌 판정이 이루어 진다, 기본값=40
          */
         collisionFactor: number;
         /**
@@ -951,7 +1099,7 @@ declare class UMapControlBase extends UEventDispatcher {
          */
         rotateInertiaSampleTime?: number;
         /**
-         * 마우스 회전시, 회전 속도(민감도), 기본값=1.0
+         * 마우스·터치 회전 감도이며 키보드에는 1회 회전 각도(도)로 사용합니다. 기본값=1.0
          */
         rotateSpeed: number;
         /**
@@ -1012,4 +1160,4 @@ declare class UMapControlBase extends UEventDispatcher {
         nearExceptionRange: number;
     };
 
-export type { CONTROL_CASE, CONTROL_TYPE, DEFAULT_CONTROL_FACTOR, FactorOption, UMapControlBase, UMapTween };
+export type { CONTROL_CASE, CONTROL_TYPE, DEFAULT_CONTROL_FACTOR, FactorOption, UMapControlBase, UMapKeyAction, UMapKeyBindings, UMapMouseAction, UMapMouseBindings, UMapMouseBindingsPatch, UMapMouseButtonBindings, UMapTween };

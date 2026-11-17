@@ -1,6 +1,6 @@
 // 참조용 타입 선언입니다. 실행 시에는 dist/GeOnDT.modules.js에서 import하십시오.
 import * as three from "../../dist/types/three/build/three.module.js";
-import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, ShaderMaterial, Matrix4, EventDispatcher, Loader, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
+import { BufferGeometry, MeshPhongMaterial, Material, Color, ColorRepresentation, Sphere, Object3D, Vector2, Raycaster, Vector3, ShaderMaterial, Mesh, Quaternion, Frustum, Euler, DataTexture, GLBufferAttribute, InstancedBufferAttribute, WebGLRenderTarget, MeshDepthMaterial, Matrix4, EventDispatcher, Loader, Group, Scene, LineSegments, Points, MeshLambertMaterial } from "../../dist/types/three/build/three.module.js";
 import * as three_examples_jsm_lines_LineSegments2_js from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import { LineSegments2 } from "../../dist/types/three/examples/jsm/lines/LineSegments2.js";
 import GUI from "../../dist/types/three/examples/jsm/libs/lil-gui.module.min.js";
@@ -9,13 +9,14 @@ import * as three_examples_jsm_lines_LineSegmentsGeometry_js from "../../dist/ty
 import type { U3dLayer } from "../3dLayer/U3dLayer.js";
 import type { U3dApp } from "../app/U3dApp.js";
 import type { DispatchInputEvent, Listeners } from "../core/UEventDispatcher.js";
-import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineAliasCO } from "./U3dGeometry.js";
+import type { U3dDepthOffsetFunction, U3dGeometry, U3dGeometryCO, U3dGeometryStyleParam, U3dOutlineCO, UGeometryOutlineLine } from "./U3dGeometry.js";
 import type { UMeta } from "../meta/UMeta.js";
 import type { U3dQuadTile } from "../quadtree/U3dQuadTile.js";
 import type { Double_Array, EventCallBack, GeoPositionVector3, KeyValue, WorldPositionVector3 } from "../types/global.js";
 
 /** subExtends/subSuper의 실제 멤버 선택을 반영한 빌드 전용 선언입니다. */
 interface GeOnDTMixedInstance_U3dPolygonLoftGeometry {
+"outline": boolean;
 "name": any;
 "color": three.ColorRepresentation;
 "opacity": number;
@@ -23,7 +24,6 @@ readonly "type": string;
 "wireframe": boolean;
 "depthOffset": number | undefined;
 "dynamicDepthOffset": boolean;
-"_heightOffset": number;
 "_beforeRenderCallbacks": Map<any, any> | undefined;
 "_vertices": WorldPositionVector3[];
 "_coordinates": GeoPositionVector3[];
@@ -53,24 +53,40 @@ readonly "type": string;
 "setGeometry"(geometry: three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>): void;
 "getPositions"(): GeoPositionVector3[];
 "addPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
-"_bindOutlineRenderOrder"(outline: three.Object3D<three.Object3DEventMap>, offset?: number | undefined): void;
 "setLineColor"(lineColor: three.ColorRepresentation): void;
 "getLineColor"(): three.ColorRepresentation;
+"setOutline"(outline: boolean): void;
+"getOutline"(): boolean;
+"getOutlineObject"(): (three.Mesh<three.BufferGeometry<three.NormalBufferAttributes, three.BufferGeometryEventMap>, three.Material<three.MaterialEventMap> | three.Material<three.MaterialEventMap>[], three.Object3DEventMap> & { isOutline: true; }) | undefined;
+"useline": boolean;
+"useLine": boolean;
+"edge": boolean;
+"setUseLine"(outline: boolean): void;
+"setOutlineColor"(color: three.ColorRepresentation): void;
+"getOutlineColor"(): three.ColorRepresentation;
+"setOutlineWidth"(width: number): void;
+"getOutlineWidth"(): number;
+"setOutlineOpacity"(opacity: number): void;
+"getOutlineOpacity"(): number;
+"setLineWidth"(width: number): void;
+"getLineWidth"(): number;
+"setOutlineType"(type: "meter" | "pixel"): void;
+"getOutlineType"(): "meter" | "pixel";
+"setLineOpacity"(opacity: number): void;
+"getLineOpacity"(): number;
+"setOutlineTension"(tension: number): void;
+"getOutlineTension"(): number;
 "addWorldPosition"(x: number, y: number, z: number): void;
 "setPosition"(x: number | three.Vector3, y?: number | undefined, z?: number | undefined): void;
 "setHeightOffset"(z?: number | undefined): void;
-"getHeightOffset"(): number;
 "_getGroundHeight"(x: number, y: number): number;
 "setPositions"(coordinates: GeoPositionVector3[]): void;
 "setRotation"(rotation: three.Euler): void;
 "setTransparent"(val: boolean): void;
 "setOpacity"(opacity: any): void;
-"_setGeometryOpacity"(opacity: number): void;
 "_applyChildrenOpacity"(opacity: number): void;
 "getOpacity"(): any;
-"_getGeometryOpacity"(): number;
 "setBrightness"(input: any): void;
-"_setGeometryBrightness"(brightness: number): void;
 "getBrightness"(): number;
 "setContrast"(contrast?: number | undefined): void;
 "getContrast"(): number;
@@ -137,8 +153,8 @@ readonly "type": string;
 "getBoundingBox"(): three.Box3;
 "getBBox"(): three.Box3;
 "raycast"(a: any, b: any): void;
-"getUid"(): any;
-"getOid"(): any;
+"getUid"(): string;
+"getOid"(): string | number | number[] | undefined;
 "getLayerName"(): string | undefined;
 "setLayerName"(layername: any): void;
 "setLabelText"(labelText: any): void;
@@ -192,6 +208,7 @@ readonly "type": string;
 "updateWorldMatrix"(updateParents: boolean, updateChildren: boolean, force?: boolean | undefined): void;
 "clone"(recursive?: boolean | undefined): this;
 "copy"(object: three.Object3D<three.Object3DEventMap>, recursive?: boolean | undefined): this;
+"puid": string | undefined;
 "_utype": number | undefined;
 "_ulayername": string | undefined;
 "_sphere": three.Sphere | undefined;
@@ -274,11 +291,11 @@ declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
     constructor(opt?: U3dPolygonLoftGeometryCO);
     /** @type {boolean} */ _disposed: boolean;
     /**
-     * @type {import('three').LineSegments | undefined}
+     * @type {UGeometryOutlineLine | undefined}
      *
      * @ignore
      */
-    _outline: three.LineSegments | undefined;
+    _outline: UGeometryOutlineLine | undefined;
     color: any;
     opacity: any;
     /**
@@ -297,12 +314,12 @@ declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
      */
     get topScale(): number;
     /**
-     * 외곽선 표시 여부를 반환합니다. <br>
-     * 생성 옵션 `outline`(또는 별칭)이나 `setUseLine`으로 지정한 값입니다. <br>
-     *
-     * @returns {boolean} 외곽선을 표시하면 `true` <br>
+     * 외곽선 표시 여부를 변경합니다. <br>
+     * 인자 없는 예전 생성 호출은 경고 후 `setOutline(true)`로 호환 처리합니다. <br>
+     * @override
+     * @param {boolean} [outline] 외곽선 표시 여부. 새 코드에서는 반드시 지정합니다 <br>
      */
-    get useLine(): boolean;
+    override setOutline(outline?: boolean): void;
     /**
      * `dispose` 호출로 자원 해제가 완료되었는지 여부를 반환합니다. <br>
      *
@@ -336,9 +353,11 @@ declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
      */
     override updateVertex(): void;
     /**
-     * 도형 공통 속성과 로프트 고유 속성을 일괄 변경하고 형상을 다시 생성합니다. <br>
+     * 도형 공통 속성과 로프트 고유 속성을 일괄 변경합니다. <br>
+     * 높이·윗면 배율·윗면 좌표가 바뀔 때 형상을 다시 만들며, 스타일만 변경하면 기존 형상과 외곽선을 유지합니다. <br>
+     * 인자 없는 호출이나 빈 옵션은 형상을 다시 만듭니다. <br>
      * 지정하지 않은 항목은 현재 값을 유지하며, 허용 범위를 벗어난 항목은 변경 전에 오류를 발생시킵니다. <br>
-     * 허용 범위는 `opacity` 0 이상 1 이하, `height` 0 이상, `topScale` 0 초과의 유한한 숫자이며, `topVertices`는 유한한 좌표를 가진 Vector3가 3개 이상인 배열, `outline`(또는 별칭)은 boolean입니다. <br>
+     * 허용 범위는 `opacity` 0 이상 1 이하, `height` 0 이상, `topScale` 0 초과의 유한한 숫자이며, `topVertices`는 유한한 좌표를 가진 Vector3가 3개 이상인 배열, `outline`은 boolean입니다. <br>
      * 지정한 `topVertices`는 `undefined`나 `null`로 해제되지 않습니다. <br>
      *
      * @override
@@ -377,13 +396,6 @@ declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
      */
     getTopVertex(): Array<WorldPositionVector3> | undefined;
     /**
-     * 외곽선 표시 여부를 변경하고 형상을 다시 생성합니다. <br>
-     * `setParam({useLine})`과 동일합니다. <br>
-     *
-     * @param {boolean} useLine 외곽선 표시 여부. boolean이 아니면 오류를 발생시키고 반영하지 않음 <br>
-     */
-    setUseLine(useLine: boolean): void;
-    /**
      * 현재 도형 공통 속성과 로프트 고유 속성을 반환합니다. <br>
      * 반환값을 `setParam`에 전달하면 같은 설정을 다른 로프트 도형에 적용할 수 있습니다. <br>
      *
@@ -409,17 +421,19 @@ declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
     getTopArea(): number;
     /**
      * 현재 형상으로 외곽선을 생성해 도형의 자식 객체로 추가합니다. <br>
-     * 윗면·아랫면 테두리와 측면 패널의 경계를 표시하고, 패널 내부의 삼각분할선은 제외합니다. <br>
+     * 본체에서 면 사이 각도가 1도 이상인 모서리를 추출합니다. 같은 평면의 삼각분할선은 제외합니다. <br>
      * 이 도형이 생성한 기존 외곽선만 제거하며, 다른 자식 선 객체는 유지합니다. <br>
-     * 선 색상은 `lineColor`를 사용하며, 선 두께는 대부분의 브라우저에서 1픽셀로 렌더링됩니다. <br>
-     * 외곽선 표시 여부(`useLine`)는 변경하지 않으며, 표시 여부는 `setUseLine`으로 변경합니다. <br>
+     * 선 색상은 `lineColor`, 월드 두께(미터)는 `lineWidth`를 사용합니다. <br>
+     * 외곽선 표시 여부는 변경하지 않습니다. <br>
+     * @protected
+     * @ignore
      */
-    setOutline(): void;
+    protected _updateLoftOutline(): void;
     /**
      * 이 도형이 생성한 외곽선(`_outline`)을 제거하고 자원을 해제합니다. <br>
      * 사용자가 추가한 다른 자식 선 객체는 유지합니다. <br>
-     * 외곽선 표시 여부(`useLine`)는 변경하지 않으므로 다음 형상 갱신 시 외곽선이 다시 생성될 수 있습니다. <br>
-     * 외곽선 표시를 끄는 경우에는 `setUseLine(false)`를 사용합니다. <br>
+     * 외곽선 표시 여부(`outline`)는 변경하지 않으므로 다음 형상 갱신 시 외곽선이 다시 생성될 수 있습니다. <br>
+     * 외곽선 표시를 끄는 경우에는 `setOutline(false)`를 사용합니다. <br>
      */
     clearOutline(): void;
     /**
@@ -446,7 +460,7 @@ declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
      * ~extends import('@U3dGeometry').U3dGeometryCO <br>
      *
      * `U3dPolygonLoftGeometry` 생성자에 전달하는 옵션입니다. <br>
-     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`에 정의되어 있습니다. <br>
+     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineCO`에 정의되어 있습니다. <br>
      * 로프트 도형은 `outline`을 지정하지 않으면 외곽선을 표시합니다. <br>
      */
     type U3dPolygonLoftGeometryCO_Content = {
@@ -484,10 +498,10 @@ declare class U3dPolygonLoftGeometry extends U3dPolygonLoftGeometry_base {
      * ~extends import('@U3dGeometry').U3dGeometryCO <br>
      *
      * `U3dPolygonLoftGeometry` 생성자에 전달하는 옵션입니다. <br>
-     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineAliasCO`에 정의되어 있습니다. <br>
+     * 도형 공통 옵션은 `U3dGeometryCO`, 외곽선 표시 옵션(`outline`과 별칭)은 `U3dOutlineCO`에 정의되어 있습니다. <br>
      * 로프트 도형은 `outline`을 지정하지 않으면 외곽선을 표시합니다. <br>
      */
-    type U3dPolygonLoftGeometryCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineAliasCO & U3dPolygonLoftGeometryCO_Content, never>;
+    type U3dPolygonLoftGeometryCO = Omit<Omit<U3dGeometryCO, never> & U3dOutlineCO & U3dPolygonLoftGeometryCO_Content, never>;
 
 /**
      * loft 측면 연결 정보 <br>
